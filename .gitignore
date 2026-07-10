@@ -1,0 +1,24 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Go build and test artifacts
+/bin/
+/build/
+/coverage/
+/dist/
+/tmp/
+*.test
+coverage.out
+
+# Logs and runtime files
+*.log
+*.pid
+
+# IDE and operating-system files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
