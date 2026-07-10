@@ -41,6 +41,9 @@
 - `#16` — webhook ingress invariants/regressions.
 - `#17` — migration runner reversibility/checksums.
 - `#18` — Worker attempt fencing/panic/shutdown.
+- `#19` — draft PR этого checkpoint.
+- `#20` — repeatable isolated PostgreSQL integration/CI gate.
+- `#21` — production hardening findings из финального review.
 
 ## Реализовано в рабочем дереве
 
@@ -108,10 +111,12 @@
   8 tests, включая 3 jobs DB scenarios и webhook
   snapshot/request-id/tenant/FK scenario. Repeatable Make/CI gate для этого
   прогона ещё не добавлен.
+- На изолированной PostgreSQL 17 current migration `up -> down -> up` — PASS;
+  два конкурентных migrator `up` — PASS, в результате одна schema version и
+  одна таблица jobs. Это пока ручное evidence, не CI gate.
 - Предыдущий Compose smoke (до последних усилений migration/jobs): API и
   Worker healthy, webhook `204`, parse/process jobs completed, повторный
   payload не создал второй business effect.
-- Предыдущий PostgreSQL 17 migration smoke: `up -> down -> up` PASS.
 
 Важно: initial migration была усилена после предыдущего Compose smoke.
 Старый локальный Docker volume содержит дорефакторинговую схему и не является
@@ -139,6 +144,22 @@
 8. P2 performance follow-up: нагрузочно проверить bounded job reaper. Сейчас
    до 100 jobs обрабатываются несколькими SQL на row внутри claim transaction;
    correctness подтверждена, но на loaded DB возможен timeout/starvation.
+
+## Hardening backlog из финального review
+
+- Вынести webhook limiter values в config, добавить metrics и TTL/eviction для
+  process-local tenant limiter map; production ingress должен иметь
+  собственную rate-limit policy.
+- Проверить reaper при 1k–100k expired jobs и при необходимости перейти на
+  меньший batch или bulk SQL.
+- В `set_updated_at()` рассмотреть `statement_timestamp()` вместо
+  transaction-time `now()` для долго живущих конкурентных транзакций.
+- Ограничить destructive `migrate down` dev/test окружением либо требовать
+  явное подтверждение и описать runbook.
+- В production убрать `/metrics` и `/ready` с публичного listener или закрыть
+  их ingress ACL/отдельным management listener.
+- Retention обязан сохранять dedup tombstones: FK `RESTRICT` защищает delivery,
+  но прямое удаление `inbox_events` всё ещё удалит dedup key.
 
 ## Команды возобновления
 
