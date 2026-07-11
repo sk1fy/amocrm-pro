@@ -28,6 +28,10 @@ type Job struct {
 	ID               uuid.UUID
 	InstallationID   *uuid.UUID
 	Type             string
+	ActorType        *string
+	ActorID          *string
+	ResourceType     *string
+	ResourceID       *string
 	Status           Status
 	Priority         int16
 	Payload          json.RawMessage
@@ -47,6 +51,10 @@ type Job struct {
 type EnqueueParams struct {
 	InstallationID *uuid.UUID
 	Type           string
+	ActorType      string
+	ActorID        string
+	ResourceType   string
+	ResourceID     string
 	Priority       int16
 	Payload        any
 	MaxAttempts    int
@@ -141,6 +149,12 @@ func validateEnqueue(params EnqueueParams) error {
 	}
 	if params.MaxAttempts < 0 {
 		return fmt.Errorf("max attempts cannot be negative")
+	}
+	if (params.ActorType == "") != (params.ActorID == "") {
+		return errors.New("actor type and id must be provided together")
+	}
+	if (params.ResourceType == "") != (params.ResourceID == "") {
+		return errors.New("resource type and id must be provided together")
 	}
 	return nil
 }

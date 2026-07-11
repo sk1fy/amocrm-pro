@@ -2,6 +2,7 @@ package widgetapi
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -52,6 +53,103 @@ func TestActionStoreIdempotentPingContract(t *testing.T) {
 	}
 
 	assertWidgetCounts(t, pool, 3, 1, 1)
+}
+
+func TestActionStoreAdmitsLeadStatusWithDurableOwnership(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	store := NewActionStore(pool, jobs.NewStore(pool))
+	principal := widgetPrincipal(t, pool, 43, 8)
+	command := LeadStatusCommand{LeadID: 501, PipelineID: 601, StatusID: 701}
+
+	first, err := store.EnqueueLeadSetStatus(context.Background(), principal, "lead-status-key", command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var actorType, actorID, resourceType, resourceID string
+	var payload LeadStatusCommand
+	if err := pool.QueryRow(context.Background(), `
+		SELECT actor_type, actor_id, resource_type, resource_id, payload
+		FROM jobs WHERE id=$1`, first.JobID,
+	).Scan(&actorType, &actorID, &resourceType, &resourceID, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if actorType != widgetActorType || actorID != "8" ||
+		resourceType != leadResourceType || resourceID != "501" || payload != command {
+		t.Fatalf("ownership/payload = %s/%s/%s/%s/%+v", actorType, actorID, resourceType, resourceID, payload)
+	}
+
+	fresh := principal
+	fresh.TokenID = uuid.NewString()
+	replayed, err := store.EnqueueLeadSetStatus(context.Background(), fresh, "lead-status-key", command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !replayed.Replayed || replayed.JobID != first.JobID {
+		t.Fatalf("replayed result = %+v, want job %s", replayed, first.JobID)
+	}
+
+	conflict := principal
+	conflict.TokenID = uuid.NewString()
+	command.StatusID++
+	if _, err := store.EnqueueLeadSetStatus(context.Background(), conflict, "lead-status-key", command); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("conflicting status error = %v", err)
+	}
+}
+
+func TestActionStoreRecoversSameRequestStaleProcessingRow(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	store := NewActionStore(pool, jobs.NewStore(pool))
+	principal := widgetPrincipal(t, pool, 44, 9)
+	key := "stale-processing-key"
+	keyHash := sha256.Sum256([]byte(key))
+	requestHash := pingRequestHash(principal)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO idempotency_keys (
+			installation_id, scope, key_hash, request_hash, status,
+			expires_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, 'processing', now()+interval '1 hour',
+			now()-interval '10 minutes', now()-interval '10 minutes')`,
+		principal.InstallationID, pingIdempotencyScope, keyHash[:], requestHash[:],
+	); err != nil {
+		t.Fatal(err)
+	}
+	result, err := store.EnqueuePing(context.Background(), principal, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.JobID == uuid.Nil || result.Replayed {
+		t.Fatalf("recovered result = %+v", result)
+	}
+	assertWidgetCounts(t, pool, 1, 1, 1)
+}
+
+func TestIdempotencySchemaRejectsInconsistentCompletedResponse(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	principal := widgetPrincipal(t, pool, 45, 10)
+	job, err := jobs.NewStore(pool).Enqueue(context.Background(), jobs.EnqueueParams{
+		InstallationID: &principal.InstallationID,
+		Type:           PingJobType,
+		ActorType:      widgetActorType,
+		ActorID:        "10",
+		Payload:        map[string]any{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyHash := sha256.Sum256([]byte("bad-completed"))
+	requestHash := pingRequestHash(principal)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO idempotency_keys (
+			installation_id, scope, key_hash, request_hash, status,
+			job_id, response_body, expires_at
+		) VALUES ($1, $2, $3, $4, 'completed', $5, '{}'::jsonb, now()+interval '1 hour')`,
+		principal.InstallationID, pingIdempotencyScope, keyHash[:], requestHash[:], job.ID,
+	); err == nil {
+		t.Fatal("completed idempotency row with NULL response_status unexpectedly inserted")
+	}
 }
 
 func TestActionStoreConcurrentTokenAndIdempotencyFencing(t *testing.T) {

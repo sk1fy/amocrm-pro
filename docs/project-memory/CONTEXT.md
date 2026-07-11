@@ -1,17 +1,17 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-widget-idempotency.md`](CHECKPOINT-2026-07-11-widget-idempotency.md).
+Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-lead-status-workflow.md`](CHECKPOINT-2026-07-11-lead-status-workflow.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/widget-idempotency-contract`.
-- Базовый commit текущего среза: `8493d75` (merge PR `#30`).
+- Ветка на момент снимка: `codex/widget-hardening-first-workflow`.
+- Базовый commit текущего среза: `2c16f27` (merge PR `#33`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
-- Стадия: foundation, OAuth/client, webhook reconciliation и widget skeleton
-  реализованы; следующий функциональный срез — widget idempotency/domain workflows.
+- Стадия: foundation, OAuth/client, webhook reconciliation, atomic widget
+  admission и первый real amoCRM workflow реализованы; P6/P7 hardening продолжается.
 
 При расхождении этого снимка с кодом источником факта являются текущие исходники, миграции и Compose-конфигурация; решение о намерениях уточняется по ADR; план — по `ROADMAP.md`.
 
@@ -83,6 +83,21 @@
   получает `409`, повтор jti — `401`;
 - job status ограничен installation, widget action type и verified user.
 
+### Widget execution hardening и lead status workflow
+
+- durable actor/resource identity хранится в typed job columns, а не извлекается
+  из payload JSON;
+- idempotency state consistency закреплена migration constraint, stale
+  same-request `processing` row имеет bounded recovery;
+- maximum disposable JWT lifetime по умолчанию ограничен 15 минутами;
+- widget job status actor-scoped и возвращает только action-specific result DTO;
+- `workflow.lead.set_status` допускается атомарно и выполняется только для active
+  amoCRM admin;
+- worker делает GET/compare/PATCH, повторно проверяет admin/tenant/current lease
+  и держит lifecycle row lock вокруг PATCH; retry не повторяет уже применённый
+  remote effect;
+- audit связывает job/actor/lead и числовое desired state без raw amoCRM response.
+
 ### Durable webhook pipeline
 
 - endpoint `POST /hooks/amocrm/v1/{webhookKey}`;
@@ -102,9 +117,9 @@
 - production-grade pagination и распределённое rate limiting (текущий лимитер
   process-local; Redis намеренно отсутствует);
 - удаление/ротация amoCRM webhooks и полный uninstall lifecycle;
-- cleanup одноразовых JWT/idempotency rows, browser CORS decision и worker-time
-  authorization hardening (`#32`);
-- domain workflow/sync handlers и API статуса jobs;
+- cleanup одноразовых JWT/idempotency rows, browser CORS decision и полный
+  uninstall/revocation lifecycle (`#32`);
+- дополнительные domain workflow/sync handlers и webhook-origin effect correlation;
 - retention/cleanup jobs, operational dashboards и production SLO/alerts;
 - production integration contracts с окружающими микросервисами.
 
@@ -114,7 +129,7 @@
 - В исходниках есть unit tests для job classification/backoff и webhook parsing/deduplication/account ID.
 - Найденный Docker build blocker из-за неиспользуемого `net/http` в `cmd/worker` исправлен; текущий файл этот import не содержит.
 - `make integration-test` проходит на изолированной PostgreSQL 17: migration
-  cycle и race-enabled tests jobs/OAuth/webhook.
+  cycle и race-enabled tests jobs/OAuth/webhook/widget/workflow с TLS amoCRM stub.
 - `make test` проходит в Docker: runtime builds, formatting, vet и
   `go test -race -count=1 ./...`.
 
@@ -130,10 +145,10 @@
 
 ## Ближайший фокус
 
-1. Дождаться CI и merge PR widget idempotency среза (`#31`).
-2. Выбрать и реализовать первый реальный amoCRM workflow из Issue `#10`.
-3. Закрыть widget/retention hardening из Issue `#32`.
-4. Добавить operational metrics/retention и production hardening из Issue `#21`.
+1. Дождаться CI и review PR execution-hardening/lead-status среза; merge не делать.
+2. Зафиксировать browser/CORS topology и cleanup scheduler contract в `#32`.
+3. Выбрать webhook-origin workflow/effect correlation slice из `#10`.
+4. Добавить operational metrics/retention и production hardening из `#21`.
 
 Декомпозиция и шаблон следующего checkpoint находятся в [`ROADMAP.md`](ROADMAP.md), внешние блокеры — в [`BUGS.md`](BUGS.md).
 

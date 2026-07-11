@@ -312,6 +312,7 @@ func TestAuthenticateStrictClaimsValidation(t *testing.T) {
 		"missing expiry":       func(claims jwt.MapClaims) { delete(claims, "exp") },
 		"expired":              func(claims jwt.MapClaims) { claims["exp"] = testNow.Unix() },
 		"expiry before issue":  func(claims jwt.MapClaims) { claims["exp"] = testNow.Add(-2 * time.Minute).Unix() },
+		"lifetime too long":    func(claims jwt.MapClaims) { claims["exp"] = testNow.Add(16 * time.Minute).Unix() },
 		"missing account":      func(claims jwt.MapClaims) { delete(claims, "account_id") },
 		"zero user":            func(claims jwt.MapClaims) { claims["user_id"] = int64(0) },
 	}
@@ -398,6 +399,11 @@ func TestNewAuthenticatorValidatesOptions(t *testing.T) {
 			repository: fixture.repository,
 			opener:     fixture.authenticator.secrets,
 			options:    []Option{WithLeeway(-time.Second)},
+		},
+		"zero maximum lifetime": {
+			repository: fixture.repository,
+			opener:     fixture.authenticator.secrets,
+			options:    []Option{WithMaxLifetime(0)},
 		},
 	}
 	for name, test := range tests {

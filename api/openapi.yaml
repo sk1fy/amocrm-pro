@@ -297,6 +297,53 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/actions/leads/set-status:
+    post:
+      tags: [Widget]
+      operationId: enqueueWidgetLeadSetStatus
+      summary: Enqueue an admin-only workflow that converges a lead to a pipeline status.
+      description: >-
+        The worker re-checks the verified actor as an active amoCRM administrator,
+        reads the lead, and only sends PATCH when the requested pipeline/status
+        differs. A retry after an uncertain PATCH compares remote state first.
+      security:
+        - widgetBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadSetStatusCommand'
+      responses:
+        '202':
+          description: Lead status workflow was durably admitted.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Idempotency-Replayed:
+              description: Present and true when the stored acceptance response was replayed.
+              schema:
+                type: string
+                enum: ['true']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: The idempotency key is bound to a different command or is still processing.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ErrorText'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/widget/jobs/{jobID}:
     get:
       tags: [Widget]
@@ -421,6 +468,51 @@ components:
           type: string
           enum: [queued]
       additionalProperties: false
+    LeadSetStatusCommand:
+      type: object
+      required: [lead_id, pipeline_id, status_id]
+      properties:
+        lead_id:
+          type: integer
+          format: int64
+          minimum: 1
+        pipeline_id:
+          type: integer
+          format: int64
+          minimum: 1
+        status_id:
+          type: integer
+          format: int64
+          minimum: 1
+      additionalProperties: false
+    LeadStatusResult:
+      type: object
+      required: [lead_id, pipeline_id, status_id, converged]
+      properties:
+        lead_id:
+          type: integer
+          format: int64
+          minimum: 1
+        pipeline_id:
+          type: integer
+          format: int64
+          minimum: 1
+        status_id:
+          type: integer
+          format: int64
+          minimum: 1
+        converged:
+          type: boolean
+          const: true
+      additionalProperties: false
+    PingResult:
+      type: object
+      required: [pong]
+      properties:
+        pong:
+          type: boolean
+          const: true
+      additionalProperties: false
     JobStatus:
       type: object
       required:
@@ -456,7 +548,10 @@ components:
         finished_at:
           type: string
           format: date-time
-        result: {}
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/PingResult'
+            - $ref: '#/components/schemas/LeadStatusResult'
         error:
           type: object
           required: [code]

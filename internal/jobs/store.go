@@ -60,10 +60,15 @@ func enqueue(ctx context.Context, querier rowQuerier, params EnqueueParams) (Job
 	}
 
 	row := querier.QueryRow(ctx, `
-		INSERT INTO jobs (installation_id, type, priority, payload, max_attempts, run_after)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO jobs (
+			installation_id, type, actor_type, actor_id, resource_type, resource_id,
+			priority, payload, max_attempts, run_after
+		)
+		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9, $10)
 		RETURNING `+jobColumns,
-		params.InstallationID, params.Type, params.Priority, payload, params.MaxAttempts, params.RunAfter,
+		params.InstallationID, params.Type, params.ActorType, params.ActorID,
+		params.ResourceType, params.ResourceID, params.Priority, payload,
+		params.MaxAttempts, params.RunAfter,
 	)
 	job, err := scanJob(row)
 	if err != nil {
@@ -388,14 +393,39 @@ func (s *Store) GetForInstallation(ctx context.Context, id, installationID uuid.
 	return job, nil
 }
 
+func (s *Store) GetForInstallationActor(
+	ctx context.Context,
+	id uuid.UUID,
+	installationID uuid.UUID,
+	actorType string,
+	actorID string,
+) (Job, error) {
+	job, err := scanJob(s.pool.QueryRow(ctx, `
+		SELECT `+jobColumns+`
+		FROM jobs
+		WHERE id = $1 AND installation_id = $2
+		  AND actor_type = $3 AND actor_id = $4`,
+		id, installationID, actorType, actorID,
+	))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Job{}, ErrNotFound
+	}
+	if err != nil {
+		return Job{}, fmt.Errorf("get actor-owned job: %w", err)
+	}
+	return job, nil
+}
+
 const jobColumns = `
-	id, installation_id, type, status, priority, payload, result,
+	id, installation_id, type, actor_type, actor_id, resource_type, resource_id,
+	status, priority, payload, result,
 	attempts, max_attempts, run_after, locked_by, locked_until,
 	last_error_code, last_error_message, created_at, updated_at, finished_at`
 
 func prefixedJobColumns(prefix string) string {
-	return prefix + ".id, " + prefix + ".installation_id, " + prefix + ".type, " + prefix + ".status, " +
-		prefix + ".priority, " + prefix + ".payload, " + prefix + ".result, " + prefix + ".attempts, " +
+	return prefix + ".id, " + prefix + ".installation_id, " + prefix + ".type, " +
+		prefix + ".actor_type, " + prefix + ".actor_id, " + prefix + ".resource_type, " + prefix + ".resource_id, " +
+		prefix + ".status, " + prefix + ".priority, " + prefix + ".payload, " + prefix + ".result, " + prefix + ".attempts, " +
 		prefix + ".max_attempts, " + prefix + ".run_after, " + prefix + ".locked_by, " + prefix +
 		".locked_until, " + prefix + ".last_error_code, " + prefix + ".last_error_message, " +
 		prefix + ".created_at, " + prefix + ".updated_at, " + prefix + ".finished_at"
@@ -408,7 +438,8 @@ type scanner interface {
 func scanJob(row scanner) (Job, error) {
 	var job Job
 	err := row.Scan(
-		&job.ID, &job.InstallationID, &job.Type, &job.Status, &job.Priority, &job.Payload, &job.Result,
+		&job.ID, &job.InstallationID, &job.Type, &job.ActorType, &job.ActorID, &job.ResourceType, &job.ResourceID,
+		&job.Status, &job.Priority, &job.Payload, &job.Result,
 		&job.Attempts, &job.MaxAttempts, &job.RunAfter, &job.LockedBy, &job.LockedUntil,
 		&job.LastErrorCode, &job.LastErrorMessage, &job.CreatedAt, &job.UpdatedAt, &job.FinishedAt,
 	)

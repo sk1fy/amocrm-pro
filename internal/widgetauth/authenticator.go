@@ -18,7 +18,10 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 )
 
-const maxTokenLength = 16 * 1024
+const (
+	maxTokenLength          = 16 * 1024
+	defaultMaxTokenLifetime = 15 * time.Minute
+)
 
 var integerJSON = regexp.MustCompile(`^(0|-?[1-9][0-9]*)$`)
 
@@ -36,10 +39,11 @@ type unverifiedClaims struct {
 // Authenticator validates amoCRM disposable JWTs and consumes their jti in the
 // durable repository before returning a principal.
 type Authenticator struct {
-	repository Repository
-	secrets    SecretOpener
-	clock      func() time.Time
-	leeway     time.Duration
+	repository  Repository
+	secrets     SecretOpener
+	clock       func() time.Time
+	leeway      time.Duration
+	maxLifetime time.Duration
 }
 
 // Option configures an Authenticator.
@@ -68,6 +72,19 @@ func WithLeeway(leeway time.Duration) Option {
 	}
 }
 
+// WithMaxLifetime bounds replay-row retention and limits how long a stolen
+// disposable token can remain acceptable. amoCRM widget tokens are expected
+// to be short lived; the default is 15 minutes.
+func WithMaxLifetime(lifetime time.Duration) Option {
+	return func(authenticator *Authenticator) error {
+		if lifetime <= 0 {
+			return fmt.Errorf("widget auth maximum lifetime must be positive")
+		}
+		authenticator.maxLifetime = lifetime
+		return nil
+	}
+}
+
 func NewAuthenticator(repository Repository, secrets SecretOpener, options ...Option) (*Authenticator, error) {
 	if repository == nil {
 		return nil, fmt.Errorf("widget auth repository is nil")
@@ -77,9 +94,10 @@ func NewAuthenticator(repository Repository, secrets SecretOpener, options ...Op
 	}
 
 	authenticator := &Authenticator{
-		repository: repository,
-		secrets:    secrets,
-		clock:      time.Now,
+		repository:  repository,
+		secrets:     secrets,
+		clock:       time.Now,
+		maxLifetime: defaultMaxTokenLifetime,
 	}
 	for _, option := range options {
 		if option == nil {
@@ -145,7 +163,9 @@ func (a *Authenticator) Verify(ctx context.Context, rawToken string) (Principal,
 	if err := validateStrictPayloadShape(rawToken); err != nil {
 		return Principal{}, fmt.Errorf("%w: payload shape: %v", ErrInvalidToken, err)
 	}
-	if err := validateClaims(claims, material, expectedAudience, expectedIssuer, now, a.leeway); err != nil {
+	if err := validateClaims(
+		claims, material, expectedAudience, expectedIssuer, now, a.leeway, a.maxLifetime,
+	); err != nil {
 		return Principal{}, fmt.Errorf("%w: claims: %v", ErrInvalidToken, err)
 	}
 
@@ -244,6 +264,7 @@ func validateClaims(
 	expectedIssuer string,
 	now time.Time,
 	leeway time.Duration,
+	maxLifetime time.Duration,
 ) error {
 	if claims == nil || claims.ExpiresAt == nil || claims.IssuedAt == nil || claims.NotBefore == nil {
 		return fmt.Errorf("iat, nbf, and exp are required")
@@ -271,6 +292,9 @@ func validateClaims(
 
 	if !claims.ExpiresAt.Time.After(claims.IssuedAt.Time) || !claims.ExpiresAt.Time.After(claims.NotBefore.Time) {
 		return fmt.Errorf("exp must be after iat and nbf")
+	}
+	if claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time) > maxLifetime {
+		return fmt.Errorf("token lifetime exceeds maximum")
 	}
 	if !now.Before(claims.ExpiresAt.Time.Add(leeway)) {
 		return fmt.Errorf("token is expired")
