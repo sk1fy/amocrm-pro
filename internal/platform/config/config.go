@@ -28,13 +28,18 @@ type Common struct {
 
 type API struct {
 	Common
-	ManagementHTTPAddress string
-	MaxWebhookBody        int64
-	WebhookTimeout        time.Duration
-	OAuthStateTTL         time.Duration
-	WidgetJWTLeeway       time.Duration
-	WidgetJWTMaxLifetime  time.Duration
-	BootstrapIntegration  *BootstrapIntegration
+	ManagementHTTPAddress     string
+	MaxWebhookBody            int64
+	WebhookTimeout            time.Duration
+	WebhookGlobalRate         float64
+	WebhookGlobalBurst        int
+	WebhookInstallationRate   float64
+	WebhookInstallationBurst  int
+	WebhookLimiterInactiveTTL time.Duration
+	OAuthStateTTL             time.Duration
+	WidgetJWTLeeway           time.Duration
+	WidgetJWTMaxLifetime      time.Duration
+	BootstrapIntegration      *BootstrapIntegration
 }
 
 type BootstrapIntegration struct {
@@ -97,6 +102,29 @@ func LoadAPI() (API, error) {
 	if webhookTimeout >= 2*time.Second {
 		return API{}, errors.New("WEBHOOK_TIMEOUT must be less than amoCRM's 2s delivery deadline")
 	}
+	webhookGlobalRate, err := positiveFloat("WEBHOOK_GLOBAL_RATE_PER_SECOND", 500, 1_000_000)
+	if err != nil {
+		return API{}, err
+	}
+	webhookGlobalBurst, err := integer("WEBHOOK_GLOBAL_BURST", 1_000, 1, 1_000_000)
+	if err != nil {
+		return API{}, err
+	}
+	webhookInstallationRate, err := positiveFloat("WEBHOOK_INSTALLATION_RATE_PER_SECOND", 20, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	webhookInstallationBurst, err := integer("WEBHOOK_INSTALLATION_BURST", 40, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	webhookLimiterInactiveTTL, err := duration("WEBHOOK_LIMITER_INACTIVE_TTL", time.Hour)
+	if err != nil {
+		return API{}, err
+	}
+	if webhookLimiterInactiveTTL < time.Minute {
+		return API{}, errors.New("WEBHOOK_LIMITER_INACTIVE_TTL must be at least 1m")
+	}
 
 	oauthStateTTL, err := duration("OAUTH_STATE_TTL", 15*time.Minute)
 	if err != nil {
@@ -118,7 +146,11 @@ func LoadAPI() (API, error) {
 	return API{
 		Common: common, ManagementHTTPAddress: managementAddress,
 		MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
-		OAuthStateTTL: oauthStateTTL, WidgetJWTLeeway: widgetJWTLeeway,
+		WebhookGlobalRate: webhookGlobalRate, WebhookGlobalBurst: webhookGlobalBurst,
+		WebhookInstallationRate:   webhookInstallationRate,
+		WebhookInstallationBurst:  webhookInstallationBurst,
+		WebhookLimiterInactiveTTL: webhookLimiterInactiveTTL,
+		OAuthStateTTL:             oauthStateTTL, WidgetJWTLeeway: widgetJWTLeeway,
 		WidgetJWTMaxLifetime: widgetJWTMaxLifetime,
 		BootstrapIntegration: bootstrap,
 	}, nil
@@ -405,6 +437,18 @@ func int64Value(name string, fallback, minValue, maxValue int64) (int64, error) 
 	value, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || value < minValue || value > maxValue {
 		return 0, fmt.Errorf("%s must be an integer between %d and %d: %q", name, minValue, maxValue, raw)
+	}
+	return value, nil
+}
+
+func positiveFloat(name string, fallback, maxValue float64) (float64, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil || value <= 0 || value > maxValue || value != value {
+		return 0, fmt.Errorf("%s must be a finite number greater than 0 and at most %g: %q", name, maxValue, raw)
 	}
 	return value, nil
 }
