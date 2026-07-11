@@ -76,6 +76,7 @@ func run() error {
 	tokenProvider := oauthflow.NewTokenProvider(pool, keyRing, oauthGateway)
 	amocrmAPI := amocrmclient.NewClient(externalHTTPClient, tokenProvider)
 	widgetExecutionStore := widgetapi.NewExecutionStore(pool)
+	widgetRuleStore := widgetapi.NewRuleStore(pool)
 	reconcileHandler, err := webhook.ReconcileJobHandler(
 		webhook.NewReconcileStore(pool, keyRing), amocrmAPI, cfg.PublicBaseURL,
 	)
@@ -91,6 +92,9 @@ func run() error {
 		),
 		widgetapi.PingJobType:          widgetapi.PingJobHandler(widgetExecutionStore),
 		widgetapi.LeadSetStatusJobType: widgetapi.LeadSetStatusJobHandler(widgetExecutionStore, amocrmAPI),
+		widgetapi.LeadStatusRuleConfigureJobType: widgetapi.LeadStatusRuleConfigureJobHandler(
+			widgetExecutionStore, widgetRuleStore, amocrmAPI,
+		),
 	}
 	worker := jobs.NewWorker(jobStore, logger, jobs.WorkerConfig{
 		ID:            cfg.WorkerID,

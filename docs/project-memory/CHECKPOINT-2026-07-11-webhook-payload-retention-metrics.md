@@ -71,10 +71,10 @@ error text в labels не попадают.
 - rule-management configure contract с admin re-check и revision/CAS;
 - stable JSON error envelope и uninstall/revocation lifecycle из `#32`.
 
-## Resume order
+## Next (superseded handoff)
 
-1. Дождаться CI текущего PR; merge самостоятельно не выполнять.
-2. Следующий bounded slice — async rule configure contract после фиксации
-   management principal и revision semantics либо load/SLO hardening из `#21`.
+Этот handoff был продолжен каноническим atomic Issue
+https://github.com/sk1fy/amocrm-pro/issues/37. Текущее состояние работ всегда
+берётся из Issues #12/#37, а не из исторического локального resume order.
 
 Checkpoint не содержит secrets, production payloads или PII.

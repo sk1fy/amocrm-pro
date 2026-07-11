@@ -77,6 +77,42 @@ func TestLeadStatusWebhookDispatchIsDurablyDeduplicated(t *testing.T) {
 	}
 }
 
+func TestLeadStatusWebhookRuleEnabledFlagControlsRouting(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	ctx := context.Background()
+	installationID := workflowInstallation(t, pool)
+	var ruleID uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO lead_status_workflow_rules (
+			installation_id,source_pipeline_id,source_status_id,
+			target_pipeline_id,target_status_id,enabled
+		) VALUES ($1,10,20,10,30,false) RETURNING id`, installationID).Scan(&ruleID); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(pool)
+	disabledEvent := saveAndParseWorkflowEvent(t, store, installationID,
+		[]byte("account[id]=42&leads[status][0][id]=101&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20"))
+	if err := store.ProcessEvent(ctx, disabledEvent, installationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE lead_status_workflow_rules SET enabled=true WHERE id=$1`, ruleID); err != nil {
+		t.Fatal(err)
+	}
+	enabledEvent := saveAndParseWorkflowEvent(t, store, installationID,
+		[]byte("account[id]=42&leads[status][0][id]=102&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20"))
+	if err := store.ProcessEvent(ctx, enabledEvent, installationID); err != nil {
+		t.Fatal(err)
+	}
+	var runs int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM workflow_runs WHERE rule_id=$1`, ruleID).Scan(&runs); err != nil {
+		t.Fatal(err)
+	}
+	if runs != 1 {
+		t.Fatalf("workflow runs after disabled/enabled events = %d", runs)
+	}
+}
+
 func TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)

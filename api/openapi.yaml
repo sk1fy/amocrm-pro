@@ -344,6 +344,55 @@ paths:
                 $ref: '#/components/schemas/ErrorText'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/workflow-rules/lead-status/configure:
+    post:
+      tags: [Widget]
+      operationId: configureWidgetLeadStatusRule
+      summary: Asynchronously create, update, or disable one lead-status workflow rule.
+      description: >-
+        The disposable JWT identifies the durable widget user actor but does not
+        grant administrative authority. The worker re-checks that actor as an
+        active amoCRM administrator immediately before applying revision CAS.
+        expected_revision zero creates revision one; positive values update only
+        the exact current revision. CAS failures are reported through job status.
+      security:
+        - widgetBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadStatusRuleCommand'
+      responses:
+        '202':
+          description: Rule configuration command was durably admitted.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Idempotency-Replayed:
+              description: Present and true when the stored acceptance response was replayed.
+              schema:
+                type: string
+                enum: ['true']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: The idempotency key is bound to a different command or is still processing.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ErrorText'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/widget/jobs/{jobID}:
     get:
       tags: [Widget]
@@ -505,6 +554,76 @@ components:
           type: boolean
           const: true
       additionalProperties: false
+    LeadStatusRuleCommand:
+      type: object
+      required:
+        - source_pipeline_id
+        - source_status_id
+        - target_pipeline_id
+        - target_status_id
+        - enabled
+        - expected_revision
+      properties:
+        source_pipeline_id:
+          type: integer
+          format: int64
+          minimum: 1
+        source_status_id:
+          type: integer
+          format: int64
+          minimum: 1
+        target_pipeline_id:
+          type: integer
+          format: int64
+          minimum: 1
+        target_status_id:
+          type: integer
+          format: int64
+          minimum: 1
+        enabled:
+          type: boolean
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+      additionalProperties: false
+    LeadStatusRuleResult:
+      type: object
+      required:
+        - rule_id
+        - source_pipeline_id
+        - source_status_id
+        - target_pipeline_id
+        - target_status_id
+        - enabled
+        - revision
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+        source_pipeline_id:
+          type: integer
+          format: int64
+          minimum: 1
+        source_status_id:
+          type: integer
+          format: int64
+          minimum: 1
+        target_pipeline_id:
+          type: integer
+          format: int64
+          minimum: 1
+        target_status_id:
+          type: integer
+          format: int64
+          minimum: 1
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+      additionalProperties: false
     PingResult:
       type: object
       required: [pong]
@@ -552,6 +671,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/PingResult'
             - $ref: '#/components/schemas/LeadStatusResult'
+            - $ref: '#/components/schemas/LeadStatusRuleResult'
         error:
           type: object
           required: [code]
