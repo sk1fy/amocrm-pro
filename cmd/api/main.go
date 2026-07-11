@@ -26,6 +26,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
+	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -66,12 +67,34 @@ func run() error {
 	installationStore := installations.NewStore(pool)
 	webhookStore := webhook.NewStore(pool)
 	jobStore := jobs.NewStore(pool)
+	webhookIngressMetrics := webhook.NewIngressMetrics(registry)
+	webhookIngressLimiter, err := webhook.NewIngressLimiter(webhook.IngressLimiterConfig{
+		GlobalRate:        rate.Limit(cfg.WebhookGlobalRate),
+		GlobalBurst:       cfg.WebhookGlobalBurst,
+		InstallationRate:  rate.Limit(cfg.WebhookInstallationRate),
+		InstallationBurst: cfg.WebhookInstallationBurst,
+		InactiveTTL:       cfg.WebhookLimiterInactiveTTL,
+	}, webhookIngressMetrics)
+	if err != nil {
+		return err
+	}
+	limiterContext, stopLimiter := context.WithCancel(ctx)
+	limiterDone := make(chan struct{})
+	go func() {
+		defer close(limiterDone)
+		webhookIngressLimiter.Run(limiterContext)
+	}()
+	defer func() {
+		stopLimiter()
+		<-limiterDone
+	}()
 	webhookHandler := webhook.NewHandler(
 		installationStore,
 		webhookStore,
 		logger,
 		cfg.MaxWebhookBody,
 		cfg.WebhookTimeout,
+		webhookIngressLimiter,
 	)
 
 	externalHTTPClient := &http.Client{

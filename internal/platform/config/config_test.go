@@ -70,6 +70,46 @@ func TestAPIRejectsInvalidManagementAddress(t *testing.T) {
 	}
 }
 
+func TestAPIWebhookLimiterDefaults(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+
+	api, err := LoadAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api.WebhookGlobalRate != 500 || api.WebhookGlobalBurst != 1_000 ||
+		api.WebhookInstallationRate != 20 || api.WebhookInstallationBurst != 40 ||
+		api.WebhookLimiterInactiveTTL != time.Hour {
+		t.Fatalf("unexpected webhook limiter defaults: %+v", api)
+	}
+}
+
+func TestAPIRejectsInvalidWebhookLimiterConfiguration(t *testing.T) {
+	for _, testCase := range []struct {
+		name, variable, value, errorText string
+	}{
+		{name: "zero global rate", variable: "WEBHOOK_GLOBAL_RATE_PER_SECOND", value: "0", errorText: "finite number"},
+		{name: "non-finite installation rate", variable: "WEBHOOK_INSTALLATION_RATE_PER_SECOND", value: "NaN", errorText: "finite number"},
+		{name: "zero global burst", variable: "WEBHOOK_GLOBAL_BURST", value: "0", errorText: "integer between"},
+		{name: "zero installation burst", variable: "WEBHOOK_INSTALLATION_BURST", value: "0", errorText: "integer between"},
+		{name: "hot inactive ttl", variable: "WEBHOOK_LIMITER_INACTIVE_TTL", value: "30s", errorText: "at least 1m"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+			t.Setenv("APP_ENV", "development")
+			t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+			t.Setenv(testCase.variable, testCase.value)
+
+			_, err := LoadAPI()
+			if err == nil || !strings.Contains(err.Error(), testCase.errorText) {
+				t.Fatalf("expected %s rejection, got %v", testCase.variable, err)
+			}
+		})
+	}
+}
+
 func TestWorkerCleanupDefaultsAndZeroSafetyMargin(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
 	t.Setenv("APP_ENV", "development")

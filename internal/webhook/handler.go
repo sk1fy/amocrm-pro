@@ -8,14 +8,12 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/installations"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
-	"golang.org/x/time/rate"
 )
 
 type InstallationFinder interface {
@@ -28,13 +26,12 @@ type DeliverySaver interface {
 }
 
 type Handler struct {
-	installations InstallationFinder
-	deliveries    DeliverySaver
-	logger        *slog.Logger
-	maxBody       int64
-	databaseTTL   time.Duration
-	limiters      sync.Map
-	globalLimiter *rate.Limiter
+	installations  InstallationFinder
+	deliveries     DeliverySaver
+	logger         *slog.Logger
+	maxBody        int64
+	databaseTTL    time.Duration
+	ingressLimiter *IngressLimiter
 }
 
 func NewHandler(
@@ -43,14 +40,15 @@ func NewHandler(
 	logger *slog.Logger,
 	maxBody int64,
 	databaseTTL time.Duration,
+	ingressLimiter *IngressLimiter,
 ) *Handler {
 	return &Handler{
-		installations: installationStore,
-		deliveries:    deliveryStore,
-		logger:        logger,
-		maxBody:       maxBody,
-		databaseTTL:   databaseTTL,
-		globalLimiter: rate.NewLimiter(500, 1_000),
+		installations:  installationStore,
+		deliveries:     deliveryStore,
+		logger:         logger,
+		maxBody:        maxBody,
+		databaseTTL:    databaseTTL,
+		ingressLimiter: ingressLimiter,
 	}
 }
 
@@ -60,7 +58,7 @@ func (h *Handler) Receive(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !h.globalLimiter.Allow() {
+	if !h.ingressLimiter.AllowGlobal() {
 		w.Header().Set("Retry-After", "1")
 		http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 		return
@@ -88,7 +86,7 @@ func (h *Handler) Receive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if !h.allow(installation.ID) {
+	if !h.ingressLimiter.AllowInstallation(installation.ID) {
 		w.Header().Set("Retry-After", "1")
 		http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 		return
@@ -150,9 +148,4 @@ func (h *Handler) Receive(w http.ResponseWriter, r *http.Request) {
 		"installation_id", installation.ID,
 	)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) allow(installationID uuid.UUID) bool {
-	value, _ := h.limiters.LoadOrStore(installationID, rate.NewLimiter(20, 40))
-	return value.(*rate.Limiter).Allow()
 }
