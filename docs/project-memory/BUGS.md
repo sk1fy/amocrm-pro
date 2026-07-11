@@ -79,6 +79,20 @@
 - **Regression check:** `persisted_transport_error_is_sanitized` — PASS; key не
   присутствует ни в возвращённой, ни в сохранённой ошибке.
 
+## BUG-008 — Widget JWT сгорал до durable action commit
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#31`).
+- **Class:** Widget concurrency / data integrity.
+- **Impact:** transient enqueue failure оставляла использованный `jti` без job;
+  retry с новым JWT создавал дубликат, потому что `idempotency_keys` не
+  использовалась. JWT, принятый внутри leeway после raw `exp`, мог дать DB
+  constraint error вместо стабильного auth outcome.
+- **Fix:** signature verification отделена от consumption только для action
+  middleware; active tenant lock, jti, idempotency outcome и job фиксируются
+  одной транзакцией. Replay retention использует `exp + leeway`.
+- **Regression check:** concurrent same-jti/same-key tests, synthetic job failure
+  rollback, HTTP replay и leeway unit tests проходят через Docker/PostgreSQL.
+
 ## Шаблон новой записи
 
 ```md

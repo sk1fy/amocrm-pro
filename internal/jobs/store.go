@@ -25,6 +25,23 @@ type Store struct {
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 func (s *Store) Enqueue(ctx context.Context, params EnqueueParams) (Job, error) {
+	return enqueue(ctx, s.pool, params)
+}
+
+// EnqueueTx inserts a job through the caller's transaction. It lets domain
+// stores commit a job and their idempotency records as one PostgreSQL unit.
+func (s *Store) EnqueueTx(ctx context.Context, tx pgx.Tx, params EnqueueParams) (Job, error) {
+	if tx == nil {
+		return Job{}, errors.New("enqueue transaction is nil")
+	}
+	return enqueue(ctx, tx, params)
+}
+
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func enqueue(ctx context.Context, querier rowQuerier, params EnqueueParams) (Job, error) {
 	if err := validateEnqueue(params); err != nil {
 		return Job{}, err
 	}
@@ -42,7 +59,7 @@ func (s *Store) Enqueue(ctx context.Context, params EnqueueParams) (Job, error) 
 		params.RunAfter = time.Now().UTC()
 	}
 
-	row := s.pool.QueryRow(ctx, `
+	row := querier.QueryRow(ctx, `
 		INSERT INTO jobs (installation_id, type, priority, payload, max_attempts, run_after)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING `+jobColumns,
