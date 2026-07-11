@@ -1,6 +1,6 @@
 # Project context
 
-Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-statement-updated-at.md`](CHECKPOINT-2026-07-11-statement-updated-at.md).
+Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-migrate-down-guard.md`](CHECKPOINT-2026-07-11-migrate-down-guard.md).
 
 ## Snapshot
 
