@@ -1,6 +1,6 @@
 # Roadmap и структура GitHub Issues
 
-Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-webhook-correlation-retention.md`](CHECKPOINT-2026-07-11-webhook-correlation-retention.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
+Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md`](CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
 
 ## Статусы на 2026-07-11
 
@@ -113,7 +113,7 @@
 - [ ] Integration tests: duplicate events/deliveries и параллельный parsing.
 - [ ] Проверить body/content-type/account mismatch/status matrix.
 - [ ] Добавить ingress/parse/process latency и error metrics.
-- [ ] Зафиксировать raw payload retention и PII redaction policy.
+- [x] Зафиксировать raw payload retention и PII redaction policy.
 
 **Acceptance criteria:** webhook не теряется после `204`; повторная доставка не создаёт повторного business effect; invalid payload наблюдаем; failure paths воспроизводимо проверены.
 
@@ -226,7 +226,8 @@
 - [ ] SLI/SLO, dashboards и alerts для HTTP, DB pool, queue, webhook и amoCRM API.
 - [ ] Trace/correlation propagation и redaction policy для logs/metrics/traces.
 - [ ] Migration, deploy, rollback, backup/restore и disaster recovery runbooks.
-- [ ] Retention/cleanup jobs и capacity/load tests PostgreSQL queue/inbox.
+- [x] Bounded retention/cleanup jobs для webhook payload и replay rows.
+- [ ] Capacity/load tests PostgreSQL queue/inbox.
 - [ ] Security review: secrets, SSRF/domain validation, dependency/container scanning, least privilege.
 - [ ] Failure tests: DB restart, worker crash, amoCRM timeout/429 и graceful deploy.
 - [ ] Platform contracts: configuration/secrets, service discovery, ingress, observability и ownership.

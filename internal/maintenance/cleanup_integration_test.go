@@ -3,6 +3,7 @@ package maintenance
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -10,7 +11,178 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
+	"github.com/sk1fy/amocrm-pro/internal/webhook"
 )
+
+func TestCleanupWebhookPayloadRetentionPreservesDurableHistoryAndReplaySuppression(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	_, installationID := cleanupTenant(t, pool)
+	ctx := context.Background()
+	originKey := sha256.Sum256([]byte("retained-origin"))
+	otherKey := sha256.Sum256([]byte("retained-pending"))
+	desiredHash := sha256.Sum256([]byte("desired-state"))
+
+	var expiredDeliveryID, retainedDeliveryID, expiredEventID uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO webhook_deliveries (
+			installation_id,content_type,raw_body,body_sha256,parse_status,
+			received_at,parsed_at,updated_at
+		) VALUES ($1,'application/x-www-form-urlencoded',decode('01','hex'),$2,'parsed',
+			now()-interval '4 hours',now()-interval '3 hours',now()-interval '3 hours')
+		RETURNING id`, installationID, originKey[:]).Scan(&expiredDeliveryID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO webhook_event_tombstones (
+			installation_id,deduplication_key,first_seen_at,last_seen_at
+		) VALUES ($1,$2,now()-interval '4 hours',now()-interval '3 hours')`,
+		installationID, originKey[:]); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO inbox_events (
+			delivery_id,installation_id,entity_type,event_type,entity_id,payload,
+			deduplication_key,status,processed_at,created_at,updated_at
+		) VALUES ($1,$2,'leads','status',42,'{"pipeline_id":1,"status_id":2}',
+			$3,'processed',now()-interval '3 hours',now()-interval '4 hours',now()-interval '3 hours')
+		RETURNING id`, expiredDeliveryID, installationID, originKey[:]).Scan(&expiredEventID); err != nil {
+		t.Fatal(err)
+	}
+
+	var ruleID, jobID, runID, effectID uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO lead_status_workflow_rules (
+			installation_id,source_pipeline_id,source_status_id,target_pipeline_id,target_status_id
+		) VALUES ($1,1,2,1,3) RETURNING id`, installationID).Scan(&ruleID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO jobs (installation_id,type,status,payload,created_at,updated_at,finished_at)
+		VALUES ($1,'workflow.lead.status_transition','completed','{}',
+			now()-interval '4 hours',now()-interval '2 hours',now()-interval '2 hours')
+		RETURNING id`, installationID).Scan(&jobID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO workflow_runs (
+			installation_id,workflow_type,origin_deduplication_key,origin_event_id,
+			rule_id,job_id,status,created_at,finished_at
+		) VALUES ($1,'lead.status_transition',$2,$3,$4,$5,'completed',
+			now()-interval '4 hours',now()-interval '2 hours') RETURNING id`,
+		installationID, originKey[:], expiredEventID, ruleID, jobID).Scan(&runID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO outbound_effects (
+			installation_id,workflow_run_id,correlation_job_id,effect_type,
+			resource_type,resource_id,desired_state,desired_hash,state,attempted_at,
+			observed_at,correlation_expires_at,correlated_event_deduplication_key,
+			created_at,updated_at
+		) VALUES ($1,$2,$3,'lead.set_status','lead','42','{"pipeline_id":1,"status_id":3}',
+			$4,'observed',now()-interval '3 hours',now()-interval '2 hours',
+			now()-interval '1 hour',$5,now()-interval '3 hours',now()-interval '2 hours')
+		RETURNING id`, installationID, runID, jobID, desiredHash[:], originKey[:]).Scan(&effectID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE inbox_events SET correlated_effect_id=$2 WHERE id=$1`, expiredEventID, effectID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO webhook_deliveries (
+			installation_id,content_type,raw_body,body_sha256,parse_status,
+			received_at,parsed_at,updated_at
+		) VALUES ($1,'application/x-www-form-urlencoded',decode('02','hex'),$2,'parsed',
+			now()-interval '4 hours',now()-interval '3 hours',now()-interval '3 hours')
+		RETURNING id`, installationID, otherKey[:]).Scan(&retainedDeliveryID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO inbox_events (
+			delivery_id,installation_id,entity_type,event_type,payload,deduplication_key,
+			status,created_at,updated_at
+		) VALUES ($1,$2,'leads','update','{}',$3,'pending',
+			now()-interval '4 hours',now()-interval '3 hours')`,
+		retainedDeliveryID, installationID, otherKey[:]); err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []string{"invalid", "parsed"} {
+		age := "3 hours"
+		if status == "parsed" {
+			age = "30 minutes"
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO webhook_deliveries (
+				installation_id,content_type,raw_body,body_sha256,parse_status,
+				received_at,parsed_at,updated_at
+			) VALUES ($1,'application/x-www-form-urlencoded',decode('03','hex'),$2,$3,
+				now()-$4::interval,now()-$4::interval,now()-$4::interval)`,
+			installationID, desiredHash[:], status, age); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	time.Sleep(5 * time.Millisecond)
+	policy := testPolicy(100, 2)
+	policy.WebhookInboxRetention = time.Millisecond
+	result, err := NewStore(pool).Cleanup(ctx, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InboxEvents != 1 || result.WebhookDeliveries != 2 {
+		t.Fatalf("webhook cleanup result = %+v", result)
+	}
+	var tombstones, runs, effects, jobs, originLinks, expiredDeliveries, retainedDeliveries int
+	if err := pool.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM webhook_event_tombstones WHERE installation_id=$1 AND deduplication_key=$2),
+		(SELECT count(*) FROM workflow_runs WHERE id=$3),
+		(SELECT count(*) FROM outbound_effects WHERE id=$4),
+		(SELECT count(*) FROM jobs WHERE id=$5),
+		(SELECT count(*) FROM workflow_runs WHERE id=$3 AND origin_event_id IS NOT NULL),
+		(SELECT count(*) FROM webhook_deliveries WHERE id=$6),
+		(SELECT count(*) FROM webhook_deliveries WHERE id=$7)`,
+		installationID, originKey[:], runID, effectID, jobID, expiredDeliveryID, retainedDeliveryID,
+	).Scan(&tombstones, &runs, &effects, &jobs, &originLinks, &expiredDeliveries, &retainedDeliveries); err != nil {
+		t.Fatal(err)
+	}
+	if tombstones != 1 || runs != 1 || effects != 1 || jobs != 1 || originLinks != 0 ||
+		expiredDeliveries != 0 || retainedDeliveries != 1 {
+		t.Fatalf("retained history=%d/%d/%d/%d origin_links=%d deliveries=%d/%d",
+			tombstones, runs, effects, jobs, originLinks, expiredDeliveries, retainedDeliveries)
+	}
+
+	var replayDeliveryID uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO webhook_deliveries (
+			installation_id,content_type,raw_body,body_sha256
+		) VALUES ($1,'application/x-www-form-urlencoded',decode('04','hex'),$2)
+		RETURNING id`, installationID, originKey[:]).Scan(&replayDeliveryID); err != nil {
+		t.Fatal(err)
+	}
+	inserted, err := webhook.NewStore(pool).SaveParsedEvents(ctx, webhook.Delivery{
+		ID: replayDeliveryID, InstallationID: installationID,
+	}, []webhook.Event{{
+		EntityType: "leads", EventType: "status", Payload: json.RawMessage(`{"pipeline_id":1,"status_id":2}`),
+		DeduplicationKey: originKey[:],
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inserted != 0 {
+		t.Fatalf("replayed event insert count = %d", inserted)
+	}
+	var replayEvents, replayJobs int
+	if err := pool.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM inbox_events WHERE installation_id=$1 AND deduplication_key=$2),
+		(SELECT count(*) FROM jobs WHERE type='webhook.process_event' AND installation_id=$1)`,
+		installationID, originKey[:]).Scan(&replayEvents, &replayJobs); err != nil {
+		t.Fatal(err)
+	}
+	if replayEvents != 0 || replayJobs != 0 {
+		t.Fatalf("replay events/jobs = %d/%d", replayEvents, replayJobs)
+	}
+}
 
 func TestCleanupStrictExpirySafetyMarginAndJobRetention(t *testing.T) {
 	pool := testkit.Postgres(t)
@@ -28,7 +200,8 @@ func TestCleanupStrictExpirySafetyMarginAndJobRetention(t *testing.T) {
 	insertIdempotency(t, pool, installationID, uuid.Nil, "inside", "30 minutes ago", "processing")
 
 	result, err := NewStore(pool).Cleanup(ctx, Policy{
-		SafetyMargin: time.Hour, BatchSize: 100, MaxBatches: 2,
+		SafetyMargin: time.Hour, WebhookInboxRetention: time.Hour,
+		WebhookDeliveryRetention: time.Hour, BatchSize: 100, MaxBatches: 2,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +221,56 @@ func TestCleanupStrictExpirySafetyMarginAndJobRetention(t *testing.T) {
 	}
 }
 
+func TestCleanupWebhookInboxDeletesOnlyTerminalStatuses(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	_, installationID := cleanupTenant(t, pool)
+	ctx := context.Background()
+	statuses := []string{"processed", "failed", "dead", "ignored", "pending", "processing"}
+	for index, status := range statuses {
+		key := sha256.Sum256([]byte(status))
+		bodyHash := sha256.Sum256([]byte("body:" + status))
+		var deliveryID uuid.UUID
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO webhook_deliveries (
+				installation_id,content_type,raw_body,body_sha256,parse_status,
+				received_at,parsed_at,updated_at
+			) VALUES ($1,'application/x-www-form-urlencoded',$2,$3,'parsed',
+				now()-interval '4 hours',now()-interval '3 hours',now()-interval '3 hours')
+			RETURNING id`, installationID, []byte{byte(index)}, bodyHash[:]).Scan(&deliveryID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO inbox_events (
+				delivery_id,installation_id,entity_type,event_type,payload,
+				deduplication_key,status,created_at,updated_at
+			) VALUES ($1,$2,'leads','update','{}',$3,$4,
+				now()-interval '4 hours',now()-interval '3 hours')`,
+			deliveryID, installationID, key[:], status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	policy := testPolicy(100, 1)
+	policy.WebhookDeliveryRetention = 24 * time.Hour
+	result, err := NewStore(pool).Cleanup(ctx, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InboxEvents != 4 || result.WebhookDeliveries != 0 {
+		t.Fatalf("terminal status cleanup = %+v", result)
+	}
+	var pending, processing int
+	if err := pool.QueryRow(ctx, `SELECT
+		count(*) FILTER (WHERE status='pending'),
+		count(*) FILTER (WHERE status='processing')
+		FROM inbox_events`).Scan(&pending, &processing); err != nil {
+		t.Fatal(err)
+	}
+	if pending != 1 || processing != 1 {
+		t.Fatalf("remaining pending/processing = %d/%d", pending, processing)
+	}
+}
+
 func TestCleanupHonorsBatchAndMaximumBatchBounds(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
@@ -57,14 +280,14 @@ func TestCleanupHonorsBatchAndMaximumBatchBounds(t *testing.T) {
 		insertIdempotency(t, pool, installationID, uuid.Nil, uuid.NewString(), "1 hour ago", "processing")
 	}
 	store := NewStore(pool)
-	first, err := store.Cleanup(context.Background(), Policy{BatchSize: 2, MaxBatches: 1})
+	first, err := store.Cleanup(context.Background(), testPolicy(2, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if first.WidgetTokens != 2 || first.IdempotencyKeys != 2 {
 		t.Fatalf("first bounded result = %+v", first)
 	}
-	second, err := store.Cleanup(context.Background(), Policy{BatchSize: 2, MaxBatches: 2})
+	second, err := store.Cleanup(context.Background(), testPolicy(2, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,12 +322,12 @@ func TestCleanupAdvisoryLockSkipsConcurrentWorker(t *testing.T) {
 	firstDone := make(chan error, 1)
 	go func() {
 		wait.Done()
-		_, err := store.Cleanup(ctx, Policy{BatchSize: 1, MaxBatches: 1})
+		_, err := store.Cleanup(ctx, testPolicy(1, 1))
 		firstDone <- err
 	}()
 	wait.Wait()
 	time.Sleep(50 * time.Millisecond)
-	second, err := store.Cleanup(ctx, Policy{BatchSize: 1, MaxBatches: 1})
+	second, err := store.Cleanup(ctx, testPolicy(1, 1))
 	if err != nil {
 		t.Fatal(err)
 	}

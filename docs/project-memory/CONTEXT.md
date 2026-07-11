@@ -1,12 +1,12 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-webhook-correlation-retention.md`](CHECKPOINT-2026-07-11-webhook-correlation-retention.md).
+Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md`](CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/webhook-correlation-retention`.
-- Базовый commit текущего среза: `eda364e` (merge PR `#34`).
+- Ветка на момент снимка: `codex/raw-webhook-retention-metrics`.
+- Базовый commit текущего среза: `0602f25` (merge PR `#35`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
@@ -119,6 +119,10 @@
   под advisory lock и никогда не сокращает replay/TTL safety window;
 - webhook dedup вынесен в retained tombstones, поэтому будущий payload cleanup
   не делает историческую доставку снова actionable;
+- terminal webhook delivery/inbox payload удаляется по настраиваемому 30-дневному
+  default retention; tombstones/runs/effects/jobs/audit остаются durable;
+- cleanup pass pressure, workflow routing и finalized workflow jobs публикуются
+  как low-cardinality Prometheus metrics;
 - typed `status_lead` rule создаёт unique workflow run и convergent transition job;
 - widget и webhook lead status mutations фиксируют outbound intent до PATCH;
   incoming target webhook переводит exact effect в observed и не запускает loop.
@@ -130,7 +134,7 @@
 - удаление/ротация amoCRM webhooks и полный uninstall lifecycle;
 - stable JSON errors и полный uninstall/revocation lifecycle (`#32`);
 - rule management, дополнительные domain workflow/sync handlers и generalized registry;
-- raw webhook payload retention, cleanup metrics, dashboards и production SLO/alerts;
+- dashboards, production SLO/alerts и capacity/load tests;
 - production integration contracts с окружающими микросервисами.
 
 ## Подтверждённые проверки и границы уверенности
@@ -139,7 +143,8 @@
 - В исходниках есть unit tests для job classification/backoff и webhook parsing/deduplication/account ID.
 - Найденный Docker build blocker из-за неиспользуемого `net/http` в `cmd/worker` исправлен; текущий файл этот import не содержит.
 - `make integration-test` проходит на изолированной PostgreSQL 17: migration
-  cycle и race-enabled tests jobs/OAuth/webhook/widget/workflow с TLS amoCRM stub.
+  cycle четырёх migrations и race-enabled tests jobs/OAuth/webhook/widget/workflow
+  с TLS amoCRM stub, включая payload deletion, retained history и replay suppression.
 - `make test` проходит в Docker: runtime builds, formatting, vet и
   `go test -race -count=1 ./...`.
 
@@ -155,9 +160,9 @@
 
 ## Ближайший фокус
 
-1. Открыть PR browser/cleanup/webhook-correlation среза и дождаться CI; merge не делать.
-2. Выбрать rule management либо raw delivery/inbox cleanup при retained tombstones.
-3. Добавить cleanup/workflow metrics, load tests и production hardening из `#21`.
+1. Открыть PR raw payload retention/metrics среза и дождаться CI; merge не делать.
+2. Следующим bounded slice определить async rule-management configure contract.
+3. Добавить load tests, dashboards/SLO и production hardening из `#21`.
 
 Декомпозиция и шаблон следующего checkpoint находятся в [`ROADMAP.md`](ROADMAP.md), внешние блокеры — в [`BUGS.md`](BUGS.md).
 
