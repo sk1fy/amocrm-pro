@@ -87,6 +87,10 @@ containers и volume удаляются автоматически. Защита
 `_test`, поэтому destructive reset не может случайно использовать обычную
 development DB.
 
+Полный `migrate down` удаляет application schema и требует отдельного точного
+подтверждения. Preconditions, invocation и recovery описаны в
+[`docs/runbooks/migrate-down.md`](docs/runbooks/migrate-down.md).
+
 Машиночитаемый публичный HTTP-контракт находится в
 [`api/openapi.yaml`](api/openapi.yaml). `make openapi-check` семантически
 проверяет документ и полный список реализованных routes через Go validator в
