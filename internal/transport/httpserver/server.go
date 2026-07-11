@@ -45,3 +45,40 @@ func Run(ctx context.Context, server *http.Server, logger *slog.Logger, shutdown
 	logger.Info("http server stopped")
 	return nil
 }
+
+// RunAll supervises independent listeners as one process. The first listener
+// exit cancels the others, then every listener is allowed to shut down before
+// the first non-cancellation error is returned.
+func RunAll(
+	ctx context.Context,
+	logger *slog.Logger,
+	shutdownTimeout time.Duration,
+	servers ...*http.Server,
+) error {
+	if len(servers) == 0 {
+		return errors.New("at least one HTTP server is required")
+	}
+	groupContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	results := make(chan error, len(servers))
+	for _, server := range servers {
+		server := server
+		go func() {
+			results <- Run(groupContext, server, logger, shutdownTimeout)
+		}()
+	}
+
+	errorsSeen := make([]error, 0, len(servers))
+	errorsSeen = append(errorsSeen, <-results)
+	cancel()
+	for range len(servers) - 1 {
+		errorsSeen = append(errorsSeen, <-results)
+	}
+	for _, err := range errorsSeen {
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return err
+		}
+	}
+	return nil
+}

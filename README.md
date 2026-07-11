@@ -8,7 +8,7 @@
 
 Снимок на 2026-07-11:
 
-- Docker-образы, Compose-стек, конфигурация, structured logging, graceful shutdown, health endpoints, Prometheus endpoint и CI-скелет присутствуют;
+- Docker-образы, Compose-стек, конфигурация, structured logging, graceful shutdown, отдельный API management listener, health endpoints, Prometheus endpoint и CI-скелет присутствуют;
 - начальная SQL-схема и checksum-aware reversible мигратор присутствуют;
 - PostgreSQL-backed очередь jobs реализует lease/heartbeat, attempt fencing, retry/backoff/dead state, panic recovery и атомарные domain failure observers;
 - durable webhook pipeline принимает bounded `application/x-www-form-urlencoded`, проверяет secret URL и `account[id]`, транзакционно сохраняет delivery + job, нормализует и дедуплицирует inbox events;
@@ -41,6 +41,7 @@ gate проходят. OAuth callback/refresh и webhook reconciliation покр
 | Компонент | Назначение | Порт по умолчанию |
 | --- | --- | --- |
 | `api` | Webhook ingress и публичные HTTP endpoints | `127.0.0.1:8080` |
+| `api` management | API liveness, readiness и Prometheus metrics | `127.0.0.1:8082` |
 | `worker` | Выполнение PostgreSQL jobs, periodic cleanup и внутренний health server | `127.0.0.1:8081` |
 | `migrate` | Применение SQL-миграций перед запуском сервисов | нет |
 | `postgres` | Основное хранилище, inbox и очередь jobs | `127.0.0.1:5432` |
@@ -78,24 +79,39 @@ make down
 `make integration-test` создаёт отдельный Compose project с БД
 `amocrm_test`, выполняет migration cycle `up -> down -> concurrent up`,
 проверяет checksums/schema и запускает race-enabled PostgreSQL tests пакетов
-jobs, OAuth, webhook, widget и amoCRM workflow. Test
+jobs, OAuth, HTTP management routes, webhook, widget и amoCRM workflow. Test
 containers и volume удаляются автоматически. Защита test helper требует
 одновременно явный `TEST_DATABASE_RESET_ALLOWED=true` и имя БД с суффиксом
 `_test`, поэтому destructive reset не может случайно использовать обычную
 development DB.
 
-Машиночитаемый HTTP-контракт находится в
+Машиночитаемый публичный HTTP-контракт находится в
 [`api/openapi.yaml`](api/openapi.yaml). `make openapi-check` семантически
 проверяет документ и полный список реализованных routes через Go validator в
-Docker; отдельный OpenAPI job является обязательной частью CI.
+Docker; management-only routes в публичную OpenAPI-схему не входят. Отдельный
+OpenAPI job является обязательной частью CI.
 
 ## HTTP endpoints
 
-Оба долгоживущих сервиса публикуют:
+Публичный API listener публикует:
+
+- `GET /live` — liveness;
+
+Отдельный API management listener на `127.0.0.1:8082` публикует:
 
 - `GET /live` — liveness;
 - `GET /ready` — readiness с проверкой PostgreSQL;
 - `GET /metrics` — метрики Prometheus.
+
+Compose не публикует management listener наружу: bind остаётся loopback-only.
+В production доступ к его порту должен дополнительно ограничиваться сетевой
+политикой/ingress ACL. Worker не имеет публичных business routes и продолжает
+отдавать health/metrics на своём внутреннем listener.
+В самостоятельном deployment адрес listener задаётся
+`MANAGEMENT_HTTP_ADDRESS` (по умолчанию `:8082`) и не может конфликтовать с
+публичным `HTTP_ADDRESS`. Compose фиксирует container address `:8082`, а его
+loopback host port задаётся `API_MANAGEMENT_PORT`; поэтому согласованный
+healthcheck также задаётся Compose, а не встраивается в API image.
 
 API также принимает Webhooks:
 

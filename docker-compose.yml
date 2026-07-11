@@ -51,6 +51,7 @@ services:
       APP_ENV: "${APP_ENV:-development}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       HTTP_ADDRESS: ":8080"
+      MANAGEMENT_HTTP_ADDRESS: ":8082"
       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
       SHUTDOWN_TIMEOUT: "${SHUTDOWN_TIMEOUT:-15s}"
       DATABASE_TIMEOUT: "${DATABASE_TIMEOUT:-2s}"
@@ -70,13 +71,14 @@ services:
       AMOCRM_WEBHOOK_EVENTS: "${AMOCRM_WEBHOOK_EVENTS:-}"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
+      - "127.0.0.1:${API_MANAGEMENT_PORT:-8082}:8082"
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/live"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/live"]
       interval: 10s
       timeout: 3s
       retries: 3

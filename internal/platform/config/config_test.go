@@ -16,6 +16,60 @@ func TestProductionRejectsPublicDevelopmentEncryptionKey(t *testing.T) {
 	}
 }
 
+func TestAPIManagementAddressDefaultsToSeparateListener(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+
+	api, err := LoadAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api.HTTPAddress != ":8080" || api.ManagementHTTPAddress != ":8082" {
+		t.Fatalf("unexpected API listeners: public=%q management=%q", api.HTTPAddress, api.ManagementHTTPAddress)
+	}
+}
+
+func TestAPIRejectsConflictingManagementAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("HTTP_ADDRESS", "0.0.0.0:8080")
+	t.Setenv("MANAGEMENT_HTTP_ADDRESS", ":8080")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "must not conflict") {
+		t.Fatalf("expected listener conflict rejection, got %v", err)
+	}
+}
+
+func TestAPIAcceptsCustomManagementAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("MANAGEMENT_HTTP_ADDRESS", "127.0.0.1:9090")
+
+	api, err := LoadAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api.ManagementHTTPAddress != "127.0.0.1:9090" {
+		t.Fatalf("management address = %q", api.ManagementHTTPAddress)
+	}
+}
+
+func TestAPIRejectsInvalidManagementAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("MANAGEMENT_HTTP_ADDRESS", ":invalid")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "port must be an integer") {
+		t.Fatalf("expected management address rejection, got %v", err)
+	}
+}
+
 func TestWorkerCleanupDefaultsAndZeroSafetyMargin(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
 	t.Setenv("APP_ENV", "development")

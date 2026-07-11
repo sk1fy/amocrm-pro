@@ -36,54 +36,6 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
               example:
                 status: ok
-  /ready:
-    get:
-      tags: [System]
-      operationId: getReadiness
-      summary: Check PostgreSQL-backed readiness.
-      parameters:
-        - $ref: '#/components/parameters/RequestID'
-      responses:
-        '200':
-          description: PostgreSQL is reachable within the configured timeout.
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestID'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-              example:
-                status: ready
-        '503':
-          description: PostgreSQL is unavailable or timed out.
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestID'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-              example:
-                status: unavailable
-  /metrics:
-    get:
-      tags: [System]
-      operationId: getMetrics
-      summary: Export Prometheus metrics.
-      description: Production ingress must restrict this management endpoint.
-      parameters:
-        - $ref: '#/components/parameters/RequestID'
-      responses:
-        '200':
-          description: Prometheus text exposition.
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestID'
-          content:
-            text/plain:
-              schema:
-                type: string
   /oauth/amocrm/start:
     get:
       tags: [OAuth]
