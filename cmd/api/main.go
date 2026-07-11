@@ -25,6 +25,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/webhook"
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
+	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
 )
 
 func main() {
@@ -117,10 +118,30 @@ func run() error {
 	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))
 	widgetMiddleware := widgetauth.Middleware(widgetAuthenticator)
 	widgetActionMiddleware := widgetauth.VerificationMiddleware(widgetAuthenticator)
-	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.Bootstrap)))
-	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path, widgetActionMiddleware(http.HandlerFunc(widgetHandler.Ping)))
-	router.Method(apicontract.WidgetLeadSetStatus.Method, apicontract.WidgetLeadSetStatus.Path, widgetActionMiddleware(http.HandlerFunc(widgetHandler.LeadSetStatus)))
-	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.JobStatus)))
+	widgetCORSMiddleware := widgetcors.Middleware(widgetcors.NewPostgresAuthorizer(pool))
+	widgetRoute := func(
+		authenticate func(http.Handler) http.Handler,
+		handler http.Handler,
+	) http.Handler {
+		return widgetCORSMiddleware(authenticate(widgetcors.BindPrincipalIssuer(handler)))
+	}
+	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path,
+		widgetRoute(widgetMiddleware, http.HandlerFunc(widgetHandler.Bootstrap)))
+	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path,
+		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.Ping)))
+	router.Method(apicontract.WidgetLeadSetStatus.Method, apicontract.WidgetLeadSetStatus.Path,
+		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.LeadSetStatus)))
+	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path,
+		widgetRoute(widgetMiddleware, http.HandlerFunc(widgetHandler.JobStatus)))
+	for _, widgetRouteContract := range []apicontract.Route{
+		apicontract.WidgetBootstrap,
+		apicontract.WidgetPing,
+		apicontract.WidgetLeadSetStatus,
+		apicontract.WidgetJob,
+	} {
+		router.Method(http.MethodOptions, widgetRouteContract.Path,
+			widgetCORSMiddleware(http.NotFoundHandler()))
+	}
 	router.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})

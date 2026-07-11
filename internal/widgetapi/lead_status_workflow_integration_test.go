@@ -76,6 +76,12 @@ func TestLeadSetStatusWorkflowRetryObservesAppliedState(t *testing.T) {
 	if firstErr == nil || !jobs.Classify(firstErr, 1).Retryable {
 		t.Fatalf("first uncertain PATCH error = %v", firstErr)
 	}
+	var firstEffectState string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT state FROM outbound_effects WHERE correlation_job_id=$1`, job.ID,
+	).Scan(&firstEffectState); err != nil || firstEffectState != "uncertain" {
+		t.Fatalf("first effect state/error = %q/%v", firstEffectState, err)
+	}
 	jobStore := jobs.NewStore(pool)
 	workerID := *job.LockedBy
 	if status, err := jobStore.Fail(
@@ -102,6 +108,13 @@ func TestLeadSetStatusWorkflowRetryObservesAppliedState(t *testing.T) {
 		t.Fatalf("retry result = %+v, want converged state", decoded)
 	}
 	remote.assertCounts(t, 3, 2, 1)
+	var effectState string
+	var effectCount int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT min(state), count(*) FROM outbound_effects WHERE correlation_job_id=$1`, job.ID,
+	).Scan(&effectState, &effectCount); err != nil || effectState != "applied" || effectCount != 1 {
+		t.Fatalf("effect state/count/error = %q/%d/%v", effectState, effectCount, err)
+	}
 	var auditCount int
 	if err := pool.QueryRow(context.Background(), `
 		SELECT count(*) FROM audit_log WHERE correlation_job_id=$1`, job.ID,

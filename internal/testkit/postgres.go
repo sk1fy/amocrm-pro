@@ -72,7 +72,9 @@ func Reset(t *testing.T, pool *pgxpool.Pool) {
 	_, err := pool.Exec(ctx, `
 		TRUNCATE TABLE
 			audit_log, idempotency_keys, used_widget_tokens,
-			job_attempts, jobs, inbox_events, webhook_deliveries,
+			job_attempts, outbound_effects, workflow_runs,
+			lead_status_workflow_rules, jobs, inbox_events,
+			webhook_event_tombstones, webhook_deliveries,
 			oauth_credentials, oauth_states, installations, integrations
 		RESTART IDENTITY CASCADE`)
 	if err != nil {

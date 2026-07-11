@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/maintenance"
 	oauthflow "github.com/sk1fy/amocrm-pro/internal/oauth"
 	"github.com/sk1fy/amocrm-pro/internal/platform/config"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
@@ -76,9 +77,12 @@ func run() error {
 		return err
 	}
 	handlers := map[string]jobs.Handler{
-		"webhook.parse":                webhook.ParseJobHandler(webhookStore),
-		"webhook.process_event":        webhook.ProcessEventJobHandler(webhookStore),
-		"webhook.reconcile":            reconcileHandler,
+		"webhook.parse":         webhook.ParseJobHandler(webhookStore),
+		"webhook.process_event": webhook.ProcessEventJobHandler(webhookStore),
+		"webhook.reconcile":     reconcileHandler,
+		webhook.LeadStatusTransitionJobType: webhook.LeadStatusTransitionJobHandler(
+			webhookStore, widgetExecutionStore, amocrmAPI,
+		),
 		widgetapi.PingJobType:          widgetapi.PingJobHandler(widgetExecutionStore),
 		widgetapi.LeadSetStatusJobType: widgetapi.LeadSetStatusJobHandler(widgetExecutionStore, amocrmAPI),
 	}
@@ -92,9 +96,24 @@ func run() error {
 		DrainTimeout:  cfg.ShutdownTimeout,
 		ClaimTimeout:  cfg.DatabaseTimeout,
 	}, handlers, map[string]jobs.FailureObserver{
-		"webhook.parse":         webhook.JobFailureObserver(webhookStore),
-		"webhook.process_event": webhook.JobFailureObserver(webhookStore),
+		"webhook.parse":                     webhook.JobFailureObserver(webhookStore),
+		"webhook.process_event":             webhook.JobFailureObserver(webhookStore),
+		webhook.LeadStatusTransitionJobType: webhook.JobFailureObserver(webhookStore),
 	})
+	cleanupScheduler, err := maintenance.NewScheduler(
+		maintenance.NewStore(pool), logger, maintenance.SchedulerConfig{
+			Interval: cfg.CleanupInterval,
+			Timeout:  cfg.CleanupTimeout,
+			Policy: maintenance.Policy{
+				SafetyMargin: cfg.CleanupSafetyMargin,
+				BatchSize:    cfg.CleanupBatchSize,
+				MaxBatches:   cfg.CleanupMaxBatches,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
 
 	router := chi.NewRouter()
 	router.Use(httpmiddleware.RequestID)
@@ -105,9 +124,9 @@ func run() error {
 	router.Handle("/metrics", promhttp.Handler())
 	healthServer := httpserver.New(cfg.HTTPAddress, router)
 
-	errChannel := make(chan error, 2)
+	errChannel := make(chan error, 3)
 	var processes sync.WaitGroup
-	processes.Add(2)
+	processes.Add(3)
 	go func() {
 		defer processes.Done()
 		errChannel <- httpserver.Run(ctx, healthServer, logger, cfg.ShutdownTimeout)
@@ -115,6 +134,10 @@ func run() error {
 	go func() {
 		defer processes.Done()
 		errChannel <- worker.Run(ctx)
+	}()
+	go func() {
+		defer processes.Done()
+		errChannel <- cleanupScheduler.Run(ctx)
 	}()
 
 	var runError error

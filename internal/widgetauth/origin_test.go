@@ -62,6 +62,19 @@ func TestIssuerForAccountDomain(t *testing.T) {
 	}
 }
 
+func TestNormalizeHTTPSOriginRequiresAbsoluteHTTPSOrigin(t *testing.T) {
+	t.Parallel()
+	got, err := NormalizeHTTPSOrigin("https://Tenant.AmoCRM.ru:443/")
+	if err != nil || got != "https://tenant.amocrm.ru" {
+		t.Fatalf("NormalizeHTTPSOrigin() = %q, %v", got, err)
+	}
+	for _, value := range []string{"tenant.amocrm.ru", "http://tenant.amocrm.ru", "null"} {
+		if _, err := NormalizeHTTPSOrigin(value); err == nil {
+			t.Fatalf("NormalizeHTTPSOrigin(%q) error = nil", value)
+		}
+	}
+}
+
 func TestOriginNormalizationRejectsUnsafeValues(t *testing.T) {
 	t.Parallel()
 
