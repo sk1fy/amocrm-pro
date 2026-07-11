@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -27,12 +28,13 @@ type Common struct {
 
 type API struct {
 	Common
-	MaxWebhookBody       int64
-	WebhookTimeout       time.Duration
-	OAuthStateTTL        time.Duration
-	WidgetJWTLeeway      time.Duration
-	WidgetJWTMaxLifetime time.Duration
-	BootstrapIntegration *BootstrapIntegration
+	ManagementHTTPAddress string
+	MaxWebhookBody        int64
+	WebhookTimeout        time.Duration
+	OAuthStateTTL         time.Duration
+	WidgetJWTLeeway       time.Duration
+	WidgetJWTMaxLifetime  time.Duration
+	BootstrapIntegration  *BootstrapIntegration
 }
 
 type BootstrapIntegration struct {
@@ -72,6 +74,16 @@ func LoadAPI() (API, error) {
 	if err != nil {
 		return API{}, err
 	}
+	managementAddress := strings.TrimSpace(os.Getenv("MANAGEMENT_HTTP_ADDRESS"))
+	if managementAddress == "" {
+		managementAddress = ":8082"
+	}
+	if err := validateListenAddress(managementAddress); err != nil {
+		return API{}, fmt.Errorf("MANAGEMENT_HTTP_ADDRESS: %w", err)
+	}
+	if addressesConflict(common.HTTPAddress, managementAddress) {
+		return API{}, errors.New("MANAGEMENT_HTTP_ADDRESS must not conflict with HTTP_ADDRESS")
+	}
 
 	maxBody, err := int64Value("MAX_WEBHOOK_BODY_BYTES", 2<<20, 1024, 16<<20)
 	if err != nil {
@@ -104,11 +116,40 @@ func LoadAPI() (API, error) {
 	}
 
 	return API{
-		Common: common, MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
+		Common: common, ManagementHTTPAddress: managementAddress,
+		MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
 		OAuthStateTTL: oauthStateTTL, WidgetJWTLeeway: widgetJWTLeeway,
 		WidgetJWTMaxLifetime: widgetJWTMaxLifetime,
 		BootstrapIntegration: bootstrap,
 	}, nil
+}
+
+func addressesConflict(first, second string) bool {
+	firstHost, firstPort, firstErr := net.SplitHostPort(first)
+	secondHost, secondPort, secondErr := net.SplitHostPort(second)
+	if firstErr != nil || secondErr != nil {
+		return first == second
+	}
+	if firstPort != secondPort {
+		return false
+	}
+	return firstHost == secondHost || wildcardHost(firstHost) || wildcardHost(secondHost)
+}
+
+func validateListenAddress(address string) error {
+	_, rawPort, err := net.SplitHostPort(address)
+	if err != nil {
+		return errors.New("must be a TCP host:port address")
+	}
+	port, err := strconv.Atoi(rawPort)
+	if err != nil || port < 1 || port > 65_535 {
+		return errors.New("port must be an integer between 1 and 65535")
+	}
+	return nil
+}
+
+func wildcardHost(host string) bool {
+	return host == "" || host == "0.0.0.0" || host == "::"
 }
 
 func loadBootstrapIntegration() (*BootstrapIntegration, error) {

@@ -33,7 +33,7 @@ RUN apk add --no-cache build-base
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+CMD ["-race", "-count=1", "-v", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
@@ -67,10 +67,7 @@ FROM runtime AS api
 
 COPY --from=api-build --chown=app:app /out/amocrm-api /usr/local/bin/amocrm-api
 
-EXPOSE 8080
-
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8080/live || exit 1
+EXPOSE 8080 8082
 
 ENTRYPOINT ["/usr/local/bin/amocrm-api"]
 

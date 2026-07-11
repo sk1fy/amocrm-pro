@@ -22,8 +22,6 @@ var (
 
 	Routes = []Route{
 		Live,
-		Ready,
-		Metrics,
 		OAuthStart,
 		OAuthCallback,
 		WebhookReceive,
@@ -32,5 +30,11 @@ var (
 		WidgetLeadSetStatus,
 		WidgetLeadStatusRuleConfigure,
 		WidgetJob,
+	}
+
+	ManagementRoutes = []Route{
+		Live,
+		Ready,
+		Metrics,
 	}
 )

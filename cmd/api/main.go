@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/apicontract"
 	"github.com/sk1fy/amocrm-pro/internal/installations"
@@ -57,6 +57,11 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
 
 	installationStore := installations.NewStore(pool)
 	webhookStore := webhook.NewStore(pool)
@@ -110,9 +115,7 @@ func run() error {
 	router.Use(httpmiddleware.RequestID)
 	router.Use(httpmiddleware.Recover(logger))
 	router.Use(httpmiddleware.AccessLog(logger))
-	router.Method(apicontract.Live.Method, apicontract.Live.Path, http.HandlerFunc(httpserver.Live))
-	router.Method(apicontract.Ready.Method, apicontract.Ready.Path, httpserver.Ready(pool, cfg.DatabaseTimeout))
-	router.Method(apicontract.Metrics.Method, apicontract.Metrics.Path, promhttp.Handler())
+	httpserver.RegisterPublicSystemRoutes(router)
 	router.Method(apicontract.OAuthStart.Method, apicontract.OAuthStart.Path, http.HandlerFunc(oauthHandler.Start))
 	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, http.HandlerFunc(oauthHandler.Callback))
 	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))
@@ -149,9 +152,18 @@ func run() error {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})
 
-	server := httpserver.New(cfg.HTTPAddress, router)
-	if err := httpserver.Run(ctx, server, logger, cfg.ShutdownTimeout); err != nil && !errors.Is(err, context.Canceled) {
-		return err
-	}
-	return nil
+	managementRouter := chi.NewRouter()
+	managementRouter.Use(httpmiddleware.RequestID)
+	managementRouter.Use(httpmiddleware.Recover(logger))
+	managementRouter.Use(httpmiddleware.AccessLog(logger))
+	httpserver.RegisterManagementRoutes(
+		managementRouter,
+		pool,
+		cfg.DatabaseTimeout,
+		promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+	)
+
+	publicServer := httpserver.New(cfg.HTTPAddress, router)
+	managementServer := httpserver.New(cfg.ManagementHTTPAddress, managementRouter)
+	return httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, publicServer, managementServer)
 }
