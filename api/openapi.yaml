@@ -1,0 +1,517 @@
+openapi: 3.1.0
+info:
+  title: amoCRM Go backend API
+  version: 0.1.0
+  summary: HTTP contract for the amoCRM integration foundation.
+  description: |
+    Current public contract implemented by `cmd/api`.
+
+    Webhook bodies and widget responses can contain tenant data. Do not put
+    production payloads, bearer tokens, OAuth codes, webhook keys or PII into
+    logs, examples, Issues or traces.
+servers:
+  - url: /
+tags:
+  - name: System
+  - name: OAuth
+  - name: Webhook
+  - name: Widget
+paths:
+  /live:
+    get:
+      tags: [System]
+      operationId: getLiveness
+      summary: Check process liveness.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: The API process is alive.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+  /ready:
+    get:
+      tags: [System]
+      operationId: getReadiness
+      summary: Check PostgreSQL-backed readiness.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: PostgreSQL is reachable within the configured timeout.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ready
+        '503':
+          description: PostgreSQL is unavailable or timed out.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: unavailable
+  /metrics:
+    get:
+      tags: [System]
+      operationId: getMetrics
+      summary: Export Prometheus metrics.
+      description: Production ingress must restrict this management endpoint.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Prometheus text exposition.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            text/plain:
+              schema:
+                type: string
+  /oauth/amocrm/start:
+    get:
+      tags: [OAuth]
+      operationId: startAmoCRMOAuth
+      summary: Create one-time OAuth state and redirect to amoCRM.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: integration_code
+          in: query
+          required: true
+          description: Active integration code configured by the operator.
+          schema:
+            type: string
+            minLength: 1
+        - name: return_url
+          in: query
+          required: false
+          description: Optional absolute-path reference on this service.
+          schema:
+            type: string
+            pattern: '^/'
+      responses:
+        '302':
+          description: Redirect to the amoCRM authorization page.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Location:
+              description: amoCRM authorization URL with a one-time state.
+              required: true
+              schema:
+                type: string
+                format: uri
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /oauth/amocrm/callback:
+    get:
+      tags: [OAuth]
+      operationId: completeAmoCRMOAuth
+      summary: Consume OAuth state and create or update an installation.
+      description: |
+        `code` and `referer` are required for a successful callback. When
+        amoCRM returns `error`, the state is consumed and the request fails.
+        State is one-time and cannot be replayed.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+        - name: referer
+          in: query
+          required: false
+          description: HTTPS amoCRM/Kommo account domain used by the callback.
+          schema:
+            type: string
+            minLength: 1
+        - name: error
+          in: query
+          required: false
+          description: Authorization denial code returned by amoCRM.
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Installation and encrypted credentials were persisted.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+  /hooks/amocrm/v1/{webhookKey}:
+    post:
+      tags: [Webhook]
+      operationId: receiveAmoCRMWebhook
+      summary: Durably accept an amoCRM webhook delivery.
+      description: |
+        The path key is a secret credential. A `204` means the delivery or its
+        invalid-payload audit record was committed to PostgreSQL. Business
+        processing remains asynchronous and at-least-once.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: webhookKey
+          in: path
+          required: true
+          description: Secret installation webhook key; never log or expose it.
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              description: amoCRM nested form keys plus `account[id]`.
+              properties:
+                account[id]:
+                  type: integer
+                  format: int64
+                  minimum: 1
+              additionalProperties: true
+      responses:
+        '204':
+          description: Delivery was durably accepted; response has no body.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          description: Global or per-installation process-local limit exceeded.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Retry-After:
+              description: Suggested retry delay in seconds.
+              schema:
+                type: integer
+                minimum: 0
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ErrorText'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/bootstrap:
+    get:
+      tags: [Widget]
+      operationId: getWidgetBootstrap
+      summary: Resolve the authenticated widget tenant and user.
+      description: Every request requires a fresh, disposable amoCRM JWT.
+      security:
+        - widgetBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Authenticated widget principal.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WidgetBootstrap'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/widget/actions/ping:
+    post:
+      tags: [Widget]
+      operationId: enqueueWidgetPing
+      summary: Enqueue the infrastructure widget-to-worker proof action.
+      description: Every request requires a fresh, disposable amoCRM JWT.
+      security:
+        - widgetBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '202':
+          description: Ping job was durably enqueued.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/jobs/{jobID}:
+    get:
+      tags: [Widget]
+      operationId: getWidgetJob
+      summary: Read an asynchronous job scoped to the widget installation.
+      description: Every request requires a fresh, disposable amoCRM JWT.
+      security:
+        - widgetBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: jobID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tenant-scoped job status.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    widgetBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Strict single-use amoCRM widget JWT with atomic `jti` replay protection.
+  parameters:
+    RequestID:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: Optional UUID correlation ID. Invalid values are replaced.
+      schema:
+        type: string
+        format: uuid
+  headers:
+    RequestID:
+      description: UUID correlation ID accepted or generated by the API.
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ErrorText:
+      type: string
+      description: Stable generic message without internal details or secrets.
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+      additionalProperties: false
+    InstallationResult:
+      type: object
+      required: [installation_id, account_id, status]
+      properties:
+        installation_id:
+          type: string
+          format: uuid
+        account_id:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          type: string
+          enum: [active]
+      additionalProperties: false
+    WidgetBootstrap:
+      type: object
+      required: [installation_id, account_id, user_id, client_uuid]
+      properties:
+        installation_id:
+          type: string
+          format: uuid
+        account_id:
+          type: integer
+          format: int64
+          minimum: 1
+        user_id:
+          type: integer
+          format: int64
+          minimum: 1
+        client_uuid:
+          type: string
+          format: uuid
+      additionalProperties: false
+    JobAccepted:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued]
+      additionalProperties: false
+    JobStatus:
+      type: object
+      required:
+        - job_id
+        - type
+        - status
+        - attempts
+        - max_attempts
+        - created_at
+        - updated_at
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [queued, processing, retry, completed, failed, dead, cancelled]
+        attempts:
+          type: integer
+          minimum: 0
+        max_attempts:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        result: {}
+        error:
+          type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+          additionalProperties: false
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: Request parameters or body are invalid.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    Unauthorized:
+      description: Bearer JWT is missing, invalid, expired or already used.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+        WWW-Authenticate:
+          description: Authentication challenge.
+          schema:
+            type: string
+            const: Bearer
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    NotFound:
+      description: Secret route, tenant-scoped resource or identifier was not found.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    PayloadTooLarge:
+      description: Request body exceeds the configured byte limit.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    UnsupportedMediaType:
+      description: Webhook body is not form-urlencoded.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    InternalServerError:
+      description: Authentication storage or another internal dependency failed.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    BadGateway:
+      description: amoCRM OAuth exchange or account lookup failed.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'
+    ServiceUnavailable:
+      description: A durable database operation could not be completed.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorText'

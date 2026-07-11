@@ -1,6 +1,6 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-10.md`](CHECKPOINT-2026-07-10.md).
+Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11.md`](CHECKPOINT-2026-07-11.md).
 
 ## Snapshot
 
