@@ -1,6 +1,6 @@
 # Roadmap и структура GitHub Issues
 
-Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-widget-idempotency.md`](CHECKPOINT-2026-07-11-widget-idempotency.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
+Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-lead-status-workflow.md`](CHECKPOINT-2026-07-11-lead-status-workflow.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
 
 ## Статусы на 2026-07-11
 
@@ -13,7 +13,7 @@
 | P4 | In progress | OAuth callback/reauthorization и concurrency contracts реализованы |
 | P5 | In progress | Client/refresh/reconciliation реализованы; pagination и production rate limits впереди |
 | P6 | In progress | JWT и atomic idempotent action admission есть; browser/cleanup hardening в `#32` |
-| P7 | Planned | Domain workflows и sync |
+| P7 | In progress | Первый admin-only lead status workflow реализован; webhook-origin workflows и sync впереди |
 | P8 | Planned | Production hardening и интеграция в микросервисный контур |
 
 `In progress` означает наличие реализации, а не завершённый acceptance. Phase можно закрывать только после записи конкретных проверок в checkpoint.
@@ -178,11 +178,13 @@
 
 - [ ] Валидация JWT signature/algorithm, issuer, audience, expiry и required claims.
 - [x] Atomic one-time `jti` claim в PostgreSQL; cleanup expired tokens остаётся в `#32`.
-- [ ] Связка account/user/integration claims с active installation.
+- [x] Связка account/user/integration claims с active installation.
 - [ ] CORS/origin policy, body limits, request ID и стабильный error envelope.
 - [x] Idempotency-key admission lifecycle, TTL reclaim и request hash mismatch protection.
 - [x] Endpoints создания jobs и tenant/user-scoped чтения статуса/result для proof action.
-- [ ] Authorization matrix и негативные/replay/concurrency tests.
+- [x] Durable actor/resource ownership и actor-scoped result isolation.
+- [x] Active admin/disabled tenant negative tests для первого real action.
+- [ ] Полная authorization matrix, browser CORS и periodic cleanup.
 
 **Acceptance criteria:** повторный JWT отклоняется атомарно; пользователь не видит чужую installation/job; повтор идентичного запроса безопасен; API не возвращает secrets или raw PII.
 
@@ -199,10 +201,10 @@
 **Scope/checklist:**
 
 - [ ] Зафиксировать поддерживаемые entity/event types и versioned normalized contract.
-- [ ] Реализовать idempotent handlers и явные permanent/retryable outcomes.
+- [x] Реализован первый convergent `lead.set_status` handler с явными permanent/retryable outcomes.
 - [ ] Out-of-order/stale event policy и reconciliation jobs.
 - [ ] Bulk/paginated sync с checkpoint/cursor и controlled fan-out.
-- [ ] Workflow result/audit contract и ручной replay без повторного side effect.
+- [x] Typed workflow result/audit и retry после ambiguous PATCH без повторного side effect.
 - [ ] Контракты публикации/вызова окружающих микросервисов.
 - [ ] Integration/contract tests основных business scenarios.
 

@@ -68,6 +68,7 @@ func run() error {
 	oauthGateway := oauthflow.NewGateway(amocrmclient.NewOAuthClient(externalHTTPClient))
 	tokenProvider := oauthflow.NewTokenProvider(pool, keyRing, oauthGateway)
 	amocrmAPI := amocrmclient.NewClient(externalHTTPClient, tokenProvider)
+	widgetExecutionStore := widgetapi.NewExecutionStore(pool)
 	reconcileHandler, err := webhook.ReconcileJobHandler(
 		webhook.NewReconcileStore(pool, keyRing), amocrmAPI, cfg.PublicBaseURL,
 	)
@@ -75,10 +76,11 @@ func run() error {
 		return err
 	}
 	handlers := map[string]jobs.Handler{
-		"webhook.parse":         webhook.ParseJobHandler(webhookStore),
-		"webhook.process_event": webhook.ProcessEventJobHandler(webhookStore),
-		"webhook.reconcile":     reconcileHandler,
-		"widget.ping":           widgetapi.PingJobHandler(pool),
+		"webhook.parse":                webhook.ParseJobHandler(webhookStore),
+		"webhook.process_event":        webhook.ProcessEventJobHandler(webhookStore),
+		"webhook.reconcile":            reconcileHandler,
+		widgetapi.PingJobType:          widgetapi.PingJobHandler(widgetExecutionStore),
+		widgetapi.LeadSetStatusJobType: widgetapi.LeadSetStatusJobHandler(widgetExecutionStore, amocrmAPI),
 	}
 	worker := jobs.NewWorker(jobStore, logger, jobs.WorkerConfig{
 		ID:            cfg.WorkerID,

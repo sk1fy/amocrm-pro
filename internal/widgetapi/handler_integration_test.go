@@ -91,6 +91,42 @@ func TestPingHTTPRejectsInvalidAdmissionBeforeConsumption(t *testing.T) {
 	assertWidgetCounts(t, pool, 0, 0, 0)
 }
 
+func TestLeadSetStatusHTTPAdmissionAndStrictBody(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	jobStore := jobs.NewStore(pool)
+	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	principal := widgetPrincipal(t, pool, 104, 25)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/widget/actions/leads/set-status",
+		bytes.NewBufferString(`{"lead_id":501,"pipeline_id":601,"status_id":701}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "lead-status-http")
+	request = request.WithContext(widgetauth.ContextWithPrincipal(request.Context(), principal))
+	response := httptest.NewRecorder()
+	handler.LeadSetStatus(response, request)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("response status/body = %d/%q", response.Code, response.Body.String())
+	}
+
+	invalid := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/widget/actions/leads/set-status",
+		bytes.NewBufferString(`{"lead_id":502,"pipeline_id":602,"status_id":702,"unexpected":true}`),
+	)
+	invalid.Header.Set("Content-Type", "application/json")
+	invalid.Header.Set("Idempotency-Key", "lead-status-invalid")
+	invalid = invalid.WithContext(widgetauth.ContextWithPrincipal(invalid.Context(), principal))
+	invalidResponse := httptest.NewRecorder()
+	handler.LeadSetStatus(invalidResponse, invalid)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid response status/body = %d/%q", invalidResponse.Code, invalidResponse.Body.String())
+	}
+}
+
 func TestJobStatusIsWidgetUserScoped(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
@@ -129,4 +165,41 @@ func TestJobStatusIsWidgetUserScoped(t *testing.T) {
 	otherUser.UserID++
 	assertStatus(otherUser, action.JobID, http.StatusNotFound)
 	assertStatus(owner, internalJob.ID, http.StatusNotFound)
+}
+
+func TestJobStatusRendersOnlyTypedWorkflowResult(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	jobStore := jobs.NewStore(pool)
+	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	owner := widgetPrincipal(t, pool, 105, 27)
+	action, err := handler.actions.EnqueueLeadSetStatus(
+		context.Background(), owner, "typed-result",
+		LeadStatusCommand{LeadID: 801, PipelineID: 802, StatusID: 803},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE jobs
+		SET status='completed', result=$2, finished_at=now()
+		WHERE id=$1`, action.JobID,
+		`{"lead_id":801,"pipeline_id":802,"status_id":803,"converged":true,"internal":"must-not-leak"}`,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/widget/jobs/"+action.JobID.String(), nil)
+	routeContext := chi.NewRouteContext()
+	routeContext.URLParams.Add("jobID", action.JobID.String())
+	ctx := context.WithValue(request.Context(), chi.RouteCtxKey, routeContext)
+	ctx = widgetauth.ContextWithPrincipal(ctx, owner)
+	response := httptest.NewRecorder()
+	handler.JobStatus(response, request.WithContext(ctx))
+	if response.Code != http.StatusOK {
+		t.Fatalf("response status/body = %d/%q", response.Code, response.Body.String())
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte("internal")) || bytes.Contains(response.Body.Bytes(), []byte("must-not-leak")) {
+		t.Fatalf("internal result leaked: %s", response.Body.String())
+	}
 }

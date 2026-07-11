@@ -68,14 +68,14 @@ integration-test: ## Run migrations and PostgreSQL integration tests in an isola
 	$(TEST_COMPOSE) build migrate integration-test; \
 	$(TEST_COMPOSE) up --detach postgres; \
 	$(TEST_COMPOSE) run --rm migrate up; \
-	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) FROM schema_migrations WHERE octet_length(checksum)=32 AND octet_length(down_checksum)=32" | grep -qx '1'; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) FROM schema_migrations WHERE octet_length(checksum)=32 AND octet_length(down_checksum)=32" | grep -qx '2'; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate down; \
 	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT to_regclass('public.jobs') IS NULL" | grep -qx 't'; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate up & first=$$!; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate up & second=$$!; \
 	wait $$first; \
 	wait $$second; \
-	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 1 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 2 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
 	$(TEST_COMPOSE) run --rm --no-deps integration-test
 
 vet: ## Run go vet in Docker

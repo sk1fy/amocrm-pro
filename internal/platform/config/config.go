@@ -31,6 +31,7 @@ type API struct {
 	WebhookTimeout       time.Duration
 	OAuthStateTTL        time.Duration
 	WidgetJWTLeeway      time.Duration
+	WidgetJWTMaxLifetime time.Duration
 	BootstrapIntegration *BootstrapIntegration
 }
 
@@ -86,6 +87,10 @@ func LoadAPI() (API, error) {
 	if err != nil {
 		return API{}, err
 	}
+	widgetJWTMaxLifetime, err := duration("WIDGET_JWT_MAX_LIFETIME", 15*time.Minute)
+	if err != nil {
+		return API{}, err
+	}
 	bootstrap, err := loadBootstrapIntegration()
 	if err != nil {
 		return API{}, err
@@ -94,6 +99,7 @@ func LoadAPI() (API, error) {
 	return API{
 		Common: common, MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
 		OAuthStateTTL: oauthStateTTL, WidgetJWTLeeway: widgetJWTLeeway,
+		WidgetJWTMaxLifetime: widgetJWTMaxLifetime,
 		BootstrapIntegration: bootstrap,
 	}, nil
 }
