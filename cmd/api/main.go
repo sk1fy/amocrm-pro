@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sk1fy/amocrm-pro/internal/apicontract"
 	"github.com/sk1fy/amocrm-pro/internal/installations"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
@@ -105,18 +106,16 @@ func run() error {
 	router.Use(httpmiddleware.RequestID)
 	router.Use(httpmiddleware.Recover(logger))
 	router.Use(httpmiddleware.AccessLog(logger))
-	router.Get("/live", httpserver.Live)
-	router.Get("/ready", httpserver.Ready(pool, cfg.DatabaseTimeout))
-	router.Handle("/metrics", promhttp.Handler())
-	router.Get("/oauth/amocrm/start", oauthHandler.Start)
-	router.Get("/oauth/amocrm/callback", oauthHandler.Callback)
-	router.Post("/hooks/amocrm/v1/{webhookKey}", webhookHandler.Receive)
-	router.Route("/api/v1/widget", func(widgetRouter chi.Router) {
-		widgetRouter.Use(widgetauth.Middleware(widgetAuthenticator))
-		widgetRouter.Get("/bootstrap", widgetHandler.Bootstrap)
-		widgetRouter.Post("/actions/ping", widgetHandler.Ping)
-		widgetRouter.Get("/jobs/{jobID}", widgetHandler.JobStatus)
-	})
+	router.Method(apicontract.Live.Method, apicontract.Live.Path, http.HandlerFunc(httpserver.Live))
+	router.Method(apicontract.Ready.Method, apicontract.Ready.Path, httpserver.Ready(pool, cfg.DatabaseTimeout))
+	router.Method(apicontract.Metrics.Method, apicontract.Metrics.Path, promhttp.Handler())
+	router.Method(apicontract.OAuthStart.Method, apicontract.OAuthStart.Path, http.HandlerFunc(oauthHandler.Start))
+	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, http.HandlerFunc(oauthHandler.Callback))
+	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))
+	widgetMiddleware := widgetauth.Middleware(widgetAuthenticator)
+	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.Bootstrap)))
+	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.Ping)))
+	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.JobStatus)))
 	router.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})

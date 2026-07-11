@@ -45,6 +45,7 @@ make ps
 make logs
 make migrate
 make test
+make openapi-check
 make integration-test
 make vet
 make fmt-check
@@ -62,6 +63,11 @@ containers и volume удаляются автоматически. Защита
 одновременно явный `TEST_DATABASE_RESET_ALLOWED=true` и имя БД с суффиксом
 `_test`, поэтому destructive reset не может случайно использовать обычную
 development DB.
+
+Машиночитаемый HTTP-контракт находится в
+[`api/openapi.yaml`](api/openapi.yaml). `make openapi-check` семантически
+проверяет документ и полный список реализованных routes через Go validator в
+Docker; отдельный OpenAPI job является обязательной частью CI.
 
 ## HTTP endpoints
 

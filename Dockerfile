@@ -20,6 +20,10 @@ FROM dependencies AS source
 
 COPY . .
 
+FROM source AS openapi-test
+
+RUN go test -count=1 ./api
+
 FROM source AS test-base
 
 ENV CGO_ENABLED=1

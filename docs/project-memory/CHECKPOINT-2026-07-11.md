@@ -88,3 +88,20 @@ Webhook status matrix на synthetic tenant/data:
 Issue `#21` остаётся открытым: configurable/observable rate limits, reaper load
 test, timestamp semantics, ограничение `migrate down`, management endpoints и
 retention/dedup tombstones. Redis не добавлять без измерений и отдельного ADR.
+
+## Follow-up: OpenAPI contract
+
+Issue `#23` добавляет машинно-проверяемый OpenAPI 3.1 contract для всех девяти
+routes `cmd/api`: system, OAuth, durable webhook и widget API. Единый
+`internal/apicontract` inventory используется и router registration, и
+contract test, поэтому изменение path/method требует синхронного обновления
+спецификации.
+
+- Contract: `api/openapi.yaml`.
+- Semantic/ref/route validation: `make openapi-check` — PASS в Docker.
+- Full `make test` после router refactor и новой зависимости — PASS.
+- CI получил отдельный обязательный `OpenAPI contract` job.
+
+После push этого follow-up дождаться CI на PR `#22`, приложить evidence к
+`#23` и оставить Issue связанным с PR до merge. Следующий functional slice —
+OAuth callback/concurrent refresh и webhook reconciliation contract tests.

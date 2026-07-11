@@ -20,7 +20,7 @@ DOCKER_GO := $(DOCKER) run --rm \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help config build up down destroy restart ps logs migrate migrate-down test integration-test vet fmt fmt-check tidy db-shell
+.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test vet fmt fmt-check tidy db-shell
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -56,6 +56,9 @@ migrate-down: ## Revert all applied PostgreSQL migrations
 
 test: ## Run formatting checks, vet, and race-enabled tests in Docker
 	$(DOCKER) build --build-arg GO_VERSION=$(GO_VERSION) --target test .
+
+openapi-check: ## Validate the OpenAPI contract in Docker
+	$(DOCKER) build --build-arg GO_VERSION=$(GO_VERSION) --target openapi-test .
 
 integration-test: ## Run migrations and PostgreSQL integration tests in an isolated Docker stack
 	@set -eu; \
