@@ -40,6 +40,29 @@ func TestMiddlewareAddsVerifiedPrincipalToContext(t *testing.T) {
 	}
 }
 
+func TestVerificationMiddlewareDefersTokenConsumption(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAuthFixture(t)
+	rawToken := signClaims(t, fixture.claims, fixture.secret, jwt.SigningMethodHS256)
+	handler := VerificationMiddleware(fixture.authenticator)(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if _, ok := PrincipalFromContext(request.Context()); !ok {
+			t.Fatal("verified principal is missing")
+		}
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	request := httptest.NewRequest(http.MethodPost, "/widget/actions/ping", nil)
+	request.Header.Set("Authorization", "Bearer "+rawToken)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("response status = %d, want %d", response.Code, http.StatusNoContent)
+	}
+	if fixture.repository.consumeCalls != 0 {
+		t.Fatalf("consume calls = %d, want 0", fixture.repository.consumeCalls)
+	}
+}
+
 func TestMiddlewareRejectsMissingInvalidAndReplayedTokens(t *testing.T) {
 	t.Parallel()
 

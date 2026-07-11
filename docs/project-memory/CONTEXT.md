@@ -1,12 +1,12 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-oauth-reconcile.md`](CHECKPOINT-2026-07-11-oauth-reconcile.md).
+Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-widget-idempotency.md`](CHECKPOINT-2026-07-11-widget-idempotency.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/oauth-reconcile-contract-tests`.
-- Базовый commit текущего среза: `d4bb5e6` (merge PR `#22`).
+- Ветка на момент снимка: `codex/widget-idempotency-contract`.
+- Базовый commit текущего среза: `8493d75` (merge PR `#30`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
@@ -71,6 +71,18 @@
 - webhook reconciliation с tenant/account validation и сохранением безопасного
   статуса ошибки.
 
+### Widget action admission
+
+- strict disposable JWT может проверяться отдельно от consumption только для
+  последующей атомарной action-транзакции;
+- `POST /api/v1/widget/actions/ping` требует bounded `Idempotency-Key` и пустое
+  body, не хранит raw key;
+- active installation lock, jti consumption, idempotency outcome и job enqueue
+  выполняются одной PostgreSQL-транзакцией;
+- retry с новым JWT и тем же key получает исходный `202/job_id`, mismatch actor
+  получает `409`, повтор jti — `401`;
+- job status ограничен installation, widget action type и verified user.
+
 ### Durable webhook pipeline
 
 - endpoint `POST /hooks/amocrm/v1/{webhookKey}`;
@@ -90,7 +102,8 @@
 - production-grade pagination и распределённое rate limiting (текущий лимитер
   process-local; Redis намеренно отсутствует);
 - удаление/ротация amoCRM webhooks и полный uninstall lifecycle;
-- полный idempotency contract widget API и cleanup одноразовых JWT;
+- cleanup одноразовых JWT/idempotency rows, browser CORS decision и worker-time
+  authorization hardening (`#32`);
 - domain workflow/sync handlers и API статуса jobs;
 - retention/cleanup jobs, operational dashboards и production SLO/alerts;
 - production integration contracts с окружающими микросервисами.
@@ -117,9 +130,9 @@
 
 ## Ближайший фокус
 
-1. Дождаться CI и merge PR текущего OAuth/reconciliation среза.
-2. Закрыть полный widget idempotency/authorization contract.
-3. Реализовать первые прикладные domain workflow поверх inbox events.
+1. Дождаться CI и merge PR widget idempotency среза (`#31`).
+2. Выбрать и реализовать первый реальный amoCRM workflow из Issue `#10`.
+3. Закрыть widget/retention hardening из Issue `#32`.
 4. Добавить operational metrics/retention и production hardening из Issue `#21`.
 
 Декомпозиция и шаблон следующего checkpoint находятся в [`ROADMAP.md`](ROADMAP.md), внешние блокеры — в [`BUGS.md`](BUGS.md).

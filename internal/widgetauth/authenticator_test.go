@@ -181,6 +181,51 @@ func TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken(t *testing.T) {
 	}
 }
 
+func TestVerifyReturnsGrantWithoutConsumingToken(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAuthFixture(t)
+	rawToken := signClaims(t, fixture.claims, fixture.secret, jwt.SigningMethodHS256)
+	principal, err := fixture.authenticator.Verify(context.Background(), rawToken)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if principal.TokenID != testTokenID ||
+		!principal.TokenRetainUntil.Equal(testNow.Add(10*time.Minute)) {
+		t.Fatalf("Verify() principal = %+v", principal)
+	}
+	if fixture.repository.lookupCalls != 1 || fixture.repository.consumeCalls != 0 {
+		t.Fatalf("repository calls = lookup %d, consume %d, want 1/0",
+			fixture.repository.lookupCalls, fixture.repository.consumeCalls)
+	}
+}
+
+func TestVerifyRetainsReplayRecordThroughLeeway(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAuthFixture(t)
+	fixture.claims["exp"] = testNow.Add(-time.Second).Unix()
+	fixture.claims["iat"] = testNow.Add(-time.Minute).Unix()
+	fixture.claims["nbf"] = testNow.Add(-time.Minute).Unix()
+	authenticator, err := NewAuthenticator(
+		fixture.repository,
+		fixture.authenticator.secrets,
+		WithClock(func() time.Time { return testNow }),
+		WithLeeway(5*time.Second),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawToken := signClaims(t, fixture.claims, fixture.secret, jwt.SigningMethodHS256)
+	principal, err := authenticator.Verify(context.Background(), rawToken)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if !principal.TokenRetainUntil.Equal(testNow.Add(4 * time.Second)) {
+		t.Fatalf("retain until = %s, want %s", principal.TokenRetainUntil, testNow.Add(4*time.Second))
+	}
+}
+
 func TestAuthenticateRejectsReplay(t *testing.T) {
 	t.Parallel()
 

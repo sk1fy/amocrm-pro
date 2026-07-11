@@ -33,7 +33,7 @@ RUN apk add --no-cache build-base
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./internal/jobs", "./internal/oauth", "./internal/webhook"]
+CMD ["-race", "-count=1", "-v", "./internal/jobs", "./internal/oauth", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 

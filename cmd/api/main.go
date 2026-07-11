@@ -100,7 +100,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	widgetHandler := widgetapi.NewHandler(jobStore)
+	widgetActionStore := widgetapi.NewActionStore(pool, jobStore)
+	widgetHandler := widgetapi.NewHandler(jobStore, widgetActionStore)
 
 	router := chi.NewRouter()
 	router.Use(httpmiddleware.RequestID)
@@ -113,8 +114,9 @@ func run() error {
 	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, http.HandlerFunc(oauthHandler.Callback))
 	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))
 	widgetMiddleware := widgetauth.Middleware(widgetAuthenticator)
+	widgetActionMiddleware := widgetauth.VerificationMiddleware(widgetAuthenticator)
 	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.Bootstrap)))
-	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.Ping)))
+	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path, widgetActionMiddleware(http.HandlerFunc(widgetHandler.Ping)))
 	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path, widgetMiddleware(http.HandlerFunc(widgetHandler.JobStatus)))
 	router.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

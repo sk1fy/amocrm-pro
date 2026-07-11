@@ -92,9 +92,10 @@ func NewAuthenticator(repository Repository, secrets SecretOpener, options ...Op
 	return authenticator, nil
 }
 
-// Authenticate validates rawToken and atomically consumes its jti. A principal
-// is never returned for a replayed token.
-func (a *Authenticator) Authenticate(ctx context.Context, rawToken string) (Principal, error) {
+// Verify validates rawToken without consuming its jti. Callers must either use
+// Authenticate or durably consume Principal.UsedToken in the same transaction
+// as the operation authorized by the token.
+func (a *Authenticator) Verify(ctx context.Context, rawToken string) (Principal, error) {
 	if a == nil {
 		return Principal{}, fmt.Errorf("widget authenticator is nil")
 	}
@@ -148,30 +149,32 @@ func (a *Authenticator) Authenticate(ctx context.Context, rawToken string) (Prin
 		return Principal{}, fmt.Errorf("%w: claims: %v", ErrInvalidToken, err)
 	}
 
-	used := UsedToken{
-		IntegrationID: material.IntegrationID,
-		TokenID:       claims.ID,
-		Issuer:        expectedIssuer,
-		AccountID:     claims.AccountID,
-		UserID:        claims.UserID,
-		ExpiresAt:     claims.ExpiresAt.Time.UTC(),
+	return Principal{
+		IntegrationID:    material.IntegrationID,
+		InstallationID:   material.InstallationID,
+		AccountID:        claims.AccountID,
+		UserID:           claims.UserID,
+		ClientUUID:       claims.ClientUUID,
+		Issuer:           expectedIssuer,
+		TokenID:          claims.ID,
+		TokenRetainUntil: claims.ExpiresAt.Time.UTC().Add(a.leeway),
+	}, nil
+}
+
+// Authenticate validates rawToken and atomically consumes its jti. A principal
+// is never returned for a replayed token.
+func (a *Authenticator) Authenticate(ctx context.Context, rawToken string) (Principal, error) {
+	principal, err := a.Verify(ctx, rawToken)
+	if err != nil {
+		return Principal{}, err
 	}
-	if err := a.repository.ConsumeToken(ctx, used); err != nil {
+	if err := a.repository.ConsumeToken(ctx, principal.UsedToken()); err != nil {
 		if errors.Is(err, ErrReplay) {
 			return Principal{}, ErrReplay
 		}
 		return Principal{}, fmt.Errorf("persist widget token consumption: %w", err)
 	}
-
-	return Principal{
-		IntegrationID:  material.IntegrationID,
-		InstallationID: material.InstallationID,
-		AccountID:      claims.AccountID,
-		UserID:         claims.UserID,
-		ClientUUID:     claims.ClientUUID,
-		Issuer:         expectedIssuer,
-		TokenID:        claims.ID,
-	}, nil
+	return principal, nil
 }
 
 func parseUnverifiedHint(rawToken string) (tokenHint, error) {

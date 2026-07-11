@@ -65,16 +65,32 @@ type SecretOpener interface {
 	Open(keyVersion int, ciphertext, additionalData []byte) ([]byte, error)
 }
 
-// Principal is safe to place in a request context only after Authenticate has
-// completed, including durable replay protection.
+// Principal is safe to place in a request context after cryptographic Verify.
+// Mutating handlers using deferred consumption must commit UsedToken together
+// with their durable side effect; Authenticate already performs consumption.
 type Principal struct {
-	IntegrationID  uuid.UUID
-	InstallationID uuid.UUID
-	AccountID      int64
-	UserID         int64
-	ClientUUID     string
-	Issuer         string
-	TokenID        string
+	IntegrationID    uuid.UUID
+	InstallationID   uuid.UUID
+	AccountID        int64
+	UserID           int64
+	ClientUUID       string
+	Issuer           string
+	TokenID          string
+	TokenRetainUntil time.Time
+}
+
+// UsedToken returns the durable replay record for this verified principal.
+// TokenRetainUntil includes validation leeway so cleanup cannot make an
+// otherwise still acceptable JWT reusable.
+func (principal Principal) UsedToken() UsedToken {
+	return UsedToken{
+		IntegrationID: principal.IntegrationID,
+		TokenID:       principal.TokenID,
+		Issuer:        principal.Issuer,
+		AccountID:     principal.AccountID,
+		UserID:        principal.UserID,
+		ExpiresAt:     principal.TokenRetainUntil,
+	}
 }
 
 type principalContextKey struct{}

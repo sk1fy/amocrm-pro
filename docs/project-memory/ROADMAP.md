@@ -1,6 +1,6 @@
 # Roadmap и структура GitHub Issues
 
-Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-oauth-reconcile.md`](CHECKPOINT-2026-07-11-oauth-reconcile.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
+Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-widget-idempotency.md`](CHECKPOINT-2026-07-11-widget-idempotency.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
 
 ## Статусы на 2026-07-11
 
@@ -12,7 +12,7 @@
 | P3 | In progress | Durable ingress и reconciliation покрыты; domain effects ещё инфраструктурные |
 | P4 | In progress | OAuth callback/reauthorization и concurrency contracts реализованы |
 | P5 | In progress | Client/refresh/reconciliation реализованы; pagination и production rate limits впереди |
-| P6 | In progress | Widget JWT/API skeleton есть; полный idempotency/authorization contract впереди |
+| P6 | In progress | JWT и atomic idempotent action admission есть; browser/cleanup hardening в `#32` |
 | P7 | Planned | Domain workflows и sync |
 | P8 | Planned | Production hardening и интеграция в микросервисный контур |
 
@@ -177,11 +177,11 @@
 **Scope/checklist:**
 
 - [ ] Валидация JWT signature/algorithm, issuer, audience, expiry и required claims.
-- [ ] Atomic one-time `jti` claim в PostgreSQL и cleanup expired tokens.
+- [x] Atomic one-time `jti` claim в PostgreSQL; cleanup expired tokens остаётся в `#32`.
 - [ ] Связка account/user/integration claims с active installation.
 - [ ] CORS/origin policy, body limits, request ID и стабильный error envelope.
-- [ ] Idempotency-key lifecycle и request hash mismatch protection.
-- [ ] Endpoints создания jobs и tenant-scoped чтения статуса/result.
+- [x] Idempotency-key admission lifecycle, TTL reclaim и request hash mismatch protection.
+- [x] Endpoints создания jobs и tenant/user-scoped чтения статуса/result для proof action.
 - [ ] Authorization matrix и негативные/replay/concurrency tests.
 
 **Acceptance criteria:** повторный JWT отклоняется атомарно; пользователь не видит чужую installation/job; повтор идентичного запроса безопасен; API не возвращает secrets или raw PII.
