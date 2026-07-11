@@ -25,11 +25,13 @@ type AccessToken struct {
 	AccountID      int64
 	AccountDomain  string
 	Value          string
+	TokenVersion   int64
 }
 
 type TokenProvider interface {
-	Token(context.Context, uuid.UUID, bool) (AccessToken, error)
-	MarkReauthRequired(context.Context, uuid.UUID) error
+	Token(context.Context, uuid.UUID) (AccessToken, error)
+	RefreshIfCurrent(context.Context, AccessToken) (AccessToken, error)
+	MarkReauthRequired(context.Context, uuid.UUID, int64) error
 }
 
 type Client struct {
@@ -37,6 +39,7 @@ type Client struct {
 	tokens         TokenProvider
 	limiter        *limiter
 	resolveAccount func(string) (*url.URL, error)
+	reauthTimeout  time.Duration
 }
 
 func NewClient(httpClient *http.Client, tokens TokenProvider) *Client {
@@ -48,6 +51,7 @@ func NewClient(httpClient *http.Client, tokens TokenProvider) *Client {
 		tokens:         tokens,
 		limiter:        newLimiter(rate.Limit(7), 7, rate.Limit(50), 50),
 		resolveAccount: AccountBaseURL,
+		reauthTimeout:  2 * time.Second,
 	}
 }
 
@@ -63,7 +67,7 @@ func (c *Client) DoJSON(
 		return errors.New("amoCRM API path must stay under /api/v4")
 	}
 
-	access, err := c.tokens.Token(ctx, installationID, false)
+	access, err := c.tokens.Token(ctx, installationID)
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,7 @@ func (c *Client) DoJSON(
 			return err
 		}
 		if status == http.StatusUnauthorized && attempt == 0 {
-			access, err = c.tokens.Token(ctx, installationID, true)
+			access, err = c.tokens.RefreshIfCurrent(ctx, access)
 			if err != nil {
 				return err
 			}
@@ -84,7 +88,12 @@ func (c *Client) DoJSON(
 		}
 		if status < 200 || status >= 300 {
 			if status == http.StatusUnauthorized {
-				_ = c.tokens.MarkReauthRequired(context.WithoutCancel(ctx), installationID)
+				markContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.reauthTimeout)
+				markErr := c.tokens.MarkReauthRequired(markContext, installationID, access.TokenVersion)
+				cancel()
+				if markErr != nil {
+					return fmt.Errorf("mark amoCRM installation reauthorization required: %w", markErr)
+				}
 			}
 			return classifyResponse(status, header, time.Now())
 		}
@@ -135,6 +144,10 @@ func (c *Client) request(
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
+		var urlError *url.Error
+		if errors.As(err, &urlError) && urlError.Err != nil {
+			err = urlError.Err
+		}
 		return 0, nil, nil, fmt.Errorf("request amoCRM API: %w", err)
 	}
 	defer response.Body.Close()
