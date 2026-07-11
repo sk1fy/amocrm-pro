@@ -27,7 +27,7 @@ func TestSchedulerRunsAtStartupAndPeriodically(t *testing.T) {
 	scheduler, err := NewScheduler(cleaner, slog.New(slog.NewTextHandler(io.Discard, nil)), SchedulerConfig{
 		Interval: 10 * time.Millisecond,
 		Timeout:  time.Second,
-		Policy:   Policy{BatchSize: 10, MaxBatches: 2},
+		Policy:   testPolicy(10, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestSchedulerContinuesAfterCleanupError(t *testing.T) {
 	})
 	scheduler, err := NewScheduler(cleaner, slog.New(slog.NewTextHandler(io.Discard, nil)), SchedulerConfig{
 		Interval: 10 * time.Millisecond, Timeout: time.Second,
-		Policy: Policy{BatchSize: 1, MaxBatches: 1},
+		Policy: testPolicy(1, 1),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -95,15 +95,22 @@ func TestSchedulerConfigurationValidation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cleaner := cleanerFunc(func(context.Context, Policy) (Result, error) { return Result{}, nil })
 	tests := []SchedulerConfig{
-		{Timeout: time.Second, Policy: Policy{BatchSize: 1, MaxBatches: 1}},
-		{Interval: time.Second, Policy: Policy{BatchSize: 1, MaxBatches: 1}},
-		{Interval: time.Second, Timeout: time.Second, Policy: Policy{SafetyMargin: -1, BatchSize: 1, MaxBatches: 1}},
-		{Interval: time.Second, Timeout: time.Second, Policy: Policy{MaxBatches: 1}},
-		{Interval: time.Second, Timeout: time.Second, Policy: Policy{BatchSize: 1}},
+		{Timeout: time.Second, Policy: testPolicy(1, 1)},
+		{Interval: time.Second, Policy: testPolicy(1, 1)},
+		{Interval: time.Second, Timeout: time.Second, Policy: Policy{SafetyMargin: -1, WebhookInboxRetention: time.Hour, WebhookDeliveryRetention: time.Hour, BatchSize: 1, MaxBatches: 1}},
+		{Interval: time.Second, Timeout: time.Second, Policy: Policy{WebhookInboxRetention: time.Hour, WebhookDeliveryRetention: time.Hour, MaxBatches: 1}},
+		{Interval: time.Second, Timeout: time.Second, Policy: Policy{WebhookInboxRetention: time.Hour, WebhookDeliveryRetention: time.Hour, BatchSize: 1}},
 	}
 	for _, config := range tests {
 		if _, err := NewScheduler(cleaner, logger, config); err == nil {
 			t.Fatalf("NewScheduler(%+v) unexpectedly succeeded", config)
 		}
+	}
+}
+
+func testPolicy(batchSize, maxBatches int) Policy {
+	return Policy{
+		WebhookInboxRetention: time.Hour, WebhookDeliveryRetention: time.Hour,
+		BatchSize: batchSize, MaxBatches: maxBatches,
 	}
 }

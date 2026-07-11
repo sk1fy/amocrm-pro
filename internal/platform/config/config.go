@@ -45,18 +45,20 @@ type BootstrapIntegration struct {
 
 type Worker struct {
 	Common
-	WorkerID            string
-	PollInterval        time.Duration
-	LeaseDuration       time.Duration
-	JobTimeout          time.Duration
-	BatchSize           int
-	Concurrency         int
-	PublicBaseURL       string
-	CleanupInterval     time.Duration
-	CleanupTimeout      time.Duration
-	CleanupSafetyMargin time.Duration
-	CleanupBatchSize    int
-	CleanupMaxBatches   int
+	WorkerID                 string
+	PollInterval             time.Duration
+	LeaseDuration            time.Duration
+	JobTimeout               time.Duration
+	BatchSize                int
+	Concurrency              int
+	PublicBaseURL            string
+	CleanupInterval          time.Duration
+	CleanupTimeout           time.Duration
+	CleanupSafetyMargin      time.Duration
+	CleanupBatchSize         int
+	CleanupMaxBatches        int
+	WebhookInboxRetention    time.Duration
+	WebhookDeliveryRetention time.Duration
 }
 
 type Migrate struct {
@@ -194,6 +196,20 @@ func LoadWorker() (Worker, error) {
 	if err != nil {
 		return Worker{}, err
 	}
+	webhookInboxRetention, err := duration("WEBHOOK_INBOX_RETENTION", 720*time.Hour)
+	if err != nil {
+		return Worker{}, err
+	}
+	if webhookInboxRetention <= 0 {
+		return Worker{}, errors.New("WEBHOOK_INBOX_RETENTION must be positive")
+	}
+	webhookDeliveryRetention, err := duration("WEBHOOK_DELIVERY_RETENTION", 720*time.Hour)
+	if err != nil {
+		return Worker{}, err
+	}
+	if webhookDeliveryRetention <= 0 {
+		return Worker{}, errors.New("WEBHOOK_DELIVERY_RETENTION must be positive")
+	}
 
 	workerID := strings.TrimSpace(os.Getenv("WORKER_ID"))
 	if workerID == "" {
@@ -210,7 +226,9 @@ func LoadWorker() (Worker, error) {
 		BatchSize: batchSize, Concurrency: concurrency, PublicBaseURL: publicBaseURL,
 		CleanupInterval: cleanupInterval, CleanupTimeout: cleanupTimeout,
 		CleanupSafetyMargin: cleanupSafetyMargin, CleanupBatchSize: cleanupBatchSize,
-		CleanupMaxBatches: cleanupMaxBatches,
+		CleanupMaxBatches:        cleanupMaxBatches,
+		WebhookInboxRetention:    webhookInboxRetention,
+		WebhookDeliveryRetention: webhookDeliveryRetention,
 	}, nil
 }
 

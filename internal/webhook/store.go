@@ -27,12 +27,19 @@ type Delivery struct {
 }
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	metrics *Metrics
 }
 
 var ErrNotFound = errors.New("webhook object not found in installation scope")
 
-func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+func NewStore(pool *pgxpool.Pool, metricSets ...*Metrics) *Store {
+	var metrics *Metrics
+	if len(metricSets) > 0 {
+		metrics = metricSets[0]
+	}
+	return &Store{pool: pool, metrics: metrics}
+}
 
 func (s *Store) SaveDeliveryAndEnqueue(
 	ctx context.Context,
@@ -313,7 +320,11 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 	); err != nil {
 		return fmt.Errorf("audit webhook event: %w", err)
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	s.metrics.observeLeadStatusRoute(route.Disposition)
+	return nil
 }
 
 func (s *Store) RecordJobFailure(

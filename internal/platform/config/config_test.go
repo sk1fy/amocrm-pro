@@ -27,8 +27,22 @@ func TestWorkerCleanupDefaultsAndZeroSafetyMargin(t *testing.T) {
 		t.Fatal(err)
 	}
 	if worker.CleanupInterval != 15*time.Minute || worker.CleanupTimeout != 30*time.Second ||
-		worker.CleanupSafetyMargin != 0 || worker.CleanupBatchSize != 500 || worker.CleanupMaxBatches != 20 {
+		worker.CleanupSafetyMargin != 0 || worker.CleanupBatchSize != 500 || worker.CleanupMaxBatches != 20 ||
+		worker.WebhookInboxRetention != 720*time.Hour ||
+		worker.WebhookDeliveryRetention != 720*time.Hour {
 		t.Fatalf("unexpected cleanup defaults: %+v", worker)
+	}
+}
+
+func TestWorkerRejectsNonPositiveWebhookRetention(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("PUBLIC_BASE_URL", "https://hooks.example.test")
+	t.Setenv("WEBHOOK_INBOX_RETENTION", "0s")
+	_, err := LoadWorker()
+	if err == nil || !strings.Contains(err.Error(), "positive duration") {
+		t.Fatalf("expected webhook retention rejection, got %v", err)
 	}
 }
 

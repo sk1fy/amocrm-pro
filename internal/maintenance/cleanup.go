@@ -14,15 +14,23 @@ import (
 const cleanupAdvisoryLockID int64 = 6_584_483_612_447_211_903
 
 type Policy struct {
-	SafetyMargin time.Duration
-	BatchSize    int
-	MaxBatches   int
+	SafetyMargin             time.Duration
+	WebhookInboxRetention    time.Duration
+	WebhookDeliveryRetention time.Duration
+	BatchSize                int
+	MaxBatches               int
 }
 
 type Result struct {
-	LockAcquired    bool
-	WidgetTokens    int64
-	IdempotencyKeys int64
+	LockAcquired             bool
+	WidgetTokens             int64
+	IdempotencyKeys          int64
+	InboxEvents              int64
+	WebhookDeliveries        int64
+	WidgetTokensLimitReached bool
+	IdempotencyLimitReached  bool
+	InboxEventsLimitReached  bool
+	DeliveriesLimitReached   bool
 }
 
 type Cleaner interface {
@@ -37,9 +45,9 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 
-// Cleanup deletes only rows whose database expiry is strictly older than the
-// database clock minus the safety margin. One transaction-level advisory lock
-// serializes a bounded cleanup pass across worker replicas.
+// Cleanup removes replay rows past expiry+safety-margin and terminal webhook
+// payload rows past their retention windows. One transaction-level advisory
+// lock serializes a bounded cleanup pass across worker replicas.
 func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 	if s == nil || s.pool == nil {
 		return Result{}, errors.New("cleanup store is not configured")
@@ -66,14 +74,56 @@ func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 		return result, nil
 	}
 
-	result.WidgetTokens, err = deleteExpired(
+	result.WidgetTokens, result.WidgetTokensLimitReached, err = deleteExpired(
 		ctx, tx, "used_widget_tokens", policy,
 	)
 	if err != nil {
 		return Result{}, err
 	}
-	result.IdempotencyKeys, err = deleteExpired(
+	result.IdempotencyKeys, result.IdempotencyLimitReached, err = deleteExpired(
 		ctx, tx, "idempotency_keys", policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	result.InboxEvents, result.InboxEventsLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT ctid
+				FROM inbox_events
+				WHERE status IN ('processed', 'failed', 'dead', 'ignored')
+				  AND updated_at < now() - ($1 * interval '1 millisecond')
+				ORDER BY updated_at, ctid
+				FOR UPDATE SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM inbox_events AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"inbox_events", policy.WebhookInboxRetention, policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	result.WebhookDeliveries, result.DeliveriesLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT delivery.ctid
+				FROM webhook_deliveries AS delivery
+				WHERE delivery.parse_status IN ('parsed', 'invalid', 'failed')
+				  AND delivery.updated_at < now() - ($1 * interval '1 millisecond')
+				  AND NOT EXISTS (
+					SELECT 1 FROM inbox_events AS event
+					WHERE event.delivery_id = delivery.id
+				  )
+				ORDER BY delivery.updated_at, delivery.ctid
+				FOR UPDATE SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM webhook_deliveries AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"webhook_deliveries", policy.WebhookDeliveryRetention, policy,
 	)
 	if err != nil {
 		return Result{}, err
@@ -84,7 +134,7 @@ func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 	return result, nil
 }
 
-func deleteExpired(ctx context.Context, tx pgx.Tx, table string, policy Policy) (int64, error) {
+func deleteExpired(ctx context.Context, tx pgx.Tx, table string, policy Policy) (int64, bool, error) {
 	query := `
 		WITH victims AS (
 			SELECT ctid
@@ -98,19 +148,30 @@ func deleteExpired(ctx context.Context, tx pgx.Tx, table string, policy Policy) 
 		USING victims
 		WHERE expired.ctid = victims.ctid`
 
+	return deleteRetained(ctx, tx, query, table, policy.SafetyMargin, policy)
+}
+
+func deleteRetained(
+	ctx context.Context,
+	tx pgx.Tx,
+	query string,
+	table string,
+	retention time.Duration,
+	policy Policy,
+) (int64, bool, error) {
 	var deleted int64
-	for range policy.MaxBatches {
-		tag, err := tx.Exec(ctx, query, policy.SafetyMargin.Milliseconds(), policy.BatchSize)
+	for batch := 0; batch < policy.MaxBatches; batch++ {
+		tag, err := tx.Exec(ctx, query, retention.Milliseconds(), policy.BatchSize)
 		if err != nil {
-			return 0, fmt.Errorf("delete expired %s: %w", table, err)
+			return 0, false, fmt.Errorf("delete retained %s: %w", table, err)
 		}
 		count := tag.RowsAffected()
 		deleted += count
 		if count < int64(policy.BatchSize) {
-			break
+			return deleted, false, nil
 		}
 	}
-	return deleted, nil
+	return deleted, true, nil
 }
 
 func validatePolicy(policy Policy) error {
@@ -122,6 +183,12 @@ func validatePolicy(policy Policy) error {
 	}
 	if policy.MaxBatches < 1 {
 		return errors.New("cleanup maximum batches must be positive")
+	}
+	if policy.WebhookInboxRetention <= 0 {
+		return errors.New("webhook inbox retention must be positive")
+	}
+	if policy.WebhookDeliveryRetention <= 0 {
+		return errors.New("webhook delivery retention must be positive")
 	}
 	return nil
 }
@@ -136,9 +203,15 @@ type Scheduler struct {
 	cleaner Cleaner
 	logger  *slog.Logger
 	config  SchedulerConfig
+	metrics *Metrics
 }
 
-func NewScheduler(cleaner Cleaner, logger *slog.Logger, config SchedulerConfig) (*Scheduler, error) {
+func NewScheduler(
+	cleaner Cleaner,
+	logger *slog.Logger,
+	config SchedulerConfig,
+	metricSets ...*Metrics,
+) (*Scheduler, error) {
 	if cleaner == nil {
 		return nil, errors.New("cleanup scheduler cleaner is nil")
 	}
@@ -154,7 +227,11 @@ func NewScheduler(cleaner Cleaner, logger *slog.Logger, config SchedulerConfig) 
 	if err := validatePolicy(config.Policy); err != nil {
 		return nil, err
 	}
-	return &Scheduler{cleaner: cleaner, logger: logger, config: config}, nil
+	var metrics *Metrics
+	if len(metricSets) > 0 {
+		metrics = metricSets[0]
+	}
+	return &Scheduler{cleaner: cleaner, logger: logger, config: config, metrics: metrics}, nil
 }
 
 // Run performs one startup pass and then runs periodically until cancellation.
@@ -178,9 +255,11 @@ func (s *Scheduler) Run(ctx context.Context) error {
 }
 
 func (s *Scheduler) runOnce(parent context.Context) {
+	started := time.Now()
 	ctx, cancel := context.WithTimeout(parent, s.config.Timeout)
 	defer cancel()
 	result, err := s.cleaner.Cleanup(ctx, s.config.Policy)
+	s.metrics.observe(started, result, err)
 	if err != nil {
 		if parent.Err() == nil {
 			s.logger.Error("cleanup pass failed", "error", err)

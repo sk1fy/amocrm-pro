@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
@@ -58,7 +59,12 @@ func run() error {
 	}
 	defer pool.Close()
 
-	webhookStore := webhook.NewStore(pool)
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	cleanupMetrics := maintenance.NewMetrics(registry)
+	jobMetrics := jobs.NewMetrics(registry)
+	webhookMetrics := webhook.NewMetrics(registry)
+	webhookStore := webhook.NewStore(pool, webhookMetrics)
 	jobStore := jobs.NewStore(pool)
 	externalHTTPClient := &http.Client{
 		Timeout: cfg.ExternalRequestTimeout,
@@ -100,16 +106,19 @@ func run() error {
 		"webhook.process_event":             webhook.JobFailureObserver(webhookStore),
 		webhook.LeadStatusTransitionJobType: webhook.JobFailureObserver(webhookStore),
 	})
+	worker.SetMetrics(jobMetrics)
 	cleanupScheduler, err := maintenance.NewScheduler(
 		maintenance.NewStore(pool), logger, maintenance.SchedulerConfig{
 			Interval: cfg.CleanupInterval,
 			Timeout:  cfg.CleanupTimeout,
 			Policy: maintenance.Policy{
-				SafetyMargin: cfg.CleanupSafetyMargin,
-				BatchSize:    cfg.CleanupBatchSize,
-				MaxBatches:   cfg.CleanupMaxBatches,
+				SafetyMargin:             cfg.CleanupSafetyMargin,
+				WebhookInboxRetention:    cfg.WebhookInboxRetention,
+				WebhookDeliveryRetention: cfg.WebhookDeliveryRetention,
+				BatchSize:                cfg.CleanupBatchSize,
+				MaxBatches:               cfg.CleanupMaxBatches,
 			},
-		},
+		}, cleanupMetrics,
 	)
 	if err != nil {
 		return err
@@ -121,7 +130,7 @@ func run() error {
 	router.Use(httpmiddleware.AccessLog(logger))
 	router.Get("/live", httpserver.Live)
 	router.Get("/ready", httpserver.Ready(pool, cfg.DatabaseTimeout))
-	router.Handle("/metrics", promhttp.Handler())
+	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	healthServer := httpserver.New(cfg.HTTPAddress, router)
 
 	errChannel := make(chan error, 3)

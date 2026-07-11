@@ -28,6 +28,11 @@ type Worker struct {
 	config           WorkerConfig
 	handlers         map[string]Handler
 	failureObservers map[string]FailureObserver
+	metrics          *Metrics
+}
+
+func (w *Worker) SetMetrics(metrics *Metrics) {
+	w.metrics = metrics
 }
 
 func NewWorker(
@@ -149,6 +154,7 @@ func (w *Worker) execute(parent context.Context, job Job) {
 			logger.Error("complete job", "error", completeErr, "duration", duration)
 			return
 		}
+		w.metrics.observe(job.Type, StatusCompleted, duration)
 		logger.Info("job completed", "duration", duration)
 		return
 	}
@@ -161,6 +167,7 @@ func (w *Worker) execute(parent context.Context, job Job) {
 		logger.Error("record job failure", "error", failErr, "job_error", err, "duration", duration)
 		return
 	}
+	w.metrics.observe(job.Type, status, duration)
 	logger.Warn("job failed", "error", err, "error_code", failure.Code, "status", status, "duration", duration)
 }
 
