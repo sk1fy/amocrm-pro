@@ -51,8 +51,11 @@ logs: ## Follow API and worker logs
 migrate: ## Apply pending PostgreSQL migrations
 	$(COMPOSE) run --rm migrate up
 
-migrate-down: ## Revert all applied PostgreSQL migrations
-	$(COMPOSE) run --rm migrate down
+migrate-down: ## Revert all migrations (requires MIGRATION_DOWN_CONFIRM=revert-all-migrations)
+	@test "$(MIGRATION_DOWN_CONFIRM)" = "revert-all-migrations" || { \
+		echo "Refusing destructive rollback; follow docs/runbooks/migrate-down.md" >&2; exit 1; \
+	}
+	$(COMPOSE) run --rm -e MIGRATION_DOWN_CONFIRM="$(MIGRATION_DOWN_CONFIRM)" migrate down
 
 test: ## Run formatting checks, vet, and race-enabled tests in Docker
 	$(DOCKER) build --build-arg GO_VERSION=$(GO_VERSION) --target test .
@@ -69,7 +72,9 @@ integration-test: ## Run migrations and PostgreSQL integration tests in an isola
 	$(TEST_COMPOSE) up --detach postgres; \
 	$(TEST_COMPOSE) run --rm migrate up; \
 	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) FROM schema_migrations WHERE octet_length(checksum)=32 AND octet_length(down_checksum)=32" | grep -qx '6'; \
-	$(TEST_COMPOSE) run --rm --no-deps migrate down; \
+	if $(TEST_COMPOSE) run --rm --no-deps migrate down; then echo "unconfirmed migrate down unexpectedly succeeded" >&2; exit 1; fi; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 6 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
+	$(TEST_COMPOSE) run --rm --no-deps -e MIGRATION_DOWN_CONFIRM=revert-all-migrations migrate down; \
 	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT to_regclass('public.jobs') IS NULL" | grep -qx 't'; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate up & first=$$!; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate up & second=$$!; \
