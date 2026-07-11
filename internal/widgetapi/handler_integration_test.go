@@ -127,6 +127,53 @@ func TestLeadSetStatusHTTPAdmissionAndStrictBody(t *testing.T) {
 	}
 }
 
+func TestLeadStatusRuleHTTPAdmissionRequiresCompleteStrictCommand(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	jobStore := jobs.NewStore(pool)
+	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	principal := widgetPrincipal(t, pool, 106, 29)
+
+	invalid := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/widget/workflow-rules/lead-status/configure",
+		bytes.NewBufferString(`{"source_pipeline_id":1,"source_status_id":2,"target_pipeline_id":3,"target_status_id":4,"expected_revision":0}`),
+	)
+	invalid.Header.Set("Content-Type", "application/json")
+	invalid.Header.Set("Idempotency-Key", "rule-invalid")
+	invalid = invalid.WithContext(widgetauth.ContextWithPrincipal(invalid.Context(), principal))
+	invalidResponse := httptest.NewRecorder()
+	handler.ConfigureLeadStatusRule(invalidResponse, invalid)
+	if invalidResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid response status/body = %d/%q", invalidResponse.Code, invalidResponse.Body.String())
+	}
+
+	valid := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/widget/workflow-rules/lead-status/configure",
+		bytes.NewBufferString(`{"source_pipeline_id":1,"source_status_id":2,"target_pipeline_id":3,"target_status_id":4,"enabled":false,"expected_revision":0}`),
+	)
+	valid.Header.Set("Content-Type", "application/json")
+	valid.Header.Set("Idempotency-Key", "rule-valid")
+	valid = valid.WithContext(widgetauth.ContextWithPrincipal(valid.Context(), principal))
+	validResponse := httptest.NewRecorder()
+	handler.ConfigureLeadStatusRule(validResponse, valid)
+	if validResponse.Code != http.StatusAccepted {
+		t.Fatalf("valid response status/body = %d/%q", validResponse.Code, validResponse.Body.String())
+	}
+	var tokens, keys, ruleJobs int
+	if err := pool.QueryRow(context.Background(), `SELECT
+		(SELECT count(*) FROM used_widget_tokens),
+		(SELECT count(*) FROM idempotency_keys),
+		(SELECT count(*) FROM jobs WHERE type=$1)`,
+		LeadStatusRuleConfigureJobType).Scan(&tokens, &keys, &ruleJobs); err != nil {
+		t.Fatal(err)
+	}
+	if tokens != 1 || keys != 1 || ruleJobs != 1 {
+		t.Fatalf("token/key/rule-job counts = %d/%d/%d", tokens, keys, ruleJobs)
+	}
+}
+
 func TestJobStatusIsWidgetUserScoped(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
@@ -201,5 +248,57 @@ func TestJobStatusRendersOnlyTypedWorkflowResult(t *testing.T) {
 	}
 	if bytes.Contains(response.Body.Bytes(), []byte("internal")) || bytes.Contains(response.Body.Bytes(), []byte("must-not-leak")) {
 		t.Fatalf("internal result leaked: %s", response.Body.String())
+	}
+}
+
+func TestLeadStatusRuleJobStatusIsActorScopedAndTyped(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	jobStore := jobs.NewStore(pool)
+	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	owner := widgetPrincipal(t, pool, 107, 31)
+	action, err := handler.actions.EnqueueLeadStatusRuleConfigure(
+		context.Background(), owner, "typed-rule-result",
+		LeadStatusRuleCommand{
+			SourcePipelineID: 10, SourceStatusID: 20,
+			TargetPipelineID: 30, TargetStatusID: 40,
+			Enabled: true, ExpectedRevision: 0,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruleID := uuid.New()
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE jobs
+		SET status='completed', result=$2, finished_at=now()
+		WHERE id=$1`, action.JobID,
+		`{"rule_id":"`+ruleID.String()+`","source_pipeline_id":10,"source_status_id":20,"target_pipeline_id":30,"target_status_id":40,"enabled":true,"revision":1,"internal":"must-not-leak"}`,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	requestStatus := func(principal widgetauth.Principal) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/widget/jobs/"+action.JobID.String(), nil)
+		routeContext := chi.NewRouteContext()
+		routeContext.URLParams.Add("jobID", action.JobID.String())
+		ctx := context.WithValue(request.Context(), chi.RouteCtxKey, routeContext)
+		ctx = widgetauth.ContextWithPrincipal(ctx, principal)
+		response := httptest.NewRecorder()
+		handler.JobStatus(response, request.WithContext(ctx))
+		return response
+	}
+
+	response := requestStatus(owner)
+	if response.Code != http.StatusOK ||
+		!bytes.Contains(response.Body.Bytes(), []byte(ruleID.String())) ||
+		bytes.Contains(response.Body.Bytes(), []byte("internal")) {
+		t.Fatalf("owner response status/body = %d/%q", response.Code, response.Body.String())
+	}
+	otherUser := owner
+	otherUser.UserID++
+	if response := requestStatus(otherUser); response.Code != http.StatusNotFound {
+		t.Fatalf("other user response status/body = %d/%q", response.Code, response.Body.String())
 	}
 }

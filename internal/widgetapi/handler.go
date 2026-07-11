@@ -119,6 +119,46 @@ func (h *Handler) LeadSetStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, result)
 }
 
+func (h *Handler) ConfigureLeadStatusRule(w http.ResponseWriter, r *http.Request) {
+	principal, ok := widgetauth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	command, err := decodeLeadStatusRuleCommand(w, r)
+	if err != nil {
+		http.Error(w, "invalid lead status rule command", http.StatusBadRequest)
+		return
+	}
+	idempotencyValues := r.Header.Values("Idempotency-Key")
+	if len(idempotencyValues) != 1 {
+		http.Error(w, "invalid idempotency key", http.StatusBadRequest)
+		return
+	}
+	result, err := h.actions.EnqueueLeadStatusRuleConfigure(
+		r.Context(), principal, idempotencyValues[0], command,
+	)
+	switch {
+	case errors.Is(err, ErrInvalidIdempotencyKey), errors.Is(err, ErrInvalidLeadStatusRule):
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	case errors.Is(err, widgetauth.ErrReplay), errors.Is(err, ErrInactiveTenant):
+		w.Header().Set("WWW-Authenticate", "Bearer")
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	case errors.Is(err, ErrIdempotencyConflict), errors.Is(err, ErrIdempotencyInProgress):
+		http.Error(w, "idempotency conflict", http.StatusConflict)
+		return
+	case err != nil:
+		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if result.Replayed {
+		w.Header().Set("Idempotency-Replayed", "true")
+	}
+	writeJSON(w, http.StatusAccepted, result)
+}
+
 func (h *Handler) JobStatus(w http.ResponseWriter, r *http.Request) {
 	principal, ok := widgetauth.PrincipalFromContext(r.Context())
 	if !ok {
@@ -142,7 +182,8 @@ func (h *Handler) JobStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if job.Type != PingJobType && job.Type != LeadSetStatusJobType {
+	if job.Type != PingJobType && job.Type != LeadSetStatusJobType &&
+		job.Type != LeadStatusRuleConfigureJobType {
 		http.NotFound(w, r)
 		return
 	}
@@ -196,6 +237,45 @@ func decodeLeadStatusCommand(w http.ResponseWriter, r *http.Request) (LeadStatus
 	return command, nil
 }
 
+func decodeLeadStatusRuleCommand(w http.ResponseWriter, r *http.Request) (LeadStatusRuleCommand, error) {
+	contentType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || contentType != "application/json" {
+		return LeadStatusRuleCommand{}, ErrInvalidLeadStatusRule
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2048))
+	if err != nil || len(body) == 0 {
+		return LeadStatusRuleCommand{}, ErrInvalidLeadStatusRule
+	}
+	var input struct {
+		SourcePipelineID *int64 `json:"source_pipeline_id"`
+		SourceStatusID   *int64 `json:"source_status_id"`
+		TargetPipelineID *int64 `json:"target_pipeline_id"`
+		TargetStatusID   *int64 `json:"target_status_id"`
+		Enabled          *bool  `json:"enabled"`
+		ExpectedRevision *int64 `json:"expected_revision"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		return LeadStatusRuleCommand{}, ErrInvalidLeadStatusRule
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) ||
+		input.SourcePipelineID == nil || input.SourceStatusID == nil ||
+		input.TargetPipelineID == nil || input.TargetStatusID == nil ||
+		input.Enabled == nil || input.ExpectedRevision == nil {
+		return LeadStatusRuleCommand{}, ErrInvalidLeadStatusRule
+	}
+	command := LeadStatusRuleCommand{
+		SourcePipelineID: *input.SourcePipelineID, SourceStatusID: *input.SourceStatusID,
+		TargetPipelineID: *input.TargetPipelineID, TargetStatusID: *input.TargetStatusID,
+		Enabled: *input.Enabled, ExpectedRevision: *input.ExpectedRevision,
+	}
+	if !validLeadStatusRuleCommand(command) {
+		return LeadStatusRuleCommand{}, ErrInvalidLeadStatusRule
+	}
+	return command, nil
+}
+
 func publicJobResult(job jobs.Job) (any, error) {
 	switch job.Type {
 	case PingJobType:
@@ -211,6 +291,15 @@ func publicJobResult(job jobs.Job) (any, error) {
 		if err := json.Unmarshal(job.Result, &result); err != nil ||
 			result.LeadID <= 0 || result.PipelineID <= 0 || result.StatusID <= 0 || !result.Converged {
 			return nil, errors.New("invalid lead status result")
+		}
+		return result, nil
+	case LeadStatusRuleConfigureJobType:
+		var result LeadStatusRuleResult
+		if err := json.Unmarshal(job.Result, &result); err != nil ||
+			result.RuleID == uuid.Nil || result.SourcePipelineID <= 0 ||
+			result.SourceStatusID <= 0 || result.TargetPipelineID <= 0 ||
+			result.TargetStatusID <= 0 || result.Revision <= 0 {
+			return nil, errors.New("invalid lead status rule result")
 		}
 		return result, nil
 	default:

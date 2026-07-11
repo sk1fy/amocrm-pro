@@ -1,12 +1,12 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md`](CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md).
+Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-rule-management-contract.md`](CHECKPOINT-2026-07-11-rule-management-contract.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/raw-webhook-retention-metrics`.
-- Базовый commit текущего среза: `0602f25` (merge PR `#35`).
+- Ветка на момент снимка: `codex/rule-management-contract`.
+- Базовый commit текущего среза: `2d21d88` (merge PR `#36`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
@@ -126,6 +126,10 @@
 - typed `status_lead` rule создаёт unique workflow run и convergent transition job;
 - widget и webhook lead status mutations фиксируют outbound intent до PATCH;
   incoming target webhook переводит exact effect в observed и не запускает loop.
+- async rule configure сохраняет verified widget user как durable actor, worker
+  re-checkит active amoCRM admin и применяет create/update/disable через revision CAS;
+- immutable per-job configuration receipt делает retry после DB commit
+  идемпотентным и хранит typed redacted rule snapshot.
 
 ## Что пока отсутствует
 
@@ -133,7 +137,7 @@
   process-local; Redis намеренно отсутствует);
 - удаление/ротация amoCRM webhooks и полный uninstall lifecycle;
 - stable JSON errors и полный uninstall/revocation lifecycle (`#32`);
-- rule management, дополнительные domain workflow/sync handlers и generalized registry;
+- дополнительные domain workflow/sync handlers и generalized registry;
 - dashboards, production SLO/alerts и capacity/load tests;
 - production integration contracts с окружающими микросервисами.
 
@@ -158,13 +162,11 @@
 - Секреты и PII не должны попадать в GitHub Issues, project memory, логи или fixtures.
 - Изменения должны сохранять возможность независимого запуска/масштабирования API и worker.
 
-## Ближайший фокус
+## Каноническая навигация
 
-1. Открыть PR raw payload retention/metrics среза и дождаться CI; merge не делать.
-2. Следующим bounded slice определить async rule-management configure contract.
-3. Добавить load tests, dashboards/SLO и production hardening из `#21`.
-
-Декомпозиция и шаблон следующего checkpoint находятся в [`ROADMAP.md`](ROADMAP.md), внешние блокеры — в [`BUGS.md`](BUGS.md).
+Агрегированный status и current focus: GitHub Issue #12. Канонический phase
+mapping и post-merge protocol: [`ROADMAP.md`](ROADMAP.md). Checkpoints содержат
+только evidence/handoff и ведут ссылкой на текущий Issue.
 
 ## Правила обновления памяти
 

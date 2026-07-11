@@ -20,15 +20,18 @@ import (
 )
 
 const (
-	PingJobType          = "widget.ping"
-	LeadSetStatusJobType = "workflow.lead.set_status"
-	pingIdempotencyScope = "widget.ping:v1"
-	leadStatusScope      = "widget.lead.set_status:v1"
-	idempotencyTTL       = 24 * time.Hour
-	staleProcessingAfter = 5 * time.Minute
-	maxIdempotencyKey    = 128
-	widgetActorType      = "widget_user"
-	leadResourceType     = "lead"
+	PingJobType                    = "widget.ping"
+	LeadSetStatusJobType           = "workflow.lead.set_status"
+	LeadStatusRuleConfigureJobType = "workflow.rule.lead_status.configure"
+	pingIdempotencyScope           = "widget.ping:v1"
+	leadStatusScope                = "widget.lead.set_status:v1"
+	leadStatusRuleScope            = "widget.workflow_rule.lead_status.configure:v1"
+	idempotencyTTL                 = 24 * time.Hour
+	staleProcessingAfter           = 5 * time.Minute
+	maxIdempotencyKey              = 128
+	widgetActorType                = "widget_user"
+	leadResourceType               = "lead"
+	leadStatusRuleResourceType     = "lead_status_workflow_rule"
 )
 
 var (
@@ -37,6 +40,7 @@ var (
 	ErrIdempotencyInProgress = errors.New("idempotent request is still processing")
 	ErrInactiveTenant        = errors.New("widget tenant is not active")
 	ErrInvalidLeadStatus     = errors.New("invalid lead status command")
+	ErrInvalidLeadStatusRule = errors.New("invalid lead status rule command")
 )
 
 type ActionResult struct {

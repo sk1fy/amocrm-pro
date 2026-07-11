@@ -131,12 +131,15 @@ func run() error {
 		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.Ping)))
 	router.Method(apicontract.WidgetLeadSetStatus.Method, apicontract.WidgetLeadSetStatus.Path,
 		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.LeadSetStatus)))
+	router.Method(apicontract.WidgetLeadStatusRuleConfigure.Method, apicontract.WidgetLeadStatusRuleConfigure.Path,
+		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.ConfigureLeadStatusRule)))
 	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path,
 		widgetRoute(widgetMiddleware, http.HandlerFunc(widgetHandler.JobStatus)))
 	for _, widgetRouteContract := range []apicontract.Route{
 		apicontract.WidgetBootstrap,
 		apicontract.WidgetPing,
 		apicontract.WidgetLeadSetStatus,
+		apicontract.WidgetLeadStatusRuleConfigure,
 		apicontract.WidgetJob,
 	} {
 		router.Method(http.MethodOptions, widgetRouteContract.Path,

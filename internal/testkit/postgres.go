@@ -72,6 +72,7 @@ func Reset(t *testing.T, pool *pgxpool.Pool) {
 	_, err := pool.Exec(ctx, `
 		TRUNCATE TABLE
 			audit_log, idempotency_keys, used_widget_tokens,
+			lead_status_workflow_rule_configurations,
 			job_attempts, outbound_effects, workflow_runs,
 			lead_status_workflow_rules, jobs, inbox_events,
 			webhook_event_tombstones, webhook_deliveries,
