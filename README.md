@@ -34,7 +34,7 @@
 Docker build, vet, race-enabled unit tests и изолированный PostgreSQL integration
 gate проходят. OAuth callback/refresh и webhook reconciliation покрыты
 конкурентными contract tests; актуальный handoff находится в
-[webhook payload retention checkpoint](docs/project-memory/CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md).
+[API management listener checkpoint](docs/project-memory/CHECKPOINT-2026-07-11-api-management-listener.md).
 
 ## Сервисы
 
@@ -160,6 +160,7 @@ GitHub Issues являются основной долговременной п�
 - [`CHECKPOINT-2026-07-11-webhook-correlation-retention.md`](docs/project-memory/CHECKPOINT-2026-07-11-webhook-correlation-retention.md) — strict browser CORS, bounded cleanup, tombstones и webhook-origin effect correlation;
 - [`CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md`](docs/project-memory/CHECKPOINT-2026-07-11-webhook-payload-retention-metrics.md) — finite raw payload retention, durable history и cleanup/workflow metrics;
 - [`CHECKPOINT-2026-07-11-rule-management-contract.md`](docs/project-memory/CHECKPOINT-2026-07-11-rule-management-contract.md) — async rule management principal, CAS/receipt и canonical Issue sync;
+- [`CHECKPOINT-2026-07-11-api-management-listener.md`](docs/project-memory/CHECKPOINT-2026-07-11-api-management-listener.md) — public/management route isolation, PostgreSQL readiness и listener supervision;
 - [`docs/adr/`](docs/adr/) — принятые архитектурные решения.
 
 ## Безопасность

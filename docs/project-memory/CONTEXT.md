@@ -1,12 +1,12 @@
 # Project context
 
-Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-rule-management-contract.md`](CHECKPOINT-2026-07-11-rule-management-contract.md).
+Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-api-management-listener.md`](CHECKPOINT-2026-07-11-api-management-listener.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/rule-management-contract`.
-- Базовый commit текущего среза: `2d21d88` (merge PR `#36`).
+- Ветка на момент снимка: `codex/management-listener`.
+- Базовый commit текущего среза: `f4b812d` (merge PR `#38`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
@@ -33,7 +33,8 @@
 - multi-stage Dockerfile с целями API, worker, migrate и test;
 - Compose-сервисы `postgres`, `migrate`, `api`, `worker`;
 - конфигурация из environment, structured JSON logging и signal-aware shutdown;
-- `/live`, `/ready`, `/metrics` у API и worker;
+- публичный API `/live`, отдельный API management listener с `/live`, `/ready`
+  и `/metrics`, внутренний health/metrics listener worker;
 - HTTP request ID, recovery и access log middleware;
 - Make targets для Docker-only build/test/format/vet/migrations;
 - начальный GitHub Actions workflow, собирающий Docker targets.
@@ -147,8 +148,9 @@
 - В исходниках есть unit tests для job classification/backoff и webhook parsing/deduplication/account ID.
 - Найденный Docker build blocker из-за неиспользуемого `net/http` в `cmd/worker` исправлен; текущий файл этот import не содержит.
 - `make integration-test` проходит на изолированной PostgreSQL 17: migration
-  cycle четырёх migrations и race-enabled tests jobs/OAuth/webhook/widget/workflow
-  с TLS amoCRM stub, включая payload deletion, retained history и replay suppression.
+  cycle пяти migrations и race-enabled tests jobs/OAuth/webhook/widget/workflow
+  с TLS amoCRM stub, включая API management route isolation, payload deletion,
+  retained history и replay suppression.
 - `make test` проходит в Docker: runtime builds, formatting, vet и
   `go test -race -count=1 ./...`.
 
