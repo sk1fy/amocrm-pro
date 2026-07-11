@@ -45,13 +45,18 @@ type BootstrapIntegration struct {
 
 type Worker struct {
 	Common
-	WorkerID      string
-	PollInterval  time.Duration
-	LeaseDuration time.Duration
-	JobTimeout    time.Duration
-	BatchSize     int
-	Concurrency   int
-	PublicBaseURL string
+	WorkerID            string
+	PollInterval        time.Duration
+	LeaseDuration       time.Duration
+	JobTimeout          time.Duration
+	BatchSize           int
+	Concurrency         int
+	PublicBaseURL       string
+	CleanupInterval     time.Duration
+	CleanupTimeout      time.Duration
+	CleanupSafetyMargin time.Duration
+	CleanupBatchSize    int
+	CleanupMaxBatches   int
 }
 
 type Migrate struct {
@@ -166,6 +171,29 @@ func LoadWorker() (Worker, error) {
 	if publicBaseURL == "" {
 		return Worker{}, errors.New("PUBLIC_BASE_URL is required")
 	}
+	cleanupInterval, err := duration("CLEANUP_INTERVAL", 15*time.Minute)
+	if err != nil {
+		return Worker{}, err
+	}
+	if cleanupInterval < time.Second {
+		return Worker{}, errors.New("CLEANUP_INTERVAL must be at least 1s")
+	}
+	cleanupTimeout, err := duration("CLEANUP_TIMEOUT", 30*time.Second)
+	if err != nil {
+		return Worker{}, err
+	}
+	cleanupSafetyMargin, err := nonnegativeDuration("CLEANUP_SAFETY_MARGIN", 5*time.Minute)
+	if err != nil {
+		return Worker{}, err
+	}
+	cleanupBatchSize, err := integer("CLEANUP_BATCH_SIZE", 500, 1, 10_000)
+	if err != nil {
+		return Worker{}, err
+	}
+	cleanupMaxBatches, err := integer("CLEANUP_MAX_BATCHES", 20, 1, 1_000)
+	if err != nil {
+		return Worker{}, err
+	}
 
 	workerID := strings.TrimSpace(os.Getenv("WORKER_ID"))
 	if workerID == "" {
@@ -177,14 +205,12 @@ func LoadWorker() (Worker, error) {
 	}
 
 	return Worker{
-		Common:        common,
-		WorkerID:      workerID,
-		PollInterval:  pollInterval,
-		LeaseDuration: leaseDuration,
-		JobTimeout:    jobTimeout,
-		BatchSize:     batchSize,
-		Concurrency:   concurrency,
-		PublicBaseURL: publicBaseURL,
+		Common: common, WorkerID: workerID, PollInterval: pollInterval,
+		LeaseDuration: leaseDuration, JobTimeout: jobTimeout,
+		BatchSize: batchSize, Concurrency: concurrency, PublicBaseURL: publicBaseURL,
+		CleanupInterval: cleanupInterval, CleanupTimeout: cleanupTimeout,
+		CleanupSafetyMargin: cleanupSafetyMargin, CleanupBatchSize: cleanupBatchSize,
+		CleanupMaxBatches: cleanupMaxBatches,
 	}, nil
 }
 
@@ -284,6 +310,18 @@ func duration(name string, fallback time.Duration) (time.Duration, error) {
 	value, err := time.ParseDuration(raw)
 	if err != nil || value <= 0 {
 		return 0, fmt.Errorf("%s must be a positive duration: %q", name, raw)
+	}
+	return value, nil
+}
+
+func nonnegativeDuration(name string, fallback time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := time.ParseDuration(raw)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("%s must be a nonnegative duration: %q", name, raw)
 	}
 	return value, nil
 }

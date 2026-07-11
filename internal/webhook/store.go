@@ -173,13 +173,32 @@ func (s *Store) SaveParsedEvents(ctx context.Context, delivery Delivery, events 
 
 	inserted := 0
 	for _, event := range events {
+		tombstone, err := tx.Exec(ctx, `
+			INSERT INTO webhook_event_tombstones (
+				installation_id, deduplication_key
+			) VALUES ($1, $2)
+			ON CONFLICT (installation_id, deduplication_key) DO NOTHING`,
+			delivery.InstallationID, event.DeduplicationKey,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("claim webhook event tombstone: %w", err)
+		}
+		if tombstone.RowsAffected() == 0 {
+			if _, err := tx.Exec(ctx, `
+				UPDATE webhook_event_tombstones SET last_seen_at=GREATEST(last_seen_at, now())
+				WHERE installation_id=$1 AND deduplication_key=$2`,
+				delivery.InstallationID, event.DeduplicationKey,
+			); err != nil {
+				return 0, fmt.Errorf("touch webhook event tombstone: %w", err)
+			}
+			continue
+		}
 		var eventID uuid.UUID
-		err := tx.QueryRow(ctx, `
+		err = tx.QueryRow(ctx, `
 			INSERT INTO inbox_events (
 				delivery_id, installation_id, entity_type, event_type,
 				entity_id, event_at, payload, deduplication_key
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			ON CONFLICT (installation_id, deduplication_key) DO NOTHING
 			RETURNING id`,
 			delivery.ID,
 			delivery.InstallationID,
@@ -190,9 +209,6 @@ func (s *Store) SaveParsedEvents(ctx context.Context, delivery Delivery, events 
 			event.Payload,
 			event.DeduplicationKey,
 		).Scan(&eventID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			continue
-		}
 		if err != nil {
 			return 0, fmt.Errorf("save inbox event: %w", err)
 		}
@@ -232,11 +248,22 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 	var installationID uuid.UUID
 	var entityType, eventType string
 	var entityID *int64
+	var payload json.RawMessage
+	var deduplicationKey []byte
+	var deliveryReceivedAt time.Time
 	var status string
 	err = tx.QueryRow(ctx, `
-		SELECT installation_id, entity_type, event_type, entity_id, status
-		FROM inbox_events WHERE id = $1 AND installation_id = $2 FOR UPDATE`, eventID, expectedInstallationID,
-	).Scan(&installationID, &entityType, &eventType, &entityID, &status)
+		SELECT event.installation_id, event.entity_type, event.event_type,
+			event.entity_id, event.payload, event.deduplication_key,
+			delivery.received_at, event.status
+		FROM inbox_events AS event
+		JOIN webhook_deliveries AS delivery ON delivery.id=event.delivery_id
+		WHERE event.id = $1 AND event.installation_id = $2
+		FOR UPDATE OF event`, eventID, expectedInstallationID,
+	).Scan(
+		&installationID, &entityType, &eventType, &entityID, &payload,
+		&deduplicationKey, &deliveryReceivedAt, &status,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -247,17 +274,33 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 		return tx.Commit(ctx)
 	}
 
+	route, err := s.routeLeadStatusEvent(ctx, tx, leadStatusEvent{
+		ID: eventID, InstallationID: installationID, EntityType: entityType,
+		EventType: eventType, EntityID: entityID, Payload: payload,
+		DeduplicationKey: deduplicationKey, ReceivedAt: deliveryReceivedAt,
+	})
+	if err != nil {
+		return err
+	}
+	finalStatus := "processed"
+	if route.EffectID != nil {
+		finalStatus = "ignored"
+	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE inbox_events
-		SET status = 'processed', attempts = attempts + 1, processed_at = now(), updated_at = now()
-		WHERE id = $1`, eventID,
+		SET status = $2, attempts = attempts + 1, processed_at = now(),
+			correlated_effect_id=$3, updated_at = now()
+		WHERE id = $1`, eventID, finalStatus, route.EffectID,
 	); err != nil {
 		return fmt.Errorf("mark inbox event processed: %w", err)
 	}
 	metadata, err := json.Marshal(map[string]any{
-		"event_type":  eventType,
-		"entity_type": entityType,
-		"entity_id":   entityID,
+		"event_type":           eventType,
+		"entity_type":          entityType,
+		"entity_id":            entityID,
+		"disposition":          route.Disposition,
+		"workflow_run_id":      route.RunID,
+		"correlated_effect_id": route.EffectID,
 	})
 	if err != nil {
 		return fmt.Errorf("marshal webhook event audit: %w", err)
@@ -333,7 +376,7 @@ func (s *Store) RecordJobFailure(
 			SET status = $3, attempts = GREATEST(attempts, $4),
 				last_error = $5,
 				processed_at = CASE WHEN $6 THEN now() ELSE NULL END, updated_at = now()
-			WHERE id = $1 AND installation_id = $2 AND status <> 'processed'`,
+			WHERE id = $1 AND installation_id = $2 AND status NOT IN ('processed', 'ignored')`,
 			eventID, *job.InstallationID, eventStatus, job.Attempts,
 			sanitize.Text(failure.Message, 4000), terminal,
 		)
@@ -342,6 +385,38 @@ func (s *Store) RecordJobFailure(
 		}
 		if tag.RowsAffected() != 1 {
 			return nil
+		}
+	case LeadStatusTransitionJobType:
+		var payload leadStatusTransitionPayload
+		if err := json.Unmarshal(job.Payload, &payload); err != nil || payload.WorkflowRunID == uuid.Nil {
+			return nil
+		}
+		runStatus := "queued"
+		terminal := false
+		if status == jobs.StatusFailed {
+			runStatus, terminal = "failed", true
+		} else if status == jobs.StatusDead {
+			runStatus, terminal = "dead", true
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE workflow_runs
+			SET status=$4, finished_at=CASE WHEN $5 THEN now() ELSE NULL END
+			WHERE id=$1 AND installation_id=$2 AND job_id=$3 AND status <> 'completed'`,
+			payload.WorkflowRunID, *job.InstallationID, job.ID, runStatus, terminal,
+		); err != nil {
+			return fmt.Errorf("record workflow run failure: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE outbound_effects
+			SET state=CASE
+					WHEN state='prepared' THEN 'uncertain'
+					ELSE state
+				END,
+				last_error=$2, updated_at=now()
+			WHERE correlation_job_id=$1`,
+			job.ID, sanitize.Text(failure.Message, 4000),
+		); err != nil {
+			return fmt.Errorf("record workflow effect failure: %w", err)
 		}
 	}
 	return nil

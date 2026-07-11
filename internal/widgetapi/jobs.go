@@ -93,8 +93,15 @@ func LeadSetStatusJobHandler(store *ExecutionStore, api LeadStatusAPI) jobs.Hand
 			if !user.Rights.IsActive || !user.Rights.IsAdmin {
 				return nil, jobs.Permanent("actor_forbidden", errors.New("lead status workflow requires an active amoCRM administrator"))
 			}
+			effectID, err := store.PrepareLeadStatusEffect(
+				ctx, job, nil, leadID, command.PipelineID, command.StatusID,
+			)
+			if err != nil {
+				return nil, err
+			}
 			mutation, err := api.PrepareLeadStatus(ctx, installationID)
 			if err != nil {
+				_ = store.MarkLeadStatusEffect(ctx, effectID, "failed", err)
 				return nil, classifyWorkflowError(err)
 			}
 			if err := store.WithMutationAuthorization(
@@ -106,9 +113,20 @@ func LeadSetStatusJobHandler(store *ExecutionStore, api LeadStatusAPI) jobs.Hand
 				},
 			); err != nil {
 				if errors.Is(err, ErrExecutionNotAuthorized) {
+					_ = store.MarkLeadStatusEffect(ctx, effectID, "failed", err)
 					return nil, jobs.Permanent("action_not_authorized", err)
 				}
+				_ = store.MarkLeadStatusEffect(ctx, effectID, "uncertain", err)
 				return nil, classifyMutationError(err)
+			}
+			if err := store.MarkLeadStatusEffect(ctx, effectID, "applied", nil); err != nil {
+				return nil, err
+			}
+		} else if effectID, found, err := store.LeadStatusEffectForJob(ctx, job.ID); err != nil {
+			return nil, err
+		} else if found {
+			if err := store.MarkLeadStatusEffect(ctx, effectID, "applied", nil); err != nil {
+				return nil, err
 			}
 		}
 

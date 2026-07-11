@@ -1,17 +1,18 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-lead-status-workflow.md`](CHECKPOINT-2026-07-11-lead-status-workflow.md).
+Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-webhook-correlation-retention.md`](CHECKPOINT-2026-07-11-webhook-correlation-retention.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/widget-hardening-first-workflow`.
-- Базовый commit текущего среза: `2c16f27` (merge PR `#33`).
+- Ветка на момент снимка: `codex/webhook-correlation-retention`.
+- Базовый commit текущего среза: `eda364e` (merge PR `#34`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
 - Стадия: foundation, OAuth/client, webhook reconciliation, atomic widget
-  admission и первый real amoCRM workflow реализованы; P6/P7 hardening продолжается.
+  admission, strict CORS, cleanup и widget/webhook workflows с durable effect
+  correlation реализованы; P7/P8 hardening продолжается.
 
 При расхождении этого снимка с кодом источником факта являются текущие исходники, миграции и Compose-конфигурация; решение о намерениях уточняется по ADR; план — по `ROADMAP.md`.
 
@@ -110,17 +111,26 @@
 - атомарная запись inbox events и `webhook.process_event` jobs;
 - базовый process handler, переводящий event в processed и добавляющий audit record.
 
-Последний handler пока является инфраструктурным proof of pipeline: прикладная бизнес-логика/workflow поверх нормализованного события ещё не реализована.
+### Widget browser, cleanup и webhook-origin workflow
+
+- direct browser topology закреплена tenant-bound CORS только для widget routes;
+- active origin проверяется через PostgreSQL, actual request связан с verified JWT issuer;
+- worker cleanup удаляет expired widget tokens/idempotency rows bounded batches
+  под advisory lock и никогда не сокращает replay/TTL safety window;
+- webhook dedup вынесен в retained tombstones, поэтому будущий payload cleanup
+  не делает историческую доставку снова actionable;
+- typed `status_lead` rule создаёт unique workflow run и convergent transition job;
+- widget и webhook lead status mutations фиксируют outbound intent до PATCH;
+  incoming target webhook переводит exact effect в observed и не запускает loop.
 
 ## Что пока отсутствует
 
 - production-grade pagination и распределённое rate limiting (текущий лимитер
   process-local; Redis намеренно отсутствует);
 - удаление/ротация amoCRM webhooks и полный uninstall lifecycle;
-- cleanup одноразовых JWT/idempotency rows, browser CORS decision и полный
-  uninstall/revocation lifecycle (`#32`);
-- дополнительные domain workflow/sync handlers и webhook-origin effect correlation;
-- retention/cleanup jobs, operational dashboards и production SLO/alerts;
+- stable JSON errors и полный uninstall/revocation lifecycle (`#32`);
+- rule management, дополнительные domain workflow/sync handlers и generalized registry;
+- raw webhook payload retention, cleanup metrics, dashboards и production SLO/alerts;
 - production integration contracts с окружающими микросервисами.
 
 ## Подтверждённые проверки и границы уверенности
@@ -145,10 +155,9 @@
 
 ## Ближайший фокус
 
-1. Дождаться CI и review PR execution-hardening/lead-status среза; merge не делать.
-2. Зафиксировать browser/CORS topology и cleanup scheduler contract в `#32`.
-3. Выбрать webhook-origin workflow/effect correlation slice из `#10`.
-4. Добавить operational metrics/retention и production hardening из `#21`.
+1. Открыть PR browser/cleanup/webhook-correlation среза и дождаться CI; merge не делать.
+2. Выбрать rule management либо raw delivery/inbox cleanup при retained tombstones.
+3. Добавить cleanup/workflow metrics, load tests и production hardening из `#21`.
 
 Декомпозиция и шаблон следующего checkpoint находятся в [`ROADMAP.md`](ROADMAP.md), внешние блокеры — в [`BUGS.md`](BUGS.md).
 

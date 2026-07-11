@@ -1,6 +1,6 @@
 # Roadmap и структура GitHub Issues
 
-Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-lead-status-workflow.md`](CHECKPOINT-2026-07-11-lead-status-workflow.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
+Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-webhook-correlation-retention.md`](CHECKPOINT-2026-07-11-webhook-correlation-retention.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
 
 ## Статусы на 2026-07-11
 
@@ -12,8 +12,8 @@
 | P3 | In progress | Durable ingress и reconciliation покрыты; domain effects ещё инфраструктурные |
 | P4 | In progress | OAuth callback/reauthorization и concurrency contracts реализованы |
 | P5 | In progress | Client/refresh/reconciliation реализованы; pagination и production rate limits впереди |
-| P6 | In progress | JWT и atomic idempotent action admission есть; browser/cleanup hardening в `#32` |
-| P7 | In progress | Первый admin-only lead status workflow реализован; webhook-origin workflows и sync впереди |
+| P6 | In progress | JWT/admission, strict browser CORS и periodic cleanup готовы; errors/uninstall впереди |
+| P7 | In progress | Widget + webhook lead workflows, tombstones/effect correlation готовы; registry/sync впереди |
 | P8 | Planned | Production hardening и интеграция в микросервисный контур |
 
 `In progress` означает наличие реализации, а не завершённый acceptance. Phase можно закрывать только после записи конкретных проверок в checkpoint.
@@ -177,14 +177,15 @@
 **Scope/checklist:**
 
 - [ ] Валидация JWT signature/algorithm, issuer, audience, expiry и required claims.
-- [x] Atomic one-time `jti` claim в PostgreSQL; cleanup expired tokens остаётся в `#32`.
+- [x] Atomic one-time `jti` claim и periodic PostgreSQL cleanup expired rows.
 - [x] Связка account/user/integration claims с active installation.
-- [ ] CORS/origin policy, body limits, request ID и стабильный error envelope.
+- [x] Tenant-bound CORS/origin policy для direct widget browser topology.
+- [ ] Stable JSON error envelope.
 - [x] Idempotency-key admission lifecycle, TTL reclaim и request hash mismatch protection.
 - [x] Endpoints создания jobs и tenant/user-scoped чтения статуса/result для proof action.
 - [x] Durable actor/resource ownership и actor-scoped result isolation.
 - [x] Active admin/disabled tenant negative tests для первого real action.
-- [ ] Полная authorization matrix, browser CORS и periodic cleanup.
+- [ ] Полная authorization matrix и uninstall lifecycle.
 
 **Acceptance criteria:** повторный JWT отклоняется атомарно; пользователь не видит чужую installation/job; повтор идентичного запроса безопасен; API не возвращает secrets или raw PII.
 
@@ -200,13 +201,13 @@
 
 **Scope/checklist:**
 
-- [ ] Зафиксировать поддерживаемые entity/event types и versioned normalized contract.
+- [x] Первый typed `status_lead` route и versioned workflow identity.
 - [x] Реализован первый convergent `lead.set_status` handler с явными permanent/retryable outcomes.
 - [ ] Out-of-order/stale event policy и reconciliation jobs.
 - [ ] Bulk/paginated sync с checkpoint/cursor и controlled fan-out.
 - [x] Typed workflow result/audit и retry после ambiguous PATCH без повторного side effect.
 - [ ] Контракты публикации/вызова окружающих микросервисов.
-- [ ] Integration/contract tests основных business scenarios.
+- [x] Integration tests webhook dispatch, convergent PATCH и self-effect loop prevention.
 
 **Acceptance criteria:** повтор, перестановка и частичный сбой не нарушают domain invariants; sync возобновляется с checkpoint; внешние side effects идемпотентны и трассируемы.
 

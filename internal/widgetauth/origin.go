@@ -37,6 +37,16 @@ func IssuerForAccountDomain(accountDomain string) (string, error) {
 	return normalizeClaimOrigin(accountDomain, true)
 }
 
+// NormalizeHTTPSOrigin validates and canonicalizes a browser Origin value.
+// Unlike IssuerForAccountDomain, it requires the caller to provide an
+// absolute HTTPS origin rather than accepting a bare account domain.
+func NormalizeHTTPSOrigin(raw string) (string, error) {
+	if !strings.Contains(raw, "://") {
+		return "", fmt.Errorf("origin must be an absolute URL")
+	}
+	return normalizeClaimOrigin(raw, true)
+}
+
 func normalizeClaimOrigin(raw string, httpsOnly bool) (string, error) {
 	if raw == "" || raw != strings.TrimSpace(raw) {
 		return "", fmt.Errorf("origin is empty or has surrounding whitespace")
