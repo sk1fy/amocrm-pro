@@ -43,10 +43,12 @@ type eventRoute struct {
 }
 
 type leadStatusTransitionPayload struct {
-	WorkflowRunID uuid.UUID `json:"workflow_run_id"`
-	LeadID        int64     `json:"lead_id"`
-	PipelineID    int64     `json:"pipeline_id"`
-	StatusID      int64     `json:"status_id"`
+	WorkflowRunID    uuid.UUID `json:"workflow_run_id"`
+	LeadID           int64     `json:"lead_id"`
+	SourcePipelineID int64     `json:"source_pipeline_id"`
+	SourceStatusID   int64     `json:"source_status_id"`
+	PipelineID       int64     `json:"pipeline_id"`
+	StatusID         int64     `json:"status_id"`
 }
 
 type leadStatusEventState struct {
@@ -141,6 +143,7 @@ func (s *Store) routeLeadStatusEvent(
 	}
 	payload := leadStatusTransitionPayload{
 		WorkflowRunID: runID, LeadID: *event.EntityID,
+		SourcePipelineID: state.PipelineID, SourceStatusID: state.StatusID,
 		PipelineID: targetPipelineID, StatusID: targetStatusID,
 	}
 	job, err := jobs.NewStore(s.pool).EnqueueTx(ctx, tx, jobs.EnqueueParams{
@@ -195,21 +198,58 @@ func (s *Store) completeLeadStatusRun(
 	payload leadStatusTransitionPayload,
 	outcome string,
 ) error {
+	if job.InstallationID == nil || job.ActorID == nil || job.ResourceType == nil ||
+		job.ResourceID == nil || job.LockedBy == nil {
+		return widgetapi.ErrExecutionNotAuthorized
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin complete lead status workflow: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `
+	var marker int
+	err = tx.QueryRow(ctx, `
+		UPDATE jobs AS job
+		SET locked_until=GREATEST(job.locked_until, now()+interval '5 seconds'),
+			updated_at=now()
+		FROM installations AS installation
+		JOIN integrations AS integration ON integration.id=installation.integration_id
+		WHERE job.id=$1 AND job.installation_id=$2 AND job.type=$3
+		  AND job.status='processing' AND job.attempts=$4
+		  AND job.locked_by=$5 AND job.locked_until >= now()
+		  AND job.actor_type='integration' AND job.actor_id=$6
+		  AND job.resource_type=$7 AND job.resource_id=$8
+		  AND installation.id=job.installation_id
+		  AND installation.status='active' AND integration.status='active'
+		RETURNING 1`,
+		job.ID, *job.InstallationID, LeadStatusTransitionJobType,
+		job.Attempts, *job.LockedBy, *job.ActorID, *job.ResourceType, *job.ResourceID,
+	).Scan(&marker)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return widgetapi.ErrExecutionNotAuthorized
+	}
+	if err != nil {
+		return fmt.Errorf("authorize lead status workflow completion: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
 		UPDATE workflow_runs SET status='completed', finished_at=COALESCE(finished_at, now())
-		WHERE id=$1 AND installation_id=$2 AND job_id=$3`,
+		WHERE id=$1 AND installation_id=$2 AND job_id=$3
+		  AND workflow_type=$4 AND workflow_version=$5
+		  AND status IN ('queued', 'processing')`,
 		payload.WorkflowRunID, *job.InstallationID, job.ID,
-	); err != nil {
+		leadStatusWorkflowType, leadStatusWorkflowVersion,
+	)
+	if err != nil {
 		return fmt.Errorf("complete lead status workflow run: %w", err)
 	}
+	if tag.RowsAffected() != 1 {
+		return errLeadStatusWorkflowRunMismatch
+	}
 	metadata, _ := json.Marshal(map[string]any{
-		"workflow_run_id": payload.WorkflowRunID,
-		"pipeline_id":     payload.PipelineID, "status_id": payload.StatusID,
+		"workflow_run_id":    payload.WorkflowRunID,
+		"source_pipeline_id": payload.SourcePipelineID,
+		"source_status_id":   payload.SourceStatusID,
+		"pipeline_id":        payload.PipelineID, "status_id": payload.StatusID,
 		"outcome": outcome,
 	})
 	if _, err := tx.Exec(ctx, `
@@ -230,23 +270,87 @@ func (s *Store) markLeadStatusRunProcessing(
 	ctx context.Context,
 	job jobs.Job,
 	payload leadStatusTransitionPayload,
-) error {
-	tag, err := s.pool.Exec(ctx, `
-		UPDATE workflow_runs
-		SET status='processing'
-		WHERE id=$1 AND installation_id=$2 AND job_id=$3
-		  AND workflow_type=$4 AND workflow_version=$5
-		  AND status IN ('queued', 'processing')`,
+) (completed bool, converged bool, err error) {
+	var previousStatus, outcome string
+	err = s.pool.QueryRow(ctx, `
+		WITH candidate AS (
+			SELECT run.id,run.status,COALESCE(audit.metadata->>'outcome','') AS outcome
+			FROM workflow_runs AS run
+			LEFT JOIN audit_log AS audit ON audit.correlation_job_id=run.job_id
+			WHERE run.id=$1 AND run.installation_id=$2 AND run.job_id=$3
+			  AND run.workflow_type=$4 AND run.workflow_version=$5
+			  AND run.status IN ('queued', 'processing', 'completed')
+			FOR UPDATE OF run
+		)
+		UPDATE workflow_runs AS run
+		SET status=CASE WHEN candidate.status='completed' THEN run.status ELSE 'processing' END
+		FROM candidate
+		WHERE run.id=candidate.id
+		RETURNING candidate.status,candidate.outcome`,
 		payload.WorkflowRunID, *job.InstallationID, job.ID,
 		leadStatusWorkflowType, leadStatusWorkflowVersion,
-	)
+	).Scan(&previousStatus, &outcome)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, false, errLeadStatusWorkflowRunMismatch
+	}
 	if err != nil {
-		return fmt.Errorf("mark lead status workflow processing: %w", err)
+		return false, false, fmt.Errorf("mark lead status workflow processing: %w", err)
 	}
-	if tag.RowsAffected() != 1 {
-		return errLeadStatusWorkflowRunMismatch
+	if previousStatus != "completed" {
+		return false, false, nil
 	}
-	return nil
+	switch outcome {
+	case "converged", "already_converged":
+		return true, true, nil
+	case "source_changed":
+		return true, false, nil
+	default:
+		return false, false, errors.New("completed lead status workflow receipt is invalid")
+	}
+}
+
+func (s *Store) completedLeadStatusRunReceipt(
+	ctx context.Context,
+	job jobs.Job,
+	payload leadStatusTransitionPayload,
+) (found bool, converged bool, err error) {
+	if job.InstallationID == nil || job.ActorID == nil || job.ResourceType == nil ||
+		job.ResourceID == nil || job.LockedBy == nil {
+		return false, false, nil
+	}
+	var outcome string
+	err = s.pool.QueryRow(ctx, `
+		SELECT audit.metadata->>'outcome'
+		FROM workflow_runs AS run
+		JOIN jobs AS job
+		  ON job.id=run.job_id AND job.installation_id=run.installation_id
+		JOIN audit_log AS audit ON audit.correlation_job_id=job.id
+		WHERE run.id=$1 AND run.installation_id=$2 AND run.job_id=$3
+		  AND run.workflow_type=$4 AND run.workflow_version=$5
+		  AND run.status='completed'
+		  AND job.type=$6 AND job.status='processing' AND job.attempts=$7
+		  AND job.locked_by=$8 AND job.locked_until >= now()
+		  AND job.actor_type='integration' AND job.actor_id=$9
+		  AND job.resource_type=$10 AND job.resource_id=$11`,
+		payload.WorkflowRunID, *job.InstallationID, job.ID,
+		leadStatusWorkflowType, leadStatusWorkflowVersion,
+		LeadStatusTransitionJobType, job.Attempts, *job.LockedBy,
+		*job.ActorID, *job.ResourceType, *job.ResourceID,
+	).Scan(&outcome)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, fmt.Errorf("load completed lead status workflow receipt: %w", err)
+	}
+	switch outcome {
+	case "converged", "already_converged":
+		return true, true, nil
+	case "source_changed":
+		return true, false, nil
+	default:
+		return false, false, errors.New("completed lead status workflow receipt is invalid")
+	}
 }
 
 // LeadStatusTransitionJobHandler executes the PostgreSQL-originated transition
@@ -263,10 +367,18 @@ func LeadStatusTransitionJobHandler(
 		var payload leadStatusTransitionPayload
 		if err := json.Unmarshal(job.Payload, &payload); err != nil ||
 			payload.WorkflowRunID == uuid.Nil || payload.LeadID <= 0 ||
+			payload.SourcePipelineID <= 0 || payload.SourceStatusID <= 0 ||
 			payload.PipelineID <= 0 || payload.StatusID <= 0 ||
 			*job.ResourceType != leadResourceType ||
 			*job.ResourceID != strconv.FormatInt(payload.LeadID, 10) {
 			return nil, jobs.Permanent("invalid_payload", errors.New("lead status transition payload is invalid"))
+		}
+		completed, converged, err := store.completedLeadStatusRunReceipt(ctx, job, payload)
+		if err != nil {
+			return nil, err
+		}
+		if completed {
+			return leadStatusTransitionResultWithConvergence(payload, converged), nil
 		}
 		if err := execution.AuthorizeIntegrationAction(
 			ctx, job, LeadStatusTransitionJobType, leadResourceType,
@@ -276,11 +388,15 @@ func LeadStatusTransitionJobHandler(
 			}
 			return nil, err
 		}
-		if err := store.markLeadStatusRunProcessing(ctx, job, payload); err != nil {
+		completed, converged, err = store.markLeadStatusRunProcessing(ctx, job, payload)
+		if err != nil {
 			if errors.Is(err, errLeadStatusWorkflowRunMismatch) {
 				return nil, jobs.Permanent("invalid_workflow_run", err)
 			}
 			return nil, err
+		}
+		if completed {
+			return leadStatusTransitionResultWithConvergence(payload, converged), nil
 		}
 		lead, err := api.GetLeadState(ctx, *job.InstallationID, payload.LeadID)
 		if err != nil {
@@ -298,6 +414,12 @@ func LeadStatusTransitionJobHandler(
 				return nil, err
 			}
 			return leadStatusTransitionResult(payload), nil
+		}
+		if lead.PipelineID != payload.SourcePipelineID || lead.StatusID != payload.SourceStatusID {
+			if err := store.completeLeadStatusRun(ctx, job, payload, "source_changed"); err != nil {
+				return nil, err
+			}
+			return leadStatusTransitionResultWithConvergence(payload, false), nil
 		}
 
 		effectID, err := execution.PrepareLeadStatusEffect(
@@ -338,9 +460,16 @@ func LeadStatusTransitionJobHandler(
 }
 
 func leadStatusTransitionResult(payload leadStatusTransitionPayload) json.RawMessage {
+	return leadStatusTransitionResultWithConvergence(payload, true)
+}
+
+func leadStatusTransitionResultWithConvergence(
+	payload leadStatusTransitionPayload,
+	converged bool,
+) json.RawMessage {
 	result, _ := json.Marshal(map[string]any{
 		"lead_id": payload.LeadID, "pipeline_id": payload.PipelineID,
-		"status_id": payload.StatusID, "converged": true,
+		"status_id": payload.StatusID, "converged": converged,
 	})
 	return result
 }
