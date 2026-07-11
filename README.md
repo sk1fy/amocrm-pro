@@ -25,6 +25,8 @@
   30-дневного retention, а tombstones/runs/effects остаются durable;
 - typed `status_lead` rules создают webhook-origin workflow runs, а durable
   tombstones и outbound effects предотвращают replay и коррелируют self-effects;
+  immutable source-state fence не позволяет delayed webhook перезаписать более
+  новое remote state, а completed receipt переживает crash до job finalization;
 - verified widget admin может асинхронно create/update/disable lead-status rule
   через revision CAS; worker проверяет live admin rights, а durable receipt
   защищает retry после commit;
@@ -34,7 +36,7 @@
 Docker build, vet, race-enabled unit tests и изолированный PostgreSQL integration
 gate проходят. OAuth callback/refresh и webhook reconciliation покрыты
 конкурентными contract tests; актуальный handoff находится в
-[webhook ingress limiter checkpoint](docs/project-memory/CHECKPOINT-2026-07-11-webhook-ingress-limiters.md).
+[workflow source-state fence checkpoint](docs/project-memory/CHECKPOINT-2026-07-11-workflow-source-state-fence.md).
 
 ## Сервисы
 
@@ -174,6 +176,7 @@ GitHub Issues являются основной долговременной п�
 - [`CHECKPOINT-2026-07-11-rule-management-contract.md`](docs/project-memory/CHECKPOINT-2026-07-11-rule-management-contract.md) — async rule management principal, CAS/receipt и canonical Issue sync;
 - [`CHECKPOINT-2026-07-11-api-management-listener.md`](docs/project-memory/CHECKPOINT-2026-07-11-api-management-listener.md) — public/management route isolation, PostgreSQL readiness и listener supervision;
 - [`CHECKPOINT-2026-07-11-webhook-ingress-limiters.md`](docs/project-memory/CHECKPOINT-2026-07-11-webhook-ingress-limiters.md) — configurable ingress quotas, bounded installation limiter cache и metrics;
+- [`CHECKPOINT-2026-07-11-workflow-source-state-fence.md`](docs/project-memory/CHECKPOINT-2026-07-11-workflow-source-state-fence.md) — out-of-order source fence, fenced completion и crash-safe receipt;
 - [`docs/adr/`](docs/adr/) — принятые архитектурные решения.
 
 ## Безопасность

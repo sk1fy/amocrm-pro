@@ -93,6 +93,20 @@
 - **Regression check:** concurrent same-jti/same-key tests, synthetic job failure
   rollback, HTTP replay и leeway unit tests проходят через Docker/PostgreSQL.
 
+## BUG-009 — Delayed status webhook мог перезаписать более новое lead state
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#43`).
+- **Class:** Workflow ordering / data integrity.
+- **Impact:** позднее событие для configured source status могло выполнить PATCH
+  target state, даже когда lead уже перешёл в третье, более новое состояние.
+- **Fix:** immutable job payload хранит source/target; worker PATCH-ит только при
+  exact source match, target считает converged, третье состояние завершает как
+  `source_changed` без outbound effect. Completion fenced current lease/lifecycle,
+  completed audit receipt восстанавливает typed result после crash/reclaim.
+- **Regression check:** Docker/PostgreSQL 17 integration с real TLS amoCRM client
+  покрывает source/target/third state, stale lease, uncertain fail/reclaim,
+  disabled-tenant receipt recovery и malformed source/target payloads.
+
 ## Шаблон новой записи
 
 ```md
