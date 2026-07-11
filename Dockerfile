@@ -20,6 +20,17 @@ FROM dependencies AS source
 
 COPY . .
 
+FROM source AS test-base
+
+ENV CGO_ENABLED=1
+
+RUN apk add --no-cache build-base
+
+FROM test-base AS integration-test
+
+ENTRYPOINT ["go", "test"]
+CMD ["-race", "-count=1", "-v", "./internal/jobs", "./internal/webhook"]
+
 FROM alpine:${ALPINE_VERSION} AS runtime
 
 RUN apk add --no-cache ca-certificates tzdata \
@@ -74,11 +85,7 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
 
 ENTRYPOINT ["/usr/local/bin/amocrm-worker"]
 
-FROM source AS test
-
-ENV CGO_ENABLED=1
-
-RUN apk add --no-cache build-base
+FROM test-base AS test
 
 RUN files="$(gofmt -l .)"; \
     if [ -n "$files" ]; then \

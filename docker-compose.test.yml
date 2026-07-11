@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: amocrm_test
+      POSTGRES_USER: amocrm_test
+      POSTGRES_PASSWORD: amocrm_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    networks:
+      - integration-test
+
+  migrate:
+    image: amocrm-migrate:integration-test
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+      args:
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    environment:
+      DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
+      MIGRATIONS_DIR: /migrations
+      MIGRATION_TIMEOUT: 2m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - integration-test
+
+  integration-test:
+    image: amocrm-integration-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: integration-test
+      args:
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    environment:
+      TEST_DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
+      TEST_DATABASE_RESET_ALLOWED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - integration-test
+
+volumes:
+  postgres-test-data:
+
+networks:
+  integration-test:
+    driver: bridge

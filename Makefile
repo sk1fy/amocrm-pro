@@ -4,6 +4,8 @@ DOCKER ?= docker
 COMPOSE ?= docker-compose
 GO_VERSION ?= 1.25
 GO_IMAGE ?= golang:$(GO_VERSION)-alpine
+TEST_COMPOSE_PROJECT ?= amocrm-pro-integration-test
+TEST_COMPOSE := COMPOSE_PROJECT_NAME=$(TEST_COMPOSE_PROJECT) $(COMPOSE) -f docker-compose.test.yml
 
 UID := $(shell id -u)
 GID := $(shell id -g)
@@ -18,7 +20,7 @@ DOCKER_GO := $(DOCKER) run --rm \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help config build up down destroy restart ps logs migrate migrate-down test vet fmt fmt-check tidy db-shell
+.PHONY: help config build up down destroy restart ps logs migrate migrate-down test integration-test vet fmt fmt-check tidy db-shell
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -54,6 +56,24 @@ migrate-down: ## Revert all applied PostgreSQL migrations
 
 test: ## Run formatting checks, vet, and race-enabled tests in Docker
 	$(DOCKER) build --build-arg GO_VERSION=$(GO_VERSION) --target test .
+
+integration-test: ## Run migrations and PostgreSQL integration tests in an isolated Docker stack
+	@set -eu; \
+	cleanup() { $(TEST_COMPOSE) down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT INT TERM; \
+	cleanup; \
+	$(TEST_COMPOSE) build migrate integration-test; \
+	$(TEST_COMPOSE) up --detach postgres; \
+	$(TEST_COMPOSE) run --rm migrate up; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) FROM schema_migrations WHERE octet_length(checksum)=32 AND octet_length(down_checksum)=32" | grep -qx '1'; \
+	$(TEST_COMPOSE) run --rm --no-deps migrate down; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT to_regclass('public.jobs') IS NULL" | grep -qx 't'; \
+	$(TEST_COMPOSE) run --rm --no-deps migrate up & first=$$!; \
+	$(TEST_COMPOSE) run --rm --no-deps migrate up & second=$$!; \
+	wait $$first; \
+	wait $$second; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 1 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
+	$(TEST_COMPOSE) run --rm --no-deps integration-test
 
 vet: ## Run go vet in Docker
 	$(DOCKER_GO) go vet ./...

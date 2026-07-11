@@ -2,7 +2,9 @@ package testkit
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +18,9 @@ func Postgres(t *testing.T) *pgxpool.Pool {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set; run make integration-test")
+	}
+	if err := validateResetTarget(databaseURL, os.Getenv("TEST_DATABASE_RESET_ALLOWED")); err != nil {
+		t.Fatalf("unsafe integration database configuration: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -44,6 +49,20 @@ func Postgres(t *testing.T) *pgxpool.Pool {
 		connection.Release()
 	})
 	return pool
+}
+
+func validateResetTarget(databaseURL, resetAllowed string) error {
+	if resetAllowed != "true" {
+		return fmt.Errorf("TEST_DATABASE_RESET_ALLOWED must equal true")
+	}
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return fmt.Errorf("parse TEST_DATABASE_URL: %w", err)
+	}
+	if !strings.HasSuffix(config.ConnConfig.Database, "_test") {
+		return fmt.Errorf("database name %q must end with _test", config.ConnConfig.Database)
+	}
+	return nil
 }
 
 func Reset(t *testing.T, pool *pgxpool.Pool) {
