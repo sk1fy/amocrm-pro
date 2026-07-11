@@ -63,6 +63,11 @@ func run() error {
 	registry.MustRegister(prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	cleanupMetrics := maintenance.NewMetrics(registry)
 	jobMetrics := jobs.NewMetrics(registry)
+	jobBacklogCollector, err := jobs.NewBacklogCollector(pool, cfg.DatabaseTimeout)
+	if err != nil {
+		return err
+	}
+	registry.MustRegister(jobBacklogCollector)
 	webhookMetrics := webhook.NewMetrics(registry)
 	webhookStore := webhook.NewStore(pool, webhookMetrics)
 	jobStore := jobs.NewStore(pool)
