@@ -1,12 +1,12 @@
 # Project context
 
-Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-api-management-listener.md`](CHECKPOINT-2026-07-11-api-management-listener.md).
+Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-webhook-ingress-limiters.md`](CHECKPOINT-2026-07-11-webhook-ingress-limiters.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/management-listener`.
-- Базовый commit текущего среза: `f4b812d` (merge PR `#38`).
+- Ветка на момент снимка: `codex/webhook-ingress-limiters`.
+- Базовый commit текущего среза: `c095479` (merge PR `#40`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
@@ -103,6 +103,8 @@
 ### Durable webhook pipeline
 
 - endpoint `POST /hooks/amocrm/v1/{webhookKey}`;
+- configurable process-local global/per-installation token buckets, bounded
+  inactive installation cache и low-cardinality limiter metrics;
 - SHA-256 lookup секретного webhook key;
 - проверка media type, ограничения body и `account[id]`;
 - атомарная запись raw delivery и `webhook.parse` job;
@@ -149,8 +151,8 @@
 - Найденный Docker build blocker из-за неиспользуемого `net/http` в `cmd/worker` исправлен; текущий файл этот import не содержит.
 - `make integration-test` проходит на изолированной PostgreSQL 17: migration
   cycle пяти migrations и race-enabled tests jobs/OAuth/webhook/widget/workflow
-  с TLS amoCRM stub, включая API management route isolation, payload deletion,
-  retained history и replay suppression.
+  с TLS amoCRM stub, включая API management route isolation, webhook limiter
+  isolation/eviction/metrics, payload deletion, retained history и replay suppression.
 - `make test` проходит в Docker: runtime builds, formatting, vet и
   `go test -race -count=1 ./...`.
 
