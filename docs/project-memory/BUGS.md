@@ -27,6 +27,58 @@
 - **Evidence boundary:** дефект найден во время Docker build и исправлен в исходнике; полная Compose validation всё ещё продолжается и не считается завершённой этой записью.
 - **Prevention:** сохранять Docker compile/test target обязательным до сборки runtime images в CI.
 
+## BUG-003 — Повторный forced refresh мог ротировать уже новый токен
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#25`).
+- **Class:** OAuth concurrency / data integrity.
+- **Impact:** два растянутых во времени ответа `401` могли выполнить две remote
+  rotation и сделать сохранённый refresh token недействительным.
+- **Fix:** refresh привязан к наблюдаемой `token_version`; уже обновлённая версия
+  возвращается без второго remote exchange.
+- **Regression check:** `TestClientStaggered401RefreshesObservedVersionOnce` в
+  изолированной PostgreSQL 17, `make integration-test` — PASS.
+
+## BUG-004 — Reauthorization сохраняла устаревший webhook intent
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#26`).
+- **Class:** Lifecycle / data convergence.
+- **Impact:** повторная авторизация существующей installation не обновляла desired
+  webhook settings и не возвращала reconciliation в `pending`.
+- **Fix:** conflict upsert обновляет settings/status/error и ставит reconcile job.
+- **Regression check:** `TestSaveInstallationReauthorizationRefreshesWebhookIntent`
+  — PASS в `make integration-test`.
+
+## BUG-005 — OAuth callback падал из-за SQL alias в ConsumeState
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#27`).
+- **Class:** Runtime / OAuth.
+- **Impact:** валидный callback завершался PostgreSQL `42703` до code exchange.
+- **Fix:** CTE возвращает именованный `return_url`, а `COALESCE` выполняется во
+  внешнем select.
+- **Regression check:** concurrent callback и atomic persistence tests — PASS.
+
+## BUG-006 — Refresh finalization конфликтовала с reauthorization
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#28`).
+- **Class:** OAuth concurrency / availability.
+- **Impact:** cancellation могла потерять одноразовую rotation; разные порядки
+  locks создавали deadlock; старый `401` мог перезаписать новую авторизацию
+  статусом `reauth_required`.
+- **Fix:** bounded uncancelled finalization, единый lock order и version-fenced
+  reauth transition с lifecycle guard.
+- **Regression check:** cancellation, deadlock, stale mark и concurrent success
+  tests — PASS с `-race` на PostgreSQL 17.
+
+## BUG-007 — Transport error раскрывала webhook key
+
+- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#29`).
+- **Class:** Security / secret handling.
+- **Impact:** стандартная `url.Error` включала полный request URL с секретным
+  webhook key в сохраняемый reconciliation error.
+- **Fix:** HTTP client сохраняет только очищенную underlying transport cause.
+- **Regression check:** `persisted_transport_error_is_sanitized` — PASS; key не
+  присутствует ни в возвращённой, ни в сохранённой ошибке.
+
 ## Шаблон новой записи
 
 ```md

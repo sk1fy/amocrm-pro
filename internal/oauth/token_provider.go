@@ -19,48 +19,81 @@ type TokenProvider struct {
 	refreshAhead time.Duration
 }
 
+const (
+	tokenFinalizeTimeout = 5 * time.Second
+	tokenRollbackTimeout = 2 * time.Second
+	reauthUpdateTimeout  = 2 * time.Second
+)
+
 func NewTokenProvider(pool *pgxpool.Pool, cipher Cipher, gateway OAuthGateway) *TokenProvider {
 	return &TokenProvider{
 		pool: pool, cipher: cipher, gateway: gateway, refreshAhead: time.Minute,
 	}
 }
 
-func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID, force bool) (amocrm.AccessToken, error) {
+func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID) (amocrm.AccessToken, error) {
 	snapshot, err := loadCredential(ctx, p.pool, installationID, false)
 	if err != nil {
 		return amocrm.AccessToken{}, err
 	}
-	if !force && snapshot.ExpiresAt.After(time.Now().Add(p.refreshAhead)) {
+	if snapshot.ExpiresAt.After(time.Now().Add(p.refreshAhead)) {
 		return p.decryptAccess(snapshot)
 	}
+	return p.refreshIfVersion(ctx, installationID, snapshot.TokenVersion, false)
+}
 
+func (p *TokenProvider) RefreshIfCurrent(
+	ctx context.Context,
+	observed amocrm.AccessToken,
+) (amocrm.AccessToken, error) {
+	if observed.InstallationID == uuid.Nil || observed.TokenVersion <= 0 {
+		return amocrm.AccessToken{}, errors.New("observed OAuth token identity and version are required")
+	}
+	return p.refreshIfVersion(ctx, observed.InstallationID, observed.TokenVersion, true)
+}
+
+func (p *TokenProvider) refreshIfVersion(
+	ctx context.Context,
+	installationID uuid.UUID,
+	observedVersion int64,
+	forced bool,
+) (amocrm.AccessToken, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return amocrm.AccessToken{}, fmt.Errorf("begin token refresh: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() { _ = rollbackTokenTransaction(tx) }()
 
 	locked, err := loadCredential(ctx, tx, installationID, true)
 	if err != nil {
 		return amocrm.AccessToken{}, err
 	}
-	if locked.TokenVersion != snapshot.TokenVersion && locked.ExpiresAt.After(time.Now().Add(p.refreshAhead)) {
+	if locked.TokenVersion != observedVersion {
+		access, decryptErr := p.decryptAccess(locked)
+		if decryptErr != nil {
+			return amocrm.AccessToken{}, decryptErr
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return amocrm.AccessToken{}, fmt.Errorf("commit observed token refresh: %w", err)
 		}
-		return p.decryptAccess(locked)
+		return access, nil
 	}
-	if !force && locked.ExpiresAt.After(time.Now().Add(p.refreshAhead)) {
+	if !forced && locked.ExpiresAt.After(time.Now().Add(p.refreshAhead)) {
+		access, decryptErr := p.decryptAccess(locked)
+		if decryptErr != nil {
+			return amocrm.AccessToken{}, decryptErr
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return amocrm.AccessToken{}, fmt.Errorf("commit fresh token read: %w", err)
 		}
-		return p.decryptAccess(locked)
+		return access, nil
 	}
 
 	refreshToken, err := p.cipher.Open(locked.KeyVersion, locked.RefreshTokenCiphertext, credentialsAAD(installationID))
 	if err != nil {
 		return amocrm.AccessToken{}, fmt.Errorf("decrypt refresh token: %w", err)
 	}
+	defer clear(refreshToken)
 	clientSecret, err := p.cipher.Open(
 		locked.ClientSecretKeyVersion,
 		locked.ClientSecretCiphertext,
@@ -69,6 +102,7 @@ func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID, for
 	if err != nil {
 		return amocrm.AccessToken{}, fmt.Errorf("decrypt integration secret: %w", err)
 	}
+	defer clear(clientSecret)
 
 	refreshed, err := p.gateway.Refresh(
 		ctx,
@@ -79,15 +113,22 @@ func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID, for
 		string(refreshToken),
 	)
 	if err != nil {
+		if rollbackErr := rollbackTokenTransaction(tx); rollbackErr != nil {
+			return amocrm.AccessToken{}, errors.Join(
+				fmt.Errorf("refresh amoCRM token: %w", err),
+				fmt.Errorf("rollback failed token refresh: %w", rollbackErr),
+			)
+		}
 		var apiError *amocrm.APIError
 		if errors.As(err, &apiError) && (apiError.Kind == amocrm.ErrorUnauthorized || apiError.Kind == amocrm.ErrorValidation) {
-			if _, updateErr := tx.Exec(ctx, `
-				UPDATE installations SET status = 'reauth_required', updated_at = now() WHERE id = $1`, installationID,
-			); updateErr != nil {
-				return amocrm.AccessToken{}, fmt.Errorf("mark installation reauthorization required: %w", updateErr)
-			}
-			if commitErr := tx.Commit(ctx); commitErr != nil {
-				return amocrm.AccessToken{}, fmt.Errorf("commit reauthorization state: %w", commitErr)
+			markContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), reauthUpdateTimeout)
+			markErr := p.MarkReauthRequired(markContext, installationID, locked.TokenVersion)
+			cancel()
+			if markErr != nil {
+				return amocrm.AccessToken{}, errors.Join(
+					fmt.Errorf("refresh amoCRM token: %w", err),
+					fmt.Errorf("mark installation reauthorization required: %w", markErr),
+				)
 			}
 		}
 		return amocrm.AccessToken{}, fmt.Errorf("refresh amoCRM token: %w", err)
@@ -105,7 +146,9 @@ func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID, for
 		return amocrm.AccessToken{}, errors.New("active encryption key changed during token refresh")
 	}
 	expiresAt := tokenExpiry(refreshed)
-	if _, err := tx.Exec(ctx, `
+	finalizeContext, cancelFinalize := context.WithTimeout(context.WithoutCancel(ctx), tokenFinalizeTimeout)
+	defer cancelFinalize()
+	if _, err := tx.Exec(finalizeContext, `
 		UPDATE oauth_credentials
 		SET access_token_ciphertext = $2, refresh_token_ciphertext = $3,
 			expires_at = $4, token_version = token_version + 1,
@@ -115,7 +158,7 @@ func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID, for
 	); err != nil {
 		return amocrm.AccessToken{}, fmt.Errorf("save refreshed token: %w", err)
 	}
-	if err := tx.Commit(ctx); err != nil {
+	if err := tx.Commit(finalizeContext); err != nil {
 		return amocrm.AccessToken{}, fmt.Errorf("commit token refresh: %w", err)
 	}
 
@@ -127,14 +170,60 @@ func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID, for
 	return p.decryptAccess(locked)
 }
 
-func (p *TokenProvider) MarkReauthRequired(ctx context.Context, installationID uuid.UUID) error {
-	_, err := p.pool.Exec(ctx, `
-		UPDATE installations
-		SET status = 'reauth_required', updated_at = now()
-		WHERE id = $1 AND status <> 'uninstalled'`, installationID,
-	)
+func (p *TokenProvider) MarkReauthRequired(
+	ctx context.Context,
+	installationID uuid.UUID,
+	observedVersion int64,
+) error {
+	if observedVersion <= 0 {
+		return errors.New("observed OAuth token version is required")
+	}
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
+		return fmt.Errorf("begin reauthorization state update: %w", err)
+	}
+	defer func() { _ = rollbackTokenTransaction(tx) }()
+
+	var installationStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT status FROM installations WHERE id=$1 FOR UPDATE`, installationID,
+	).Scan(&installationStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("lock installation for reauthorization state: %w", err)
+	}
+	if installationStatus == "disabled" || installationStatus == "uninstalled" {
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit skipped reauthorization state: %w", err)
+		}
+		return nil
+	}
+
+	var currentVersion int64
+	err = tx.QueryRow(ctx, `
+		SELECT token_version FROM oauth_credentials WHERE installation_id=$1 FOR UPDATE`, installationID,
+	).Scan(&currentVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read current OAuth token version: %w", err)
+	}
+	if currentVersion != observedVersion {
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit stale reauthorization state check: %w", err)
+		}
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE installations SET status='reauth_required', updated_at=now() WHERE id=$1`, installationID,
+	); err != nil {
 		return fmt.Errorf("mark installation reauthorization required: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit reauthorization state: %w", err)
 	}
 	return nil
 }
@@ -154,7 +243,18 @@ func (p *TokenProvider) decryptAccess(credential credential) (amocrm.AccessToken
 		AccountID:      credential.AccountID,
 		AccountDomain:  credential.AccountDomain,
 		Value:          string(accessToken),
+		TokenVersion:   credential.TokenVersion,
 	}, nil
+}
+
+func rollbackTokenTransaction(tx pgx.Tx) error {
+	rollbackContext, cancel := context.WithTimeout(context.Background(), tokenRollbackTimeout)
+	defer cancel()
+	err := tx.Rollback(rollbackContext)
+	if errors.Is(err, pgx.ErrTxClosed) {
+		return nil
+	}
+	return err
 }
 
 type credential struct {

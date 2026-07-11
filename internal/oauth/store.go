@@ -166,9 +166,9 @@ func (s *Store) ConsumeState(ctx context.Context, rawState string) (State, error
 			UPDATE oauth_states
 			SET consumed_at = now()
 			WHERE state_hash = $1 AND consumed_at IS NULL AND expires_at > now()
-			RETURNING id, integration_id, COALESCE(return_url, ''), expires_at
+			RETURNING id, integration_id, return_url, expires_at
 		)
-		SELECT consumed.id, consumed.return_url, consumed.expires_at,
+		SELECT consumed.id, COALESCE(consumed.return_url, ''), consumed.expires_at,
 			i.id, i.code, i.client_id, i.client_secret_ciphertext,
 			i.client_secret_key_version, i.redirect_uri, i.webhook_events
 		FROM consumed
@@ -222,7 +222,11 @@ func (s *Store) SaveInstallation(
 		) VALUES ($1, $2, $3, $4, 'active', 'pending', $5)
 		ON CONFLICT (integration_id, account_id) DO UPDATE
 		SET account_domain = EXCLUDED.account_domain,
-			status = 'active', webhook_last_error = NULL, updated_at = now()
+			status = 'active',
+			webhook_status = 'pending',
+			webhook_settings = EXCLUDED.webhook_settings,
+			webhook_last_error = NULL,
+			updated_at = now()
 		RETURNING id, webhook_key_hash, webhook_key_ciphertext, webhook_key_key_version`,
 		candidateID, integration.ID, account.ID, accountDomain, integration.WebhookEvents,
 	).Scan(&installationID, &existingWebhookHash, &existingWebhookCiphertext, &existingWebhookKeyVersion); err != nil {

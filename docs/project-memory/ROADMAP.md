@@ -1,18 +1,18 @@
 # Roadmap и структура GitHub Issues
 
-Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-10.md`](CHECKPOINT-2026-07-10.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
+Этот документ сохраняет первоначальную декомпозицию как recovery-copy. Канонический roadmap уже создан в GitHub Issues: `#3` P0 foundation, `#4` P1 OAuth, `#5` P2 amoCRM client, `#9` P3 subscriptions, `#7` P4 ingress, `#6` P5 jobs, `#8` P6 widget, `#10` P7 workflows, `#11` P8 production; umbrella — `#12`. Актуальный handoff находится в [`CHECKPOINT-2026-07-11-oauth-reconcile.md`](CHECKPOINT-2026-07-11-oauth-reconcile.md). Нумерация последующих разделов ниже отражает ранний локальный draft и не должна переопределять GitHub Issues.
 
-## Статусы на 2026-07-10
+## Статусы на 2026-07-11
 
 | Phase | Состояние | Кратко |
 | --- | --- | --- |
-| P0 | In progress | Foundation присутствует, полная Compose validation продолжается |
-| P1 | In progress | SQL schema и up/down есть; up/down применены к PG17, acceptance ещё не закрыт |
-| P2 | In progress | PostgreSQL jobs реализованы; нужны integration/regression checks |
-| P3 | In progress | Durable webhook pipeline реализован; нужны end-to-end и failure-path checks |
-| P4 | Planned | OAuth и application flow installations |
-| P5 | Planned | amoCRM client, token refresh, rate limiting и webhook reconciliation |
-| P6 | Planned | Widget API, JWT, replay protection и idempotency |
+| P0 | Implemented | Foundation и fresh Compose smoke подтверждены через Docker |
+| P1 | Implemented | Reversible/concurrent migrations и schema assertions проходят на PG17 |
+| P2 | Implemented | PostgreSQL jobs покрыты race-enabled integration tests |
+| P3 | In progress | Durable ingress и reconciliation покрыты; domain effects ещё инфраструктурные |
+| P4 | In progress | OAuth callback/reauthorization и concurrency contracts реализованы |
+| P5 | In progress | Client/refresh/reconciliation реализованы; pagination и production rate limits впереди |
+| P6 | In progress | Widget JWT/API skeleton есть; полный idempotency/authorization contract впереди |
 | P7 | Planned | Domain workflows и sync |
 | P8 | Planned | Production hardening и интеграция в микросервисный контур |
 

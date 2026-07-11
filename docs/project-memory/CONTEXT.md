@@ -1,16 +1,17 @@
 # Project context
 
-Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11.md`](CHECKPOINT-2026-07-11.md).
+Этот файл — versioned recovery-копия проектной памяти. GitHub Issues снова доступны для записи и являются каноническими для этапов/дефектов. Самый свежий подробный handoff: [`CHECKPOINT-2026-07-11-oauth-reconcile.md`](CHECKPOINT-2026-07-11-oauth-reconcile.md).
 
 ## Snapshot
 
-- Дата: 2026-07-10 (Europe/Moscow).
-- Ветка на момент снимка: `codex/amocrm-backend-foundation`.
-- Базовый commit до текущей реализации: `edb4a39` (`init and planning`).
+- Дата: 2026-07-11 (Europe/Moscow).
+- Ветка на момент снимка: `codex/oauth-reconcile-contract-tests`.
+- Базовый commit текущего среза: `d4bb5e6` (merge PR `#22`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
-- Стадия: Phase 0 / foundation и первые вертикальные срезы находятся в реализации.
+- Стадия: foundation, OAuth/client, webhook reconciliation и widget skeleton
+  реализованы; следующий функциональный срез — widget idempotency/domain workflows.
 
 При расхождении этого снимка с кодом источником факта являются текущие исходники, миграции и Compose-конфигурация; решение о намерениях уточняется по ADR; план — по `ROADMAP.md`.
 
@@ -59,6 +60,17 @@
 - статусы completed/retry/failed/dead и запись `job_attempts`;
 - worker concurrency и dispatch по типу job.
 
+### OAuth и amoCRM client
+
+- одноразовый OAuth state и атомарное сохранение installation, credentials,
+  reconcile job и audit;
+- envelope encryption для client secret и OAuth credentials;
+- version-fenced token refresh, single retry после `401` и безопасный переход в
+  `reauth_required`;
+- typed error handling для `429`, validation и transient failures;
+- webhook reconciliation с tenant/account validation и сохранением безопасного
+  статуса ошибки.
+
 ### Durable webhook pipeline
 
 - endpoint `POST /hooks/amocrm/v1/{webhookKey}`;
@@ -75,12 +87,10 @@
 
 ## Что пока отсутствует
 
-- OAuth start/callback/state consumption и обмен authorization code;
-- envelope encryption/decryption client secrets и OAuth credentials на уровне приложения;
-- согласованный token refresh с защитой от гонок;
-- amoCRM HTTP client, retry policy, обработка `429`, pagination и rate limiting;
-- регистрация, сверка и удаление amoCRM Webhooks;
-- widget API, проверка одноразового JWT и защита от повторного `jti`;
+- production-grade pagination и распределённое rate limiting (текущий лимитер
+  process-local; Redis намеренно отсутствует);
+- удаление/ротация amoCRM webhooks и полный uninstall lifecycle;
+- полный idempotency contract widget API и cleanup одноразовых JWT;
 - domain workflow/sync handlers и API статуса jobs;
 - retention/cleanup jobs, operational dashboards и production SLO/alerts;
 - production integration contracts с окружающими микросервисами.
@@ -90,7 +100,10 @@
 - SQL migration agent применил начальную migration `up`, затем `down`, к PostgreSQL 17.
 - В исходниках есть unit tests для job classification/backoff и webhook parsing/deduplication/account ID.
 - Найденный Docker build blocker из-за неиспользуемого `net/http` в `cmd/worker` исправлен; текущий файл этот import не содержит.
-- Полная end-to-end проверка всего Compose-стека продолжается и на момент снимка не отмечена завершённой.
+- `make integration-test` проходит на изолированной PostgreSQL 17: migration
+  cycle и race-enabled tests jobs/OAuth/webhook.
+- `make test` проходит в Docker: runtime builds, formatting, vet и
+  `go test -race -count=1 ./...`.
 
 Наличие CI workflow или тестового файла само по себе не считается свидетельством успешного прогона. Новые checkpoint должны перечислять точные выполненные команды и их результат.
 
@@ -104,11 +117,10 @@
 
 ## Ближайший фокус
 
-1. Завершить Compose validation и сохранить точный checkpoint.
-2. Закрыть acceptance criteria foundation, schema, jobs и webhook pipeline.
-3. Реализовать OAuth/installations application flow и криптографическую границу.
-4. Добавить amoCRM client с refresh/rate-limit/retry semantics.
-5. Реализовать widget JWT/API и затем прикладные workflow.
+1. Дождаться CI и merge PR текущего OAuth/reconciliation среза.
+2. Закрыть полный widget idempotency/authorization contract.
+3. Реализовать первые прикладные domain workflow поверх inbox events.
+4. Добавить operational metrics/retention и production hardening из Issue `#21`.
 
 Декомпозиция и шаблон следующего checkpoint находятся в [`ROADMAP.md`](ROADMAP.md), внешние блокеры — в [`BUGS.md`](BUGS.md).
 
