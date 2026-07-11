@@ -6,6 +6,8 @@
 
 Base: `2d21d88` (merged PR `#36`)
 
+PR: https://github.com/sk1fy/amocrm-pro/pull/38
+
 Canonical atomic Issue: https://github.com/sk1fy/amocrm-pro/issues/37
 
 ## Evidence and handoff
