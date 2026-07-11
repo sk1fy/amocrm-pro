@@ -8,6 +8,8 @@ Base: `7a10a39` (merged PR `#46`)
 
 Implementation commit: `b094670`
 
+Draft PR: https://github.com/sk1fy/amocrm-pro/pull/48
+
 Canonical atomic Issue: https://github.com/sk1fy/amocrm-pro/issues/47
 
 ## Evidence and handoff
