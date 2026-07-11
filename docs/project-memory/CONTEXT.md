@@ -1,12 +1,12 @@
 # Project context
 
-Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-webhook-ingress-limiters.md`](CHECKPOINT-2026-07-11-webhook-ingress-limiters.md).
+Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-11-workflow-source-state-fence.md`](CHECKPOINT-2026-07-11-workflow-source-state-fence.md).
 
 ## Snapshot
 
 - Дата: 2026-07-11 (Europe/Moscow).
-- Ветка на момент снимка: `codex/webhook-ingress-limiters`.
-- Базовый commit текущего среза: `c095479` (merge PR `#40`).
+- Ветка на момент снимка: `codex/workflow-source-state-fence`.
+- Базовый commit текущего среза: `cd0d73e` (merge PR `#42`).
 - Go module: `github.com/sk1fy/amocrm-pro`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Redis: не используется и не входит в текущий runtime.
@@ -127,6 +127,11 @@
 - cleanup pass pressure, workflow routing и finalized workflow jobs публикуются
   как low-cardinality Prometheus metrics;
 - typed `status_lead` rule создаёт unique workflow run и convergent transition job;
+- immutable job payload сохраняет source и target status; delayed event при уже
+  изменившемся remote source завершается как `source_changed` без effect/PATCH;
+- run/audit completion повторно проверяет current attempt/lease/active lifecycle,
+  а completed audit receipt позволяет reclaimed job завершиться без повторного
+  amoCRM GET/PATCH, даже если installation уже отключена;
 - widget и webhook lead status mutations фиксируют outbound intent до PATCH;
   incoming target webhook переводит exact effect в observed и не запускает loop.
 - async rule configure сохраняет verified widget user как durable actor, worker
@@ -152,7 +157,8 @@
 - `make integration-test` проходит на изолированной PostgreSQL 17: migration
   cycle пяти migrations и race-enabled tests jobs/OAuth/webhook/widget/workflow
   с TLS amoCRM stub, включая API management route isolation, webhook limiter
-  isolation/eviction/metrics, payload deletion, retained history и replay suppression.
+  isolation/eviction/metrics, payload deletion, retained history, replay suppression,
+  source-state mismatch, stale completion fence и crash/reclaim receipt recovery.
 - `make test` проходит в Docker: runtime builds, formatting, vet и
   `go test -race -count=1 ./...`.
 
