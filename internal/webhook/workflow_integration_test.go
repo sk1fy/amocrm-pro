@@ -331,7 +331,7 @@ func TestLeadStatusWorkflowCompletedReceiptSurvivesJobCompletionCrash(t *testing
 	}
 	jobStore := jobs.NewStore(pool)
 	reclaimed, err := jobStore.ClaimWithObserver(
-		ctx, "source-receipt-retry", 1, time.Minute, JobFailureObserver(store),
+		ctx, "source-receipt-retry", 1, 100, time.Minute, JobFailureObserver(store),
 	)
 	if err != nil || len(reclaimed) != 1 || reclaimed[0].ID != workflowJob.ID || reclaimed[0].Attempts != 2 {
 		t.Fatalf("reclaim completed receipt job/error = %+v/%v", reclaimed, err)

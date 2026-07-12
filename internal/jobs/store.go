@@ -78,18 +78,19 @@ func enqueue(ctx context.Context, querier rowQuerier, params EnqueueParams) (Job
 }
 
 func (s *Store) Claim(ctx context.Context, workerID string, limit int, lease time.Duration) ([]Job, error) {
-	return s.ClaimWithObserver(ctx, workerID, limit, lease, nil)
+	return s.ClaimWithObserver(ctx, workerID, limit, 100, lease, nil)
 }
 
 func (s *Store) ClaimWithObserver(
 	ctx context.Context,
 	workerID string,
 	limit int,
+	reapLimit int,
 	lease time.Duration,
 	observer FailureObserver,
 ) ([]Job, error) {
-	if workerID == "" || limit < 1 || lease < time.Millisecond {
-		return nil, errors.New("worker id, positive limit, and lease of at least 1ms are required")
+	if workerID == "" || limit < 1 || reapLimit < 1 || lease < time.Millisecond {
+		return nil, errors.New("worker id, positive claim and reap limits, and lease of at least 1ms are required")
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -98,7 +99,6 @@ func (s *Store) ClaimWithObserver(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	reapLimit := max(limit*4, 100)
 	if err := reapExpired(ctx, tx, reapLimit, observer); err != nil {
 		return nil, err
 	}

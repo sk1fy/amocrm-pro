@@ -107,6 +107,7 @@ func run() error {
 		LeaseDuration: cfg.LeaseDuration,
 		JobTimeout:    cfg.JobTimeout,
 		BatchSize:     cfg.BatchSize,
+		ReapBatchSize: cfg.ReapBatchSize,
 		Concurrency:   cfg.Concurrency,
 		DrainTimeout:  cfg.ShutdownTimeout,
 		ClaimTimeout:  cfg.DatabaseTimeout,

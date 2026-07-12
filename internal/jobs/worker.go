@@ -17,6 +17,7 @@ type WorkerConfig struct {
 	LeaseDuration time.Duration
 	JobTimeout    time.Duration
 	BatchSize     int
+	ReapBatchSize int
 	Concurrency   int
 	DrainTimeout  time.Duration
 	ClaimTimeout  time.Duration
@@ -89,7 +90,8 @@ func (w *Worker) poll(ctx context.Context, semaphore chan struct{}, active *sync
 	}
 	claimContext, cancel := context.WithTimeout(ctx, claimTimeout)
 	claimed, err := w.store.ClaimWithObserver(
-		claimContext, w.config.ID, limit, w.config.LeaseDuration, w.dispatchFailure,
+		claimContext, w.config.ID, limit, w.config.ReapBatchSize,
+		w.config.LeaseDuration, w.dispatchFailure,
 	)
 	cancel()
 	if err != nil {

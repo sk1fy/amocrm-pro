@@ -163,3 +163,33 @@ func TestWorkerRejectsSubsecondLease(t *testing.T) {
 		t.Fatalf("expected lease validation error, got %v", err)
 	}
 }
+
+func TestWorkerReapBatchDefaultsAndBounds(t *testing.T) {
+	setWorkerEnvironment(t)
+	worker, err := LoadWorker()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if worker.ReapBatchSize != 100 {
+		t.Fatalf("reap batch size = %d, want 100", worker.ReapBatchSize)
+	}
+
+	for _, value := range []string{"0", "1001"} {
+		t.Run(value, func(t *testing.T) {
+			setWorkerEnvironment(t)
+			t.Setenv("WORKER_REAP_BATCH_SIZE", value)
+			_, err := LoadWorker()
+			if err == nil || !strings.Contains(err.Error(), "WORKER_REAP_BATCH_SIZE") {
+				t.Fatalf("expected reaper batch rejection for %q, got %v", value, err)
+			}
+		})
+	}
+}
+
+func setWorkerEnvironment(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("PUBLIC_BASE_URL", "https://hooks.example.test")
+}

@@ -31,7 +31,10 @@
   через revision CAS; worker проверяет live admin rights, а durable receipt
   защищает retry после commit;
 - worker экспортирует bounded cleanup и workflow Prometheus metrics без
-  tenant/resource/error labels.
+  tenant/resource/error labels;
+- expired-lease reaping в одной claim-транзакции независимо ограничен
+  `WORKER_REAP_BATCH_SIZE` (default `100`, допустимо `1..1000`), не меняя
+  `WORKER_BATCH_SIZE` для ready jobs.
 
 Docker build, vet, race-enabled unit tests и изолированный PostgreSQL integration
 gate проходят. OAuth callback/refresh и webhook reconciliation покрыты

@@ -57,6 +57,7 @@ type Worker struct {
 	LeaseDuration            time.Duration
 	JobTimeout               time.Duration
 	BatchSize                int
+	ReapBatchSize            int
 	Concurrency              int
 	PublicBaseURL            string
 	CleanupInterval          time.Duration
@@ -238,6 +239,10 @@ func LoadWorker() (Worker, error) {
 	if err != nil {
 		return Worker{}, err
 	}
+	reapBatchSize, err := integer("WORKER_REAP_BATCH_SIZE", 100, 1, 1_000)
+	if err != nil {
+		return Worker{}, err
+	}
 	concurrency, err := integer("WORKER_CONCURRENCY", 4, 1, 64)
 	if err != nil {
 		return Worker{}, err
@@ -296,7 +301,8 @@ func LoadWorker() (Worker, error) {
 	return Worker{
 		Common: common, WorkerID: workerID, PollInterval: pollInterval,
 		LeaseDuration: leaseDuration, JobTimeout: jobTimeout,
-		BatchSize: batchSize, Concurrency: concurrency, PublicBaseURL: publicBaseURL,
+		BatchSize: batchSize, ReapBatchSize: reapBatchSize,
+		Concurrency: concurrency, PublicBaseURL: publicBaseURL,
 		CleanupInterval: cleanupInterval, CleanupTimeout: cleanupTimeout,
 		CleanupSafetyMargin: cleanupSafetyMargin, CleanupBatchSize: cleanupBatchSize,
 		CleanupMaxBatches:        cleanupMaxBatches,
