@@ -77,6 +77,59 @@ func TestStoreMovesExpiredFinalAttemptToDead(t *testing.T) {
 	}
 }
 
+func TestStoreBoundsExpiredLeaseReapingIndependentlyFromClaim(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	store := NewStore(pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO jobs (
+			type, status, payload, priority, attempts, max_attempts,
+			locked_by, locked_until, created_at, updated_at
+		)
+		SELECT
+			'test.expired', 'processing', '{}'::jsonb, 100, 1, 5,
+			'crashed-worker', now() - interval '1 minute',
+			now() - interval '2 minutes', now() - interval '2 minutes'
+		FROM generate_series(1, 1000)`); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := store.Enqueue(ctx, EnqueueParams{
+		Type: "test.ready", Payload: map[string]any{}, Priority: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claimed, err := store.ClaimWithObserver(ctx, "bounded-reaper", 1, 25, time.Minute, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(claimed) != 1 || claimed[0].ID != ready.ID {
+		t.Fatalf("claimed jobs = %+v, want ready job %s", claimed, ready.ID)
+	}
+
+	var retry, expiredProcessing, expiredAttempts int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE type='test.expired' AND status='retry'`).Scan(&retry); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM jobs
+		WHERE type='test.expired' AND status='processing' AND locked_until < now()`).Scan(&expiredProcessing); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM job_attempts AS attempt
+		JOIN jobs AS job ON job.id=attempt.job_id
+		WHERE job.type='test.expired' AND attempt.outcome='lease_expired'`).Scan(&expiredAttempts); err != nil {
+		t.Fatal(err)
+	}
+	if retry != 25 || expiredProcessing != 975 || expiredAttempts != 25 {
+		t.Fatalf("bounded reap: retry=%d processing=%d attempts=%d", retry, expiredProcessing, expiredAttempts)
+	}
+}
+
 func TestStoreSanitizesFailureAndObserverIsAtomic(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
