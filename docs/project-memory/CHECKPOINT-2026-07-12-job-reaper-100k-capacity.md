@@ -6,6 +6,10 @@
 
 Base: `7d495fe` (merged PR `#52`)
 
+Implementation commit: `8d96c59`
+
+Draft PR: https://github.com/sk1fy/amocrm-pro/pull/54
+
 Canonical atomic Issue: https://github.com/sk1fy/amocrm-pro/issues/53
 
 ## Evidence and handoff
@@ -42,5 +46,11 @@ Canonical atomic Issue: https://github.com/sk1fy/amocrm-pro/issues/53
   concurrent up и все PostgreSQL suites, включая 100k capacity scenario;
 - `make build` — PASS: api, worker и migrate images;
 - `git diff --check` — PASS.
+
+## Next
+
+Канонический open work item: https://github.com/sk1fy/amocrm-pro/issues/53.
+После внешнего merge синхронизировать acceptance `#53`, parent `#21` и
+aggregate `#12`. PR самостоятельно не merge.
 
 Checkpoint не содержит credentials, production data, payloads или PII.
