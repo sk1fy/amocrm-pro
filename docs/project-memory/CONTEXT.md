@@ -1,6 +1,6 @@
 # Project context
 
-Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-12-job-reaper-batch.md`](CHECKPOINT-2026-07-12-job-reaper-batch.md).
+Этот файл хранит устойчивые факты и ограничения проекта, но не backlog/status. Каноническое состояние находится в GitHub Issues #12 и phase/atomic Issues. Самый свежий evidence/handoff: [`CHECKPOINT-2026-07-12-job-reaper-100k-capacity.md`](CHECKPOINT-2026-07-12-job-reaper-100k-capacity.md).
 
 ## Snapshot
 
