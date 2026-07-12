@@ -77,12 +77,14 @@ func TestStoreMovesExpiredFinalAttemptToDead(t *testing.T) {
 	}
 }
 
-func TestStoreBoundsExpiredLeaseReapingIndependentlyFromClaim(t *testing.T) {
+func TestStoreBoundsExpiredLeaseReapingAt100kBacklog(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	store := NewStore(pool)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 
+	seedStarted := time.Now()
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO jobs (
 			type, status, payload, priority, attempts, max_attempts,
@@ -90,11 +92,44 @@ func TestStoreBoundsExpiredLeaseReapingIndependentlyFromClaim(t *testing.T) {
 		)
 		SELECT
 			'test.expired', 'processing', '{}'::jsonb, 100, 1, 5,
-			'crashed-worker', now() - interval '1 minute',
+			'crashed-worker', now() - (series * interval '1 millisecond'),
 			now() - interval '2 minutes', now() - interval '2 minutes'
-		FROM generate_series(1, 1000)`); err != nil {
+		FROM generate_series(1, 100000) AS series`); err != nil {
 		t.Fatal(err)
 	}
+	seedElapsed := time.Since(seedStarted)
+
+	planRows, err := pool.Query(ctx, `
+		EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+		SELECT id
+		FROM jobs
+		WHERE status = 'processing' AND locked_until < now()
+		ORDER BY locked_until ASC, created_at ASC
+		FOR UPDATE SKIP LOCKED
+		LIMIT 25`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan strings.Builder
+	for planRows.Next() {
+		var line string
+		if err := planRows.Scan(&line); err != nil {
+			planRows.Close()
+			t.Fatal(err)
+		}
+		plan.WriteString(line)
+		plan.WriteByte('\n')
+	}
+	if err := planRows.Err(); err != nil {
+		planRows.Close()
+		t.Fatal(err)
+	}
+	planRows.Close()
+	if !strings.Contains(plan.String(), "jobs_processing_lease_idx") {
+		t.Fatalf("expired lease selection did not use jobs_processing_lease_idx:\n%s", plan.String())
+	}
+	t.Logf("100k expired lease seed elapsed=%s; selection plan:\n%s", seedElapsed, plan.String())
+
 	ready, err := store.Enqueue(ctx, EnqueueParams{
 		Type: "test.ready", Payload: map[string]any{}, Priority: 1,
 	})
@@ -102,10 +137,13 @@ func TestStoreBoundsExpiredLeaseReapingIndependentlyFromClaim(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	claimStarted := time.Now()
 	claimed, err := store.ClaimWithObserver(ctx, "bounded-reaper", 1, 25, time.Minute, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	claimElapsed := time.Since(claimStarted)
+	t.Logf("100k expired lease claim/reap elapsed=%s", claimElapsed)
 	if len(claimed) != 1 || claimed[0].ID != ready.ID {
 		t.Fatalf("claimed jobs = %+v, want ready job %s", claimed, ready.ID)
 	}
@@ -125,7 +163,7 @@ func TestStoreBoundsExpiredLeaseReapingIndependentlyFromClaim(t *testing.T) {
 		WHERE job.type='test.expired' AND attempt.outcome='lease_expired'`).Scan(&expiredAttempts); err != nil {
 		t.Fatal(err)
 	}
-	if retry != 25 || expiredProcessing != 975 || expiredAttempts != 25 {
+	if retry != 25 || expiredProcessing != 99975 || expiredAttempts != 25 {
 		t.Fatalf("bounded reap: retry=%d processing=%d attempts=%d", retry, expiredProcessing, expiredAttempts)
 	}
 }
