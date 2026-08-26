@@ -1,6 +1,12 @@
-Готовый подробный план в формате Markdown:
+# Historical architecture summary
 
-[Скачать `amocrm-go-backend-plan.md`](sandbox:/mnt/data/amocrm-go-backend-plan.md)
+> **Status:** Superseded historical document.
+>
+> Фактическая архитектура описана в [`../architecture.md`](../architecture.md).
+
+Связанный исходный план:
+
+[`original-design-plan.md`](original-design-plan.md)
 
 Документ можно использовать как основу для `README.md`, технического задания или архитектурной документации проекта. В нём есть архитектура, SQL-схемы, маршруты API, пример Go-handler для Webhooks, очередь задач, безопасность, мониторинг, тестирование и поэтапный roadmap.
 

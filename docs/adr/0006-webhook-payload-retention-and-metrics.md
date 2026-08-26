@@ -1,4 +1,8 @@
-# ADR 0006: bounded webhook payload retention with durable history
+# ADR-0006: Bounded webhook payload retention with durable history
+
+- **Status:** Accepted.
+- **Date:** 2026-07-11.
+- **Issues:** #10, #21, #32.
 
 ## Context
 

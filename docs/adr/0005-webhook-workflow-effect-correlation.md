@@ -1,8 +1,8 @@
-# ADR 0005: webhook-origin workflows and durable desired-state correlation
+# ADR-0005: Webhook-origin workflows and durable desired-state correlation
 
-- Status: accepted
-- Date: 2026-07-11
-- Issues: #10, #21
+- **Status:** Accepted.
+- **Date:** 2026-07-11.
+- **Issues:** #10, #21.
 
 ## Context
 

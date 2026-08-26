@@ -23,7 +23,9 @@
 - **Issue** — текущее состояние, scope, acceptance criteria и dependencies. Atomic Issue описывает bounded slice; epic Issue агрегирует atomic Issues.
 - **PR** — реализация одного конкретного bounded slice и ссылки на закрываемые или обновляемые Issues.
 - **ADR** — принятое архитектурное решение, его контекст и последствия. Backlog решений ведётся в [#13](https://github.com/sk1fy/amocrm-pro/issues/13), но текст решения живёт в ADR.
-- **Checkpoint** — проверяемые evidence и handoff конкретной сессии: commits/PR, фактически выполненные проверки, риски и следующий канонический Issue. Checkpoint не хранит backlog, status checklist или собственный resume order.
+- **Checkpoint** — необязательное evidence/handoff конкретной сложной сессии.
+  Он не хранит backlog или собственный resume order. После merge исторический
+  checkpoint перемещается в [`../archive/checkpoints/`](../archive/checkpoints/).
 - **README** — user-facing текущее состояние, запуск и использование. README не управляет backlog.
 - **CONTEXT.md** — устойчивые факты и ограничения проекта; не status board и не очередь работ.
 
@@ -39,14 +41,19 @@
 4. Закрыть epic только когда выполнен его собственный acceptance, а не только отдельный slice.
 5. Обновить [#12](https://github.com/sk1fy/amocrm-pro/issues/12) только агрегированным статусом фаз и ссылками на epic Issues; не дублировать детальные checklists.
 6. Обновить [#13](https://github.com/sk1fy/amocrm-pro/issues/13), если merge добавил, заменил или закрыл архитектурное решение.
-7. Создать новый checkpoint с evidence/handoff. В `Next` указать ссылку на текущий открытый atomic Issue (или epic Issue, если atomic slice ещё предстоит выделить), а не локальный resume order.
+7. Если slice требует отдельного handoff, создать checkpoint с фактически
+   выполненными проверками и ссылкой на текущий Issue. Для небольшого slice
+   достаточно PR/Issue/CI evidence; checkpoint не создаётся ради формальности.
 
 ## Восстановление следующей сессии
 
-1. Перейти на актуальный `main` и найти последний merged PR/checkpoint.
+1. Перейти на актуальный `main` и найти последний merged PR.
 2. Открыть [#12](https://github.com/sk1fy/amocrm-pro/issues/12), затем соответствующий phase epic из таблицы выше.
 3. Проверить linked atomic Issues и выбрать bounded slice по их текущему status, acceptance и dependencies.
-4. Использовать последний checkpoint только как evidence/handoff; его `Next` обязан вести в текущий Issue.
+4. Использовать checkpoint только как историческое evidence для конкретного
+   commit; его `Next` может быть устаревшим.
 5. Если GitHub checklists не отражают merged PR, сначала выполнить протокол синхронизации выше и только затем начинать новую реализацию.
 
-Исторические checkpoints сохраняются как evidence и не переписываются задним числом. Устаревший resume order в них следует игнорировать в пользу текущего Issue.
+Исторические checkpoints сохраняются в
+[`../archive/checkpoints/`](../archive/checkpoints/) и не переписываются задним
+числом. Устаревший resume order в них игнорируется в пользу текущего Issue.

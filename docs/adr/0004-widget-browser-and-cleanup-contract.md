@@ -1,15 +1,18 @@
-# ADR 0004: direct widget browser access and bounded PostgreSQL cleanup
+# ADR-0004: Direct widget browser access and bounded PostgreSQL cleanup
 
-- Status: accepted
-- Date: 2026-07-11
-- Issues: #32, #21
+- **Status:** Accepted; browser token-header implementation gap tracked as `BUG-010`.
+- **Date:** 2026-07-11.
+- **Amended:** 2026-08-26 to match the documented amoCRM Web SDK header.
+- **Issues:** #32, #21.
 
 ## Context
 
 amoCRM loads widget JavaScript into the account browser page. Calls from that
-page to this service therefore cross an origin boundary and use headers such as
-`Authorization`, `Content-Type`, and `Idempotency-Key`, which require a browser
-preflight. The API previously had no explicit preflight contract.
+page to this service therefore cross an origin boundary. The supported amoCRM
+Web SDK method `this.$authorizedAjax()` supplies a disposable JWT in
+`X-Auth-Token`; action calls also use `Content-Type` and `Idempotency-Key`.
+These non-simple headers require a browser preflight. The API previously had no
+explicit preflight contract.
 
 Disposable JWT replay rows and widget idempotency rows also have finite safety
 windows, but no process owned their physical cleanup. The service must remain
@@ -24,7 +27,8 @@ page to the public `amocrm-api`. CORS is application-owned and scoped only to
 - never use `*` and never enable credentials;
 - preflight reflects only a normalized HTTPS origin that belongs to an active
   installation whose integration is also active;
-- allow only the widget methods and request headers used by the public contract;
+- allow only the widget methods and request headers used by the public contract,
+  including `X-Auth-Token` for Web SDK calls;
 - actual browser requests additionally require their normalized `Origin` to
   equal the issuer origin of the verified disposable JWT;
 - requests without `Origin` remain available to non-browser clients, while
@@ -48,6 +52,11 @@ The initial cleanup scope is deliberately limited to widget token and
 idempotency rows. Webhook deliveries and inbox events are not deleted until
 their deduplication identity has an independent durable tombstone.
 
+`Authorization: Bearer` may remain as an explicitly documented compatibility
+path for non-browser clients, but it is not a substitute for supporting the
+Web SDK `X-Auth-Token` contract. Supplying both token headers must fail closed
+rather than introduce ambiguous credential precedence.
+
 ## Consequences
 
 Browser policy is tenant-bound instead of being a broad domain allowlist.
@@ -57,3 +66,8 @@ OPTIONS requests to the API unchanged.
 Cleanup is restart-safe, horizontally safe, and bounded, but is not guaranteed
 to run at an exact wall-clock instant. Retention may exceed the minimum safety
 window by the scheduler interval, margin, or backlog; it must never be shorter.
+
+The original implementation admitted only `Authorization` and omitted
+`X-Auth-Token` from CORS. That mismatch was identified after acceptance and is
+tracked as `BUG-010`; real browser E2E is not considered verified until the
+middleware, CORS and OpenAPI contract are corrected together.

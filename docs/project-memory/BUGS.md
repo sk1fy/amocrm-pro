@@ -24,12 +24,12 @@
 - **Cause:** import остался после изменения HTTP health server wiring, но пакет больше не использовался.
 - **Fix:** неиспользуемый import удалён; в текущем исходнике `cmd/worker/main.go` его нет.
 - **Regression scope:** Docker build/test target для worker, а не host Go build.
-- **Evidence boundary:** дефект найден во время Docker build и исправлен в исходнике; полная Compose validation всё ещё продолжается и не считается завершённой этой записью.
+- **Evidence:** исправление находится в `main`; Docker build/test и последующий CI проходят.
 - **Prevention:** сохранять Docker compile/test target обязательным до сборки runtime images в CI.
 
 ## BUG-003 — Повторный forced refresh мог ротировать уже новый токен
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#25`).
+- **Status:** Resolved in `main` (GitHub Issue `#25`, closed).
 - **Class:** OAuth concurrency / data integrity.
 - **Impact:** два растянутых во времени ответа `401` могли выполнить две remote
   rotation и сделать сохранённый refresh token недействительным.
@@ -40,7 +40,7 @@
 
 ## BUG-004 — Reauthorization сохраняла устаревший webhook intent
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#26`).
+- **Status:** Resolved in `main` (GitHub Issue `#26`, closed).
 - **Class:** Lifecycle / data convergence.
 - **Impact:** повторная авторизация существующей installation не обновляла desired
   webhook settings и не возвращала reconciliation в `pending`.
@@ -50,7 +50,7 @@
 
 ## BUG-005 — OAuth callback падал из-за SQL alias в ConsumeState
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#27`).
+- **Status:** Resolved in `main` (GitHub Issue `#27`, closed).
 - **Class:** Runtime / OAuth.
 - **Impact:** валидный callback завершался PostgreSQL `42703` до code exchange.
 - **Fix:** CTE возвращает именованный `return_url`, а `COALESCE` выполняется во
@@ -59,7 +59,7 @@
 
 ## BUG-006 — Refresh finalization конфликтовала с reauthorization
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#28`).
+- **Status:** Resolved in `main` (GitHub Issue `#28`, closed).
 - **Class:** OAuth concurrency / availability.
 - **Impact:** cancellation могла потерять одноразовую rotation; разные порядки
   locks создавали deadlock; старый `401` мог перезаписать новую авторизацию
@@ -71,7 +71,7 @@
 
 ## BUG-007 — Transport error раскрывала webhook key
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#29`).
+- **Status:** Resolved in `main` (GitHub Issue `#29`, closed).
 - **Class:** Security / secret handling.
 - **Impact:** стандартная `url.Error` включала полный request URL с секретным
   webhook key в сохраняемый reconciliation error.
@@ -81,7 +81,7 @@
 
 ## BUG-008 — Widget JWT сгорал до durable action commit
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#31`).
+- **Status:** Resolved in `main` (GitHub Issue `#31`, closed).
 - **Class:** Widget concurrency / data integrity.
 - **Impact:** transient enqueue failure оставляла использованный `jti` без job;
   retry с новым JWT создавал дубликат, потому что `idempotency_keys` не
@@ -95,7 +95,7 @@
 
 ## BUG-009 — Delayed status webhook мог перезаписать более новое lead state
 
-- **Status:** Resolved in branch, awaiting merge (GitHub Issue `#43`).
+- **Status:** Resolved in `main` (GitHub Issue `#43`, closed).
 - **Class:** Workflow ordering / data integrity.
 - **Impact:** позднее событие для configured source status могло выполнить PATCH
   target state, даже когда lead уже перешёл в третье, более новое состояние.
@@ -106,6 +106,28 @@
 - **Regression check:** Docker/PostgreSQL 17 integration с real TLS amoCRM client
   покрывает source/target/third state, stale lease, uncertain fail/reclaim,
   disabled-tenant receipt recovery и malformed source/target payloads.
+
+## BUG-010 — Web SDK token header несовместим с widget middleware
+
+- **Status:** Open.
+- **Class:** Widget integration / authentication / CORS.
+- **Severity:** Blocks real browser E2E from an installed amoCRM widget.
+- **Observed:** 2026-08-26.
+- **Affected files:** `internal/widgetauth/middleware.go`,
+  `internal/widgetcors/middleware.go`, `api/openapi.yaml`.
+- **Expected:** request made through amoCRM `this.$authorizedAjax()` is
+  authenticated using the disposable integration JWT supplied by Web SDK.
+- **Actual:** amoCRM documents the header as `X-Auth-Token`, while middleware
+  requires `Authorization: Bearer`; CORS also rejects `X-Auth-Token` during
+  browser preflight.
+- **Impact:** Docker tests can construct an `Authorization` header, but a real
+  installed private widget cannot use the supported Web SDK request path.
+- **Fix scope:** accept a strict single `X-Auth-Token` for widget routes, decide
+  whether backward-compatible Bearer remains supported, allow the header in
+  tenant-bound CORS, update OpenAPI and add HTTP/CORS integration tests.
+- **Security constraint:** never log or persist the raw disposable token.
+- **Reference:** https://www.amocrm.ru/developers/content/web_sdk/mechanics
+- **GitHub Issue:** not created yet.
 
 ## Шаблон новой записи
 

@@ -34,7 +34,7 @@ workflow с durable deduplication и self-effect correlation без Redis.
   health и metrics не получают widget CORS headers.
 
 Решение и deployment consequences описаны в
-[`ADR 0004`](../adr/0004-widget-browser-and-cleanup-contract.md).
+[`ADR 0004`](../../adr/0004-widget-browser-and-cleanup-contract.md).
 
 ## Cleanup scheduler and retention
 
@@ -82,7 +82,7 @@ amoCRM не возвращает caller operation ID, поэтому correlation
 installation + lead + exact desired pipeline/status + bounded DB receive-time
 window. Для выбранного convergent workflow совпавший человеческий transition
 безвредно подавляется как уже достигнутый target. Ограничение зафиксировано в
-[`ADR 0005`](../adr/0005-webhook-workflow-effect-correlation.md).
+[`ADR 0005`](../../adr/0005-webhook-workflow-effect-correlation.md).
 
 ## Integration evidence
 

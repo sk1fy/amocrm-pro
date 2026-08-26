@@ -32,7 +32,7 @@ admin principal, async configure job и revision/CAS semantics. Retention уже
   затрагивает. `workflow_runs.origin_event_id` становится `NULL`, а copied
   origin hash и effect history остаются.
 
-ADR: [`0006`](../adr/0006-webhook-payload-retention-and-metrics.md).
+ADR: [`0006`](../../adr/0006-webhook-payload-retention-and-metrics.md).
 
 ## Metrics
 

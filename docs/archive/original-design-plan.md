@@ -1,4 +1,10 @@
-# План backend-платформы для виджетов и интеграций amoCRM на Go
+# Historical design proposal: backend-платформа amoCRM на Go
+
+> **Status:** Superseded historical document.
+>
+> Этот план создан до реализации. Его checklists, схемы, структура каталогов и
+> Redis assumptions не описывают текущий runtime. Используйте
+> [`../architecture.md`](../architecture.md), ADR и GitHub Issues.
 
 > Версия документа: 1.0  
 > Архитектура: два Go-сервиса — `api` и `worker`  

@@ -1,4 +1,8 @@
-# ADR 0007: async rule management principal and revision CAS
+# ADR-0007: Async rule management principal and revision CAS
+
+- **Status:** Accepted.
+- **Date:** 2026-07-11.
+- **Issue:** [#37](https://github.com/sk1fy/amocrm-pro/issues/37).
 
 ## Context
 
@@ -36,5 +40,3 @@ the others finish with `revision_conflict`. A revoked/non-admin user or inactive
 tenant makes no rule mutation. The receipt is durable workflow history and is
 not part of raw webhook payload cleanup. PostgreSQL remains the only durable
 coordination mechanism and Redis is not introduced.
-
-Issue: https://github.com/sk1fy/amocrm-pro/issues/37
