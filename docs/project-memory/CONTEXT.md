@@ -8,11 +8,12 @@
 
 - Проверено: 2026-08-31 (Europe/Moscow).
 - Branch: `main`.
-- Base commit: `64a3b9e` plus uncommitted `BUG-010` implementation.
+- `BUG-010` implementation commit: `53c78f5`.
 - Последнее изменение runtime-кода: capacity slice PR #54, merge commit `9e9d5ba`.
-- Последний CI для текущего `main`: success, run `32957486277`.
-- Локальный `BUG-010` gate: Docker unit/race, OpenAPI, PostgreSQL integration
-  and api/worker/migrate builds pass; real private-widget E2E pending.
+- Предыдущий main CI: success, run `32957486277`; `BUG-010` CI:
+  run `33339274655`.
+- `BUG-010` Docker gate: unit/race, OpenAPI, PostgreSQL integration and
+  api/worker/migrate builds pass; real private-widget E2E pending.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Миграции: шесть обратимых versioned migrations.
 - Redis: отсутствует по ADR-0001.
