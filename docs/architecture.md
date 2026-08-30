@@ -73,10 +73,11 @@ this.$authorizedAjax()
 Claims bind a request to `client_uuid`, `account_id`, `user_id`, issuer and
 audience. Tenant identity never comes from the action JSON body.
 
-There is a current integration gap: amoCRM sends the disposable token in
-`X-Auth-Token`, while the implementation only accepts `Authorization: Bearer`
-and does not allow `X-Auth-Token` in CORS. See `BUG-010` in
-[`project-memory/BUGS.md`](project-memory/BUGS.md).
+The middleware accepts amoCRM's primary `X-Auth-Token` contract and retains
+`Authorization: Bearer` for non-browser compatibility. Supplying both headers
+fails closed before verification or replay consumption. Tenant-bound CORS
+allows `X-Auth-Token`; real installed-widget evidence remains tracked in
+[#55](https://github.com/sk1fy/amocrm-pro/issues/55).
 
 ## Webhook flow
 
@@ -111,7 +112,7 @@ the effect observed rather than starting a loop.
 
 ## Known incomplete areas
 
-- real browser `X-Auth-Token` compatibility;
+- real installed-private-widget browser E2E evidence;
 - OAuth state cleanup and OAuth ingress rate limiting;
 - token refresh without an external call inside a DB transaction;
 - finite retention for jobs/audit/tombstones/workflow/effects;

@@ -109,7 +109,7 @@
 
 ## BUG-010 — Web SDK token header несовместим с widget middleware
 
-- **Status:** Open.
+- **Status:** Implementation complete locally; real private-widget E2E pending.
 - **Class:** Widget integration / authentication / CORS.
 - **Severity:** Blocks real browser E2E from an installed amoCRM widget.
 - **Observed:** 2026-08-26.
@@ -117,17 +117,18 @@
   `internal/widgetcors/middleware.go`, `api/openapi.yaml`.
 - **Expected:** request made through amoCRM `this.$authorizedAjax()` is
   authenticated using the disposable integration JWT supplied by Web SDK.
-- **Actual:** amoCRM documents the header as `X-Auth-Token`, while middleware
-  requires `Authorization: Bearer`; CORS also rejects `X-Auth-Token` during
-  browser preflight.
-- **Impact:** Docker tests can construct an `Authorization` header, but a real
-  installed private widget cannot use the supported Web SDK request path.
-- **Fix scope:** accept a strict single `X-Auth-Token` for widget routes, decide
-  whether backward-compatible Bearer remains supported, allow the header in
-  tenant-bound CORS, update OpenAPI and add HTTP/CORS integration tests.
+- **Root cause:** widget middleware and CORS were implemented against the
+  compatibility Bearer form before the Web SDK header contract was verified.
+- **Fix:** accept a strict single `X-Auth-Token`, retain one strict Bearer
+  credential as an alternative, reject ambiguous/multi-valued credentials,
+  allow `X-Auth-Token` in tenant-bound CORS and publish both alternatives in
+  OpenAPI.
+- **Regression check:** `make openapi-check`, `make test`,
+  `make integration-test`, and `make build` pass in Docker; PostgreSQL HTTP
+  integration proves both alternatives and no consumption on ambiguity.
 - **Security constraint:** never log or persist the raw disposable token.
 - **Reference:** https://www.amocrm.ru/developers/content/web_sdk/mechanics
-- **GitHub Issue:** not created yet.
+- **GitHub Issue:** https://github.com/sk1fy/amocrm-pro/issues/55
 
 ## Шаблон новой записи
 

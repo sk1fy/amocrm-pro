@@ -36,7 +36,7 @@ func TestPreflightReflectsOnlyStrictActiveOriginContract(t *testing.T) {
 	request := httptest.NewRequest(http.MethodOptions, "/api/v1/widget/actions/leads/set-status", nil)
 	request.Header.Set("Origin", activeOrigin)
 	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	request.Header.Set("Access-Control-Request-Headers", "idempotency-key, Authorization, content-type, X-Request-ID")
+	request.Header.Set("Access-Control-Request-Headers", "idempotency-key, Authorization, x-auth-token, content-type, X-Request-ID")
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -46,7 +46,7 @@ func TestPreflightReflectsOnlyStrictActiveOriginContract(t *testing.T) {
 	}
 	assertHeader(t, response.Header(), allowOriginHeader, activeOrigin)
 	assertHeader(t, response.Header(), allowMethodsHeader, http.MethodPost)
-	assertHeader(t, response.Header(), allowHeadersHeader, "Authorization, Content-Type, Idempotency-Key, X-Request-ID")
+	assertHeader(t, response.Header(), allowHeadersHeader, "Authorization, Content-Type, Idempotency-Key, X-Auth-Token, X-Request-ID")
 	assertHeader(t, response.Header(), "Access-Control-Max-Age", "300")
 	if response.Header().Get("Access-Control-Allow-Credentials") != "" {
 		t.Fatal("credentials must not be enabled")

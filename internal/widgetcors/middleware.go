@@ -20,6 +20,7 @@ var allowedRequestHeaders = map[string]string{
 	"authorization":   "Authorization",
 	"content-type":    "Content-Type",
 	"idempotency-key": "Idempotency-Key",
+	"x-auth-token":    "X-Auth-Token",
 	"x-request-id":    "X-Request-ID",
 }
 

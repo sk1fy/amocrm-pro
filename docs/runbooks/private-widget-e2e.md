@@ -1,6 +1,6 @@
 # Private amoCRM widget E2E
 
-- **Status:** Blocked by `BUG-010` until `X-Auth-Token` support is implemented.
+- **Status:** Automated `BUG-010` contract passes; real E2E awaits deployment inputs.
 - **Scope:** Development verification of one private integration and account.
 
 This runbook describes the intended end-to-end path. It must not be presented

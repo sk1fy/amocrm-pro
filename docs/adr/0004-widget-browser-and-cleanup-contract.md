@@ -1,6 +1,6 @@
 # ADR-0004: Direct widget browser access and bounded PostgreSQL cleanup
 
-- **Status:** Accepted; browser token-header implementation gap tracked as `BUG-010`.
+- **Status:** Accepted; token-header contract implemented, real E2E tracked in #55.
 - **Date:** 2026-07-11.
 - **Amended:** 2026-08-26 to match the documented amoCRM Web SDK header.
 - **Issues:** #32, #21.
@@ -68,6 +68,6 @@ to run at an exact wall-clock instant. Retention may exceed the minimum safety
 window by the scheduler interval, margin, or backlog; it must never be shorter.
 
 The original implementation admitted only `Authorization` and omitted
-`X-Auth-Token` from CORS. That mismatch was identified after acceptance and is
-tracked as `BUG-010`; real browser E2E is not considered verified until the
-middleware, CORS and OpenAPI contract are corrected together.
+`X-Auth-Token` from CORS. `BUG-010` corrected middleware, CORS, OpenAPI and
+automated coverage together. Real browser E2E is still not considered verified
+until an installed private widget completes the runbook tracked in #55.

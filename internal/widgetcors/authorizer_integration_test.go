@@ -2,6 +2,8 @@ package widgetcors
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -33,6 +35,20 @@ func TestPostgresAuthorizerRequiresActiveInstallationAndIntegration(t *testing.T
 	assertActiveOrigin(t, authorizer, activeOrigin, true)
 	assertActiveOrigin(t, authorizer, "https://other.amocrm.ru", false)
 	assertActiveOrigin(t, authorizer, "http://tenant.amocrm.ru", false)
+
+	handler := Middleware(authorizer)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("preflight reached application handler")
+	}))
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/widget/bootstrap", nil)
+	request.Header.Set("Origin", activeOrigin)
+	request.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	request.Header.Set("Access-Control-Request-Headers", "X-Auth-Token, X-Request-ID")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("X-Auth-Token preflight status/body = %d/%q", response.Code, response.Body.String())
+	}
+	assertHeader(t, response.Header(), allowHeadersHeader, "X-Auth-Token, X-Request-ID")
 
 	if _, err := pool.Exec(ctx, `UPDATE installations SET status='uninstalled' WHERE id=$1`, installationID); err != nil {
 		t.Fatal(err)

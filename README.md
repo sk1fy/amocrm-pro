@@ -23,13 +23,14 @@ Docker-first backend для интеграций и JS-виджетов amoCRM. 
 Канонический backlog находится в
 [#12](https://github.com/sk1fy/amocrm-pro/issues/12) и phase Issues.
 
-### Известное ограничение реального JS-виджета
+### Проверка реального JS-виджета
 
-amoCRM Web SDK передаёт одноразовый JWT через `X-Auth-Token`. Текущая версия
-API принимает только `Authorization: Bearer` и пока не разрешает
-`X-Auth-Token` в CORS. Поэтому browser E2E через `this.$authorizedAjax()`
-заблокирован до исправления `BUG-010`. Это не мешает Docker/integration tests,
-но мешает проверке из реально установленного приватного виджета.
+Widget API принимает основной Web SDK header `X-Auth-Token` и совместимый
+`Authorization: Bearer`; одновременная подача обоих заголовков отклоняется.
+`X-Auth-Token` включён в tenant-bound CORS contract. Автоматизированный контракт
+покрыт unit и PostgreSQL integration tests, но реальный browser E2E из
+установленного приватного виджета ещё не выполнен и отслеживается в
+[#55](https://github.com/sk1fy/amocrm-pro/issues/55).
 
 Подробности и preconditions: [private-widget-e2e.md](docs/runbooks/private-widget-e2e.md).
 

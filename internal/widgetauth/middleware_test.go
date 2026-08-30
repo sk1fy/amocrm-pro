@@ -40,6 +40,31 @@ func TestMiddlewareAddsVerifiedPrincipalToContext(t *testing.T) {
 	}
 }
 
+func TestMiddlewareAcceptsXAuthToken(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAuthFixture(t)
+	rawToken := signClaims(t, fixture.claims, fixture.secret, jwt.SigningMethodHS256)
+	handler := Middleware(fixture.authenticator)(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if _, ok := PrincipalFromContext(request.Context()); !ok {
+			t.Fatal("authenticated principal is missing")
+		}
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	request := httptest.NewRequest(http.MethodGet, "/widget/bootstrap", nil)
+	request.Header.Set("X-Auth-Token", rawToken)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("response status = %d, want %d", response.Code, http.StatusNoContent)
+	}
+	if fixture.repository.consumeCalls != 1 {
+		t.Fatalf("consume calls = %d, want 1", fixture.repository.consumeCalls)
+	}
+}
+
 func TestVerificationMiddlewareDefersTokenConsumption(t *testing.T) {
 	t.Parallel()
 
@@ -52,7 +77,7 @@ func TestVerificationMiddlewareDefersTokenConsumption(t *testing.T) {
 		response.WriteHeader(http.StatusNoContent)
 	}))
 	request := httptest.NewRequest(http.MethodPost, "/widget/actions/ping", nil)
-	request.Header.Set("Authorization", "Bearer "+rawToken)
+	request.Header.Set("X-Auth-Token", rawToken)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNoContent {
@@ -60,6 +85,60 @@ func TestVerificationMiddlewareDefersTokenConsumption(t *testing.T) {
 	}
 	if fixture.repository.consumeCalls != 0 {
 		t.Fatalf("consume calls = %d, want 0", fixture.repository.consumeCalls)
+	}
+}
+
+func TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]func(http.Header, string){
+		"both token headers": func(header http.Header, rawToken string) {
+			header.Set("X-Auth-Token", rawToken)
+			header.Set("Authorization", "Bearer "+rawToken)
+		},
+		"repeated X-Auth-Token": func(header http.Header, rawToken string) {
+			header.Add("X-Auth-Token", rawToken)
+			header.Add("X-Auth-Token", rawToken)
+		},
+		"repeated Authorization": func(header http.Header, rawToken string) {
+			header.Add("Authorization", "Bearer "+rawToken)
+			header.Add("Authorization", "Bearer "+rawToken)
+		},
+	}
+	for name, setHeaders := range tests {
+		name, setHeaders := name, setHeaders
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newAuthFixture(t)
+			rawToken := signClaims(t, fixture.claims, fixture.secret, jwt.SigningMethodHS256)
+			setHeaders := setHeaders
+			for middlewareName, middleware := range map[string]func(http.Handler) http.Handler{
+				"authenticate": fixture.authenticator.Middleware,
+				"verify":       fixture.authenticator.VerificationMiddleware,
+			} {
+				t.Run(middlewareName, func(t *testing.T) {
+					called := false
+					handler := middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+						called = true
+					}))
+					request := httptest.NewRequest(http.MethodGet, "/widget/bootstrap", nil)
+					setHeaders(request.Header, rawToken)
+					response := httptest.NewRecorder()
+
+					handler.ServeHTTP(response, request)
+
+					if called {
+						t.Fatal("next handler was called")
+					}
+					if response.Code != http.StatusUnauthorized {
+						t.Fatalf("response status = %d, want %d", response.Code, http.StatusUnauthorized)
+					}
+				})
+			}
+			if fixture.repository.consumeCalls != 0 {
+				t.Fatalf("consume calls = %d, want 0", fixture.repository.consumeCalls)
+			}
+		})
 	}
 }
 

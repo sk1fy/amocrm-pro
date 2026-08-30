@@ -38,9 +38,58 @@ func TestOpenAPIContract(t *testing.T) {
 			continue
 		}
 		for _, method := range methods {
-			if item.GetOperation(method) == nil {
+			operation := item.GetOperation(method)
+			if operation == nil {
 				t.Errorf("OpenAPI operation %s %s is missing", method, path)
+				continue
 			}
+			if len(path) >= len("/api/v1/widget/") && path[:len("/api/v1/widget/")] == "/api/v1/widget/" {
+				assertWidgetSecurityAlternatives(t, method, path, operation.Security)
+			}
+		}
+	}
+
+	widgetToken := document.Components.SecuritySchemes["widgetToken"]
+	if widgetToken == nil || widgetToken.Value == nil ||
+		widgetToken.Value.Type != "apiKey" || widgetToken.Value.In != "header" ||
+		widgetToken.Value.Name != "X-Auth-Token" {
+		t.Fatalf("widgetToken security scheme = %+v, want X-Auth-Token header apiKey", widgetToken)
+	}
+	widgetBearer := document.Components.SecuritySchemes["widgetBearer"]
+	if widgetBearer == nil || widgetBearer.Value == nil ||
+		widgetBearer.Value.Type != "http" || widgetBearer.Value.Scheme != "bearer" {
+		t.Fatalf("widgetBearer security scheme = %+v, want HTTP bearer", widgetBearer)
+	}
+}
+
+func assertWidgetSecurityAlternatives(
+	t *testing.T,
+	method string,
+	path string,
+	requirements *openapi3.SecurityRequirements,
+) {
+	t.Helper()
+	if requirements == nil || len(*requirements) != 2 {
+		t.Errorf("OpenAPI operation %s %s security = %+v, want two alternatives", method, path, requirements)
+		return
+	}
+	wants := map[string]bool{"widgetToken": false, "widgetBearer": false}
+	for _, requirement := range *requirements {
+		if len(requirement) != 1 {
+			t.Errorf("OpenAPI operation %s %s security requirement = %+v, want one scheme per alternative", method, path, requirement)
+			continue
+		}
+		for name := range requirement {
+			if _, ok := wants[name]; !ok {
+				t.Errorf("OpenAPI operation %s %s has unexpected security scheme %q", method, path, name)
+				continue
+			}
+			wants[name] = true
+		}
+	}
+	for name, found := range wants {
+		if !found {
+			t.Errorf("OpenAPI operation %s %s is missing %s alternative", method, path, name)
 		}
 	}
 }

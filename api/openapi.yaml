@@ -189,6 +189,7 @@ paths:
       summary: Resolve the authenticated widget tenant and user.
       description: Every request requires a fresh, disposable amoCRM JWT.
       security:
+        - widgetToken: []
         - widgetBearer: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
@@ -216,6 +217,7 @@ paths:
         uncertain request with the same Idempotency-Key returns the original
         accepted job and does not enqueue a duplicate.
       security:
+        - widgetToken: []
         - widgetBearer: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
@@ -259,6 +261,7 @@ paths:
         reads the lead, and only sends PATCH when the requested pipeline/status
         differs. A retry after an uncertain PATCH compares remote state first.
       security:
+        - widgetToken: []
         - widgetBearer: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
@@ -308,6 +311,7 @@ paths:
         expected_revision zero creates revision one; positive values update only
         the exact current revision. CAS failures are reported through job status.
       security:
+        - widgetToken: []
         - widgetBearer: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
@@ -352,6 +356,7 @@ paths:
       summary: Read an asynchronous job scoped to the widget installation.
       description: Every request requires a fresh, disposable amoCRM JWT.
       security:
+        - widgetToken: []
         - widgetBearer: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
@@ -381,11 +386,23 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
+    widgetToken:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: >-
+        Primary amoCRM Web SDK authentication. Supply exactly one fresh,
+        disposable JWT as the header value. Do not combine this scheme with
+        widgetBearer; requests containing both token headers are rejected.
     widgetBearer:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Strict single-use amoCRM widget JWT with atomic `jti` replay protection.
+      description: >-
+        Compatibility authentication for non-browser clients. Supply exactly
+        one fresh, disposable JWT as a Bearer credential. Do not combine this
+        scheme with widgetToken; requests containing both token headers are
+        rejected. Both alternatives use atomic `jti` replay protection.
   parameters:
     RequestID:
       name: X-Request-ID
@@ -643,7 +660,8 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorText'
     Unauthorized:
-      description: Bearer JWT is missing, invalid, expired or already used.
+      description: >-
+        Widget JWT is missing, ambiguous, malformed, expired or already used.
       headers:
         X-Request-ID:
           $ref: '#/components/headers/RequestID'

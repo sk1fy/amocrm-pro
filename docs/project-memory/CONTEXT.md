@@ -6,11 +6,13 @@
 
 ## Snapshot
 
-- Проверено: 2026-08-26 (Europe/Moscow).
+- Проверено: 2026-08-31 (Europe/Moscow).
 - Branch: `main`.
-- Commit: `a4a67b9`.
+- Base commit: `64a3b9e` plus uncommitted `BUG-010` implementation.
 - Последнее изменение runtime-кода: capacity slice PR #54, merge commit `9e9d5ba`.
-- Последний CI для текущего `main`: success, run `29648714634`.
+- Последний CI для текущего `main`: success, run `32957486277`.
+- Локальный `BUG-010` gate: Docker unit/race, OpenAPI, PostgreSQL integration
+  and api/worker/migrate builds pass; real private-widget E2E pending.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
 - Миграции: шесть обратимых versioned migrations.
 - Redis: отсутствует по ADR-0001.
@@ -44,6 +46,8 @@ API и worker являются раздельными deployment units одно�
 ### Widget API
 
 - strict HS256 claims validation и maximum token lifetime;
+- primary `X-Auth-Token` и compatible `Authorization: Bearer`, с fail-closed
+  rejection при одновременной или multi-valued подаче;
 - tenant lookup только по `client_uuid + account_id` из verified JWT;
 - atomic jti consumption, Idempotency-Key outcome и job enqueue;
 - actor/resource ownership в typed job columns;
@@ -75,8 +79,8 @@ API и worker являются раздельными deployment units одно�
 
 ## Confirmed gaps
 
-1. `this.$authorizedAjax()` uses `X-Auth-Token`, while widget middleware and
-   CORS currently support only `Authorization: Bearer` (`BUG-010`).
+1. Реальный installed-private-widget E2E для `X-Auth-Token` ещё не выполнен;
+   автоматизированная совместимость реализована в `BUG-010` / #55.
 2. Token refresh holds a PostgreSQL transaction/row lock across an external
    amoCRM OAuth request.
 3. `oauth_states` has no cleanup and `/oauth/start` has no ingress rate limit.

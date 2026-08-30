@@ -21,11 +21,11 @@ func VerificationMiddleware(authenticator *Authenticator) func(http.Handler) htt
 	}
 }
 
-// Middleware authenticates a strict Authorization: Bearer token and adds its
-// Principal to the request context.
+// Middleware authenticates a strict X-Auth-Token or compatibility
+// Authorization: Bearer token and adds its Principal to the request context.
 func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		rawToken, ok := bearerToken(request.Header.Get("Authorization"))
+		rawToken, ok := requestToken(request.Header)
 		if !ok {
 			unauthorized(response)
 			return
@@ -49,7 +49,7 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 // consumes Principal.UsedToken atomically with its durable side effect.
 func (a *Authenticator) VerificationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		rawToken, ok := bearerToken(request.Header.Get("Authorization"))
+		rawToken, ok := requestToken(request.Header)
 		if !ok {
 			unauthorized(response)
 			return
@@ -66,6 +66,24 @@ func (a *Authenticator) VerificationMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(response, request.WithContext(ContextWithPrincipal(request.Context(), principal)))
 	})
+}
+
+func requestToken(header http.Header) (string, bool) {
+	widgetTokens := header.Values("X-Auth-Token")
+	authorization := header.Values("Authorization")
+	if len(widgetTokens) > 0 && len(authorization) > 0 {
+		return "", false
+	}
+	if len(widgetTokens) > 0 {
+		if len(widgetTokens) != 1 || widgetTokens[0] == "" {
+			return "", false
+		}
+		return widgetTokens[0], true
+	}
+	if len(authorization) != 1 {
+		return "", false
+	}
+	return bearerToken(authorization[0])
 }
 
 func bearerToken(header string) (string, bool) {
