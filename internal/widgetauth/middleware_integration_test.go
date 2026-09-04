@@ -18,7 +18,12 @@ func TestMiddlewareAuthenticatesBothHeaderContractsWithPostgresReplayStore(t *te
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 
-	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	// Replay rows use PostgreSQL's clock for created_at and require a later
+	// expiry, so token timestamps must use the same clock instead of a fixed date.
+	var now time.Time
+	if err := pool.QueryRow(context.Background(), `SELECT clock_timestamp()`).Scan(&now); err != nil {
+		t.Fatal(err)
+	}
 	integrationID := uuid.New()
 	installationID := uuid.New()
 	clientID := uuid.NewString()
