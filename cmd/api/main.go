@@ -127,6 +127,7 @@ func run() error {
 		widgetauth.NewStore(pool), keyRing,
 		widgetauth.WithLeeway(cfg.WidgetJWTLeeway),
 		widgetauth.WithMaxLifetime(cfg.WidgetJWTMaxLifetime),
+		widgetauth.WithLogger(logger),
 	)
 	if err != nil {
 		return err

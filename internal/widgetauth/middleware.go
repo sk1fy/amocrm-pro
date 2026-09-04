@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 )
 
 // Middleware creates net/http middleware backed by authenticator.
@@ -25,14 +27,16 @@ func VerificationMiddleware(authenticator *Authenticator) func(http.Handler) htt
 // Authorization: Bearer token and adds its Principal to the request context.
 func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		rawToken, ok := requestToken(request.Header)
+		rawToken, headerReason, ok := requestToken(request.Header)
 		if !ok {
+			a.logHeaderRejection(request, headerReason)
 			unauthorized(response)
 			return
 		}
 
 		principal, err := a.Authenticate(request.Context(), rawToken)
 		if err != nil {
+			a.logAuthRejection(request, err)
 			if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrReplay) {
 				unauthorized(response)
 				return
@@ -49,14 +53,16 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 // consumes Principal.UsedToken atomically with its durable side effect.
 func (a *Authenticator) VerificationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		rawToken, ok := requestToken(request.Header)
+		rawToken, headerReason, ok := requestToken(request.Header)
 		if !ok {
+			a.logHeaderRejection(request, headerReason)
 			unauthorized(response)
 			return
 		}
 
 		principal, err := a.Verify(request.Context(), rawToken)
 		if err != nil {
+			a.logAuthRejection(request, err)
 			if errors.Is(err, ErrInvalidToken) {
 				unauthorized(response)
 				return
@@ -68,22 +74,54 @@ func (a *Authenticator) VerificationMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func requestToken(header http.Header) (string, bool) {
+func (a *Authenticator) logHeaderRejection(request *http.Request, reason string) {
+	if a == nil || a.logger == nil {
+		return
+	}
+	a.logger.Warn("widget auth rejected",
+		"request_id", httpmiddleware.RequestIDFromContext(request.Context()).String(),
+		"reason_code", reason,
+	)
+}
+
+func (a *Authenticator) logAuthRejection(request *http.Request, err error) {
+	if a == nil || a.logger == nil {
+		return
+	}
+	attrs := []any{
+		"request_id", httpmiddleware.RequestIDFromContext(request.Context()).String(),
+		"reason_code", failureReason(err),
+	}
+	var failure *Failure
+	if errors.As(err, &failure) {
+		attrs = append(attrs, failure.logAttrs()...)
+	}
+	a.logger.Warn("widget auth rejected", attrs...)
+}
+
+func requestToken(header http.Header) (string, string, bool) {
 	widgetTokens := header.Values("X-Auth-Token")
 	authorization := header.Values("Authorization")
 	if len(widgetTokens) > 0 && len(authorization) > 0 {
-		return "", false
+		return "", reasonHeadersConflict, false
 	}
 	if len(widgetTokens) > 0 {
 		if len(widgetTokens) != 1 || widgetTokens[0] == "" {
-			return "", false
+			return "", reasonXAuthTokenInvalid, false
 		}
-		return widgetTokens[0], true
+		return widgetTokens[0], "", true
+	}
+	if len(authorization) == 0 {
+		return "", reasonHeaderMissing, false
 	}
 	if len(authorization) != 1 {
-		return "", false
+		return "", reasonAuthorizationInvalid, false
 	}
-	return bearerToken(authorization[0])
+	token, ok := bearerToken(authorization[0])
+	if !ok {
+		return "", reasonAuthorizationInvalid, false
+	}
+	return token, "", true
 }
 
 func bearerToken(header string) (string, bool) {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -44,6 +45,7 @@ type Authenticator struct {
 	clock       func() time.Time
 	leeway      time.Duration
 	maxLifetime time.Duration
+	logger      *slog.Logger
 }
 
 // Option configures an Authenticator.
@@ -85,6 +87,15 @@ func WithMaxLifetime(lifetime time.Duration) Option {
 	}
 }
 
+// WithLogger enables safe structured diagnostics for widget-auth rejections.
+// A nil logger disables diagnostics.
+func WithLogger(logger *slog.Logger) Option {
+	return func(authenticator *Authenticator) error {
+		authenticator.logger = logger
+		return nil
+	}
+}
+
 func NewAuthenticator(repository Repository, secrets SecretOpener, options ...Option) (*Authenticator, error) {
 	if repository == nil {
 		return nil, fmt.Errorf("widget auth repository is nil")
@@ -120,26 +131,26 @@ func (a *Authenticator) Verify(ctx context.Context, rawToken string) (Principal,
 
 	hint, err := parseUnverifiedHint(rawToken)
 	if err != nil {
-		return Principal{}, err
+		return Principal{}, newFailure(reasonTokenFormat, err)
 	}
 	material, err := a.repository.FindVerificationMaterial(ctx, hint.ClientUUID, hint.AccountID)
 	if errors.Is(err, ErrUnknownTenant) {
-		return Principal{}, fmt.Errorf("%w: tenant lookup failed", ErrInvalidToken)
+		return Principal{}, newFailure(reasonTenantNotFound, fmt.Errorf("%w: tenant lookup failed", ErrInvalidToken))
 	}
 	if err != nil {
-		return Principal{}, fmt.Errorf("lookup widget verification material: %w", err)
+		return Principal{}, newFailure(reasonTenantLookupError, fmt.Errorf("lookup widget verification material: %w", err))
 	}
 	if err := validateMaterial(material, hint); err != nil {
-		return Principal{}, fmt.Errorf("invalid widget verification material: %w", err)
+		return Principal{}, newFailure(reasonMaterialMismatch, fmt.Errorf("invalid widget verification material: %w", err))
 	}
 
 	expectedAudience, err := AudienceForRedirectURI(material.RedirectURI)
 	if err != nil {
-		return Principal{}, fmt.Errorf("derive widget audience: %w", err)
+		return Principal{}, newFailure(reasonDeriveAudienceError, fmt.Errorf("derive widget audience: %w", err))
 	}
 	expectedIssuer, err := IssuerForAccountDomain(material.AccountDomain)
 	if err != nil {
-		return Principal{}, fmt.Errorf("derive widget issuer: %w", err)
+		return Principal{}, newFailure(reasonDeriveIssuerError, fmt.Errorf("derive widget issuer: %w", err))
 	}
 
 	secret, err := a.secrets.Open(
@@ -148,25 +159,26 @@ func (a *Authenticator) Verify(ctx context.Context, rawToken string) (Principal,
 		cryptox.IntegrationSecretAAD(material.IntegrationID),
 	)
 	if err != nil {
-		return Principal{}, fmt.Errorf("decrypt widget signing secret: %w", err)
+		return Principal{}, newFailure(reasonDecryptSecretError, fmt.Errorf("decrypt widget signing secret: %w", err))
 	}
 	defer clear(secret)
 	if len(secret) == 0 {
-		return Principal{}, fmt.Errorf("decrypted widget signing secret is empty")
+		return Principal{}, newFailure(reasonDecryptSecretError, fmt.Errorf("decrypted widget signing secret is empty"))
 	}
 
 	now := a.clock().UTC()
 	claims, err := a.parseVerified(rawToken, secret, now)
 	if err != nil {
-		return Principal{}, err
+		return Principal{}, newFailure(reasonSignatureInvalid, err)
 	}
 	if err := validateStrictPayloadShape(rawToken); err != nil {
-		return Principal{}, fmt.Errorf("%w: payload shape: %v", ErrInvalidToken, err)
+		return Principal{}, newFailure(reasonPayloadShapeInvalid, fmt.Errorf("%w: payload shape: %v", ErrInvalidToken, err))
 	}
-	if err := validateClaims(
+	if failure := validateClaims(
 		claims, material, expectedAudience, expectedIssuer, now, a.leeway, a.maxLifetime,
-	); err != nil {
-		return Principal{}, fmt.Errorf("%w: claims: %v", ErrInvalidToken, err)
+	); failure != nil {
+		failure.Err = fmt.Errorf("%w: claims: %v", ErrInvalidToken, failure.Err)
+		return Principal{}, failure
 	}
 
 	return Principal{
@@ -265,45 +277,69 @@ func validateClaims(
 	now time.Time,
 	leeway time.Duration,
 	maxLifetime time.Duration,
-) error {
+) *Failure {
 	if claims == nil || claims.ExpiresAt == nil || claims.IssuedAt == nil || claims.NotBefore == nil {
-		return fmt.Errorf("iat, nbf, and exp are required")
+		return newFailure(reasonClaimsInvalid, fmt.Errorf("iat, nbf, and exp are required"))
 	}
+
+	failure := newFailure(reasonClaimsInvalid, nil)
+	failure.ClientUUIDMatch = boolPtr(claims.ClientUUID == material.ClientUUID && isSafeIdentifier(claims.ClientUUID))
+	failure.AccountIDMatch = boolPtr(claims.AccountID == material.AccountID && claims.AccountID > 0)
+	failure.UserIDValid = boolPtr(claims.UserID > 0)
+
 	if !isSafeIdentifier(claims.ID) {
-		return fmt.Errorf("jti is invalid")
+		failure.Err = fmt.Errorf("jti is invalid")
+		return failure
 	}
 	if claims.ClientUUID != material.ClientUUID || !isSafeIdentifier(claims.ClientUUID) {
-		return fmt.Errorf("client_uuid mismatch")
+		failure.Err = fmt.Errorf("client_uuid mismatch")
+		return failure
 	}
 	if claims.AccountID != material.AccountID || claims.AccountID <= 0 || claims.UserID <= 0 {
-		return fmt.Errorf("account_id or user_id is invalid")
+		failure.Err = fmt.Errorf("account_id or user_id is invalid")
+		return failure
 	}
 	if len(claims.Audience) != 1 {
-		return fmt.Errorf("aud must contain exactly one origin")
+		failure.AudienceMatch = boolPtr(false)
+		failure.Err = fmt.Errorf("aud must contain exactly one origin")
+		return failure
 	}
 	audience, err := normalizeClaimOrigin(claims.Audience[0], false)
+	failure.AudienceMatch = boolPtr(err == nil && audience == expectedAudience)
 	if err != nil || audience != expectedAudience {
-		return fmt.Errorf("aud mismatch")
+		failure.Err = fmt.Errorf("aud mismatch")
+		return failure
 	}
 	issuer, err := normalizeClaimOrigin(claims.Issuer, true)
+	failure.IssuerMatch = boolPtr(err == nil && issuer == expectedIssuer)
 	if err != nil || issuer != expectedIssuer {
-		return fmt.Errorf("iss mismatch")
+		failure.Err = fmt.Errorf("iss mismatch")
+		return failure
 	}
 
 	if !claims.ExpiresAt.Time.After(claims.IssuedAt.Time) || !claims.ExpiresAt.Time.After(claims.NotBefore.Time) {
-		return fmt.Errorf("exp must be after iat and nbf")
+		failure.Err = fmt.Errorf("exp must be after iat and nbf")
+		return failure
 	}
-	if claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time) > maxLifetime {
-		return fmt.Errorf("token lifetime exceeds maximum")
+	lifetime := claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time)
+	failure.TokenLifetimeSec = float64Ptr(lifetime.Seconds())
+	failure.MaxLifetimeSec = float64Ptr(maxLifetime.Seconds())
+	failure.LeewaySec = float64Ptr(leeway.Seconds())
+	if lifetime > maxLifetime {
+		failure.Err = fmt.Errorf("token lifetime exceeds maximum")
+		return failure
 	}
 	if !now.Before(claims.ExpiresAt.Time.Add(leeway)) {
-		return fmt.Errorf("token is expired")
+		failure.Err = fmt.Errorf("token is expired")
+		return failure
 	}
 	if now.Add(leeway).Before(claims.NotBefore.Time) {
-		return fmt.Errorf("token is not active yet")
+		failure.Err = fmt.Errorf("token is not active yet")
+		return failure
 	}
 	if now.Add(leeway).Before(claims.IssuedAt.Time) {
-		return fmt.Errorf("token was issued in the future")
+		failure.Err = fmt.Errorf("token was issued in the future")
+		return failure
 	}
 	return nil
 }
