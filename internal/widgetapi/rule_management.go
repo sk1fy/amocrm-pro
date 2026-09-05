@@ -222,6 +222,9 @@ func (s *RuleStore) Configure(
 	if err != nil {
 		return LeadStatusRuleResult{}, fmt.Errorf("authorize rule configuration: %w", err)
 	}
+	if err := authorizeJobCapability(ctx, tx, job, true); err != nil {
+		return LeadStatusRuleResult{}, err
+	}
 
 	result := LeadStatusRuleResult{
 		SourcePipelineID: command.SourcePipelineID, SourceStatusID: command.SourceStatusID,

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/services"
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 )
 
@@ -103,6 +104,13 @@ func (s *Store) routeLeadStatusEvent(
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return eventRoute{}, fmt.Errorf("correlate lead status effect: %w", err)
+	}
+
+	if err := services.RequireEnabled(ctx, tx, event.InstallationID, services.LeadStatus, true); err != nil {
+		if errors.Is(err, services.ErrNotEnabled) {
+			return eventRoute{Disposition: "service_not_enabled"}, nil
+		}
+		return eventRoute{}, err
 	}
 
 	var ruleID uuid.UUID

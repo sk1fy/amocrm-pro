@@ -15,7 +15,7 @@
 - `BUG-010` Docker gate: unit/race, OpenAPI, PostgreSQL integration and
   api/worker/migrate builds pass; real private-widget E2E pending.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
-- Миграции: шесть обратимых versioned migrations.
+- Миграции: восемь обратимых versioned migrations (multi-widget capabilities и OAuth state cleanup включены).
 - Redis: отсутствует по ADR-0001.
 - Стадия: functional MVP реализован; production hardening не завершён.
 
@@ -31,6 +31,19 @@ API и worker являются раздельными deployment units одно�
 проектные Go/PostgreSQL операции выполняются через Docker/Make.
 
 ## Implemented capabilities
+
+### Multi-widget provisioning
+
+- Audited operator CLI supports create/update/disable/enable, client secret
+  rotation and explicit service grants.
+- Env bootstrap is create-only; API restart preserves operator changes.
+- `lead-status` capability is checked before action admission and immediately
+  before worker mutation, including webhook workflows.
+- New integrations are fail-closed; migration 000007 grants the existing product
+  to integrations already present during upgrade.
+- OAuth/JWT/capability cross-integration tests cover two widgets in one account.
+- Service module extraction, queue fairness and full lifecycle remain open; see
+  [ADR-0008](../adr/0008-multi-widget-capability-boundary.md).
 
 ### OAuth and amoCRM client
 
@@ -84,7 +97,7 @@ API и worker являются раздельными deployment units одно�
    автоматизированная совместимость реализована в `BUG-010` / #55.
 2. Token refresh holds a PostgreSQL transaction/row lock across an external
    amoCRM OAuth request.
-3. `oauth_states` has no cleanup and `/oauth/start` has no ingress rate limit.
+3. `/oauth/start` has no ingress rate limit. Expired OAuth states now use bounded cleanup.
 4. Jobs, attempts, audit, tombstones, workflow runs and outbound effects have
    no finite retention policy.
 5. Webhook duplicate/stale removal, key rotation, unregister and complete

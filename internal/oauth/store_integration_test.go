@@ -156,7 +156,7 @@ func TestStoreRollsBackAuthorizationWhenReconcileEnqueueFails(t *testing.T) {
 			(SELECT count(*) FROM installations WHERE integration_id=$1),
 			(SELECT count(*) FROM oauth_credentials),
 			(SELECT count(*) FROM jobs),
-			(SELECT count(*) FROM audit_log)`, integration.ID,
+			(SELECT count(*) FROM audit_log WHERE action='installation.authorized')`, integration.ID,
 	).Scan(&installations, &credentials, &jobsCount, &audits); err != nil {
 		t.Fatal(err)
 	}

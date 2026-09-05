@@ -45,7 +45,8 @@ Redis отсутствует по [ADR-0001](adr/0001-postgresql-without-redis.m
 
 ## OAuth flow
 
-1. Operator bootstraps integration metadata from environment.
+1. Operator provisions integrations using the CLI. Environment bootstrap is
+   create-only and cannot overwrite operator changes or reactivate a disabled widget.
 2. `/oauth/amocrm/start` creates a hashed one-time state and redirects to amoCRM.
 3. `/oauth/amocrm/callback` consumes state, exchanges code and reads account data.
 4. Installation, encrypted credentials, webhook intent, audit and reconcile job
@@ -64,6 +65,7 @@ Intended browser flow:
 this.$authorizedAjax()
   -> disposable amoCRM JWT
   -> tenant/user verification
+  -> active tenant and service capability check
   -> atomic jti + Idempotency-Key + job commit
   -> 202 with job_id
   -> worker execution
@@ -101,6 +103,16 @@ The lead-status workflow performs GET/compare/PATCH. Outbound intent is durable
 before PATCH, retries compare remote state, and matching incoming webhooks mark
 the effect observed rather than starting a loop.
 
+Capability grants live in `integration_services`. New integrations require an
+explicit service selection; migration 000007 preserves the existing lead-status
+contract for integrations already in the database. API admission and worker
+mutation serialize against revocation, including webhook-origin workflows. See
+[ADR-0008](adr/0008-multi-widget-capability-boundary.md) and the
+[operator runbook](runbooks/integrations.md).
+
+Cleanup removes consumed and unused OAuth states after expiry plus the configured
+safety margin in bounded batches, with `oauth_state` cleanup metrics.
+
 ## Network and operational boundaries
 
 - Public API listener: OAuth, widget, webhook and `/live`.
@@ -112,8 +124,9 @@ the effect observed rather than starting a loop.
 
 ## Known incomplete areas
 
+- service module extraction and queue fairness across integrations;
 - real installed-private-widget browser E2E evidence;
-- OAuth state cleanup and OAuth ingress rate limiting;
+- OAuth ingress rate limiting;
 - token refresh without an external call inside a DB transaction;
 - finite retention for jobs/audit/tombstones/workflow/effects;
 - complete webhook rotate/unregister and uninstall/revocation lifecycle;

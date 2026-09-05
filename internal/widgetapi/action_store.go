@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/services"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -130,6 +131,15 @@ func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (A
 
 	if err := lockActiveInstallation(ctx, tx, admission.principal); err != nil {
 		return ActionResult{}, err
+	}
+	serviceCode, known := services.JobService(admission.jobType)
+	if !known {
+		return ActionResult{}, services.ErrNotEnabled
+	}
+	if serviceCode != "" {
+		if err := services.RequireEnabled(ctx, tx, admission.principal.InstallationID, serviceCode, true); err != nil {
+			return ActionResult{}, err
+		}
 	}
 	if err := consumeActionToken(ctx, tx, admission.principal); err != nil {
 		return ActionResult{}, err

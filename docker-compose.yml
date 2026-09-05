@@ -38,6 +38,31 @@ services:
     networks:
       - backend
 
+  integrations:
+    profiles: ["tools"]
+    image: "${INTEGRATIONS_IMAGE:-amocrm-integrations:local}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: integrations
+      args:
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    environment:
+      APP_ENV: "${APP_ENV:-development}"
+      DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
+      ENCRYPTION_KEYS: "${ENCRYPTION_KEYS:-1:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}"
+      ACTIVE_ENCRYPTION_KEY_VERSION: "${ACTIVE_ENCRYPTION_KEY_VERSION:-1}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
   api:
     image: "${API_IMAGE:-amocrm-api:local}"
     build:

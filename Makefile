@@ -28,8 +28,8 @@ help: ## Show available commands
 config: ## Validate the resolved Docker Compose configuration
 	$(COMPOSE) config --quiet
 
-build: ## Build API, worker, and migration images
-	$(COMPOSE) build api worker migrate
+build: ## Build API, worker, migration, and operator images
+	$(COMPOSE) build api worker migrate integrations
 
 up: ## Build and start the complete local stack
 	$(COMPOSE) up --build --detach
@@ -71,16 +71,16 @@ integration-test: ## Run migrations and PostgreSQL integration tests in an isola
 	$(TEST_COMPOSE) build migrate integration-test; \
 	$(TEST_COMPOSE) up --detach postgres; \
 	$(TEST_COMPOSE) run --rm migrate up; \
-	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) FROM schema_migrations WHERE octet_length(checksum)=32 AND octet_length(down_checksum)=32" | grep -qx '6'; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) FROM schema_migrations WHERE octet_length(checksum)=32 AND octet_length(down_checksum)=32" | grep -qx '8'; \
 	if $(TEST_COMPOSE) run --rm --no-deps migrate down; then echo "unconfirmed migrate down unexpectedly succeeded" >&2; exit 1; fi; \
-	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 6 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 8 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
 	$(TEST_COMPOSE) run --rm --no-deps -e MIGRATION_DOWN_CONFIRM=revert-all-migrations migrate down; \
 	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT to_regclass('public.jobs') IS NULL" | grep -qx 't'; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate up & first=$$!; \
 	$(TEST_COMPOSE) run --rm --no-deps migrate up & second=$$!; \
 	wait $$first; \
 	wait $$second; \
-	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 6 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
+	$(TEST_COMPOSE) exec -T postgres psql -U amocrm_test -d amocrm_test -Atc "SELECT count(*) = 8 AND to_regclass('public.jobs') IS NOT NULL FROM schema_migrations" | grep -qx 't'; \
 	$(TEST_COMPOSE) run --rm --no-deps integration-test
 
 vet: ## Run go vet in Docker

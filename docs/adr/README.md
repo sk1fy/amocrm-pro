@@ -9,6 +9,7 @@
 | [0005](0005-webhook-workflow-effect-correlation.md) | Accepted | Webhook workflow effect correlation |
 | [0006](0006-webhook-payload-retention-and-metrics.md) | Accepted | Raw webhook payload retention and metrics |
 | [0007](0007-async-rule-management-principal-and-cas.md) | Accepted | Async rule management principal and CAS |
+| [0008](0008-multi-widget-capability-boundary.md) | Accepted | Multi-widget provisioning and capability boundary |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

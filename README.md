@@ -1,14 +1,15 @@
 # amoCRM Go backend
 
 Docker-first backend для интеграций и JS-виджетов amoCRM. Проект состоит из
-двух независимо запускаемых Go-процессов, мигратора и PostgreSQL. Redis в
+двух независимо запускаемых Go-процессов, мигратора, operator CLI и PostgreSQL. Redis в
 текущей архитектуре не используется.
 
 ## Состояние проекта
 
-На `main` реализован функциональный vertical slice:
+Реализован функциональный vertical slice:
 
 - OAuth start/callback, зашифрованные credentials и version-fenced refresh;
+- audited operator CLI для нескольких integrations и capability guard в API/worker;
 - специализированный HTTP-клиент amoCRM API v4;
 - управление и reconciliation webhook-подписок;
 - durable webhook ingress, parsing, deduplication и PostgreSQL jobs;
@@ -66,6 +67,7 @@ API calls, workflow, retries, token refresh и cleanup выполняет worker
 | `api` management | Liveness, readiness и Prometheus metrics | `127.0.0.1:8082` |
 | `worker` | Jobs, amoCRM API, workflow и cleanup | `127.0.0.1:8081` |
 | `migrate` | Применение SQL-миграций | нет |
+| `integrations` | Operator CLI: provisioning, secrets, disable и service grants | нет |
 | `postgres` | System of record, inbox и очередь | `127.0.0.1:5432` |
 
 Runtime: Go 1.25 и PostgreSQL 17 Alpine.
@@ -101,6 +103,12 @@ make down
 Полный rollback схемы защищён отдельным подтверждением и описан в
 [migrate-down.md](docs/runbooks/migrate-down.md).
 
+Подключение дополнительных виджетов, ротация secrets и отключение описаны в
+[integrations.md](docs/runbooks/integrations.md). Env bootstrap создаёт только
+первоначальную integration и не перезаписывает изменения оператора. Новые
+integrations требуют явного выбора services; lead-status проверяется в API
+до расходования JWT/idempotency и повторно в worker перед изменением.
+
 ## Публичные endpoints
 
 OAuth:
@@ -130,7 +138,10 @@ Widget API:
 cmd/api/                  публичный HTTP-сервис
 cmd/worker/               обработчик фоновых jobs
 cmd/migrate/              контейнерный мигратор
+cmd/integrations/         operator CLI
 internal/integration/     amoCRM OAuth/API client
+internal/integrations/    audited provisioning
+internal/services/        каталог и capability authorization
 internal/jobs/            PostgreSQL queue и worker runtime
 internal/maintenance/     bounded cleanup scheduler
 internal/oauth/           OAuth application layer и token provider

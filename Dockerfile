@@ -33,7 +33,7 @@ RUN apk add --no-cache build-base
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+CMD ["-race", "-count=1", "-v", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
@@ -58,6 +58,16 @@ ENV MIGRATIONS_DIR=/migrations
 
 ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
 CMD ["up"]
+
+FROM source AS integrations-build
+
+RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-integrations ./cmd/integrations
+
+FROM runtime AS integrations
+
+COPY --from=integrations-build --chown=app:app /out/amocrm-integrations /usr/local/bin/amocrm-integrations
+
+ENTRYPOINT ["/usr/local/bin/amocrm-integrations"]
 
 FROM source AS api-build
 

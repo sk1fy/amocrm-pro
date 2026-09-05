@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/services"
 )
 
 var (
@@ -42,6 +43,8 @@ func NewStore(pool *pgxpool.Pool, cipher Cipher) *Store {
 	return &Store{pool: pool, cipher: cipher}
 }
 
+// EnsureIntegration is initial bootstrap only. Existing configuration, secrets,
+// status and service grants are never overwritten by process startup.
 func (s *Store) EnsureIntegration(ctx context.Context, input IntegrationInput) (Integration, error) {
 	if !integrationCodePattern.MatchString(input.Code) {
 		return Integration{}, errors.New("integration code must contain 3-64 lowercase letters, digits, underscores, or hyphens")
@@ -74,8 +77,16 @@ func (s *Store) EnsureIntegration(ctx context.Context, input IntegrationInput) (
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "integration:"+input.Code); err != nil {
 		return Integration{}, fmt.Errorf("lock integration bootstrap: %w", err)
 	}
+	var existing Integration
+	var existingEvents json.RawMessage
+	err = tx.QueryRow(ctx, `SELECT id,code,client_id,client_secret_ciphertext,client_secret_key_version,redirect_uri,webhook_events FROM integrations WHERE code=$1 FOR UPDATE`, input.Code).Scan(&existing.ID, &existing.Code, &existing.ClientID, &existing.ClientSecretCiphertext, &existing.ClientSecretKeyVersion, &existing.RedirectURI, &existingEvents)
+	if err == nil {
+		if err := json.Unmarshal(existingEvents, &existing.WebhookEvents); err != nil {
+			return Integration{}, fmt.Errorf("decode bootstrap integration events: %w", err)
+		}
+		return existing, nil
+	}
 	integrationID := uuid.New()
-	err = tx.QueryRow(ctx, `SELECT id FROM integrations WHERE code = $1 FOR UPDATE`, input.Code).Scan(&integrationID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return Integration{}, fmt.Errorf("find bootstrap integration: %w", err)
 	}
@@ -89,22 +100,22 @@ func (s *Store) EnsureIntegration(ctx context.Context, input IntegrationInput) (
 		INSERT INTO integrations (
 			id, code, client_id, client_secret_ciphertext,
 			client_secret_key_version, redirect_uri, status, webhook_events
-		) VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)
-		ON CONFLICT (code) DO UPDATE
-		SET client_id = EXCLUDED.client_id,
-			client_secret_ciphertext = EXCLUDED.client_secret_ciphertext,
-			client_secret_key_version = EXCLUDED.client_secret_key_version,
-			redirect_uri = EXCLUDED.redirect_uri,
-			status = 'active', webhook_events = EXCLUDED.webhook_events,
-			updated_at = now()`,
+		) VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)`,
 		integrationID, input.Code, input.ClientID, ciphertext, keyVersion, input.RedirectURI, events,
 	); err != nil {
-		return Integration{}, fmt.Errorf("upsert bootstrap integration: %w", err)
+		return Integration{}, fmt.Errorf("create bootstrap integration: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO integration_services(integration_id,service_code,enabled) VALUES($1,$2,true)`, integrationID, services.LeadStatus); err != nil {
+		return Integration{}, fmt.Errorf("grant bootstrap service: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO audit_log(actor_type,action,object_type,object_id) VALUES('bootstrap','integration.created','integration',$1)`, integrationID.String()); err != nil {
+		return Integration{}, fmt.Errorf("audit bootstrap integration: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return Integration{}, fmt.Errorf("commit integration bootstrap: %w", err)
 	}
-	return s.FindIntegrationByCode(ctx, input.Code)
+	return Integration{ID: integrationID, Code: input.Code, ClientID: input.ClientID, ClientSecretCiphertext: ciphertext, ClientSecretKeyVersion: keyVersion, RedirectURI: input.RedirectURI, WebhookEvents: input.WebhookEvents}, nil
 }
 
 func (s *Store) FindIntegrationByCode(ctx context.Context, code string) (Integration, error) {
@@ -210,6 +221,16 @@ func (s *Store) SaveInstallation(
 		return InstallationResult{}, fmt.Errorf("begin save installation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Serialize installation authorization with operator disable. An OAuth state
+	// may have been consumed before the integration was disabled.
+	var activeIntegrationID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM integrations WHERE id=$1 AND status='active' FOR SHARE`, integration.ID).Scan(&activeIntegrationID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return InstallationResult{}, ErrIntegrationNotFound
+		}
+		return InstallationResult{}, fmt.Errorf("check integration before authorization: %w", err)
+	}
 
 	candidateID := uuid.New()
 	var installationID uuid.UUID

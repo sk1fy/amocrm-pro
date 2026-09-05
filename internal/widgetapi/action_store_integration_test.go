@@ -351,6 +351,9 @@ func widgetPrincipal(t *testing.T, pool *pgxpool.Pool, accountID, userID int64) 
 	).Scan(&installationID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := pool.Exec(ctx, `INSERT INTO integration_services (integration_id, service_code, enabled) VALUES ($1, 'lead-status', true)`, integrationID); err != nil {
+		t.Fatal(err)
+	}
 	return widgetauth.Principal{
 		IntegrationID:    integrationID,
 		InstallationID:   installationID,

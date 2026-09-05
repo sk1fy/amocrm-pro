@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/services"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -59,6 +60,9 @@ func (h *Handler) Ping(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.actions.EnqueuePing(r.Context(), principal, idempotencyValues[0])
 	switch {
+	case errors.Is(err, services.ErrNotEnabled):
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": map[string]string{"code": "service_not_enabled"}})
+		return
 	case errors.Is(err, ErrInvalidIdempotencyKey):
 		http.Error(w, "invalid idempotency key", http.StatusBadRequest)
 		return
@@ -99,6 +103,9 @@ func (h *Handler) LeadSetStatus(w http.ResponseWriter, r *http.Request) {
 		r.Context(), principal, idempotencyValues[0], command,
 	)
 	switch {
+	case errors.Is(err, services.ErrNotEnabled):
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": map[string]string{"code": "service_not_enabled"}})
+		return
 	case errors.Is(err, ErrInvalidIdempotencyKey), errors.Is(err, ErrInvalidLeadStatus):
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
@@ -139,6 +146,9 @@ func (h *Handler) ConfigureLeadStatusRule(w http.ResponseWriter, r *http.Request
 		r.Context(), principal, idempotencyValues[0], command,
 	)
 	switch {
+	case errors.Is(err, services.ErrNotEnabled):
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": map[string]string{"code": "service_not_enabled"}})
+		return
 	case errors.Is(err, ErrInvalidIdempotencyKey), errors.Is(err, ErrInvalidLeadStatusRule):
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return

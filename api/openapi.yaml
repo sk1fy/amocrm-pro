@@ -257,6 +257,9 @@ paths:
       operationId: enqueueWidgetLeadSetStatus
       summary: Enqueue an admin-only workflow that converges a lead to a pipeline status.
       description: >-
+        Requires the lead-status service capability for this integration.
+        Capability is checked before token/idempotency consumption and again
+        in the worker before mutation.
         The worker re-checks the verified actor as an active amoCRM administrator,
         reads the lead, and only sends PATCH when the requested pipeline/status
         differs. A retry after an uncertain PATCH compares remote state first.
@@ -291,6 +294,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ServiceNotEnabled'
         '409':
           description: The idempotency key is bound to a different command or is still processing.
           content:
@@ -305,6 +310,9 @@ paths:
       operationId: configureWidgetLeadStatusRule
       summary: Asynchronously create, update, or disable one lead-status workflow rule.
       description: >-
+        Requires the lead-status service capability for this integration.
+        Capability is checked before token/idempotency consumption and again
+        in the worker before mutation.
         The disposable JWT identifies the durable widget user actor but does not
         grant administrative authority. The worker re-checks that actor as an
         active amoCRM administrator immediately before applying revision CAS.
@@ -341,6 +349,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ServiceNotEnabled'
         '409':
           description: The idempotency key is bound to a different command or is still processing.
           content:
@@ -650,6 +660,21 @@ components:
           additionalProperties: false
       additionalProperties: false
   responses:
+    ServiceNotEnabled:
+      description: The lead-status capability is not enabled for this integration.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
+                    enum: [service_not_enabled]
     BadRequest:
       description: Request parameters or body are invalid.
       headers:

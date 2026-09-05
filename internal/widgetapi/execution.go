@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/platform/sanitize"
+	"github.com/sk1fy/amocrm-pro/internal/services"
 )
 
 var ErrExecutionNotAuthorized = errors.New("widget action execution is not authorized")
@@ -169,7 +170,7 @@ func (s *ExecutionStore) AuthorizeIntegrationAction(
 	if err != nil {
 		return fmt.Errorf("authorize integration action execution: %w", err)
 	}
-	return nil
+	return authorizeJobCapability(ctx, s.pool, job, false)
 }
 
 // WithIntegrationMutationAuthorization provides the same lifecycle ordering
@@ -233,6 +234,9 @@ func (s *ExecutionStore) WithIntegrationMutationAuthorization(
 	if err != nil {
 		return fmt.Errorf("lock integration mutation authorization: %w", err)
 	}
+	if err := authorizeJobCapability(ctx, tx, job, true); err != nil {
+		return err
+	}
 	if err := callback(ctx); err != nil {
 		return err
 	}
@@ -285,7 +289,7 @@ func (s *ExecutionStore) Authorize(
 	if err != nil {
 		return fmt.Errorf("authorize widget action execution: %w", err)
 	}
-	return nil
+	return authorizeJobCapability(ctx, s.pool, job, false)
 }
 
 // WithMutationAuthorization establishes the ordering point between an active
@@ -352,6 +356,9 @@ func (s *ExecutionStore) WithMutationAuthorization(
 	if err != nil {
 		return fmt.Errorf("lock mutation authorization: %w", err)
 	}
+	if err := authorizeJobCapability(ctx, tx, job, true); err != nil {
+		return err
+	}
 	if err := callback(ctx); err != nil {
 		return err
 	}
@@ -359,6 +366,21 @@ func (s *ExecutionStore) WithMutationAuthorization(
 		return fmt.Errorf("commit mutation authorization: %w", err)
 	}
 	return nil
+}
+
+func authorizeJobCapability(ctx context.Context, db services.Querier, job jobs.Job, lock bool) error {
+	code, known := services.JobService(job.Type)
+	if !known || job.InstallationID == nil {
+		return ErrExecutionNotAuthorized
+	}
+	if code == "" {
+		return nil
+	}
+	err := services.RequireEnabled(ctx, db, *job.InstallationID, code, lock)
+	if errors.Is(err, services.ErrNotEnabled) {
+		return ErrExecutionNotAuthorized
+	}
+	return err
 }
 
 func jobActorUserID(job jobs.Job) (int64, error) {

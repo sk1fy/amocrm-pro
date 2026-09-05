@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sk1fy/amocrm-pro/internal/integrations"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
 )
 
@@ -36,16 +37,17 @@ func TestSaveInstallationReauthorizationRefreshesWebhookIntent(t *testing.T) {
 	}
 
 	wantEvents := []string{"add_lead", "update_contact"}
-	updatedIntegration, err := store.EnsureIntegration(ctx, IntegrationInput{
-		Code:          integration.Code,
-		ClientID:      integration.ClientID,
-		ClientSecret:  "synthetic-client-secret-rotated",
-		RedirectURI:   integration.RedirectURI,
-		WebhookEvents: wantEvents,
+	_, err = integrations.NewStore(pool, keys).Apply(ctx, integrations.Command{
+		Action: "update", Actor: "reauthorization-test", Code: integration.Code, WebhookEvents: &wantEvents,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	updatedIntegration, err := store.FindIntegrationByCode(ctx, integration.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	reauthorized, err := store.SaveInstallation(ctx, updatedIntegration, Account{
 		ID: 42, Subdomain: "tenant",
 	}, "tenant.amocrm.ru", Token{

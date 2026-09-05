@@ -25,10 +25,12 @@ type Result struct {
 	LockAcquired             bool
 	WidgetTokens             int64
 	IdempotencyKeys          int64
+	OAuthStates              int64
 	InboxEvents              int64
 	WebhookDeliveries        int64
 	WidgetTokensLimitReached bool
 	IdempotencyLimitReached  bool
+	OAuthStatesLimitReached  bool
 	InboxEventsLimitReached  bool
 	DeliveriesLimitReached   bool
 }
@@ -82,6 +84,15 @@ func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 	}
 	result.IdempotencyKeys, result.IdempotencyLimitReached, err = deleteExpired(
 		ctx, tx, "idempotency_keys", policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	// Keep consumed and unused states until expiry plus the safety margin.
+	// Callback state consumption is an atomic database operation; SKIP LOCKED
+	// avoids contending with a callback currently consuming a state.
+	result.OAuthStates, result.OAuthStatesLimitReached, err = deleteExpired(
+		ctx, tx, "oauth_states", policy,
 	)
 	if err != nil {
 		return Result{}, err
@@ -273,5 +284,6 @@ func (s *Scheduler) runOnce(parent context.Context) {
 	s.logger.Info("cleanup pass completed",
 		"used_widget_tokens", result.WidgetTokens,
 		"idempotency_keys", result.IdempotencyKeys,
+		"oauth_states", result.OAuthStates,
 	)
 }

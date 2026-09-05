@@ -9,6 +9,7 @@ import (
 const (
 	recordWidgetToken     = "used_widget_token"
 	recordIdempotencyKey  = "idempotency_key"
+	recordOAuthState      = "oauth_state"
 	recordInboxEvent      = "inbox_event"
 	recordWebhookDelivery = "webhook_delivery"
 )
@@ -65,6 +66,7 @@ func (m *Metrics) observe(started time.Time, result Result, err error) {
 	}{
 		{recordWidgetToken, result.WidgetTokens, result.WidgetTokensLimitReached},
 		{recordIdempotencyKey, result.IdempotencyKeys, result.IdempotencyLimitReached},
+		{recordOAuthState, result.OAuthStates, result.OAuthStatesLimitReached},
 		{recordInboxEvent, result.InboxEvents, result.InboxEventsLimitReached},
 		{recordWebhookDelivery, result.WebhookDeliveries, result.DeliveriesLimitReached},
 	}
