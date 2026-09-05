@@ -65,64 +65,86 @@ func (w *Worker) Run(ctx context.Context) error {
 	defer ticker.Stop()
 
 	semaphore := make(chan struct{}, w.config.Concurrency)
+	slotReleased := make(chan struct{}, 1)
 	var active sync.WaitGroup
 
-	w.poll(ctx, semaphore, &active)
 	for {
+		if ctx.Err() != nil {
+			w.drain(&active)
+			return nil
+		}
+		// A release already reflected in available capacity needs no separate
+		// poll. Releases during the claim remain queued for the next iteration.
+		select {
+		case <-slotReleased:
+		default:
+		}
+		w.poll(ctx, semaphore, &active, slotReleased)
 		select {
 		case <-ctx.Done():
 			w.drain(&active)
 			return nil
 		case <-ticker.C:
-			w.poll(ctx, semaphore, &active)
+		case <-slotReleased:
 		}
 	}
 }
 
-func (w *Worker) poll(ctx context.Context, semaphore chan struct{}, active *sync.WaitGroup) {
+func (w *Worker) poll(ctx context.Context, semaphore chan struct{}, active *sync.WaitGroup, slotReleased chan<- struct{}) {
+	// Fill the initially available capacity even when BatchSize is smaller.
+	// Bound each refill to that capacity; fast completions wake another refill.
 	available := cap(semaphore) - len(semaphore)
-	if available <= 0 {
-		return
-	}
-	limit := min(w.config.BatchSize, available)
-	claimTimeout := w.config.ClaimTimeout
-	if claimTimeout <= 0 {
-		claimTimeout = 2 * time.Second
-	}
-	claimContext, cancel := context.WithTimeout(ctx, claimTimeout)
-	var claimed []Job
-	var err error
-	if w.config.IntegrationConcurrency > 0 {
-		claimed, err = w.store.ClaimFairWithObserver(
-			claimContext, w.config.ID, limit, w.config.ReapBatchSize,
-			w.config.LeaseDuration, w.config.IntegrationConcurrency, w.dispatchFailure,
-		)
-	} else {
-		claimed, err = w.store.ClaimWithObserver(
-			claimContext, w.config.ID, limit, w.config.ReapBatchSize,
-			w.config.LeaseDuration, w.dispatchFailure,
-		)
-	}
-	cancel()
-	if err != nil {
-		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-			w.logger.Error("claim jobs", "error", err)
-		} else if errors.Is(err, context.DeadlineExceeded) {
-			w.logger.Warn("claim jobs timed out", "timeout", claimTimeout)
+	for available > 0 && ctx.Err() == nil {
+		limit := min(w.config.BatchSize, available)
+		claimTimeout := w.config.ClaimTimeout
+		if claimTimeout <= 0 {
+			claimTimeout = 2 * time.Second
 		}
-		return
-	}
+		claimContext, cancel := context.WithTimeout(ctx, claimTimeout)
+		var claimed []Job
+		var err error
+		if w.config.IntegrationConcurrency > 0 {
+			claimed, err = w.store.ClaimFairWithObserver(
+				claimContext, w.config.ID, limit, w.config.ReapBatchSize,
+				w.config.LeaseDuration, w.config.IntegrationConcurrency, w.dispatchFailure,
+			)
+		} else {
+			claimed, err = w.store.ClaimWithObserver(
+				claimContext, w.config.ID, limit, w.config.ReapBatchSize,
+				w.config.LeaseDuration, w.dispatchFailure,
+			)
+		}
+		cancel()
+		if err != nil {
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				w.logger.Error("claim jobs", "error", err)
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				w.logger.Warn("claim jobs timed out", "timeout", claimTimeout)
+			}
+			return
+		}
 
-	for _, job := range claimed {
-		semaphore <- struct{}{}
-		active.Add(1)
-		go func(job Job) {
-			defer func() {
-				<-semaphore
-				active.Done()
-			}()
-			w.execute(ctx, job)
-		}(job)
+		for _, job := range claimed {
+			semaphore <- struct{}{}
+			active.Add(1)
+			go func(job Job) {
+				defer func() {
+					<-semaphore
+					active.Done()
+					select {
+					case slotReleased <- struct{}{}:
+					default:
+					}
+				}()
+				w.execute(ctx, job)
+			}(job)
+		}
+		available -= len(claimed)
+		// Empty/partial claims can mean the queue is empty or lanes hit their
+		// shared cap. Retry only after a slot release or the fallback tick.
+		if len(claimed) < limit {
+			return
+		}
 	}
 }
 

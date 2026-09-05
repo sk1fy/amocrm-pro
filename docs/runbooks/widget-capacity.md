@@ -104,3 +104,59 @@ multiple installations, platform jobs, rotation across single-slot polls,
 expired leases, observer rollback and scheduler timeout. The API integration
 test covers real JWT/CORS composition and verifies that 429 leaves the JWT,
 idempotency key and job admission untouched.
+
+## Scheduler performance and reproduction
+
+Workers refill local slots after durable completion/failure, including when a
+claim batch is smaller than the available capacity. Completion notifications are
+coalesced; a partial/empty claim or error stops the refill. The configured polling
+interval remains the fallback for new arrivals, delayed jobs and capacity released
+by another replica. A busy integration still cannot exceed its shared lease cap.
+
+The scheduler retains its global transaction lock and separate READ COMMITTED
+statements. Live-lease probes stop after finding the cap and separately handle
+platform/integration jobs. No cached lease or ready counters are maintained:
+expiry and `run_after` continue to be evaluated using database time on each slot.
+Migration 000010 indexes exhausted attempts and the platform priority order.
+It uses ordinary transactional index creation, so schedule the migration for a
+window that permits job-table writes to wait while the indexes are built.
+
+Run the opt-in experiment in its own disposable Docker/PostgreSQL stack:
+
+```sh
+make queue-benchmark
+# A shorter SQL sample; the 24-job worker experiment still runs three repeats.
+make queue-benchmark QUEUE_BENCHMARK_SAMPLES=4 QUEUE_BENCHMARK_CASES=ready_100k,short_cap2
+```
+
+The target uses the dedicated `amocrm-pro-queue-benchmark` Compose project and
+removes that project's database volume on exit. Do not give it the name of a
+running application or another test project. Output is retained under
+`tmp/queue-benchmark` (override with an absolute `QUEUE_BENCHMARK_OUTPUT` path).
+Use a fresh output directory when comparing runs.
+
+`TestFairClaimPerformance` measures admission transactions only, with one/eight
+claimers, two excluded warmup waves and twelve measured waves by default. It
+saves deterministic seeds, full EXPLAIN ANALYZE/BUFFERS/WAL plans, query text and
+hashes, Go runtime/database settings, schema/index definitions, all returned-job counts and
+raw timing samples. `results.json` reports p50/p95 wall time and client-observed
+lock-query/lock-hold intervals. Those lock timings include network overhead and
+are not pure PostgreSQL lock-wait measurements. Resets and VACUUM ANALYZE happen
+outside the measured interval. Each wave pairs the baseline and current paths
+on restored seed state and reverses their order in the next wave to reduce time
+drift. Raw samples also separate slot, reaper, observer and commit query time.
+Saved plans describe the initial seed; later
+statements may use different cached plans and see additional live leases.
+
+The frozen `baseline` selector and production `current` selector both use the
+installed schema and the same reapers. This isolates the SQL change. Comparing
+the complete pre-change implementation to the new migration requires separate
+schema-000009 and schema-000010 runs; keep their metadata with the results.
+
+`TestWorkerPollingPerformance` separately executes and durably completes **24**
+jobs per run with a 50 ms handler, two integrations, cap 2, four local slots and
+a one-second fallback. It compares the old ticker-only loop with local completion
+wakeups using the same production SQL. Three repeats per mode verify all job and
+attempt completions and save `worker-results.json`. This is a small synthetic
+end-to-end experiment, not execution of the 100,000-job admission seed or an
+amoCRM throughput prediction.

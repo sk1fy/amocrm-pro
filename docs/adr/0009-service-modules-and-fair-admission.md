@@ -102,3 +102,16 @@ deployments or Redis. Physical service splitting, distributed ingress quotas,
 settings/general error contracts and the remaining production lifecycle remain
 separate decisions. Configuration, rollout and reproduction instructions are in
 the [capacity runbook](../runbooks/widget-capacity.md).
+
+### Scheduler performance follow-up (2026-09-05)
+
+The scheduler keeps the same lock, per-slot snapshots and lease semantics.
+Admission now probes platform and integration leases separately and stops counting
+at the cap. Migration 000010 adds partial indexes for exhausted-attempt reaping
+and platform priority selection. Workers also wake when a local execution slot
+is released after finalization; polling remains the fallback for external state
+changes. No mutable ready/lease counters or per-lane locking were introduced.
+
+`make queue-benchmark` reproduces admission plans/timings separately from a small
+24-job worker execution experiment. The 100,000-job isolation test retains its
+original meaning and is not an execution-throughput benchmark.

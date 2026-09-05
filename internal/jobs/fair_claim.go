@@ -61,6 +61,9 @@ func (s *Store) ClaimFairWithObserver(ctx context.Context, workerID string, limi
 	return claimed, nil
 }
 
+// The live-lease probes are separate for platform and integration jobs so their
+// installation predicates can use the processing index. Counting stops at the
+// cap: larger counts cannot change admission, and expired leases never count.
 const fairClaimQuery = `
 WITH selected AS MATERIALIZED (
     SELECT lane.scope_id, candidate.id
@@ -94,12 +97,19 @@ WITH selected AS MATERIALIZED (
         LIMIT 1
     ) candidate
     WHERE (
-        SELECT count(*) FROM jobs active
-        WHERE active.status='processing' AND active.locked_until >= statement_timestamp()
-          AND (
-            (lane.integration_id IS NULL AND active.installation_id IS NULL)
-            OR active.installation_id IN (SELECT id FROM installations WHERE integration_id=lane.integration_id)
-          )
+        SELECT count(*) FROM (
+            SELECT 1
+            FROM jobs active
+            WHERE lane.integration_id IS NULL AND active.installation_id IS NULL
+              AND active.status='processing' AND active.locked_until >= statement_timestamp()
+            UNION ALL
+            SELECT 1
+            FROM installations i
+            JOIN jobs active ON active.installation_id=i.id
+            WHERE i.integration_id=lane.integration_id
+              AND active.status='processing' AND active.locked_until >= statement_timestamp()
+            LIMIT $1
+        ) live
     ) < $1
     ORDER BY lane.last_claimed_at, lane.scope_id
     LIMIT 1
