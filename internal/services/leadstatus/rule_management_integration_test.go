@@ -1,4 +1,4 @@
-package widgetapi
+package leadstatus
 
 import (
 	"context"

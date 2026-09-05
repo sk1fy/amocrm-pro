@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"github.com/sk1fy/amocrm-pro/internal/services"
+
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -29,6 +31,7 @@ type Delivery struct {
 type Store struct {
 	pool    *pgxpool.Pool
 	metrics *Metrics
+	routers map[string]services.EventRouter
 }
 
 var ErrNotFound = errors.New("webhook object not found in installation scope")
@@ -38,7 +41,7 @@ func NewStore(pool *pgxpool.Pool, metricSets ...*Metrics) *Store {
 	if len(metricSets) > 0 {
 		metrics = metricSets[0]
 	}
-	return &Store{pool: pool, metrics: metrics}
+	return &Store{pool: pool, metrics: metrics, routers: make(map[string]services.EventRouter)}
 }
 
 func (s *Store) SaveDeliveryAndEnqueue(
@@ -281,7 +284,7 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 		return tx.Commit(ctx)
 	}
 
-	route, err := s.routeLeadStatusEvent(ctx, tx, leadStatusEvent{
+	route, err := s.routeEvent(ctx, tx, services.Event{
 		ID: eventID, InstallationID: installationID, EntityType: entityType,
 		EventType: eventType, EntityID: entityID, Payload: payload,
 		DeduplicationKey: deduplicationKey, ReceivedAt: deliveryReceivedAt,
@@ -323,7 +326,7 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	s.metrics.observeLeadStatusRoute(route.Disposition)
+	s.metrics.observeRoute(route.Workflow, route.Disposition)
 	return nil
 }
 
@@ -397,38 +400,25 @@ func (s *Store) RecordJobFailure(
 		if tag.RowsAffected() != 1 {
 			return nil
 		}
-	case LeadStatusTransitionJobType:
-		var payload leadStatusTransitionPayload
-		if err := json.Unmarshal(job.Payload, &payload); err != nil || payload.WorkflowRunID == uuid.Nil {
-			return nil
-		}
-		runStatus := "queued"
-		terminal := false
-		if status == jobs.StatusFailed {
-			runStatus, terminal = "failed", true
-		} else if status == jobs.StatusDead {
-			runStatus, terminal = "dead", true
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE workflow_runs
-			SET status=$4, finished_at=CASE WHEN $5 THEN now() ELSE NULL END
-			WHERE id=$1 AND installation_id=$2 AND job_id=$3 AND status <> 'completed'`,
-			payload.WorkflowRunID, *job.InstallationID, job.ID, runStatus, terminal,
-		); err != nil {
-			return fmt.Errorf("record workflow run failure: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE outbound_effects
-			SET state=CASE
-					WHEN state='prepared' THEN 'uncertain'
-					ELSE state
-				END,
-				last_error=$2, updated_at=now()
-			WHERE correlation_job_id=$1`,
-			job.ID, sanitize.Text(failure.Message, 4000),
-		); err != nil {
-			return fmt.Errorf("record workflow effect failure: %w", err)
-		}
+
 	}
 	return nil
+}
+
+// RegisterEventRouter binds one normalized event family before workers start.
+func (s *Store) RegisterEventRouter(entityType, eventType string, router services.EventRouter) {
+	key := entityType + ":" + eventType
+	if router == nil {
+		panic("nil event router")
+	}
+	if _, exists := s.routers[key]; exists {
+		panic("duplicate event router: " + key)
+	}
+	s.routers[key] = router
+}
+func (s *Store) routeEvent(ctx context.Context, tx pgx.Tx, event services.Event) (services.EventRoute, error) {
+	if router := s.routers[event.EntityType+":"+event.EventType]; router != nil {
+		return router(ctx, tx, event)
+	}
+	return services.EventRoute{Disposition: "observed"}, nil
 }

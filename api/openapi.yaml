@@ -203,6 +203,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WidgetBootstrap'
+        '429':
+          $ref: '#/components/responses/WidgetRateLimited'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -237,6 +239,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobAccepted'
+        '429':
+          $ref: '#/components/responses/WidgetRateLimited'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '400':
@@ -292,6 +296,8 @@ paths:
                 $ref: '#/components/schemas/JobAccepted'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/WidgetRateLimited'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -347,6 +353,8 @@ paths:
                 $ref: '#/components/schemas/JobAccepted'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/WidgetRateLimited'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -386,6 +394,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobStatus'
+        '429':
+          $ref: '#/components/responses/WidgetRateLimited'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -660,6 +670,31 @@ components:
           additionalProperties: false
       additionalProperties: false
   responses:
+    WidgetRateLimited:
+      description: >-
+        The verified integration or installation exhausted its per-process request
+        budget, or the bounded limiter cache is full. No JWT replay record,
+        idempotency key, or job is consumed by this rejection. Retry after the
+        indicated delay; the same JWT may be reused while it remains valid.
+      headers:
+        Retry-After:
+          description: Minimum suggested retry delay in seconds.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
+                    enum: [rate_limited]
     ServiceNotEnabled:
       description: The lead-status capability is not enabled for this integration.
       content:

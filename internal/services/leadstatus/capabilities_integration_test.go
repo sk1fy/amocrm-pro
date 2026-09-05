@@ -1,4 +1,4 @@
-package widgetapi
+package leadstatus
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ func TestLeadStatusCapabilityAdmissionIsolatedForSameAccount(t *testing.T) {
 	}
 	jobStore := jobs.NewStore(pool)
 	actions := NewActionStore(pool, jobStore)
-	handler := NewHandler(jobStore, actions)
+	handler := newTestHandler(jobStore, actions)
 	assertCounts := func(want int) {
 		t.Helper()
 		var tokens, keys, countJobs int

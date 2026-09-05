@@ -1,4 +1,4 @@
-package widgetapi
+package leadstatus
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ func TestPingHTTPContractAndReplay(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	principal := widgetPrincipal(t, pool, 101, 17)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/widget/actions/ping", nil)
@@ -57,7 +57,7 @@ func TestPingHTTPRejectsInvalidAdmissionBeforeConsumption(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	principal := widgetPrincipal(t, pool, 102, 19)
 
 	tests := map[string]func(*http.Request){
@@ -95,7 +95,7 @@ func TestLeadSetStatusHTTPAdmissionAndStrictBody(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	principal := widgetPrincipal(t, pool, 104, 25)
 
 	request := httptest.NewRequest(
@@ -131,7 +131,7 @@ func TestLeadStatusRuleHTTPAdmissionRequiresCompleteStrictCommand(t *testing.T) 
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	principal := widgetPrincipal(t, pool, 106, 29)
 
 	invalid := httptest.NewRequest(
@@ -178,7 +178,7 @@ func TestJobStatusIsWidgetUserScoped(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	owner := widgetPrincipal(t, pool, 103, 23)
 	action, err := handler.actions.EnqueuePing(context.Background(), owner, "owned-job")
 	if err != nil {
@@ -218,7 +218,7 @@ func TestJobStatusRendersOnlyTypedWorkflowResult(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	owner := widgetPrincipal(t, pool, 105, 27)
 	action, err := handler.actions.EnqueueLeadSetStatus(
 		context.Background(), owner, "typed-result",
@@ -255,7 +255,7 @@ func TestLeadStatusRuleJobStatusIsActorScopedAndTyped(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
 	jobStore := jobs.NewStore(pool)
-	handler := NewHandler(jobStore, NewActionStore(pool, jobStore))
+	handler := newTestHandler(jobStore, NewActionStore(pool, jobStore))
 	owner := widgetPrincipal(t, pool, 107, 31)
 	action, err := handler.actions.EnqueueLeadStatusRuleConfigure(
 		context.Background(), owner, "typed-rule-result",

@@ -1,4 +1,4 @@
-package widgetapi
+package leadstatus
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -54,12 +55,12 @@ func (s *ActionStore) EnqueueLeadStatusRuleConfigure(
 	if !validLeadStatusRuleCommand(command) {
 		return ActionResult{}, ErrInvalidLeadStatusRule
 	}
-	return s.enqueue(ctx, actionAdmission{
-		principal: principal, idempotencyKey: idempotencyKey,
-		scope: leadStatusRuleScope, requestHash: leadStatusRuleRequestHash(principal, command),
-		jobType: LeadStatusRuleConfigureJobType, resourceType: leadStatusRuleResourceType,
-		resourceID: leadStatusRuleResourceID(command), payload: command,
-		priority: 35, maxAttempts: 5,
+	return s.Enqueue(ctx, widgetapi.ActionAdmission{
+		Principal: principal, IdempotencyKey: idempotencyKey,
+		Scope: leadStatusRuleScope, RequestHash: leadStatusRuleRequestHash(principal, command),
+		JobType: LeadStatusRuleConfigureJobType, ResourceType: leadStatusRuleResourceType,
+		ResourceID: leadStatusRuleResourceID(command), Payload: command,
+		Priority: 35, MaxAttempts: 5,
 	})
 }
 
@@ -96,11 +97,11 @@ func LeadStatusRuleConfigureJobHandler(
 	api RuleManagementAPI,
 ) jobs.Handler {
 	return func(ctx context.Context, job jobs.Job) (json.RawMessage, error) {
-		installationID, err := installationID(job)
+		installationID, err := widgetapi.InstallationID(job)
 		if err != nil {
 			return nil, jobs.Permanent("invalid_tenant_scope", err)
 		}
-		userID, err := jobActorUserID(job)
+		userID, err := widgetapi.JobActorUserID(job)
 		if err != nil {
 			return nil, jobs.Permanent("invalid_actor", err)
 		}
@@ -222,7 +223,7 @@ func (s *RuleStore) Configure(
 	if err != nil {
 		return LeadStatusRuleResult{}, fmt.Errorf("authorize rule configuration: %w", err)
 	}
-	if err := authorizeJobCapability(ctx, tx, job, true); err != nil {
+	if err := widgetapi.AuthorizeJobCapability(ctx, tx, job, true); err != nil {
 		return LeadStatusRuleResult{}, err
 	}
 

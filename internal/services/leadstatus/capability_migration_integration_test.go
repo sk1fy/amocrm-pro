@@ -1,4 +1,4 @@
-package widgetapi
+package leadstatus
 
 import (
 	"context"
@@ -22,8 +22,8 @@ func TestCapabilityMigrationBackfillsOnlyExistingIntegrations(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	for _, name := range []string{
-		"../../migrations/000007_integration_services.down.sql",
-		"../../migrations/000007_integration_services.up.sql",
+		"../../../migrations/000007_integration_services.down.sql",
+		"../../../migrations/000007_integration_services.up.sql",
 	} {
 		sql, err := os.ReadFile(name)
 		if err != nil {

@@ -9,8 +9,8 @@ import (
 
 func TestWorkflowRouteMetricsUseBoundedLabels(t *testing.T) {
 	metrics := NewMetrics(prometheus.NewRegistry())
-	metrics.observeLeadStatusRoute("self_effect")
-	metrics.observeLeadStatusRoute("self_effect")
+	metrics.observeRoute("lead_status_transition", "self_effect")
+	metrics.observeRoute("lead_status_transition", "self_effect")
 
 	if got := testutil.ToFloat64(metrics.routes.WithLabelValues("lead_status_transition", "self_effect")); got != 2 {
 		t.Fatalf("self-effect routes = %v", got)

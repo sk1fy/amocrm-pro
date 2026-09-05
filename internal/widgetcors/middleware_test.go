@@ -125,7 +125,7 @@ func TestActualBrowserResponseAndNonBrowserPassThrough(t *testing.T) {
 		t.Fatalf("browser status = %d", browserResponse.Code)
 	}
 	assertHeader(t, browserResponse.Header(), allowOriginHeader, activeOrigin)
-	assertHeader(t, browserResponse.Header(), exposeHeadersHeader, "X-Request-ID, Idempotency-Replayed")
+	assertHeader(t, browserResponse.Header(), exposeHeadersHeader, "X-Request-ID, Idempotency-Replayed, Retry-After")
 
 	nonBrowserResponse := httptest.NewRecorder()
 	handler.ServeHTTP(nonBrowserResponse, httptest.NewRequest(http.MethodGet, "/api/v1/widget/bootstrap", nil))

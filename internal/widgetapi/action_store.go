@@ -21,18 +21,12 @@ import (
 )
 
 const (
-	PingJobType                    = "widget.ping"
-	LeadSetStatusJobType           = "workflow.lead.set_status"
-	LeadStatusRuleConfigureJobType = "workflow.rule.lead_status.configure"
-	pingIdempotencyScope           = "widget.ping:v1"
-	leadStatusScope                = "widget.lead.set_status:v1"
-	leadStatusRuleScope            = "widget.workflow_rule.lead_status.configure:v1"
-	idempotencyTTL                 = 24 * time.Hour
-	staleProcessingAfter           = 5 * time.Minute
-	maxIdempotencyKey              = 128
-	widgetActorType                = "widget_user"
-	leadResourceType               = "lead"
-	leadStatusRuleResourceType     = "lead_status_workflow_rule"
+	PingJobType          = "widget.ping"
+	pingIdempotencyScope = "widget.ping:v1"
+	idempotencyTTL       = 24 * time.Hour
+	staleProcessingAfter = 5 * time.Minute
+	maxIdempotencyKey    = 128
+	widgetActorType      = "widget_user"
 )
 
 var (
@@ -40,8 +34,6 @@ var (
 	ErrIdempotencyConflict   = errors.New("idempotency key conflicts with another request")
 	ErrIdempotencyInProgress = errors.New("idempotent request is still processing")
 	ErrInactiveTenant        = errors.New("widget tenant is not active")
-	ErrInvalidLeadStatus     = errors.New("invalid lead status command")
-	ErrInvalidLeadStatusRule = errors.New("invalid lead status rule command")
 )
 
 type ActionResult struct {
@@ -50,28 +42,25 @@ type ActionResult struct {
 	Replayed bool        `json:"-"`
 }
 
-type LeadStatusCommand struct {
-	LeadID     int64 `json:"lead_id"`
-	PipelineID int64 `json:"pipeline_id"`
-	StatusID   int64 `json:"status_id"`
-}
-
 type ActionStore struct {
 	pool *pgxpool.Pool
 	jobs *jobs.Store
 }
 
-type actionAdmission struct {
-	principal      widgetauth.Principal
-	idempotencyKey string
-	scope          string
-	requestHash    [sha256.Size]byte
-	jobType        string
-	resourceType   string
-	resourceID     string
-	payload        any
-	priority       int16
-	maxAttempts    int
+// ActionAdmission is a module-validated command and its stable durable identity.
+// Product modules own payload validation, request hashing and idempotency scope;
+// Enqueue owns tenant/capability authorization, token consumption and atomicity.
+type ActionAdmission struct {
+	Principal      widgetauth.Principal
+	IdempotencyKey string
+	Scope          string
+	RequestHash    [sha256.Size]byte
+	JobType        string
+	ResourceType   string
+	ResourceID     string
+	Payload        any
+	Priority       int16
+	MaxAttempts    int
 }
 
 func NewActionStore(pool *pgxpool.Pool, jobStore *jobs.Store) *ActionStore {
@@ -85,41 +74,21 @@ func (s *ActionStore) EnqueuePing(
 	principal widgetauth.Principal,
 	idempotencyKey string,
 ) (ActionResult, error) {
-	return s.enqueue(ctx, actionAdmission{
-		principal: principal, idempotencyKey: idempotencyKey,
-		scope: pingIdempotencyScope, requestHash: pingRequestHash(principal),
-		jobType: PingJobType, payload: map[string]any{}, priority: 50, maxAttempts: 3,
+	return s.Enqueue(ctx, ActionAdmission{
+		Principal: principal, IdempotencyKey: idempotencyKey,
+		Scope: pingIdempotencyScope, RequestHash: pingRequestHash(principal),
+		JobType: PingJobType, Payload: map[string]any{}, Priority: 50, MaxAttempts: 3,
 	})
 }
 
-// EnqueueLeadSetStatus admits the first real amoCRM workflow. The desired
-// state is declarative so a worker retry can compare before writing again.
-func (s *ActionStore) EnqueueLeadSetStatus(
-	ctx context.Context,
-	principal widgetauth.Principal,
-	idempotencyKey string,
-	command LeadStatusCommand,
-) (ActionResult, error) {
-	if command.LeadID <= 0 || command.PipelineID <= 0 || command.StatusID <= 0 {
-		return ActionResult{}, ErrInvalidLeadStatus
-	}
-	return s.enqueue(ctx, actionAdmission{
-		principal: principal, idempotencyKey: idempotencyKey,
-		scope: leadStatusScope, requestHash: leadStatusRequestHash(principal, command),
-		jobType: LeadSetStatusJobType, resourceType: leadResourceType,
-		resourceID: strconv.FormatInt(command.LeadID, 10), payload: command,
-		priority: 40, maxAttempts: 5,
-	})
-}
-
-func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (ActionResult, error) {
+func (s *ActionStore) Enqueue(ctx context.Context, admission ActionAdmission) (ActionResult, error) {
 	if s == nil || s.pool == nil || s.jobs == nil {
 		return ActionResult{}, errors.New("widget action store is not configured")
 	}
-	if !validIdempotencyKey(admission.idempotencyKey) {
+	if !validIdempotencyKey(admission.IdempotencyKey) {
 		return ActionResult{}, ErrInvalidIdempotencyKey
 	}
-	if err := validatePrincipal(admission.principal); err != nil {
+	if err := validatePrincipal(admission.Principal); err != nil {
 		return ActionResult{}, err
 	}
 
@@ -129,23 +98,23 @@ func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (A
 	}
 	defer func() { _ = rollbackActionTransaction(tx) }()
 
-	if err := lockActiveInstallation(ctx, tx, admission.principal); err != nil {
+	if err := lockActiveInstallation(ctx, tx, admission.Principal); err != nil {
 		return ActionResult{}, err
 	}
-	serviceCode, known := services.JobService(admission.jobType)
+	serviceCode, known := services.JobService(admission.JobType)
 	if !known {
 		return ActionResult{}, services.ErrNotEnabled
 	}
 	if serviceCode != "" {
-		if err := services.RequireEnabled(ctx, tx, admission.principal.InstallationID, serviceCode, true); err != nil {
+		if err := services.RequireEnabled(ctx, tx, admission.Principal.InstallationID, serviceCode, true); err != nil {
 			return ActionResult{}, err
 		}
 	}
-	if err := consumeActionToken(ctx, tx, admission.principal); err != nil {
+	if err := consumeActionToken(ctx, tx, admission.Principal); err != nil {
 		return ActionResult{}, err
 	}
 
-	keyHash := sha256.Sum256([]byte(admission.idempotencyKey))
+	keyHash := sha256.Sum256([]byte(admission.IdempotencyKey))
 	idempotencyID := uuid.New()
 	now := time.Now().UTC()
 	expiresAt := now.Add(idempotencyTTL)
@@ -154,8 +123,8 @@ func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (A
 			id, installation_id, scope, key_hash, request_hash, status, expires_at
 		) VALUES ($1, $2, $3, $4, $5, 'processing', $6)
 		ON CONFLICT (installation_id, scope, key_hash) DO NOTHING`,
-		idempotencyID, admission.principal.InstallationID, admission.scope,
-		keyHash[:], admission.requestHash[:], expiresAt,
+		idempotencyID, admission.Principal.InstallationID, admission.Scope,
+		keyHash[:], admission.RequestHash[:], expiresAt,
 	)
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("claim widget idempotency key: %w", err)
@@ -180,7 +149,7 @@ func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (A
 		FROM idempotency_keys
 		WHERE installation_id=$1 AND scope=$2 AND key_hash=$3
 		FOR UPDATE`,
-		admission.principal.InstallationID, admission.scope, keyHash[:],
+		admission.Principal.InstallationID, admission.Scope, keyHash[:],
 	).Scan(
 		&existingID, &existingHash, &status, &storedJobID, &responseStatus,
 		&responseBody, &existingExpires, &createdAt,
@@ -190,7 +159,7 @@ func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (A
 	}
 
 	if !existingExpires.After(now) ||
-		(status == "processing" && bytes.Equal(existingHash, admission.requestHash[:]) && createdAt.Before(now.Add(-staleProcessingAfter))) {
+		(status == "processing" && bytes.Equal(existingHash, admission.RequestHash[:]) && createdAt.Before(now.Add(-staleProcessingAfter))) {
 		if _, err := tx.Exec(ctx, `DELETE FROM idempotency_keys WHERE id=$1`, existingID); err != nil {
 			return ActionResult{}, fmt.Errorf("delete reclaimable widget idempotency key: %w", err)
 		}
@@ -198,14 +167,14 @@ func (s *ActionStore) enqueue(ctx context.Context, admission actionAdmission) (A
 			INSERT INTO idempotency_keys (
 				id, installation_id, scope, key_hash, request_hash, status, expires_at
 			) VALUES ($1, $2, $3, $4, $5, 'processing', $6)`,
-			idempotencyID, admission.principal.InstallationID, admission.scope,
-			keyHash[:], admission.requestHash[:], expiresAt,
+			idempotencyID, admission.Principal.InstallationID, admission.Scope,
+			keyHash[:], admission.RequestHash[:], expiresAt,
 		); err != nil {
 			return ActionResult{}, fmt.Errorf("reclaim widget idempotency key: %w", err)
 		}
 		return s.createAction(ctx, tx, idempotencyID, admission)
 	}
-	if !bytes.Equal(existingHash, admission.requestHash[:]) {
+	if !bytes.Equal(existingHash, admission.RequestHash[:]) {
 		if err := tx.Commit(ctx); err != nil {
 			return ActionResult{}, fmt.Errorf("commit conflicting widget action token: %w", err)
 		}
@@ -274,15 +243,15 @@ func (s *ActionStore) createAction(
 	ctx context.Context,
 	tx pgx.Tx,
 	idempotencyID uuid.UUID,
-	admission actionAdmission,
+	admission ActionAdmission,
 ) (ActionResult, error) {
 	job, err := s.jobs.EnqueueTx(ctx, tx, jobs.EnqueueParams{
-		InstallationID: &admission.principal.InstallationID,
-		Type:           admission.jobType, ActorType: widgetActorType,
-		ActorID:      strconv.FormatInt(admission.principal.UserID, 10),
-		ResourceType: admission.resourceType, ResourceID: admission.resourceID,
-		Priority: admission.priority, MaxAttempts: admission.maxAttempts,
-		Payload: admission.payload,
+		InstallationID: &admission.Principal.InstallationID,
+		Type:           admission.JobType, ActorType: widgetActorType,
+		ActorID:      strconv.FormatInt(admission.Principal.UserID, 10),
+		ResourceType: admission.ResourceType, ResourceID: admission.ResourceID,
+		Priority: admission.Priority, MaxAttempts: admission.MaxAttempts,
+		Payload: admission.Payload,
 	})
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("enqueue idempotent widget action: %w", err)
@@ -334,16 +303,6 @@ func pingRequestHash(principal widgetauth.Principal) [sha256.Size]byte {
 		"%s\x00%s\x00%d\x00%d\x00%s",
 		pingIdempotencyScope, principal.InstallationID,
 		principal.AccountID, principal.UserID, principal.ClientUUID,
-	)
-	return sha256.Sum256([]byte(canonical))
-}
-
-func leadStatusRequestHash(principal widgetauth.Principal, command LeadStatusCommand) [sha256.Size]byte {
-	canonical := fmt.Sprintf(
-		"%s\x00%s\x00%d\x00%d\x00%s\x00%d\x00%d\x00%d",
-		leadStatusScope, principal.InstallationID, principal.AccountID,
-		principal.UserID, principal.ClientUUID, command.LeadID,
-		command.PipelineID, command.StatusID,
 	)
 	return sha256.Sum256([]byte(canonical))
 }

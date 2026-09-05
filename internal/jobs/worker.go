@@ -12,15 +12,16 @@ import (
 )
 
 type WorkerConfig struct {
-	ID            string
-	PollInterval  time.Duration
-	LeaseDuration time.Duration
-	JobTimeout    time.Duration
-	BatchSize     int
-	ReapBatchSize int
-	Concurrency   int
-	DrainTimeout  time.Duration
-	ClaimTimeout  time.Duration
+	ID                     string
+	PollInterval           time.Duration
+	LeaseDuration          time.Duration
+	JobTimeout             time.Duration
+	BatchSize              int
+	ReapBatchSize          int
+	Concurrency            int
+	IntegrationConcurrency int
+	DrainTimeout           time.Duration
+	ClaimTimeout           time.Duration
 }
 
 type Worker struct {
@@ -89,10 +90,19 @@ func (w *Worker) poll(ctx context.Context, semaphore chan struct{}, active *sync
 		claimTimeout = 2 * time.Second
 	}
 	claimContext, cancel := context.WithTimeout(ctx, claimTimeout)
-	claimed, err := w.store.ClaimWithObserver(
-		claimContext, w.config.ID, limit, w.config.ReapBatchSize,
-		w.config.LeaseDuration, w.dispatchFailure,
-	)
+	var claimed []Job
+	var err error
+	if w.config.IntegrationConcurrency > 0 {
+		claimed, err = w.store.ClaimFairWithObserver(
+			claimContext, w.config.ID, limit, w.config.ReapBatchSize,
+			w.config.LeaseDuration, w.config.IntegrationConcurrency, w.dispatchFailure,
+		)
+	} else {
+		claimed, err = w.store.ClaimWithObserver(
+			claimContext, w.config.ID, limit, w.config.ReapBatchSize,
+			w.config.LeaseDuration, w.dispatchFailure,
+		)
+	}
 	cancel()
 	if err != nil {
 		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {

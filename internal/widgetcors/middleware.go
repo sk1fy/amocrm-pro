@@ -111,7 +111,7 @@ func handlePreflight(response http.ResponseWriter, request *http.Request, origin
 
 func setActualResponseHeaders(header http.Header, origin string) {
 	header.Set(allowOriginHeader, origin)
-	header.Set(exposeHeadersHeader, "X-Request-ID, Idempotency-Replayed")
+	header.Set(exposeHeadersHeader, "X-Request-ID, Idempotency-Replayed, Retry-After")
 }
 
 func parseRequestedHeaders(raw string) ([]string, error) {

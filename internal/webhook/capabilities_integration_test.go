@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
-	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 )
 
 func TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration(t *testing.T) {
@@ -24,7 +24,7 @@ func TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration(t *testing.T) 
 		VALUES ($1,10,20,10,30),($2,10,20,10,30)`, a, b); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := newWorkflowTestStore(pool)
 	raw := []byte("account[id]=42&leads[status][0][id]=301&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20")
 	aEvent := saveAndParseWorkflowEvent(t, store, a, raw)
 	bEvent := saveAndParseWorkflowEvent(t, store, b, raw)
@@ -39,7 +39,7 @@ func TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration(t *testing.T) 
 		(SELECT count(*) FROM jobs WHERE installation_id=$1 AND type=$3),
 		(SELECT count(*) FROM jobs WHERE installation_id=$2 AND type=$3),
 		(SELECT count(*) FROM workflow_runs WHERE installation_id=$2)`,
-		a, b, LeadStatusTransitionJobType).Scan(&aJobs, &bJobs, &bRuns); err != nil {
+		a, b, leadstatus.LeadStatusTransitionJobType).Scan(&aJobs, &bJobs, &bRuns); err != nil {
 		t.Fatal(err)
 	}
 	if aJobs != 1 || bJobs != 0 || bRuns != 0 {
@@ -72,7 +72,7 @@ func TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect(t *testing.T) {
 			}
 			api, closeRemote := remote.client(t, pool, installationID)
 			defer closeRemote()
-			_, err := LeadStatusTransitionJobHandler(store, widgetapi.NewExecutionStore(pool), api)(ctx, job)
+			_, err := testTransitionHandler(store, leadstatus.NewExecutionStore(pool), api)(ctx, job)
 			failure := jobs.Classify(err, 1)
 			if err == nil || failure.Code != "action_not_authorized" || failure.Retryable {
 				t.Fatalf("revoked webhook workflow = %v, %+v", err, failure)

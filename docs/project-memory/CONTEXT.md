@@ -15,7 +15,7 @@
 - `BUG-010` Docker gate: unit/race, OpenAPI, PostgreSQL integration and
   api/worker/migrate builds pass; real private-widget E2E pending.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
-- Миграции: восемь обратимых versioned migrations (multi-widget capabilities и OAuth state cleanup включены).
+- Миграции: девять обратимых versioned migrations (включая fair job claiming).
 - Redis: отсутствует по ADR-0001.
 - Стадия: functional MVP реализован; production hardening не завершён.
 
@@ -42,8 +42,14 @@ API и worker являются раздельными deployment units одно�
 - New integrations are fail-closed; migration 000007 grants the existing product
   to integrations already present during upgrade.
 - OAuth/JWT/capability cross-integration tests cover two widgets in one account.
-- Service module extraction, queue fairness and full lifecycle remain open; see
-  [ADR-0008](../adr/0008-multi-widget-capability-boundary.md).
+- Lead-status is an isolated product module with explicit HTTP/jobs/results/events
+  registration and compatibility tests for existing durable work.
+- Widget API uses bounded per-process integration/installation quotas before
+  token consumption. Workers rotate integration lanes and cap live leases across
+  replicas; capacity tests cover 100,000 versus eight jobs and eight claimants.
+- Service backlog/ready age/execution metrics have bounded labels. See
+  [ADR-0009](../adr/0009-service-modules-and-fair-admission.md).
+- Full lifecycle and remaining production hardening are still open.
 
 ### OAuth and amoCRM client
 

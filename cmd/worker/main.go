@@ -21,6 +21,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/platform/logging"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
+	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpserver"
 	"github.com/sk1fy/amocrm-pro/internal/webhook"
@@ -68,6 +69,11 @@ func run() error {
 		return err
 	}
 	registry.MustRegister(jobBacklogCollector)
+	serviceBacklogCollector, err := jobs.NewServiceBacklogCollector(pool, cfg.DatabaseTimeout)
+	if err != nil {
+		return err
+	}
+	registry.MustRegister(serviceBacklogCollector)
 	webhookMetrics := webhook.NewMetrics(registry)
 	webhookStore := webhook.NewStore(pool, webhookMetrics)
 	jobStore := jobs.NewStore(pool)
@@ -81,7 +87,8 @@ func run() error {
 	tokenProvider := oauthflow.NewTokenProvider(pool, keyRing, oauthGateway)
 	amocrmAPI := amocrmclient.NewClient(externalHTTPClient, tokenProvider)
 	widgetExecutionStore := widgetapi.NewExecutionStore(pool)
-	widgetRuleStore := widgetapi.NewRuleStore(pool)
+	leadStatusModule := leadstatus.NewModule(pool, jobStore)
+	leadStatusModule.RegisterEvents(webhookStore)
 	reconcileHandler, err := webhook.ReconcileJobHandler(
 		webhook.NewReconcileStore(pool, keyRing), amocrmAPI, cfg.PublicBaseURL,
 	)
@@ -92,30 +99,26 @@ func run() error {
 		"webhook.parse":         webhook.ParseJobHandler(webhookStore),
 		"webhook.process_event": webhook.ProcessEventJobHandler(webhookStore),
 		"webhook.reconcile":     reconcileHandler,
-		webhook.LeadStatusTransitionJobType: webhook.LeadStatusTransitionJobHandler(
-			webhookStore, widgetExecutionStore, amocrmAPI,
-		),
-		widgetapi.PingJobType:          widgetapi.PingJobHandler(widgetExecutionStore),
-		widgetapi.LeadSetStatusJobType: widgetapi.LeadSetStatusJobHandler(widgetExecutionStore, amocrmAPI),
-		widgetapi.LeadStatusRuleConfigureJobType: widgetapi.LeadStatusRuleConfigureJobHandler(
-			widgetExecutionStore, widgetRuleStore, amocrmAPI,
-		),
+		widgetapi.PingJobType:   widgetapi.PingJobHandler(widgetExecutionStore),
 	}
+	observers := map[string]jobs.FailureObserver{
+		"webhook.parse":         webhook.JobFailureObserver(webhookStore),
+		"webhook.process_event": webhook.JobFailureObserver(webhookStore),
+	}
+	leadStatusModule.RegisterJobs(handlers, observers, amocrmAPI)
+
 	worker := jobs.NewWorker(jobStore, logger, jobs.WorkerConfig{
-		ID:            cfg.WorkerID,
-		PollInterval:  cfg.PollInterval,
-		LeaseDuration: cfg.LeaseDuration,
-		JobTimeout:    cfg.JobTimeout,
-		BatchSize:     cfg.BatchSize,
-		ReapBatchSize: cfg.ReapBatchSize,
-		Concurrency:   cfg.Concurrency,
-		DrainTimeout:  cfg.ShutdownTimeout,
-		ClaimTimeout:  cfg.DatabaseTimeout,
-	}, handlers, map[string]jobs.FailureObserver{
-		"webhook.parse":                     webhook.JobFailureObserver(webhookStore),
-		"webhook.process_event":             webhook.JobFailureObserver(webhookStore),
-		webhook.LeadStatusTransitionJobType: webhook.JobFailureObserver(webhookStore),
-	})
+		ID:                     cfg.WorkerID,
+		PollInterval:           cfg.PollInterval,
+		LeaseDuration:          cfg.LeaseDuration,
+		JobTimeout:             cfg.JobTimeout,
+		BatchSize:              cfg.BatchSize,
+		ReapBatchSize:          cfg.ReapBatchSize,
+		Concurrency:            cfg.Concurrency,
+		IntegrationConcurrency: cfg.IntegrationConcurrency,
+		DrainTimeout:           cfg.ShutdownTimeout,
+		ClaimTimeout:           cfg.DatabaseTimeout,
+	}, handlers, observers)
 	worker.SetMetrics(jobMetrics)
 	cleanupScheduler, err := maintenance.NewScheduler(
 		maintenance.NewStore(pool), logger, maintenance.SchedulerConfig{

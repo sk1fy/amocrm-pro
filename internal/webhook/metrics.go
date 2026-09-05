@@ -15,9 +15,9 @@ func NewMetrics(registerer prometheus.Registerer) *Metrics {
 	return metrics
 }
 
-func (m *Metrics) observeLeadStatusRoute(disposition string) {
-	if m == nil {
+func (m *Metrics) observeRoute(workflow, disposition string) {
+	if m == nil || workflow == "" {
 		return
 	}
-	m.routes.WithLabelValues("lead_status_transition", disposition).Inc()
+	m.routes.WithLabelValues(workflow, disposition).Inc()
 }

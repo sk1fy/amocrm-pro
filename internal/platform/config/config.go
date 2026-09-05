@@ -37,6 +37,12 @@ type API struct {
 	WebhookInstallationBurst  int
 	WebhookLimiterInactiveTTL time.Duration
 	OAuthStateTTL             time.Duration
+	WidgetIntegrationRate     float64
+	WidgetIntegrationBurst    int
+	WidgetInstallationRate    float64
+	WidgetInstallationBurst   int
+	WidgetLimiterInactiveTTL  time.Duration
+	WidgetLimiterMaxEntries   int
 	WidgetJWTLeeway           time.Duration
 	WidgetJWTMaxLifetime      time.Duration
 	BootstrapIntegration      *BootstrapIntegration
@@ -59,6 +65,7 @@ type Worker struct {
 	BatchSize                int
 	ReapBatchSize            int
 	Concurrency              int
+	IntegrationConcurrency   int
 	PublicBaseURL            string
 	CleanupInterval          time.Duration
 	CleanupTimeout           time.Duration
@@ -127,6 +134,34 @@ func LoadAPI() (API, error) {
 		return API{}, errors.New("WEBHOOK_LIMITER_INACTIVE_TTL must be at least 1m")
 	}
 
+	widgetIntegrationRate, err := positiveFloat("WIDGET_INTEGRATION_RATE_PER_SECOND", 100, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	widgetIntegrationBurst, err := integer("WIDGET_INTEGRATION_BURST", 200, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	widgetInstallationRate, err := positiveFloat("WIDGET_INSTALLATION_RATE_PER_SECOND", 10, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	widgetInstallationBurst, err := integer("WIDGET_INSTALLATION_BURST", 20, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	widgetLimiterInactiveTTL, err := duration("WIDGET_LIMITER_INACTIVE_TTL", 10*time.Minute)
+	if err != nil {
+		return API{}, err
+	}
+	widgetLimiterMaxEntries, err := integer("WIDGET_LIMITER_MAX_ENTRIES", 10_000, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	if widgetLimiterInactiveTTL < time.Second || widgetLimiterInactiveTTL.Seconds() < float64(widgetIntegrationBurst)/widgetIntegrationRate || widgetLimiterInactiveTTL.Seconds() < float64(widgetInstallationBurst)/widgetInstallationRate {
+		return API{}, errors.New("WIDGET_LIMITER_INACTIVE_TTL must cover a full burst refill and be at least 1s")
+	}
+
 	oauthStateTTL, err := duration("OAUTH_STATE_TTL", 15*time.Minute)
 	if err != nil {
 		return API{}, err
@@ -152,7 +187,10 @@ func LoadAPI() (API, error) {
 		WebhookInstallationBurst:  webhookInstallationBurst,
 		WebhookLimiterInactiveTTL: webhookLimiterInactiveTTL,
 		OAuthStateTTL:             oauthStateTTL, WidgetJWTLeeway: widgetJWTLeeway,
-		WidgetJWTMaxLifetime: widgetJWTMaxLifetime,
+		WidgetJWTMaxLifetime:  widgetJWTMaxLifetime,
+		WidgetIntegrationRate: widgetIntegrationRate, WidgetIntegrationBurst: widgetIntegrationBurst,
+		WidgetInstallationRate: widgetInstallationRate, WidgetInstallationBurst: widgetInstallationBurst,
+		WidgetLimiterInactiveTTL: widgetLimiterInactiveTTL, WidgetLimiterMaxEntries: widgetLimiterMaxEntries,
 		BootstrapIntegration: bootstrap,
 	}, nil
 }
@@ -247,6 +285,10 @@ func LoadWorker() (Worker, error) {
 	if err != nil {
 		return Worker{}, err
 	}
+	integrationConcurrency, err := integer("WORKER_INTEGRATION_CONCURRENCY", 2, 1, 64)
+	if err != nil {
+		return Worker{}, err
+	}
 	publicBaseURL := strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL"))
 	if publicBaseURL == "" {
 		return Worker{}, errors.New("PUBLIC_BASE_URL is required")
@@ -302,7 +344,7 @@ func LoadWorker() (Worker, error) {
 		Common: common, WorkerID: workerID, PollInterval: pollInterval,
 		LeaseDuration: leaseDuration, JobTimeout: jobTimeout,
 		BatchSize: batchSize, ReapBatchSize: reapBatchSize,
-		Concurrency: concurrency, PublicBaseURL: publicBaseURL,
+		Concurrency: concurrency, IntegrationConcurrency: integrationConcurrency, PublicBaseURL: publicBaseURL,
 		CleanupInterval: cleanupInterval, CleanupTimeout: cleanupTimeout,
 		CleanupSafetyMargin: cleanupSafetyMargin, CleanupBatchSize: cleanupBatchSize,
 		CleanupMaxBatches:        cleanupMaxBatches,

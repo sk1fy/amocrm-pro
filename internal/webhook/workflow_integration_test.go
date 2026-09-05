@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 )
@@ -35,7 +36,7 @@ func TestLeadStatusWebhookDispatchIsDurablyDeduplicated(t *testing.T) {
 		) VALUES ($1, 10, 20, 10, 30)`, installationID); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := newWorkflowTestStore(pool)
 	raw := []byte("account[id]=42&leads[status][0][id]=100&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20")
 	deliveryID, err := store.SaveDeliveryAndEnqueue(ctx, installationID, uuid.New(), "application/x-www-form-urlencoded", raw)
 	if err != nil {
@@ -78,7 +79,7 @@ func TestLeadStatusWebhookDispatchIsDurablyDeduplicated(t *testing.T) {
 			(SELECT count(*) FROM inbox_events WHERE installation_id=$1),
 			(SELECT count(*) FROM workflow_runs WHERE installation_id=$1),
 			(SELECT count(*) FROM jobs WHERE installation_id=$1 AND type=$2)`,
-		installationID, LeadStatusTransitionJobType,
+		installationID, leadstatus.LeadStatusTransitionJobType,
 	).Scan(&tombstones, &eventCount, &runCount, &workflowJobs); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +101,7 @@ func TestLeadStatusWebhookRuleEnabledFlagControlsRouting(t *testing.T) {
 		) VALUES ($1,10,20,10,30,false) RETURNING id`, installationID).Scan(&ruleID); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := newWorkflowTestStore(pool)
 	disabledEvent := saveAndParseWorkflowEvent(t, store, installationID,
 		[]byte("account[id]=42&leads[status][0][id]=101&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20"))
 	if err := store.ProcessEvent(ctx, disabledEvent, installationID); err != nil {
@@ -135,7 +136,7 @@ func TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect(t *testing.T) 
 		) VALUES ($1, 10, 20, 10, 30)`, installationID); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := newWorkflowTestStore(pool)
 	sourceRaw := []byte("account[id]=42&leads[status][0][id]=100&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20")
 	sourceEventID := saveAndParseWorkflowEvent(t, store, installationID, sourceRaw)
 	if err := store.ProcessEvent(ctx, sourceEventID, installationID); err != nil {
@@ -148,7 +149,7 @@ func TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect(t *testing.T) 
 	}
 	var workflowJob jobs.Job
 	for _, job := range claimed {
-		if job.Type == LeadStatusTransitionJobType {
+		if job.Type == leadstatus.LeadStatusTransitionJobType {
 			workflowJob = job
 			break
 		}
@@ -159,7 +160,7 @@ func TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect(t *testing.T) 
 	remote := newTransitionRemote(100, 10, 20)
 	api, closeRemote := remote.client(t, pool, installationID)
 	defer closeRemote()
-	handler := LeadStatusTransitionJobHandler(store, widgetapi.NewExecutionStore(pool), api)
+	handler := testTransitionHandler(store, leadstatus.NewExecutionStore(pool), api)
 	cancelledContext, cancel := context.WithCancel(ctx)
 	cancel()
 	if _, gateErr := handler(cancelledContext, workflowJob); gateErr == nil ||
@@ -217,7 +218,7 @@ func TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState(t *testing.T) {
 	ctx := context.Background()
 	installationID, store, workflowJob := claimLeadStatusWorkflow(t, pool, 200)
 
-	var payload leadStatusTransitionPayload
+	var payload testTransitionPayload
 	if err := json.Unmarshal(workflowJob.Payload, &payload); err != nil {
 		t.Fatal(err)
 	}
@@ -229,8 +230,8 @@ func TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState(t *testing.T) {
 	remote := newTransitionRemote(200, 10, 40)
 	api, closeRemote := remote.client(t, pool, installationID)
 	defer closeRemote()
-	result, err := LeadStatusTransitionJobHandler(
-		store, widgetapi.NewExecutionStore(pool), api,
+	result, err := testTransitionHandler(
+		store, leadstatus.NewExecutionStore(pool), api,
 	)(ctx, workflowJob)
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +257,7 @@ func TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState(t *testing.T) {
 			(SELECT count(*) FROM outbound_effects WHERE correlation_job_id=$1),
 			(SELECT count(*) FROM workflow_runs WHERE installation_id=$2),
 			(SELECT count(*) FROM jobs WHERE installation_id=$2 AND type=$3)`,
-		workflowJob.ID, installationID, LeadStatusTransitionJobType,
+		workflowJob.ID, installationID, leadstatus.LeadStatusTransitionJobType,
 	).Scan(&runStatus, &jobStatus, &auditOutcome, &effects, &runs, &workflowJobs); err != nil {
 		t.Fatal(err)
 	}
@@ -284,8 +285,8 @@ func TestLeadStatusWorkflowSourceChangedRechecksLeaseBeforeCompletion(t *testing
 	api, closeRemote := remote.client(t, pool, installationID)
 	defer closeRemote()
 
-	_, err := LeadStatusTransitionJobHandler(
-		store, widgetapi.NewExecutionStore(pool), api,
+	_, err := testTransitionHandler(
+		store, leadstatus.NewExecutionStore(pool), api,
 	)(ctx, workflowJob)
 	if !errors.Is(err, widgetapi.ErrExecutionNotAuthorized) {
 		t.Fatalf("stale completion error = %v", err)
@@ -317,7 +318,7 @@ func TestLeadStatusWorkflowCompletedReceiptSurvivesJobCompletionCrash(t *testing
 	remote := newTransitionRemote(205, 10, 40)
 	api, closeRemote := remote.client(t, pool, installationID)
 	defer closeRemote()
-	handler := LeadStatusTransitionJobHandler(store, widgetapi.NewExecutionStore(pool), api)
+	handler := testTransitionHandler(store, leadstatus.NewExecutionStore(pool), api)
 
 	firstResult, err := handler(ctx, workflowJob)
 	if err != nil {
@@ -380,8 +381,8 @@ func TestLeadStatusWorkflowAlreadyAtTargetDoesNotCreateEffect(t *testing.T) {
 	api, closeRemote := remote.client(t, pool, installationID)
 	defer closeRemote()
 
-	result, err := LeadStatusTransitionJobHandler(
-		store, widgetapi.NewExecutionStore(pool), api,
+	result, err := testTransitionHandler(
+		store, leadstatus.NewExecutionStore(pool), api,
 	)(ctx, workflowJob)
 	if err != nil {
 		t.Fatal(err)
@@ -421,7 +422,7 @@ func TestLeadStatusWorkflowUncertainAppliedEffectIsNotPatchedAgain(t *testing.T)
 	remote.failAfterFirstPatch = true
 	api, closeRemote := remote.client(t, pool, installationID)
 	defer closeRemote()
-	handler := LeadStatusTransitionJobHandler(store, widgetapi.NewExecutionStore(pool), api)
+	handler := testTransitionHandler(store, leadstatus.NewExecutionStore(pool), api)
 
 	_, firstErr := handler(ctx, workflowJob)
 	if firstErr == nil || !jobs.Classify(firstErr, workflowJob.Attempts).Retryable {
@@ -509,9 +510,9 @@ func TestLeadStatusWorkflowRejectsIncompleteOrMalformedState(t *testing.T) {
 			}
 			testCase.mutate(payload)
 			job, err := jobs.NewStore(pool).Enqueue(ctx, jobs.EnqueueParams{
-				InstallationID: &installationID, Type: LeadStatusTransitionJobType,
+				InstallationID: &installationID, Type: leadstatus.LeadStatusTransitionJobType,
 				ActorType: "integration", ActorID: installationID.String(),
-				ResourceType: leadResourceType, ResourceID: "203", Payload: payload,
+				ResourceType: "lead", ResourceID: "203", Payload: payload,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -523,8 +524,8 @@ func TestLeadStatusWorkflowRejectsIncompleteOrMalformedState(t *testing.T) {
 			remote := newTransitionRemote(203, 10, 20)
 			api, closeRemote := remote.client(t, pool, installationID)
 			defer closeRemote()
-			_, handlerErr := LeadStatusTransitionJobHandler(
-				NewStore(pool), widgetapi.NewExecutionStore(pool), api,
+			_, handlerErr := testTransitionHandler(
+				newWorkflowTestStore(pool), leadstatus.NewExecutionStore(pool), api,
 			)(ctx, claimed[0])
 			if handlerErr == nil {
 				t.Fatal("incomplete or malformed workflow payload was accepted")
@@ -552,19 +553,19 @@ func TestWidgetLeadStatusEffectCorrelatesOnlyAfterAttempt(t *testing.T) {
 	ctx := context.Background()
 	installationID := workflowInstallation(t, pool)
 	job, err := jobs.NewStore(pool).Enqueue(ctx, jobs.EnqueueParams{
-		InstallationID: &installationID, Type: widgetapi.LeadSetStatusJobType,
+		InstallationID: &installationID, Type: leadstatus.LeadSetStatusJobType,
 		ActorType: "widget_user", ActorID: "7", ResourceType: "lead", ResourceID: "100",
 		Payload: map[string]int64{"lead_id": 100, "pipeline_id": 10, "status_id": 30},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	execution := widgetapi.NewExecutionStore(pool)
+	execution := leadstatus.NewExecutionStore(pool)
 	effectID, err := execution.PrepareLeadStatusEffect(ctx, job, nil, 100, 10, 30)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := newWorkflowTestStore(pool)
 	raw := []byte("account[id]=42&leads[status][0][id]=100&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=30")
 	deliveryID, err := store.SaveDeliveryAndEnqueue(ctx, installationID, uuid.New(), "application/x-www-form-urlencoded", raw)
 	if err != nil {
@@ -675,7 +676,7 @@ func claimLeadStatusWorkflow(
 		) VALUES ($1, 10, 20, 10, 30)`, installationID); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := newWorkflowTestStore(pool)
 	raw := []byte(fmt.Sprintf(
 		"account[id]=42&leads[status][0][id]=%d&leads[status][0][pipeline_id]=10&leads[status][0][status_id]=20",
 		leadID,
@@ -689,7 +690,7 @@ func claimLeadStatusWorkflow(
 		t.Fatal(err)
 	}
 	for _, job := range claimed {
-		if job.Type == LeadStatusTransitionJobType {
+		if job.Type == leadstatus.LeadStatusTransitionJobType {
 			return installationID, store, job
 		}
 	}

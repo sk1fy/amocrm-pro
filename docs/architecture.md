@@ -65,6 +65,7 @@ Intended browser flow:
 this.$authorizedAjax()
   -> disposable amoCRM JWT
   -> tenant/user verification
+  -> shared integration/installation rate limits
   -> active tenant and service capability check
   -> atomic jti + Idempotency-Key + job commit
   -> 202 with job_id
@@ -94,8 +95,9 @@ No external call occurs in webhook ingress.
 
 ## Jobs and effects
 
-Workers claim ready jobs with `FOR UPDATE SKIP LOCKED`, leases and attempt
-fencing. Handlers classify permanent/retryable failures, heartbeat active work,
+Workers rotate integrations using persistent `job_queue_lanes`, with a shared
+live-lease cap across replicas and priority ordering within each integration.
+Claims use `FOR UPDATE SKIP LOCKED`, leases and attempt fencing. Handlers classify permanent/retryable failures, heartbeat active work,
 recover expired leases in bounded batches and prevent stale workers from
 finalizing reclaimed jobs.
 
@@ -113,6 +115,15 @@ mutation serialize against revocation, including webhook-origin workflows. See
 Cleanup removes consumed and unused OAuth states after expiry plus the configured
 safety margin in bounded batches, with `oauth_state` cleanup metrics.
 
+The `leadstatus` module owns product HTTP commands, jobs, rules, effects and
+results. Composition roots register its handlers and transactional webhook event
+router; platform packages do not import the module. Existing URLs, job payloads
+and idempotency receipts remain compatible. Widget API limits run after JWT and
+issuer verification, before replay/idempotency consumption, and return JSON 429
+with CORS-exposed `Retry-After`. See [ADR-0009](adr/0009-service-modules-and-fair-admission.md)
+and the [capacity runbook](runbooks/widget-capacity.md) for rollout constraints,
+process-local quota scope, bounded metrics and reproducible capacity evidence.
+
 ## Network and operational boundaries
 
 - Public API listener: OAuth, widget, webhook and `/live`.
@@ -124,7 +135,6 @@ safety margin in bounded batches, with `oauth_state` cleanup metrics.
 
 ## Known incomplete areas
 
-- service module extraction and queue fairness across integrations;
 - real installed-private-widget browser E2E evidence;
 - OAuth ingress rate limiting;
 - token refresh without an external call inside a DB transaction;

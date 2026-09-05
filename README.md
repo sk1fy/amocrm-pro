@@ -17,7 +17,10 @@ Docker-first backend для интеграций и JS-виджетов amoCRM. 
 - асинхронное изменение статуса сделки с повторной проверкой прав администратора;
 - webhook-origin lead-status workflow, loop prevention и durable effect history;
 - bounded cleanup, backlog metrics и expired-lease reaping;
-- capacity-проверка reaper на 100 000 просроченных jobs.
+- capacity-проверка reaper на 100 000 просроченных jobs;
+- lead-status как отдельный модуль с совместимостью прежних URL и jobs;
+- лимиты widget API, fair claiming и общий лимит leases по integration;
+- метрики backlog, ожидания и исполнения по ограниченному каталогу сервисов.
 
 Последний CI на текущем `main` прошёл успешно. Функциональный MVP существует,
 но production hardening и полный lifecycle интеграции ещё не завершены.
@@ -109,6 +112,11 @@ make down
 integrations требуют явного выбора services; lead-status проверяется в API
 до расходования JWT/idempotency и повторно в worker перед изменением.
 
+Лимиты, порядок обновления всех workers и нагрузочные проверки описаны в
+[widget-capacity.md](docs/runbooks/widget-capacity.md). Для нового worker нужна
+миграция 000009; все replicas должны использовать одинаковый
+`WORKER_INTEGRATION_CONCURRENCY`.
+
 ## Публичные endpoints
 
 OAuth:
@@ -141,14 +149,16 @@ cmd/migrate/              контейнерный мигратор
 cmd/integrations/         operator CLI
 internal/integration/     amoCRM OAuth/API client
 internal/integrations/    audited provisioning
-internal/services/        каталог и capability authorization
+internal/services/        каталог, capability и event contracts
+internal/services/leadstatus/  продуктовый модуль lead-status
 internal/jobs/            PostgreSQL queue и worker runtime
 internal/maintenance/     bounded cleanup scheduler
 internal/oauth/           OAuth application layer и token provider
 internal/webhook/         webhook ingress, parser и workflows
-internal/widgetapi/       widget actions и job handlers
+internal/widgetapi/       общий admission, execution guards и polling
 internal/widgetauth/      disposable JWT validation
 internal/widgetcors/      tenant-bound CORS
+internal/widgetlimit/     лимиты API по verified tenant
 migrations/               versioned up/down migrations
 docs/                     активная документация
 ```

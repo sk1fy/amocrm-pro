@@ -2,9 +2,6 @@ package widgetapi
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
-	"github.com/sk1fy/amocrm-pro/internal/platform/sanitize"
 	"github.com/sk1fy/amocrm-pro/internal/services"
 )
 
@@ -22,113 +18,12 @@ var ErrExecutionNotAuthorized = errors.New("widget action execution is not autho
 
 const mutationLeaseFloor = 2 * time.Minute
 
-const effectCorrelationTTL = 24 * time.Hour
-
 type ExecutionStore struct {
 	pool *pgxpool.Pool
 }
 
 func NewExecutionStore(pool *pgxpool.Pool) *ExecutionStore {
 	return &ExecutionStore{pool: pool}
-}
-
-// LeadStatusEffectHash is shared with webhook correlation. It deliberately
-// hashes only the non-sensitive, convergent desired state.
-func LeadStatusEffectHash(pipelineID, statusID int64) [sha256.Size]byte {
-	var input [16]byte
-	binary.BigEndian.PutUint64(input[:8], uint64(pipelineID))
-	binary.BigEndian.PutUint64(input[8:], uint64(statusID))
-	return sha256.Sum256(input[:])
-}
-
-func (s *ExecutionStore) PrepareLeadStatusEffect(
-	ctx context.Context,
-	job jobs.Job,
-	workflowRunID *uuid.UUID,
-	leadID int64,
-	pipelineID int64,
-	statusID int64,
-) (uuid.UUID, error) {
-	if s == nil || s.pool == nil || job.InstallationID == nil ||
-		leadID <= 0 || pipelineID <= 0 || statusID <= 0 {
-		return uuid.Nil, ErrExecutionNotAuthorized
-	}
-	desiredState, _ := json.Marshal(map[string]int64{
-		"pipeline_id": pipelineID, "status_id": statusID,
-	})
-	desiredHash := LeadStatusEffectHash(pipelineID, statusID)
-	var effectID uuid.UUID
-	err := s.pool.QueryRow(ctx, `
-		INSERT INTO outbound_effects (
-			installation_id, workflow_run_id, correlation_job_id, effect_type,
-			resource_type, resource_id, desired_state, desired_hash,
-			correlation_expires_at
-		) VALUES ($1, $2, $3, 'lead.set_status', 'lead', $4, $5, $6,
-			now()+($7 * interval '1 millisecond'))
-		ON CONFLICT (correlation_job_id) DO UPDATE
-		SET state=CASE
-				WHEN outbound_effects.state IN ('failed', 'expired', 'no_effect') THEN 'prepared'
-				ELSE outbound_effects.state
-			END,
-			attempted_at=CASE
-				WHEN outbound_effects.state IN ('prepared', 'uncertain') THEN now()
-				WHEN outbound_effects.state IN ('failed', 'expired', 'no_effect') THEN now()
-				ELSE outbound_effects.attempted_at
-			END,
-			correlation_expires_at=GREATEST(
-				outbound_effects.correlation_expires_at,
-				now()+($7 * interval '1 millisecond')
-			),
-			updated_at=now()
-		RETURNING id`,
-		*job.InstallationID, workflowRunID, job.ID, strconv.FormatInt(leadID, 10),
-		desiredState, desiredHash[:], effectCorrelationTTL.Milliseconds(),
-	).Scan(&effectID)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("prepare lead status effect: %w", err)
-	}
-	return effectID, nil
-}
-
-func (s *ExecutionStore) MarkLeadStatusEffect(
-	ctx context.Context,
-	effectID uuid.UUID,
-	state string,
-	effectErr error,
-) error {
-	message := ""
-	if effectErr != nil {
-		message = sanitize.Text(effectErr.Error(), 4000)
-	}
-	_, err := s.pool.Exec(ctx, `
-		UPDATE outbound_effects
-		SET state=CASE WHEN state='observed' THEN state ELSE $2 END,
-			applied_at=CASE
-				WHEN $2='applied' AND applied_at IS NULL THEN now()
-				ELSE applied_at
-			END,
-			last_error=NULLIF($3, ''), updated_at=now()
-		WHERE id=$1`, effectID, state, message,
-	)
-	if err != nil {
-		return fmt.Errorf("mark outbound effect %s: %w", state, err)
-	}
-	return nil
-}
-
-func (s *ExecutionStore) LeadStatusEffectForJob(
-	ctx context.Context,
-	jobID uuid.UUID,
-) (uuid.UUID, bool, error) {
-	var effectID uuid.UUID
-	err := s.pool.QueryRow(ctx, `SELECT id FROM outbound_effects WHERE correlation_job_id=$1`, jobID).Scan(&effectID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, false, nil
-	}
-	if err != nil {
-		return uuid.Nil, false, fmt.Errorf("load outbound effect: %w", err)
-	}
-	return effectID, true, nil
 }
 
 // AuthorizeIntegrationAction fences a webhook-origin action to its current
@@ -170,7 +65,7 @@ func (s *ExecutionStore) AuthorizeIntegrationAction(
 	if err != nil {
 		return fmt.Errorf("authorize integration action execution: %w", err)
 	}
-	return authorizeJobCapability(ctx, s.pool, job, false)
+	return AuthorizeJobCapability(ctx, s.pool, job, false)
 }
 
 // WithIntegrationMutationAuthorization provides the same lifecycle ordering
@@ -234,7 +129,7 @@ func (s *ExecutionStore) WithIntegrationMutationAuthorization(
 	if err != nil {
 		return fmt.Errorf("lock integration mutation authorization: %w", err)
 	}
-	if err := authorizeJobCapability(ctx, tx, job, true); err != nil {
+	if err := AuthorizeJobCapability(ctx, tx, job, true); err != nil {
 		return err
 	}
 	if err := callback(ctx); err != nil {
@@ -289,7 +184,7 @@ func (s *ExecutionStore) Authorize(
 	if err != nil {
 		return fmt.Errorf("authorize widget action execution: %w", err)
 	}
-	return authorizeJobCapability(ctx, s.pool, job, false)
+	return AuthorizeJobCapability(ctx, s.pool, job, false)
 }
 
 // WithMutationAuthorization establishes the ordering point between an active
@@ -356,7 +251,7 @@ func (s *ExecutionStore) WithMutationAuthorization(
 	if err != nil {
 		return fmt.Errorf("lock mutation authorization: %w", err)
 	}
-	if err := authorizeJobCapability(ctx, tx, job, true); err != nil {
+	if err := AuthorizeJobCapability(ctx, tx, job, true); err != nil {
 		return err
 	}
 	if err := callback(ctx); err != nil {
@@ -368,7 +263,7 @@ func (s *ExecutionStore) WithMutationAuthorization(
 	return nil
 }
 
-func authorizeJobCapability(ctx context.Context, db services.Querier, job jobs.Job, lock bool) error {
+func AuthorizeJobCapability(ctx context.Context, db services.Querier, job jobs.Job, lock bool) error {
 	code, known := services.JobService(job.Type)
 	if !known || job.InstallationID == nil {
 		return ErrExecutionNotAuthorized
@@ -383,7 +278,7 @@ func authorizeJobCapability(ctx context.Context, db services.Querier, job jobs.J
 	return err
 }
 
-func jobActorUserID(job jobs.Job) (int64, error) {
+func JobActorUserID(job jobs.Job) (int64, error) {
 	if job.ActorType == nil || job.ActorID == nil || *job.ActorType != widgetActorType {
 		return 0, ErrExecutionNotAuthorized
 	}
@@ -394,18 +289,7 @@ func jobActorUserID(job jobs.Job) (int64, error) {
 	return value, nil
 }
 
-func jobLeadID(job jobs.Job) (int64, error) {
-	if job.ResourceType == nil || job.ResourceID == nil || *job.ResourceType != leadResourceType {
-		return 0, ErrExecutionNotAuthorized
-	}
-	value, err := strconv.ParseInt(*job.ResourceID, 10, 64)
-	if err != nil || value <= 0 {
-		return 0, ErrExecutionNotAuthorized
-	}
-	return value, nil
-}
-
-func installationID(job jobs.Job) (uuid.UUID, error) {
+func InstallationID(job jobs.Job) (uuid.UUID, error) {
 	if job.InstallationID == nil || *job.InstallationID == uuid.Nil {
 		return uuid.Nil, ErrExecutionNotAuthorized
 	}

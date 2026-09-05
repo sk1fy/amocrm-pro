@@ -20,12 +20,14 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/platform/logging"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
+	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpserver"
 	"github.com/sk1fy/amocrm-pro/internal/webhook"
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
+	"github.com/sk1fy/amocrm-pro/internal/widgetlimit"
 	"golang.org/x/time/rate"
 )
 
@@ -132,8 +134,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	widgetLimiter, err := widgetlimit.New(widgetlimit.Config{
+		IntegrationRate: cfg.WidgetIntegrationRate, IntegrationBurst: cfg.WidgetIntegrationBurst,
+		InstallationRate: cfg.WidgetInstallationRate, InstallationBurst: cfg.WidgetInstallationBurst,
+		InactiveTTL: cfg.WidgetLimiterInactiveTTL, MaxEntries: cfg.WidgetLimiterMaxEntries,
+	}, registry)
+	if err != nil {
+		return err
+	}
+	widgetLimitContext, stopWidgetLimiter := context.WithCancel(ctx)
+	widgetLimitDone := make(chan struct{})
+	go func() { defer close(widgetLimitDone); widgetLimiter.Run(widgetLimitContext) }()
+	defer func() { stopWidgetLimiter(); <-widgetLimitDone }()
 	widgetActionStore := widgetapi.NewActionStore(pool, jobStore)
 	widgetHandler := widgetapi.NewHandler(jobStore, widgetActionStore)
+	leadStatusModule := leadstatus.NewModule(pool, jobStore)
+	leadStatusModule.RegisterResults(widgetHandler)
 
 	router := chi.NewRouter()
 	router.Use(httpmiddleware.RequestID)
@@ -143,30 +159,22 @@ func run() error {
 	router.Method(apicontract.OAuthStart.Method, apicontract.OAuthStart.Path, http.HandlerFunc(oauthHandler.Start))
 	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, http.HandlerFunc(oauthHandler.Callback))
 	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))
-	widgetMiddleware := widgetauth.Middleware(widgetAuthenticator)
-	widgetActionMiddleware := widgetauth.VerificationMiddleware(widgetAuthenticator)
 	widgetCORSMiddleware := widgetcors.Middleware(widgetcors.NewPostgresAuthorizer(pool))
-	widgetRoute := func(
-		authenticate func(http.Handler) http.Handler,
-		handler http.Handler,
-	) http.Handler {
-		return widgetCORSMiddleware(authenticate(widgetcors.BindPrincipalIssuer(handler)))
+	widgetRoute := func(consume bool, handler http.Handler) http.Handler {
+		return protectWidgetRoute(widgetAuthenticator, widgetLimiter, widgetCORSMiddleware, consume, handler)
 	}
 	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path,
-		widgetRoute(widgetMiddleware, http.HandlerFunc(widgetHandler.Bootstrap)))
+		widgetRoute(true, http.HandlerFunc(widgetHandler.Bootstrap)))
 	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path,
-		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.Ping)))
-	router.Method(apicontract.WidgetLeadSetStatus.Method, apicontract.WidgetLeadSetStatus.Path,
-		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.LeadSetStatus)))
-	router.Method(apicontract.WidgetLeadStatusRuleConfigure.Method, apicontract.WidgetLeadStatusRuleConfigure.Path,
-		widgetRoute(widgetActionMiddleware, http.HandlerFunc(widgetHandler.ConfigureLeadStatusRule)))
+		widgetRoute(false, http.HandlerFunc(widgetHandler.Ping)))
+	leadStatusModule.RegisterHTTP(router, func(handler http.Handler) http.Handler {
+		return widgetRoute(false, handler)
+	})
 	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path,
-		widgetRoute(widgetMiddleware, http.HandlerFunc(widgetHandler.JobStatus)))
+		widgetRoute(true, http.HandlerFunc(widgetHandler.JobStatus)))
 	for _, widgetRouteContract := range []apicontract.Route{
 		apicontract.WidgetBootstrap,
 		apicontract.WidgetPing,
-		apicontract.WidgetLeadSetStatus,
-		apicontract.WidgetLeadStatusRuleConfigure,
 		apicontract.WidgetJob,
 	} {
 		router.Method(http.MethodOptions, widgetRouteContract.Path,

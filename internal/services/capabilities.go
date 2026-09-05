@@ -21,14 +21,25 @@ func Known(code string) bool { return code == LeadStatus }
 // JobService deliberately rejects unknown jobs. Infrastructure ping needs no
 // product capability; all product jobs must have an explicit catalog entry.
 func JobService(jobType string) (string, bool) {
-	switch jobType {
-	case "widget.ping":
-		return "", true
-	case "workflow.lead.set_status", "workflow.rule.lead_status.configure", "workflow.lead.status_transition":
-		return LeadStatus, true
-	default:
-		return "", false
+	code, known := jobServices[jobType]
+	return code, known
+}
+
+var jobServices = map[string]string{
+	"widget.ping":                         "",
+	"workflow.lead.set_status":            LeadStatus,
+	"workflow.rule.lead_status.configure": LeadStatus,
+	"workflow.lead.status_transition":     LeadStatus,
+}
+
+// JobTypes returns a copy of the bounded product job catalog for observability
+// and registration checks. An empty service identifies infrastructure work.
+func JobTypes() map[string]string {
+	result := make(map[string]string, len(jobServices))
+	for jobType, code := range jobServices {
+		result[jobType] = code
 	}
+	return result
 }
 
 type Store struct{ pool *pgxpool.Pool }

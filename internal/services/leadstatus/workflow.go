@@ -1,4 +1,4 @@
-package webhook
+package leadstatus
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/services"
@@ -21,27 +22,9 @@ const (
 	leadStatusWorkflowType      = "lead.status_transition"
 	leadStatusWorkflowVersion   = 1
 	leadStatusEffectType        = "lead.set_status"
-	leadResourceType            = "lead"
 )
 
 var errLeadStatusWorkflowRunMismatch = errors.New("lead status workflow run does not match its job and tenant")
-
-type leadStatusEvent struct {
-	ID               uuid.UUID
-	InstallationID   uuid.UUID
-	EntityType       string
-	EventType        string
-	EntityID         *int64
-	Payload          json.RawMessage
-	DeduplicationKey []byte
-	ReceivedAt       time.Time
-}
-
-type eventRoute struct {
-	Disposition string
-	RunID       *uuid.UUID
-	EffectID    *uuid.UUID
-}
 
 type leadStatusTransitionPayload struct {
 	WorkflowRunID    uuid.UUID `json:"workflow_run_id"`
@@ -62,19 +45,19 @@ type LeadStatusTransitionAPI interface {
 	PrepareLeadStatus(context.Context, uuid.UUID) (amocrm.LeadStatusMutation, error)
 }
 
-func (s *Store) routeLeadStatusEvent(
+func (s *WorkflowStore) routeLeadStatusEvent(
 	ctx context.Context,
 	tx pgx.Tx,
-	event leadStatusEvent,
-) (eventRoute, error) {
+	event services.Event,
+) (services.EventRoute, error) {
 	if event.EntityType != "leads" || event.EventType != "status" || event.EntityID == nil {
-		return eventRoute{Disposition: "observed"}, nil
+		return services.EventRoute{Disposition: "observed"}, nil
 	}
 	state, ok := decodeLeadStatusEvent(event.Payload)
 	if !ok {
-		return eventRoute{Disposition: "invalid_status_event"}, nil
+		return services.EventRoute{Disposition: "invalid_status_event"}, nil
 	}
-	desiredHash := widgetapi.LeadStatusEffectHash(state.PipelineID, state.StatusID)
+	desiredHash := LeadStatusEffectHash(state.PipelineID, state.StatusID)
 	var effectID uuid.UUID
 	err := tx.QueryRow(ctx, `
 		WITH candidate AS (
@@ -100,17 +83,17 @@ func (s *Store) routeLeadStatusEvent(
 		event.DeduplicationKey,
 	).Scan(&effectID)
 	if err == nil {
-		return eventRoute{Disposition: "self_effect", EffectID: &effectID}, nil
+		return services.EventRoute{Disposition: "self_effect", EffectID: &effectID}, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return eventRoute{}, fmt.Errorf("correlate lead status effect: %w", err)
+		return services.EventRoute{}, fmt.Errorf("correlate lead status effect: %w", err)
 	}
 
 	if err := services.RequireEnabled(ctx, tx, event.InstallationID, services.LeadStatus, true); err != nil {
 		if errors.Is(err, services.ErrNotEnabled) {
-			return eventRoute{Disposition: "service_not_enabled"}, nil
+			return services.EventRoute{Disposition: "service_not_enabled"}, nil
 		}
-		return eventRoute{}, err
+		return services.EventRoute{}, err
 	}
 
 	var ruleID uuid.UUID
@@ -123,10 +106,10 @@ func (s *Store) routeLeadStatusEvent(
 		event.InstallationID, state.PipelineID, state.StatusID,
 	).Scan(&ruleID, &targetPipelineID, &targetStatusID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return eventRoute{Disposition: "observed"}, nil
+		return services.EventRoute{Disposition: "observed"}, nil
 	}
 	if err != nil {
-		return eventRoute{}, fmt.Errorf("load lead status workflow rule: %w", err)
+		return services.EventRoute{}, fmt.Errorf("load lead status workflow rule: %w", err)
 	}
 
 	var runID uuid.UUID
@@ -144,10 +127,10 @@ func (s *Store) routeLeadStatusEvent(
 		event.DeduplicationKey, event.ID, ruleID,
 	).Scan(&runID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return eventRoute{Disposition: "duplicate_workflow"}, nil
+		return services.EventRoute{Disposition: "duplicate_workflow"}, nil
 	}
 	if err != nil {
-		return eventRoute{}, fmt.Errorf("create lead status workflow run: %w", err)
+		return services.EventRoute{}, fmt.Errorf("create lead status workflow run: %w", err)
 	}
 	payload := leadStatusTransitionPayload{
 		WorkflowRunID: runID, LeadID: *event.EntityID,
@@ -162,12 +145,12 @@ func (s *Store) routeLeadStatusEvent(
 		MaxAttempts: 5, Payload: payload,
 	})
 	if err != nil {
-		return eventRoute{}, fmt.Errorf("enqueue lead status workflow: %w", err)
+		return services.EventRoute{}, fmt.Errorf("enqueue lead status workflow: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE workflow_runs SET job_id=$2 WHERE id=$1`, runID, job.ID); err != nil {
-		return eventRoute{}, fmt.Errorf("link lead status workflow job: %w", err)
+		return services.EventRoute{}, fmt.Errorf("link lead status workflow job: %w", err)
 	}
-	return eventRoute{Disposition: "workflow_enqueued", RunID: &runID}, nil
+	return services.EventRoute{Disposition: "workflow_enqueued", RunID: &runID}, nil
 }
 
 func decodeLeadStatusEvent(payload json.RawMessage) (leadStatusEventState, bool) {
@@ -200,7 +183,7 @@ func positiveJSONInt(value any) (int64, bool) {
 	return parsed, err == nil && parsed > 0
 }
 
-func (s *Store) completeLeadStatusRun(
+func (s *WorkflowStore) completeLeadStatusRun(
 	ctx context.Context,
 	job jobs.Job,
 	payload leadStatusTransitionPayload,
@@ -274,7 +257,7 @@ func (s *Store) completeLeadStatusRun(
 	return tx.Commit(ctx)
 }
 
-func (s *Store) markLeadStatusRunProcessing(
+func (s *WorkflowStore) markLeadStatusRunProcessing(
 	ctx context.Context,
 	job jobs.Job,
 	payload leadStatusTransitionPayload,
@@ -317,7 +300,7 @@ func (s *Store) markLeadStatusRunProcessing(
 	}
 }
 
-func (s *Store) completedLeadStatusRunReceipt(
+func (s *WorkflowStore) completedLeadStatusRunReceipt(
 	ctx context.Context,
 	job jobs.Job,
 	payload leadStatusTransitionPayload,
@@ -364,8 +347,8 @@ func (s *Store) completedLeadStatusRunReceipt(
 // LeadStatusTransitionJobHandler executes the PostgreSQL-originated transition
 // rule. The caller wires it under LeadStatusTransitionJobType.
 func LeadStatusTransitionJobHandler(
-	store *Store,
-	execution *widgetapi.ExecutionStore,
+	store *WorkflowStore,
+	execution *ExecutionStore,
 	api LeadStatusTransitionAPI,
 ) jobs.Handler {
 	return func(ctx context.Context, job jobs.Job) (json.RawMessage, error) {
@@ -495,3 +478,7 @@ func classifyLeadStatusWorkflowError(err error) error {
 	}
 	return jobs.Retryable("amocrm_request_failed", 5*time.Second, err)
 }
+
+type WorkflowStore struct{ pool *pgxpool.Pool }
+
+func NewWorkflowStore(pool *pgxpool.Pool) *WorkflowStore { return &WorkflowStore{pool: pool} }
