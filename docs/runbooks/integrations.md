@@ -37,7 +37,9 @@ docker-compose run --rm -T integrations create \
 ```
 
 Для второго виджета повторите команду с другим `--code`, `--client-id` и файлом
-секрета. `--services` обязателен (`lead-status` или `none`). CLI не выводит секрет
+секрета. `--services` обязателен (`lead-status`, `activity`, их CSV-список или `none`).
+Activity дополнительно требует installation pilot из [Activity runbook](activity-v0.md).
+CLI не выводит секрет
 или ciphertext: результат содержит только integration ID, code, status и action.
 Повторный `create` существующего code/client ID завершается ошибкой без изменения
 данных. Client ID и code после создания неизменяемы; для новой amoCRM integration

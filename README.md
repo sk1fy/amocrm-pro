@@ -1,8 +1,17 @@
 # amoCRM Go backend
 
-Docker-first backend для интеграций и JS-виджетов amoCRM. Проект состоит из
+Docker-first backend для интеграций и JS-виджетов amoCRM. Базовый режим состоит из
 двух независимо запускаемых Go-процессов, мигратора, operator CLI и PostgreSQL. Redis в
 текущей архитектуре не используется.
+
+Activity v0 подключается явно, с отдельными логическими БД Activity и CRM Events,
+собственным сборщиком/очередью, durable Core outbox и защищёнными embedded/gRPC
+адаптерами. Отдельные бинарники — `cmd/activity` и `cmd/crm-events`. Инструкции:
+[Activity runbook](docs/runbooks/activity-v0.md),
+[владельцы и границы](docs/adr/0010-activity-v0-service-ownership.md),
+[фактические проверки и ограничения](docs/verification/activity-v0-results.md).
+`make activity-up` запускает изолированный development-стек; обычный стек сохраняет
+`ACTIVITY_MODE=off` и прежние контракты lead-status.
 
 ## Состояние проекта
 

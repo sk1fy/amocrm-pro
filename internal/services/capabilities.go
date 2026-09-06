@@ -12,11 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const LeadStatus = "lead-status"
+const (
+	LeadStatus = "lead-status"
+	Activity   = "activity"
+	CRMEvents  = "crm-events"
+)
 
 var ErrNotEnabled = errors.New("service is not enabled")
 
-func Known(code string) bool { return code == LeadStatus }
+func Known(code string) bool { return code == LeadStatus || code == Activity }
 
 // JobService deliberately rejects unknown jobs. Infrastructure ping needs no
 // product capability; all product jobs must have an explicit catalog entry.

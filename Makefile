@@ -26,7 +26,25 @@ DOCKER_GO := $(DOCKER) run --rm \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell
+.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test
+
+ACTIVITY_COMPOSE := $(COMPOSE) -f docker-compose.activity.yml
+ACTIVITY_TEST_COMPOSE := $(ACTIVITY_COMPOSE) -f docker-compose.activity-tests.yml
+
+activity-up: ## Start isolated development Activity in separate gRPC processes
+	$(ACTIVITY_COMPOSE) up --build --detach
+
+activity-embedded: ## Start embedded Activity graph (stop remote products first; see runbook)
+	$(ACTIVITY_COMPOSE) -f docker-compose.activity-embedded.yml up --build --detach
+
+activity-test: ## Run owner DB, mTLS and separate process Activity tests in Docker
+	mkdir -p tmp/activity-v0-evidence
+	$(ACTIVITY_COMPOSE) up --detach postgres
+	$(ACTIVITY_COMPOSE) exec -T postgres sh < deploy/activity/init-tests.sh
+	$(ACTIVITY_TEST_COMPOSE) build migrate-test-core component-tests
+	$(ACTIVITY_TEST_COMPOSE) run --rm migrate-test-core up
+	$(ACTIVITY_TEST_COMPOSE) run --rm --no-deps component-tests
+	$(ACTIVITY_TEST_COMPOSE) run --rm --no-deps component-ui-tests
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)

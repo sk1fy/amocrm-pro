@@ -1,0 +1,35 @@
+services:
+  migrate-test-core:
+    profiles: ["tests"]
+    build: {context: ., dockerfile: Dockerfile, target: migrate}
+    environment:
+      DATABASE_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/core_components_test?sslmode=disable
+      MIGRATIONS_DIR: /migrations
+    depends_on: {postgres: {condition: service_healthy}}
+  component-tests:
+    profiles: ["tests"]
+    build: {context: ., dockerfile: Dockerfile, target: integration-test}
+    volumes:
+      - .:/src
+      - component-test-cache:/root/.cache/go-build
+    working_dir: /src
+    environment:
+      TEST_DATABASE_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/core_components_test?sslmode=disable
+      TEST_DATABASE_RESET_ALLOWED: "true"
+      ACTIVITY_TEST_DATABASE_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/activity_components_test?sslmode=disable
+      CRM_EVENTS_TEST_DATABASE_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/events_components_test?sslmode=disable
+      COMPONENT_PROCESS_TEST_ADMIN_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/postgres?sslmode=disable
+      COMPONENT_PROCESS_TEST_ALLOWED: "true"
+      ACTIVITY_UI_OPERATION_FIXTURE: /src/tmp/activity-v0-evidence/crm-operation.json
+    command: ["-race", "-count=1", "-timeout=15m", "-v", "./api", "./internal/serviceapi", "./internal/services", "./internal/componentruntime", "./internal/activitybridge", "./internal/services/activity", "./internal/services/crmevents", "./internal/corepolicy", "./internal/gateway", "./internal/servicerpc", "./internal/integration/amocrm"]
+    depends_on: {migrate-test-core: {condition: service_completed_successfully}}
+  component-ui-tests:
+    profiles: ["tests"]
+    image: node:22-alpine
+    volumes: [".:/src:ro"]
+    working_dir: /src
+    environment:
+      ACTIVITY_UI_OPERATION_FIXTURE: /src/tmp/activity-v0-evidence/crm-operation.json
+    command: ["node", "--test", "examples/activity-v0/panel.test.mjs", "examples/activity-v0/panel.operation.test.mjs"]
+volumes:
+  component-test-cache:

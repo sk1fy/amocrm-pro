@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/apicontract"
+	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	"github.com/sk1fy/amocrm-pro/internal/installations"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
@@ -60,11 +61,27 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
+	componentConfig, err := componentruntime.Load("api")
+	if err != nil {
+		return err
+	}
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(
 		prometheus.NewGoCollector(),
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 	)
+	components, err := componentruntime.StartAPI(ctx, componentConfig, pool, registry)
+	if err != nil {
+		return err
+	}
+	defer components.Close()
+	go func() {
+		select {
+		case <-components.Failed():
+			stop()
+		case <-ctx.Done():
+		}
+	}()
 
 	installationStore := installations.NewStore(pool)
 	webhookStore := webhook.NewStore(pool)
@@ -105,7 +122,10 @@ func run() error {
 			return http.ErrUseLastResponse
 		},
 	}
-	oauthGateway := oauthflow.NewGateway(amocrmclient.NewOAuthClient(externalHTTPClient))
+	var oauthGateway oauthflow.OAuthGateway = oauthflow.NewGateway(amocrmclient.NewOAuthClient(externalHTTPClient))
+	if components.AccountReader != nil {
+		oauthGateway = oauthflow.WithAccountReader(oauthGateway, components.AccountReader)
+	}
 	oauthStore := oauthflow.NewStore(pool, keyRing)
 	if bootstrap := cfg.BootstrapIntegration; bootstrap != nil {
 		bootstrapContext, bootstrapCancel := context.WithTimeout(ctx, cfg.DatabaseTimeout)
@@ -163,6 +183,9 @@ func run() error {
 	widgetRoute := func(consume bool, handler http.Handler) http.Handler {
 		return protectWidgetRoute(widgetAuthenticator, widgetLimiter, widgetCORSMiddleware, consume, handler)
 	}
+	if components.Bridge != nil {
+		components.Bridge.RegisterHTTP(router, func(handler http.Handler) http.Handler { return widgetRoute(true, handler) }, func(handler http.Handler) http.Handler { return widgetRoute(false, handler) })
+	}
 	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path,
 		widgetRoute(true, http.HandlerFunc(widgetHandler.Bootstrap)))
 	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path,
@@ -194,8 +217,16 @@ func run() error {
 		cfg.DatabaseTimeout,
 		promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 	)
+	if components.Bridge != nil {
+		// Product readiness must not withdraw unrelated Core widget traffic.
+		managementRouter.Get("/components/activity/ready", components.Readiness)
+		managementRouter.Get("/components", components.Catalog)
+	}
 
 	publicServer := httpserver.New(cfg.HTTPAddress, router)
 	managementServer := httpserver.New(cfg.ManagementHTTPAddress, managementRouter)
-	return httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, publicServer, managementServer)
+	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, publicServer, managementServer); err != nil {
+		return err
+	}
+	return components.Err()
 }

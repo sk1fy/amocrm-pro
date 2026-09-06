@@ -1,0 +1,34 @@
+package activitybridge
+
+import (
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestPublicInputCannotSupplyTenantOrAdminIdentity(t *testing.T) {
+	for _, body := range []string{`{"kind":"sync","installation_id":"other"}`, `{"kind":"sync","user_id":1}`, `{"kind":"sync","is_admin":true}`, `{"kind":"sync","retention_days":30}`, `{} {}`, `null`} {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		var input SyncInput
+		if err := decode(httptest.NewRecorder(), r, &input); serviceapi.ErrorCode(err) != serviceapi.InvalidArgument {
+			t.Fatalf("accepted identity/config injection %s", body)
+		}
+	}
+	for _, query := range []string{"from=1&to=2&installation_id=other", "from=1&to=2&user_ids=1,1", "from=1&to=99999999", "from=1&to=2&limit=101", "from=1&to=2&from=2"} {
+		if _, err := decodeQuery(httptest.NewRequest("GET", "/?"+query, nil)); err == nil {
+			t.Fatalf("accepted query %s", query)
+		}
+	}
+}
+
+func TestStableErrorMapping(t *testing.T) {
+	for code, status := range map[serviceapi.Code]int{serviceapi.InvalidArgument: 400, serviceapi.Unauthenticated: 401, serviceapi.PermissionDenied: 403, serviceapi.NotFound: 404, serviceapi.Conflict: 409, serviceapi.ResourceExhausted: 429, serviceapi.Unavailable: 503, serviceapi.DeadlineExceeded: 504} {
+		w := httptest.NewRecorder()
+		writeError(w, serviceapi.Fail(code, "sensitive upstream detail"))
+		if w.Code != status || strings.Contains(w.Body.String(), "sensitive") {
+			t.Fatalf("%s -> %d %s", code, w.Code, w.Body.String())
+		}
+	}
+}

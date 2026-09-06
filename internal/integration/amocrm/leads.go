@@ -99,9 +99,7 @@ func (mutation *preparedLeadStatusMutation) SetLeadStatus(
 	}
 	path := fmt.Sprintf("/api/v4/leads/%d", leadID)
 	body := map[string]int64{"pipeline_id": pipelineID, "status_id": statusID}
-	if err := mutation.client.limiter.wait(
-		ctx, mutation.access.IntegrationID, mutation.access.AccountID,
-	); err != nil {
+	if err := mutation.client.waitBudget(ctx, mutation.access); err != nil {
 		return fmt.Errorf("wait for amoCRM rate limit: %w", err)
 	}
 	status, header, _, err := mutation.client.request(

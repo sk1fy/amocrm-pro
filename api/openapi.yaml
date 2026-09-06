@@ -404,6 +404,485 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/activity/panel:
+    get:
+      tags:
+      - Widget
+      operationId: getActivityPanel
+      summary: Read a bounded CRM observation panel.
+      description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
+        amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
+        errors may use the existing text/plain authentication contract.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - name: from
+        in: query
+        required: true
+        schema: &id001
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix seconds. The entire period is bounded to 31 days.
+      - name: to
+        in: query
+        required: true
+        schema: *id001
+        description: Unix seconds. The entire period is bounded to 31 days.
+      - name: user_ids
+        in: query
+        schema:
+          type: string
+        description: Comma-separated distinct positive employee IDs; at most 100. Empty selects a bounded directory
+          batch.
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 100
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 512
+        description: Opaque cursor for the same filters and period.
+      responses:
+        '200':
+          description: Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPanel'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Actor-scoped operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+  /api/v1/widget/activity/status:
+    get:
+      tags:
+      - Widget
+      operationId: getActivityStatus
+      summary: Read collection progress, verification and errors.
+      description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
+        amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
+        errors may use the existing text/plain authentication contract.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivitySyncStatus'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Actor-scoped operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+  /api/v1/widget/activity/settings:
+    get:
+      tags:
+      - Widget
+      operationId: getActivitySettings
+      summary: Read product settings.
+      description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
+        amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
+        errors may use the existing text/plain authentication contract.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivitySettings'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Actor-scoped operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+    post:
+      tags:
+      - Widget
+      operationId: configureActivity
+      summary: Durably request Activity settings.
+      description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
+        amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
+        errors may use the existing text/plain authentication contract.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Durably accepted by Core, pending delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityReceipt'
+          headers:
+            Idempotency-Replayed:
+              description: true when returning the existing command.
+              schema:
+                type: string
+                enum:
+                - 'true'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Actor-scoped operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivitySettings'
+  /api/v1/widget/activity/sync:
+    post:
+      tags:
+      - Widget
+      operationId: requestActivitySync
+      summary: Durably request CRM Events collection.
+      description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
+        amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
+        errors may use the existing text/plain authentication contract.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Durably accepted by Core, pending delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityReceipt'
+          headers:
+            Idempotency-Replayed:
+              description: true when returning the existing command.
+              schema:
+                type: string
+                enum:
+                - 'true'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Actor-scoped operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivitySyncCommand'
+  /api/v1/widget/activity/operations/{operationID}:
+    get:
+      tags:
+      - Widget
+      operationId: getActivityOperation
+      summary: Read a command receipt and owner operation.
+      description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
+        amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
+        errors may use the existing text/plain authentication contract.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - name: operationID
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityReceipt'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Actor-scoped operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
 components:
   securitySchemes:
     widgetToken:
@@ -451,6 +930,278 @@ components:
         type: string
         format: uuid
   schemas:
+    ActivityError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+              - invalid_argument
+              - unauthenticated
+              - permission_denied
+              - not_found
+              - conflict
+              - unavailable
+              - deadline_exceeded
+              - resource_exhausted
+              - reauth_required
+              - internal
+              - rate_limited
+          required:
+          - code
+          additionalProperties: false
+      required:
+      - error
+      additionalProperties: false
+    ActivitySettings:
+      type: object
+      properties:
+        initial_days:
+          type: integer
+          minimum: 1
+          maximum: 7
+          default: 2
+        retention_days:
+          type: integer
+          minimum: 2
+          maximum: 30
+          default: 7
+      required:
+      - initial_days
+      - retention_days
+      additionalProperties: false
+      description: Product defaults for the next sync command; retention_days must be at least initial_days. CRM Events
+        owns retention execution. Already admitted commands keep their settings snapshot.
+    ActivitySyncCommand:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - enable
+          - disable
+          - sync
+          - backfill
+          default: sync
+        from: &id001
+          type: integer
+          format: int64
+          minimum: 0
+        to: *id001
+      required: []
+      additionalProperties: false
+      description: sync/enable registers the Activity consumer and starts or resumes collection; disable pauses that
+        consumer. backfill requires a past [from,to] interval within retention and at most 31 days. Initial/retention
+        settings are read through Activity by Core. Tenant and actor fields are forbidden.
+    ActivitySyncStatus:
+      type: object
+      properties:
+        history_from: *id001
+        verified_from: *id001
+        verified_through: *id001
+        window_from: *id001
+        window_to: *id001
+        last_success_at: *id001
+        last_event_at: *id001
+        lag_seconds: *id001
+        enabled:
+          type: boolean
+        state: &id002
+          type: string
+        next_page: *id001
+        error_code: *id002
+        reauth_required:
+          type: boolean
+        verification: *id002
+      required:
+      - history_from
+      - verified_from
+      - verified_through
+      - window_from
+      - window_to
+      - last_success_at
+      - last_event_at
+      - lag_seconds
+      - enabled
+      - state
+      - next_page
+      - reauth_required
+      - verification
+      additionalProperties: false
+      description: All times are Unix seconds. Zero verified bounds mean unknown. History retention and continuous verification
+        are separate. verification=stabilized_api_scan means two equal bounded API scans, not a guarantee against later
+        source mutations or inaccessible history.
+    ActivityEvent:
+      type: object
+      properties:
+        id: *id002
+        created_at: *id001
+        created_by: *id001
+        type: *id002
+        entity_id: *id001
+        entity_type: *id002
+        value_before: {}
+        value_after: {}
+      required:
+      - id
+      - created_at
+      - created_by
+      - type
+      - entity_id
+      - entity_type
+      - value_before
+      - value_after
+      additionalProperties: false
+    ActivityUserSummary:
+      type: object
+      properties:
+        user_id: *id001
+        unique_events: *id001
+        last_event_at: *id001
+      required:
+      - user_id
+      - unique_events
+      - last_event_at
+      additionalProperties: false
+      description: Count of registered unique CRM events in the requested interval, not an employee inactivity assessment.
+        Last-event zero means no registered event; assess coverage first.
+    ActivityData:
+      type: object
+      properties:
+        events:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ActivityEvent'
+        summaries:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ActivityUserSummary'
+        next_cursor: *id002
+        status:
+          $ref: '#/components/schemas/ActivitySyncStatus'
+      required:
+      - events
+      - summaries
+      - status
+      additionalProperties: false
+    ActivityUser:
+      type: object
+      properties:
+        id: *id001
+        name: *id002
+        group_id: *id001
+        group_name: *id002
+      required:
+      - id
+      - name
+      - group_id
+      - group_name
+      additionalProperties: false
+    ActivityPanel:
+      type: object
+      properties:
+        users:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ActivityUser'
+        timezone: *id002
+        data:
+          $ref: '#/components/schemas/ActivityData'
+        settings:
+          $ref: '#/components/schemas/ActivitySettings'
+        coverage:
+          type: string
+          enum:
+          - unknown
+          - partial
+          - stale
+          - verified
+      required:
+      - users
+      - timezone
+      - data
+      - settings
+      - coverage
+      additionalProperties: false
+      description: CRM observations and freshness. Unknown, partial, or stale coverage must not be displayed as zero
+        employee activity. Employee metadata is a bounded Gateway batch; no event history is fetched live when opening
+        the panel.
+    ActivityOwnerOperation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        command_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - accepted
+          - running
+          - retry
+          - succeeded
+          - failed
+          - paused
+        error_code: *id002
+        processed: *id001
+        inserted: *id001
+        updated: *id001
+        deduplicated: *id001
+      required:
+      - id
+      - command_id
+      - state
+      - processed
+      - inserted
+      - updated
+      - deduplicated
+      additionalProperties: false
+    ActivityReceipt:
+      type: object
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        operation_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - pending_delivery
+          - accepted
+          - running
+          - retry
+          - succeeded
+          - failed
+          - paused
+        delivery_state:
+          type: string
+          enum:
+          - pending_delivery
+          - accepted
+          - failed
+        error_code: *id002
+        operation:
+          $ref: '#/components/schemas/ActivityOwnerOperation'
+      required:
+      - command_id
+      - operation_id
+      - state
+      - delivery_state
+      additionalProperties: false
+      description: 202 proves only the Core receipt/outbox transaction committed. Poll operation_id for delivery and
+        receiver lifecycle. Owner status unavailable retains accepted and supplies an error_code. Receipts/inbox are
+        retained indefinitely in v0; a fresh widget JWT and same Idempotency-Key returns the same command, changed body
+        conflicts.
     ErrorText:
       type: string
       description: Stable generic message without internal details or secrets.

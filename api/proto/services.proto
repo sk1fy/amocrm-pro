@@ -1,0 +1,41 @@
+syntax = "proto3";
+package amocrm.services.v1;
+option go_package = "github.com/sk1fy/amocrm-pro/internal/servicerpc/pb";
+
+// v1 is additive. Never reuse field numbers. All ranges are Unix seconds.
+// All requests carry a short-lived Core Ed25519 delegation, transported with
+// authenticated mTLS service identity. Maximum message size is 4 MiB.
+message Auth { string token = 1; }
+message Grant { string audience = 1; string action = 2; }
+message IssueRequest { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; repeated Grant grants = 7; }
+message ValidateRequest { Auth auth = 1; string audience = 2; string action = 3; }
+message Principal { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; string expires_at = 7; }
+message Event { string id = 1; int64 created_at = 2; int64 created_by = 3; string type = 4; int64 entity_id = 5; string entity_type = 6; bytes value_before = 7; bytes value_after = 8; }
+message EventPageRequest { Auth auth = 1; int64 from = 2; int64 to = 3; int32 page = 4; int32 limit = 5; }
+message EventPage { repeated Event events = 1; bool has_next = 2; }
+message User { int64 id = 1; string name = 2; int64 group_id = 3; string group_name = 4; }
+message UsersRequest { Auth auth = 1; repeated int64 user_ids = 2; }
+message Directory { repeated User users = 1; string timezone = 2; }
+message Query { Auth auth = 1; int64 from = 2; int64 to = 3; repeated int64 user_ids = 4; int32 limit = 5; string cursor = 6; }
+message UserSummary { int64 user_id = 1; int64 unique_events = 2; int64 last_event_at = 3; }
+message SyncStatus { bool enabled = 1; string state = 2; int64 history_from = 3; int64 verified_from = 4; int64 verified_through = 5; int64 window_from = 6; int64 window_to = 7; int32 next_page = 8; int64 last_success_at = 9; int64 last_event_at = 10; int64 lag_seconds = 11; string error_code = 12; bool reauth_required = 13; string verification = 14; }
+message QueryResult { repeated Event events = 1; repeated UserSummary summaries = 2; string next_cursor = 3; SyncStatus status = 4; }
+message Command { Auth auth = 1; string command_id = 2; string kind = 3; int64 from = 4; int64 to = 5; int32 initial_days = 6; int32 retention_days = 7; }
+// Operation.state is exactly one of accepted, running, retry, paused, failed,
+// succeeded. Owners normalize legacy DB "completed" at the application boundary;
+// it is not a wire value. Core's pending_delivery belongs to its JSON receipt.
+message Operation { string id = 1; string command_id = 2; string state = 3; string error_code = 4; int64 processed = 5; int64 inserted = 6; int64 updated = 7; int64 deduplicated = 8; }
+message OperationRequest { Auth auth = 1; string operation_id = 2; }
+message Settings { int32 initial_days = 1; int32 retention_days = 2; }
+message SettingsCommand { Auth auth = 1; string command_id = 2; Settings settings = 3; }
+message Panel { repeated User users = 1; string timezone = 2; QueryResult data = 3; Settings settings = 4; string coverage = 5; }
+service Policy { rpc Issue(IssueRequest) returns (Auth); rpc Validate(ValidateRequest) returns (Principal); }
+service Gateway { rpc Events(EventPageRequest) returns (EventPage); rpc Users(UsersRequest) returns (Directory); }
+service CRMEvents { rpc Apply(Command) returns (Operation); rpc QueryEvents(Query) returns (QueryResult); rpc Status(Auth) returns (SyncStatus); rpc OperationStatus(OperationRequest) returns (Operation); }
+service Activity { rpc GetPanel(Query) returns (Panel); rpc GetSettings(Auth) returns (Settings); rpc Configure(SettingsCommand) returns (Operation); rpc OperationStatus(OperationRequest) returns (Operation); }
+
+// Core-only OAuth discovery. mTLS core identity is mandatory. The transient
+// candidate credential is never persisted or exposed to Activity/CRM Events.
+message BootstrapAccountRequest { string integration_id = 1; string account_domain = 2; string access_token = 3; }
+message BootstrapAccount { int64 id = 1; string subdomain = 2; }
+service CoreBootstrap { rpc GetAccount(BootstrapAccountRequest) returns (BootstrapAccount); }

@@ -35,11 +35,14 @@ type TokenProvider interface {
 }
 
 type Client struct {
-	httpClient     *http.Client
-	tokens         TokenProvider
-	limiter        *limiter
-	resolveAccount func(string) (*url.URL, error)
-	reauthTimeout  time.Duration
+	bootstrapMu       sync.Mutex
+	bootstrapAccounts map[string]int64
+	httpClient        *http.Client
+	tokens            TokenProvider
+	limiter           *limiter
+	resolveAccount    func(string) (*url.URL, error)
+	reauthTimeout     time.Duration
+	metrics           *Metrics
 }
 
 func NewClient(httpClient *http.Client, tokens TokenProvider) *Client {
@@ -72,7 +75,7 @@ func (c *Client) DoJSON(
 		return err
 	}
 	for attempt := 0; attempt < 2; attempt++ {
-		if err := c.limiter.wait(ctx, access.IntegrationID, access.AccountID); err != nil {
+		if err := c.waitBudget(ctx, access); err != nil {
 			return fmt.Errorf("wait for amoCRM rate limit: %w", err)
 		}
 		status, header, response, err := c.request(ctx, access, method, path, requestBody)
@@ -144,12 +147,14 @@ func (c *Client) request(
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
+		c.observeResponse(0, err)
 		var urlError *url.Error
 		if errors.As(err, &urlError) && urlError.Err != nil {
 			err = urlError.Err
 		}
 		return 0, nil, nil, fmt.Errorf("request amoCRM API: %w", err)
 	}
+	c.observeResponse(response.StatusCode, nil)
 	defer response.Body.Close()
 	contents, err := io.ReadAll(io.LimitReader(response.Body, maxAPIResponseBody+1))
 	if err != nil {

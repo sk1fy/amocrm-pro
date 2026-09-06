@@ -24,16 +24,18 @@ FROM source AS openapi-test
 
 RUN go test -count=1 ./api
 
-FROM source AS test-base
+FROM dependencies AS test-base
 
 ENV CGO_ENABLED=1
 
 RUN apk add --no-cache build-base
 
+COPY . .
+
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
@@ -95,6 +97,31 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:8081/live || exit 1
 
 ENTRYPOINT ["/usr/local/bin/amocrm-worker"]
+
+FROM source AS component-build
+
+RUN go build -trimpath -ldflags="-s -w" -o /out/activity ./cmd/activity \
+    && go build -trimpath -ldflags="-s -w" -o /out/crm-events ./cmd/crm-events \
+    && go build -trimpath -ldflags="-s -w" -o /out/activity-control ./cmd/activity-control \
+    && go build -trimpath -ldflags="-s -w" -o /out/service-certs ./cmd/service-certs
+
+FROM runtime AS activity
+COPY --from=component-build --chown=app:app /out/activity /usr/local/bin/activity
+EXPOSE 9091 8091
+ENTRYPOINT ["/usr/local/bin/activity"]
+
+FROM runtime AS crm-events
+COPY --from=component-build --chown=app:app /out/crm-events /usr/local/bin/crm-events
+EXPOSE 9092 8092
+ENTRYPOINT ["/usr/local/bin/crm-events"]
+
+FROM runtime AS service-certs
+COPY --from=component-build --chown=app:app /out/service-certs /usr/local/bin/service-certs
+ENTRYPOINT ["/usr/local/bin/service-certs"]
+
+FROM runtime AS activity-control
+COPY --from=component-build --chown=app:app /out/activity-control /usr/local/bin/activity-control
+ENTRYPOINT ["/usr/local/bin/activity-control"]
 
 FROM test-base AS test
 

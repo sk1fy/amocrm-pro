@@ -1,0 +1,51 @@
+=== RUN   TestComponentProcessesAndModeSwitch
+    process_integration_test.go:73: VERSION-SKEW ENABLED: grpc Core uses preserved API /src/tmp/activity-v0-evidence/pre-audit-api SHA256=4eb3091a8e53c05d6600a74bc3d150d6efa3169436ced4960409cf63a4f80f6e Go=go1.25.12; embedded Core/Activity/CRM Events are current race builds; previous production API may be nonrace; current Gateway fixture
+    process_integration_test.go:210: BOOTSTRAP verified: Core-only mTLS RPC reads account through the shared client for both same-account integrations; product identities denied
+    process_integration_test.go:253: second existing leadstatus job completed during collection in 170.980416ms
+    process_integration_test.go:225: VERSION-SKEW starting preserved Core API with current Activity and CRM Events
+    process_integration_test.go:225: VERSION-SKEW starting preserved Core API with current Activity and CRM Events
+    process_integration_test.go:332: product idle Corejob snapshot: backlog=0 oldest_age_seconds=0.000;30completed,0errors,0retries
+    process_integration_test.go:344: product loaded Corejob snapshot: backlog=0 oldest_age_seconds=0.000;30completed,0errors,0retries
+    process_integration_test.go:348: PRODUCT IMPACT passed:30real leadstatus mutations/phase,2closed-loop callers,10000event backfill active throughout; idle admissionP95=10.123061ms P99=12.805817ms completionP95=1.136176s P99=1.140171s; loaded admissionP95=4.880051ms P99=8.894726ms completionP95=1.140744s P99=1.147347s; errors=0,retries=0
+    process_integration_test.go:361: impact gateway metrics:
+        amocrm_budget_wait_seconds_sum{outcome="admitted"} 53.260393586
+        amocrm_requests_total{outcome="2xx"} 475
+        component_db_acquire_seconds_total{service="core"} 0.04505903
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 0
+        component_db_connections_max{service="core"} 4
+        component_db_empty_acquire_total{service="core"} 3
+    process_integration_test.go:361: impact core_before metrics:
+        component_db_acquire_seconds_total{service="core"} 0.018533338
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 1
+        component_db_connections_max{service="core"} 5
+        component_db_empty_acquire_total{service="core"} 3
+    process_integration_test.go:361: impact core_after metrics:
+        component_db_acquire_seconds_total{service="core"} 0.018614168
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 1
+        component_db_connections_max{service="core"} 5
+        component_db_empty_acquire_total{service="core"} 3
+    process_integration_test.go:361: impact events metrics:
+        component_db_acquire_seconds_total{service="crm-events"} 0.026021725
+        component_db_canceled_acquire_total{service="crm-events"} 0
+        component_db_connections_acquired{service="crm-events"} 1
+        component_db_connections_max{service="crm-events"} 5
+        component_db_empty_acquire_total{service="crm-events"} 2
+        crm_events_events_total{outcome="deduplicated"} 402
+        crm_events_events_total{outcome="inserted"} 10000
+        crm_events_events_total{outcome="processed"} 10402
+        crm_events_events_total{outcome="updated"} 0
+        crm_events_jobs{state="completed"} 12
+        crm_events_jobs{state="queued"} 1
+        crm_events_jobs{state="running"} 1
+        crm_events_max_lag_seconds 2.395334
+        crm_events_metrics_up 1
+        crm_events_oldest_job_age_seconds 16.645447
+    process_integration_test.go:363: IMPACT passed: 50ping/concurrency2,10000events/100page/2slots; idle P95=5.373135ms P99=21.125124ms loaded P95=3.269131ms P99=3.882299ms errors=0; local fixture only
+    process_integration_test.go:393: synthetic common-owner outgoing samples: Events=294 LeadRequests=121 LeadPATCH=60 integrations=2; all intervals satisfy 7 burst + 7rps (+1 scheduling tolerance)
+    process_integration_test.go:394: VERIFIED: actual API/Activity/CRM Events/Gateway processes; exclusive logical DB roles; embedded -> grpc -> embedded; retained events/settings/command IDs; Core restart and widget ping while Activity unavailable; durable202 receiver outage; old leadstatus completed using the same Gateway-owner client; pilot revocation. Synthetic amoCRM only; no production load claim.
+--- PASS: TestComponentProcessesAndModeSwitch (84.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/componentruntime	85.032s

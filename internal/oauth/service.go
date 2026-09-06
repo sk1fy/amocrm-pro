@@ -84,7 +84,10 @@ func (s *Service) Callback(ctx context.Context, rawState, code, referer string) 
 	)
 	if err == nil {
 		var account Account
-		account, err = s.gateway.GetAccount(requestContext, accountURL.Host, token.AccessToken)
+		// The budget identity comes from the consumed, verified OAuth state, not
+		// callback parameters. This leaves the established OAuth port compatible.
+		accountContext := context.WithValue(requestContext, accountBudgetContextKey{}, state.Integration.ID)
+		account, err = s.gateway.GetAccount(accountContext, accountURL.Host, token.AccessToken)
 		if err == nil {
 			if account.ID <= 0 {
 				err = errors.New("amoCRM returned invalid account id")

@@ -98,6 +98,12 @@ func TestStoreBoundsExpiredLeaseReapingAt100kBacklog(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedElapsed := time.Since(seedStarted)
+	// This plan test measures a populated 100k queue. TRUNCATE does not make
+	// inherited column statistics representative of the new fixture; waiting
+	// for autovacuum makes the selected plan depend on test order/timing.
+	if _, err := pool.Exec(ctx, "ANALYZE jobs"); err != nil {
+		t.Fatal(err)
+	}
 
 	planRows, err := pool.Query(ctx, `
 		EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)

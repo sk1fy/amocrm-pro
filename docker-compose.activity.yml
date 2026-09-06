@@ -1,0 +1,179 @@
+# Isolated DEVELOPMENT pilot. Does not modify the existing Compose stack/data.
+# Exactly one worker owns the Go API v4 budget. Never scale it independently.
+name: amocrm-activity
+
+x-build: &build
+  context: .
+  dockerfile: Dockerfile
+x-runtime: &runtime
+  init: true
+  read_only: true
+  tmpfs: ["/tmp:size=16m,mode=1777"]
+  security_opt: ["no-new-privileges:true"]
+  stop_grace_period: 20s
+  mem_limit: 256m
+  cpus: 1.0
+x-core-env: &core-env
+  APP_ENV: development
+  DATABASE_URL: postgres://core_runtime:core_runtime_dev@postgres:5432/amocrm_core?sslmode=disable
+  DB_MAX_CONNS: "6"
+  ENCRYPTION_KEYS: "1:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+  ACTIVE_ENCRYPTION_KEY_VERSION: "1"
+  ACTIVITY_MODE: grpc
+  SERVICE_IDENTITY_DIR: /identity
+  GATEWAY_ADDRESS: worker:9090
+
+services:
+  activity-control:
+    profiles: ["tools"]
+    <<: *runtime
+    build: {<<: *build, target: activity-control}
+    environment:
+      DATABASE_URL: postgres://core_runtime:core_runtime_dev@postgres:5432/amocrm_core?sslmode=disable
+    depends_on: {migrate-core: {condition: service_completed_successfully}}
+  integrations:
+    profiles: ["tools"]
+    <<: *runtime
+    build: {<<: *build, target: integrations}
+    environment:
+      <<: *core-env
+    depends_on: {migrate-core: {condition: service_completed_successfully}}
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pilot_admin
+      POSTGRES_PASSWORD: pilot_admin_dev
+      POSTGRES_DB: postgres
+    volumes:
+      - pilot-data:/var/lib/postgresql/data
+      - ./deploy/activity/init-db.sh:/docker-entrypoint-initdb.d/010-owners.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pilot_admin -d postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    mem_limit: 512m
+    cpus: 2.0
+
+  certificates:
+    build: {<<: *build, target: service-certs}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ ! -f /gateway/delegation.key ]; then
+          service-certs /tmp/generated
+          for identity in core gateway activity crm-events; do
+            cp /tmp/generated/$$identity/* /$$identity/
+            chown -R 10001:10001 /$$identity
+            chmod 700 /$$identity
+          done
+        fi
+        for identity in core gateway activity crm-events; do
+          test -f /$$identity/tls.key
+        done
+    volumes:
+      - core-identity:/core
+      - gateway-identity:/gateway
+      - activity-identity:/activity
+      - events-identity:/crm-events
+
+  migrate-core:
+    build: {<<: *build, target: migrate}
+    environment:
+      DATABASE_URL: postgres://core_owner:core_owner_dev@postgres:5432/amocrm_core?sslmode=disable
+      MIGRATIONS_DIR: /migrations
+    depends_on: {postgres: {condition: service_healthy}}
+  migrate-activity:
+    build: {<<: *build, target: migrate}
+    environment:
+      DATABASE_URL: postgres://activity_owner:activity_owner_dev@postgres:5432/amocrm_activity?sslmode=disable
+      MIGRATIONS_DIR: /migrations/activity
+    depends_on: {postgres: {condition: service_healthy}}
+  migrate-events:
+    build: {<<: *build, target: migrate}
+    environment:
+      DATABASE_URL: postgres://events_owner:events_owner_dev@postgres:5432/amocrm_events?sslmode=disable
+      MIGRATIONS_DIR: /migrations/crmevents
+    depends_on: {postgres: {condition: service_healthy}}
+
+  worker:
+    <<: *runtime
+    build: {<<: *build, target: worker}
+    environment:
+      <<: *core-env
+      HTTP_ADDRESS: ":8081"
+      PUBLIC_BASE_URL: https://hooks.example.invalid
+      WORKER_CONCURRENCY: "2"
+      WORKER_INTEGRATION_CONCURRENCY: "1"
+    volumes: ["gateway-identity:/identity:ro"]
+    depends_on:
+      migrate-core: {condition: service_completed_successfully}
+      certificates: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  crm-events:
+    <<: *runtime
+    build: {<<: *build, target: crm-events}
+    environment:
+      ACTIVITY_MODE: grpc
+      CRM_EVENTS_DATABASE_URL: postgres://events_runtime:events_runtime_dev@postgres:5432/amocrm_events?sslmode=disable
+      CRM_EVENTS_DB_MAX_CONNS: "5"
+      CRM_EVENTS_WORKERS: "2"
+      GATEWAY_ADDRESS: worker:9090
+    volumes: ["events-identity:/identity:ro"]
+    depends_on:
+      worker: {condition: service_healthy}
+      migrate-events: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8092/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  activity:
+    <<: *runtime
+    build: {<<: *build, target: activity}
+    environment:
+      ACTIVITY_MODE: grpc
+      ACTIVITY_DATABASE_URL: postgres://activity_runtime:activity_runtime_dev@postgres:5432/amocrm_activity?sslmode=disable
+      ACTIVITY_DB_MAX_CONNS: "3"
+      GATEWAY_ADDRESS: worker:9090
+      CRM_EVENTS_ADDRESS: crm-events:9092
+    volumes: ["activity-identity:/identity:ro"]
+    depends_on:
+      crm-events: {condition: service_healthy}
+      migrate-activity: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8091/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    <<: *runtime
+    build: {<<: *build, target: api}
+    environment:
+      <<: *core-env
+      HTTP_ADDRESS: ":8080"
+      MANAGEMENT_HTTP_ADDRESS: ":8082"
+      ACTIVITY_ADDRESS: activity:9091
+      CRM_EVENTS_ADDRESS: crm-events:9092
+    volumes: ["core-identity:/identity:ro"]
+    ports: ["127.0.0.1:${ACTIVITY_API_PORT:-18080}:8080", "127.0.0.1:${ACTIVITY_MANAGEMENT_PORT:-18082}:8082"]
+    depends_on:
+      certificates: {condition: service_completed_successfully}
+      migrate-core: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pilot-data:
+  core-identity:
+  gateway-identity:
+  activity-identity:
+  events-identity:

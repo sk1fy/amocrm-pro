@@ -1,0 +1,20 @@
+{
+  "label": "pre-audit Core API snapshot",
+  "source_container": "95407f1715c76d4b5995591dcd9520b2b19e5446f124ccd46cdd79f0749d0db7",
+  "image_id": "sha256:c834ad19e81733d986097325840c7fbba70c09bc64d1a6c81e8a18744f199236",
+  "image_created": "2026-09-06T13:13:10.305897457Z",
+  "container_created": "2026-09-06T13:18:04.130048277Z",
+  "binary": "pre-audit-api",
+  "binary_sha256": "4eb3091a8e53c05d6600a74bc3d150d6efa3169436ced4960409cf63a4f80f6e",
+  "go_version": "go1.25.12",
+  "target": "github.com/sk1fy/amocrm-pro/cmd/api",
+  "goos": "linux",
+  "goarch": "arm64",
+  "cgo_enabled": false,
+  "race": false,
+  "precedes_audit_changes": {
+    "operation_states_file_mtime": "2026-09-06T14:08:05Z",
+    "catalog_file_mtime": "2026-09-06T14:20:46Z"
+  },
+  "scope": "Only this preserved Core API binary with current Activity/CRM Events and the current synthetic Gateway fixture. No claim about old Gateway or general version compatibility."
+}

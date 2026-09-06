@@ -1,0 +1,1177 @@
+=== RUN   TestOpenAPIContract
+--- PASS: TestOpenAPIContract (0.16s)
+=== RUN   TestActivityOpenAPIOperationStatesMatchApplication
+--- PASS: TestActivityOpenAPIOperationStatesMatchApplication (0.15s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/api	1.344s
+?   	github.com/sk1fy/amocrm-pro/cmd/activity	[no test files]
+?   	github.com/sk1fy/amocrm-pro/cmd/activity-control	[no test files]
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations
+--- PASS: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations (0.11s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/cmd/api	1.124s
+?   	github.com/sk1fy/amocrm-pro/cmd/crm-events	[no test files]
+=== RUN   TestParseCommandSecretUsesStdinAndIsNotEchoed
+--- PASS: TestParseCommandSecretUsesStdinAndIsNotEchoed (0.00s)
+=== RUN   TestParseCommandLimitsSecretAndRequiresExplicitServices
+--- PASS: TestParseCommandLimitsSecretAndRequiresExplicitServices (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/cmd/integrations	1.010s
+=== RUN   TestMigrationCommand
+=== RUN   TestMigrationCommand/default_up
+=== RUN   TestMigrationCommand/explicit_up
+=== RUN   TestMigrationCommand/confirmed_down
+=== RUN   TestMigrationCommand/missing_confirmation
+=== RUN   TestMigrationCommand/wrong_confirmation
+=== RUN   TestMigrationCommand/unknown_command
+=== RUN   TestMigrationCommand/too_many_arguments
+--- PASS: TestMigrationCommand (0.00s)
+    --- PASS: TestMigrationCommand/default_up (0.00s)
+    --- PASS: TestMigrationCommand/explicit_up (0.00s)
+    --- PASS: TestMigrationCommand/confirmed_down (0.00s)
+    --- PASS: TestMigrationCommand/missing_confirmation (0.00s)
+    --- PASS: TestMigrationCommand/wrong_confirmation (0.00s)
+    --- PASS: TestMigrationCommand/unknown_command (0.00s)
+    --- PASS: TestMigrationCommand/too_many_arguments (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/cmd/migrate	1.006s
+?   	github.com/sk1fy/amocrm-pro/cmd/service-certs	[no test files]
+?   	github.com/sk1fy/amocrm-pro/cmd/worker	[no test files]
+=== RUN   TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage
+--- PASS: TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage (0.05s)
+=== RUN   TestExpiredFinalDeliveryAttemptDoesNotSendAgain
+--- PASS: TestExpiredFinalDeliveryAttemptDoesNotSendAgain (0.05s)
+=== RUN   TestDeliveryCollectorReportsPendingWithFiniteLabels
+--- PASS: TestDeliveryCollectorReportsPendingWithFiniteLabels (0.05s)
+=== RUN   TestDurableAcceptanceLostResponseAndActorIsolation
+--- PASS: TestDurableAcceptanceLostResponseAndActorIsolation (0.08s)
+=== RUN   TestDeliveryRevocationAndAuditedRetry
+--- PASS: TestDeliveryRevocationAndAuditedRetry (0.07s)
+=== RUN   TestDeliveryLeaseFencesStaleSender
+--- PASS: TestDeliveryLeaseFencesStaleSender (0.06s)
+=== RUN   TestConcurrentAdmissionHasOneDurableCommand
+--- PASS: TestConcurrentAdmissionHasOneDurableCommand (0.07s)
+=== RUN   TestPublicInputCannotSupplyTenantOrAdminIdentity
+--- PASS: TestPublicInputCannotSupplyTenantOrAdminIdentity (0.00s)
+=== RUN   TestStableErrorMapping
+--- PASS: TestStableErrorMapping (0.00s)
+=== RUN   TestUnavailableDeliveryMetricsDoNotPublishZeroBacklog
+--- PASS: TestUnavailableDeliveryMetricsDoNotPublishZeroBacklog (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/activitybridge	1.438s
+?   	github.com/sk1fy/amocrm-pro/internal/apicontract	[no test files]
+=== RUN   TestDomainDependencyBoundaries
+--- PASS: TestDomainDependencyBoundaries (0.00s)
+=== RUN   TestStandaloneRejectsForeignConfiguration
+=== RUN   TestStandaloneRejectsForeignConfiguration/DATABASE_URL
+=== RUN   TestStandaloneRejectsForeignConfiguration/ENCRYPTION_KEYS
+=== RUN   TestStandaloneRejectsForeignConfiguration/AMOCRM_CLIENT_SECRET
+=== RUN   TestStandaloneRejectsForeignConfiguration/CRM_EVENTS_DATABASE_URL
+--- PASS: TestStandaloneRejectsForeignConfiguration (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/DATABASE_URL (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/ENCRYPTION_KEYS (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/AMOCRM_CLIENT_SECRET (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/CRM_EVENTS_DATABASE_URL (0.00s)
+=== RUN   TestComponentOSProcessFaults
+    process_faults_integration_test.go:39: requires explicitly authorized disposable process cluster
+--- SKIP: TestComponentOSProcessFaults (0.00s)
+=== RUN   TestFaultGatewayFixture
+    process_faults_integration_test.go:554: OS process fixture
+--- SKIP: TestFaultGatewayFixture (0.00s)
+=== RUN   TestFaultReceiverFixture
+    process_faults_integration_test.go:604: OS process fixture
+--- SKIP: TestFaultReceiverFixture (0.00s)
+=== RUN   TestComponentProcessesAndModeSwitch
+    process_integration_test.go:48: set COMPONENT_PROCESS_TEST_ADMIN_URL and COMPONENT_PROCESS_TEST_ALLOWED=true for disposable process topology
+--- SKIP: TestComponentProcessesAndModeSwitch (0.00s)
+=== RUN   TestProcessGatewayFixture
+    process_integration_test.go:685: subprocess helper
+--- SKIP: TestProcessGatewayFixture (0.00s)
+=== RUN   TestGraphCatalogAndReadinessUseRegisteredComponents
+--- PASS: TestGraphCatalogAndReadinessUseRegisteredComponents (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/componentruntime	1.018s
+=== RUN   TestDatabasePolicyChecksCurrentPilotCapabilityRoleAndInstallation
+--- PASS: TestDatabasePolicyChecksCurrentPilotCapabilityRoleAndInstallation (0.05s)
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/forged
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_audience
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_service_identity
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/no_identity
+--- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation (0.01s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/forged (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_audience (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_service_identity (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/no_identity (0.00s)
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/nonadmin
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/other_integration_same_installation
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/other_installation
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/Activity_cannot_issue
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_impersonate
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_read_users
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/Core_cannot_drop_original_actor
+--- PASS: TestIssueRestrictsActorScopeAndCollectorGrants (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/nonadmin (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/other_integration_same_installation (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/other_installation (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/Activity_cannot_issue (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_impersonate (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_read_users (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/Core_cannot_drop_original_actor (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/corepolicy	1.082s
+=== RUN   TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations
+--- PASS: TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations (0.05s)
+=== RUN   TestBootstrapRestrictedToCoreAndLiveIntegration
+--- PASS: TestBootstrapRestrictedToCoreAndLiveIntegration (0.00s)
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/name
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/group
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/total
+--- PASS: TestOversizedDirectoryIsRejectedBeforeCaching (0.02s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/name (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/group (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/total (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/gateway	1.087s
+?   	github.com/sk1fy/amocrm-pro/internal/installations	[no test files]
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations
+--- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets (0.10s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration (0.05s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations (0.05s)
+=== RUN   TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic
+--- PASS: TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic (0.10s)
+=== RUN   TestBootstrapCancellationRateLimitAndIdentityMismatch
+--- PASS: TestBootstrapCancellationRateLimitAndIdentityMismatch (0.00s)
+=== RUN   TestClientRefreshesAndRetries401Once
+--- PASS: TestClientRefreshesAndRetries401Once (0.00s)
+=== RUN   TestClientMarksReauthAfterSecond401
+--- PASS: TestClientMarksReauthAfterSecond401 (0.00s)
+=== RUN   TestClientBoundsReauthorizationStatusWrite
+--- PASS: TestClientBoundsReauthorizationStatusWrite (0.02s)
+=== RUN   TestAccountBaseURL
+--- PASS: TestAccountBaseURL (0.00s)
+=== RUN   TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL
+--- PASS: TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL (0.00s)
+=== RUN   TestEventsEmptyWindowAndRateLimit
+=== RUN   TestEventsEmptyWindowAndRateLimit/No_Content
+=== RUN   TestEventsEmptyWindowAndRateLimit/Too_Many_Requests
+--- PASS: TestEventsEmptyWindowAndRateLimit (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/No_Content (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/Too_Many_Requests (0.00s)
+=== RUN   TestDirectoryOnlyUsesBoundedApprovedEndpoints
+--- PASS: TestDirectoryOnlyUsesBoundedApprovedEndpoints (0.00s)
+=== RUN   TestSharedBudgetAcrossExistingWidgetsAndEvents
+--- PASS: TestSharedBudgetAcrossExistingWidgetsAndEvents (3.00s)
+=== RUN   TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels
+--- PASS: TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels (0.00s)
+=== RUN   TestBudgetMetricsTransportFailureCategory
+--- PASS: TestBudgetMetricsTransportFailureCategory (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	4.263s
+=== RUN   TestOperatorProvisioningKeepsIntegrationIsolationAndAuditsWithoutSecrets
+--- PASS: TestOperatorProvisioningKeepsIntegrationIsolationAndAuditsWithoutSecrets (0.05s)
+=== RUN   TestOperatorMutationRollsBackWhenAuditFails
+--- PASS: TestOperatorMutationRollsBackWhenAuditFails (0.04s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/integrations	1.102s
+=== RUN   TestBacklogCollectorReportsExactLivePostgresState
+--- PASS: TestBacklogCollectorReportsExactLivePostgresState (0.05s)
+=== RUN   TestBacklogCollectorValidationAndCollectionFailure
+--- PASS: TestBacklogCollectorValidationAndCollectionFailure (0.00s)
+=== RUN   TestFairClaimPerformance
+    fair_claim_benchmark_test.go:107: opt-in admission benchmark; set FAIR_CLAIM_BENCHMARK=true
+--- SKIP: TestFairClaimPerformance (0.00s)
+=== RUN   TestFairClaimCapacityNoisyNeighbor
+    fair_claim_integration_test.go:67: global claim: B progressed 0/8 after 24 occupied worker slots, elapsed=20.373766ms
+    fair_claim_integration_test.go:95: fair claim: B completed 8/8 within 16 worker slots with A continuously replenished, elapsed=536.024598ms
+--- PASS: TestFairClaimCapacityNoisyNeighbor (1.96s)
+=== RUN   TestFairClaimReplicaCapAggregatesInstallationsAndPlatform
+--- PASS: TestFairClaimReplicaCapAggregatesInstallationsAndPlatform (0.09s)
+=== RUN   TestFairClaimRotatesSingleSlotAcrossPollsAndReapsFencedLease
+--- PASS: TestFairClaimRotatesSingleSlotAcrossPollsAndReapsFencedLease (0.06s)
+=== RUN   TestFairClaimRollbackOnObserverFailureAndSchedulerTimeout
+--- PASS: TestFairClaimRollbackOnObserverFailureAndSchedulerTimeout (0.10s)
+=== RUN   TestFairClaimOrdersReadyJobsAcrossInstallationsAndSkipsLocked
+--- PASS: TestFairClaimOrdersReadyJobsAcrossInstallationsAndSkipsLocked (0.08s)
+=== RUN   TestFairClaimIgnoresExpiredLeasesBeyondReapLimit
+=== RUN   TestFairClaimIgnoresExpiredLeasesBeyondReapLimit/integration
+=== RUN   TestFairClaimIgnoresExpiredLeasesBeyondReapLimit/platform
+--- PASS: TestFairClaimIgnoresExpiredLeasesBeyondReapLimit (0.11s)
+    --- PASS: TestFairClaimIgnoresExpiredLeasesBeyondReapLimit/integration (0.05s)
+    --- PASS: TestFairClaimIgnoresExpiredLeasesBeyondReapLimit/platform (0.05s)
+=== RUN   TestClassifyPermanentError
+--- PASS: TestClassifyPermanentError (0.00s)
+=== RUN   TestBackoffIsBounded
+--- PASS: TestBackoffIsBounded (0.00s)
+=== RUN   TestWorkflowMetricsIgnoreNonWorkflowJobs
+--- PASS: TestWorkflowMetricsIgnoreNonWorkflowJobs (0.00s)
+=== RUN   TestExecutionMetricsBoundUnknownJobCardinality
+--- PASS: TestExecutionMetricsBoundUnknownJobCardinality (0.00s)
+=== RUN   TestServiceBacklogCollectorValidation
+--- PASS: TestServiceBacklogCollectorValidation (0.00s)
+=== RUN   TestServiceBacklogCollectorExactCountsAndOldestReady
+--- PASS: TestServiceBacklogCollectorExactCountsAndOldestReady (0.06s)
+=== RUN   TestStoreRecoversLeaseAndFencesStaleAttempt
+--- PASS: TestStoreRecoversLeaseAndFencesStaleAttempt (0.14s)
+=== RUN   TestStoreMovesExpiredFinalAttemptToDead
+--- PASS: TestStoreMovesExpiredFinalAttemptToDead (0.21s)
+=== RUN   TestStoreBoundsExpiredLeaseReapingAt100kBacklog
+    store_integration_test.go:137: 100k expired lease seed elapsed=665.458335ms; selection plan:
+        Limit  (cost=0.49..3.29 rows=25 width=38) (actual time=0.028..0.034 rows=25 loops=1)
+          Buffers: shared hit=30
+          ->  LockRows  (cost=0.49..11203.67 rows=99990 width=38) (actual time=0.027..0.032 rows=25 loops=1)
+                Buffers: shared hit=30
+                ->  Incremental Sort  (cost=0.49..10203.77 rows=99990 width=38) (actual time=0.025..0.026 rows=25 loops=1)
+                      Sort Key: locked_until, created_at
+                      Presorted Key: locked_until
+                      Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+                      Buffers: shared hit=5
+                      ->  Index Scan using jobs_processing_lease_idx on jobs  (cost=0.42..5704.22 rows=99990 width=38) (actual time=0.012..0.015 rows=33 loops=1)
+                            Index Cond: (locked_until < now())
+                            Filter: (status = 'processing'::text)
+                            Buffers: shared hit=5
+        Planning:
+          Buffers: shared hit=156 read=7
+        Planning Time: 0.518 ms
+        Execution Time: 0.062 ms
+    store_integration_test.go:152: 100k expired lease claim/reap elapsed=9.627902ms
+--- PASS: TestStoreBoundsExpiredLeaseReapingAt100kBacklog (0.81s)
+=== RUN   TestStoreSanitizesFailureAndObserverIsAtomic
+--- PASS: TestStoreSanitizesFailureAndObserverIsAtomic (0.09s)
+=== RUN   TestWorkerPollingPerformance
+    worker_performance_test.go:24: opt-in worker timing; set FAIR_CLAIM_BENCHMARK=true
+--- SKIP: TestWorkerPollingPerformance (0.00s)
+=== RUN   TestWorkerRefillsReleasedSlotBeforeFallbackPoll
+=== RUN   TestWorkerRefillsReleasedSlotBeforeFallbackPoll/integration_cap_0
+=== RUN   TestWorkerRefillsReleasedSlotBeforeFallbackPoll/integration_cap_1
+--- PASS: TestWorkerRefillsReleasedSlotBeforeFallbackPoll (0.48s)
+    --- PASS: TestWorkerRefillsReleasedSlotBeforeFallbackPoll/integration_cap_0 (0.08s)
+    --- PASS: TestWorkerRefillsReleasedSlotBeforeFallbackPoll/integration_cap_1 (0.40s)
+=== RUN   TestWorkerFillsCapacityAcrossClaimBatchesAndHonorsCap
+--- PASS: TestWorkerFillsCapacityAcrossClaimBatchesAndHonorsCap (0.28s)
+=== RUN   TestWorkerStopsRefillAfterPartialClaim
+--- PASS: TestWorkerStopsRefillAfterPartialClaim (0.23s)
+=== RUN   TestWorkerEmptyQueueUsesFallbackWithoutBusyPolling
+--- PASS: TestWorkerEmptyQueueUsesFallbackWithoutBusyPolling (0.55s)
+=== RUN   TestWorkerClaimTimeoutDoesNotBusyPollAndCancellationStopsWait
+--- PASS: TestWorkerClaimTimeoutDoesNotBusyPollAndCancellationStopsWait (0.21s)
+=== RUN   TestWorkerCancellationDrainsActiveHandlerWithoutClaimingAgain
+--- PASS: TestWorkerCancellationDrainsActiveHandlerWithoutClaimingAgain (0.06s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/jobs	6.581s
+=== RUN   TestCleanupWebhookPayloadRetentionPreservesDurableHistoryAndReplaySuppression
+--- PASS: TestCleanupWebhookPayloadRetentionPreservesDurableHistoryAndReplaySuppression (0.26s)
+=== RUN   TestCleanupStrictExpirySafetyMarginAndJobRetention
+--- PASS: TestCleanupStrictExpirySafetyMarginAndJobRetention (0.13s)
+=== RUN   TestCleanupWebhookInboxDeletesOnlyTerminalStatuses
+--- PASS: TestCleanupWebhookInboxDeletesOnlyTerminalStatuses (0.82s)
+=== RUN   TestCleanupHonorsBatchAndMaximumBatchBounds
+--- PASS: TestCleanupHonorsBatchAndMaximumBatchBounds (0.08s)
+=== RUN   TestCleanupAdvisoryLockSkipsConcurrentWorker
+--- PASS: TestCleanupAdvisoryLockSkipsConcurrentWorker (0.39s)
+=== RUN   TestSchedulerRunsAtStartupAndPeriodically
+--- PASS: TestSchedulerRunsAtStartupAndPeriodically (0.01s)
+=== RUN   TestSchedulerContinuesAfterCleanupError
+--- PASS: TestSchedulerContinuesAfterCleanupError (0.01s)
+=== RUN   TestSchedulerConfigurationValidation
+--- PASS: TestSchedulerConfigurationValidation (0.00s)
+=== RUN   TestCleanupMetricsObserveOutcomesAndBoundedPressure
+--- PASS: TestCleanupMetricsObserveOutcomesAndBoundedPressure (0.00s)
+=== RUN   TestCleanupOAuthStatesExpiryMarginAndBounds
+--- PASS: TestCleanupOAuthStatesExpiryMarginAndBounds (0.07s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/maintenance	2.792s
+=== RUN   TestOAuthAccountReaderUsesConsumedStateAndNoLocalFallback
+--- PASS: TestOAuthAccountReaderUsesConsumedStateAndNoLocalFallback (0.05s)
+=== RUN   TestBootstrapPreservesOperatorChangesAndDisabledIntegration
+--- PASS: TestBootstrapPreservesOperatorChangesAndDisabledIntegration (0.04s)
+=== RUN   TestSaveInstallationRejectsIntegrationDisabledAfterStateConsumption
+--- PASS: TestSaveInstallationRejectsIntegrationDisabledAfterStateConsumption (0.05s)
+=== RUN   TestSaveInstallationReauthorizationRefreshesWebhookIntent
+--- PASS: TestSaveInstallationReauthorizationRefreshesWebhookIntent (0.05s)
+=== RUN   TestOAuthIsolatesIntegrationsInSameAccount
+--- PASS: TestOAuthIsolatesIntegrationsInSameAccount (0.05s)
+=== RUN   TestServiceCallbackConsumesStateOnceConcurrently
+--- PASS: TestServiceCallbackConsumesStateOnceConcurrently (0.05s)
+=== RUN   TestServiceCallbackAtomicallyPersistsAuthorization
+--- PASS: TestServiceCallbackAtomicallyPersistsAuthorization (0.05s)
+=== RUN   TestStoreConsumesOAuthStateOnceConcurrently
+--- PASS: TestStoreConsumesOAuthStateOnceConcurrently (0.05s)
+=== RUN   TestStoreSavesInstallationCredentialsJobAndAuditAtomically
+--- PASS: TestStoreSavesInstallationCredentialsJobAndAuditAtomically (0.04s)
+=== RUN   TestStoreRollsBackAuthorizationWhenReconcileEnqueueFails
+--- PASS: TestStoreRollsBackAuthorizationWhenReconcileEnqueueFails (0.04s)
+=== RUN   TestTokenProviderCoordinatesConcurrentRefresh
+--- PASS: TestTokenProviderCoordinatesConcurrentRefresh (0.13s)
+=== RUN   TestClientStaggered401RefreshesObservedVersionOnce
+--- PASS: TestClientStaggered401RefreshesObservedVersionOnce (0.06s)
+=== RUN   TestTokenProviderPersistsRotationAfterCallerCancellation
+--- PASS: TestTokenProviderPersistsRotationAfterCallerCancellation (0.05s)
+=== RUN   TestMarkReauthRequiredIsVersionFenced
+--- PASS: TestMarkReauthRequiredIsVersionFenced (0.05s)
+=== RUN   TestUnauthorizedRefreshDoesNotDeadlockReauthorization
+--- PASS: TestUnauthorizedRefreshDoesNotDeadlockReauthorization (0.09s)
+=== RUN   TestSuccessfulRefreshWinsConcurrentReauthMark
+--- PASS: TestSuccessfulRefreshWinsConcurrentReauthMark (0.07s)
+=== RUN   TestTokenProviderRefreshFailureState
+=== RUN   TestTokenProviderRefreshFailureState/unauthorized_requires_reauthorization
+=== RUN   TestTokenProviderRefreshFailureState/transient_failure_preserves_active_installation
+--- PASS: TestTokenProviderRefreshFailureState (0.10s)
+    --- PASS: TestTokenProviderRefreshFailureState/unauthorized_requires_reauthorization (0.06s)
+    --- PASS: TestTokenProviderRefreshFailureState/transient_failure_preserves_active_installation (0.04s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/oauth	2.045s
+=== RUN   TestProductionRejectsPublicDevelopmentEncryptionKey
+--- PASS: TestProductionRejectsPublicDevelopmentEncryptionKey (0.00s)
+=== RUN   TestAPIManagementAddressDefaultsToSeparateListener
+--- PASS: TestAPIManagementAddressDefaultsToSeparateListener (0.00s)
+=== RUN   TestAPIRejectsConflictingManagementAddress
+--- PASS: TestAPIRejectsConflictingManagementAddress (0.00s)
+=== RUN   TestAPIAcceptsCustomManagementAddress
+--- PASS: TestAPIAcceptsCustomManagementAddress (0.00s)
+=== RUN   TestAPIRejectsInvalidManagementAddress
+--- PASS: TestAPIRejectsInvalidManagementAddress (0.00s)
+=== RUN   TestAPIWebhookLimiterDefaults
+--- PASS: TestAPIWebhookLimiterDefaults (0.00s)
+=== RUN   TestAPIRejectsInvalidWebhookLimiterConfiguration
+=== RUN   TestAPIRejectsInvalidWebhookLimiterConfiguration/zero_global_rate
+=== RUN   TestAPIRejectsInvalidWebhookLimiterConfiguration/non-finite_installation_rate
+=== RUN   TestAPIRejectsInvalidWebhookLimiterConfiguration/zero_global_burst
+=== RUN   TestAPIRejectsInvalidWebhookLimiterConfiguration/zero_installation_burst
+=== RUN   TestAPIRejectsInvalidWebhookLimiterConfiguration/hot_inactive_ttl
+--- PASS: TestAPIRejectsInvalidWebhookLimiterConfiguration (0.00s)
+    --- PASS: TestAPIRejectsInvalidWebhookLimiterConfiguration/zero_global_rate (0.00s)
+    --- PASS: TestAPIRejectsInvalidWebhookLimiterConfiguration/non-finite_installation_rate (0.00s)
+    --- PASS: TestAPIRejectsInvalidWebhookLimiterConfiguration/zero_global_burst (0.00s)
+    --- PASS: TestAPIRejectsInvalidWebhookLimiterConfiguration/zero_installation_burst (0.00s)
+    --- PASS: TestAPIRejectsInvalidWebhookLimiterConfiguration/hot_inactive_ttl (0.00s)
+=== RUN   TestWorkerCleanupDefaultsAndZeroSafetyMargin
+--- PASS: TestWorkerCleanupDefaultsAndZeroSafetyMargin (0.00s)
+=== RUN   TestWorkerRejectsNonPositiveWebhookRetention
+--- PASS: TestWorkerRejectsNonPositiveWebhookRetention (0.00s)
+=== RUN   TestWorkerRejectsHotCleanupInterval
+--- PASS: TestWorkerRejectsHotCleanupInterval (0.00s)
+=== RUN   TestWorkerRejectsSubsecondLease
+--- PASS: TestWorkerRejectsSubsecondLease (0.00s)
+=== RUN   TestWorkerReapBatchDefaultsAndBounds
+=== RUN   TestWorkerReapBatchDefaultsAndBounds/0
+=== RUN   TestWorkerReapBatchDefaultsAndBounds/1001
+--- PASS: TestWorkerReapBatchDefaultsAndBounds (0.00s)
+    --- PASS: TestWorkerReapBatchDefaultsAndBounds/0 (0.00s)
+    --- PASS: TestWorkerReapBatchDefaultsAndBounds/1001 (0.00s)
+=== RUN   TestWidgetLimitAndWorkerFairnessDefaults
+--- PASS: TestWidgetLimitAndWorkerFairnessDefaults (0.00s)
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INTEGRATION_RATE_PER_SECOND
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INSTALLATION_RATE_PER_SECOND
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INTEGRATION_BURST
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INSTALLATION_BURST
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_LIMITER_MAX_ENTRIES
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_LIMITER_INACTIVE_TTL
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/worker_0
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/worker_-1
+=== RUN   TestWidgetLimiterRejectsInvalidRuntimeConfiguration/worker_65
+--- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INTEGRATION_RATE_PER_SECOND (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INSTALLATION_RATE_PER_SECOND (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INTEGRATION_BURST (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_INSTALLATION_BURST (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_LIMITER_MAX_ENTRIES (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/WIDGET_LIMITER_INACTIVE_TTL (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/worker_0 (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/worker_-1 (0.00s)
+    --- PASS: TestWidgetLimiterRejectsInvalidRuntimeConfiguration/worker_65 (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/config	1.014s
+=== RUN   TestParseKeyRingAndRotate
+=== PAUSE TestParseKeyRingAndRotate
+=== RUN   TestParseKeyRingRejectsInvalidValues
+=== PAUSE TestParseKeyRingRejectsInvalidValues
+=== RUN   TestNewKeyRingCopiesInputKeys
+=== PAUSE TestNewKeyRingCopiesInputKeys
+=== RUN   TestOpenRejectsWrongAADTamperingAndVersions
+=== PAUSE TestOpenRejectsWrongAADTamperingAndVersions
+=== RUN   TestSealUsesFreshNonce
+=== PAUSE TestSealUsesFreshNonce
+=== RUN   TestSealPropagatesRandomSourceFailure
+=== PAUSE TestSealPropagatesRandomSourceFailure
+=== CONT  TestParseKeyRingRejectsInvalidValues
+=== CONT  TestNewKeyRingCopiesInputKeys
+=== RUN   TestParseKeyRingRejectsInvalidValues/invalid_active_version
+=== PAUSE TestParseKeyRingRejectsInvalidValues/invalid_active_version
+--- PASS: TestNewKeyRingCopiesInputKeys (0.00s)
+=== RUN   TestParseKeyRingRejectsInvalidValues/empty
+=== CONT  TestOpenRejectsWrongAADTamperingAndVersions
+=== PAUSE TestParseKeyRingRejectsInvalidValues/empty
+=== RUN   TestParseKeyRingRejectsInvalidValues/surrounding_whitespace
+--- PASS: TestOpenRejectsWrongAADTamperingAndVersions (0.00s)
+=== PAUSE TestParseKeyRingRejectsInvalidValues/surrounding_whitespace
+=== CONT  TestParseKeyRingAndRotate
+=== RUN   TestParseKeyRingRejectsInvalidValues/empty_entry
+=== PAUSE TestParseKeyRingRejectsInvalidValues/empty_entry
+=== RUN   TestParseKeyRingRejectsInvalidValues/missing_separator
+--- PASS: TestParseKeyRingAndRotate (0.00s)
+=== PAUSE TestParseKeyRingRejectsInvalidValues/missing_separator
+=== CONT  TestSealPropagatesRandomSourceFailure
+=== RUN   TestParseKeyRingRejectsInvalidValues/extra_separator
+=== PAUSE TestParseKeyRingRejectsInvalidValues/extra_separator
+=== RUN   TestParseKeyRingRejectsInvalidValues/leading_zero_version
+--- PASS: TestSealPropagatesRandomSourceFailure (0.00s)
+=== CONT  TestSealUsesFreshNonce
+=== PAUSE TestParseKeyRingRejectsInvalidValues/leading_zero_version
+=== RUN   TestParseKeyRingRejectsInvalidValues/duplicate_version
+=== PAUSE TestParseKeyRingRejectsInvalidValues/duplicate_version
+--- PASS: TestSealUsesFreshNonce (0.00s)
+=== RUN   TestParseKeyRingRejectsInvalidValues/wrong_key_size
+=== PAUSE TestParseKeyRingRejectsInvalidValues/wrong_key_size
+=== RUN   TestParseKeyRingRejectsInvalidValues/invalid_base64
+=== PAUSE TestParseKeyRingRejectsInvalidValues/invalid_base64
+=== RUN   TestParseKeyRingRejectsInvalidValues/zero_version
+=== PAUSE TestParseKeyRingRejectsInvalidValues/zero_version
+=== RUN   TestParseKeyRingRejectsInvalidValues/negative_version
+=== PAUSE TestParseKeyRingRejectsInvalidValues/negative_version
+=== RUN   TestParseKeyRingRejectsInvalidValues/missing_active_version
+=== PAUSE TestParseKeyRingRejectsInvalidValues/missing_active_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/invalid_active_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/wrong_key_size
+=== CONT  TestParseKeyRingRejectsInvalidValues/negative_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/zero_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/invalid_base64
+=== CONT  TestParseKeyRingRejectsInvalidValues/missing_active_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/duplicate_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/surrounding_whitespace
+=== CONT  TestParseKeyRingRejectsInvalidValues/leading_zero_version
+=== CONT  TestParseKeyRingRejectsInvalidValues/missing_separator
+=== CONT  TestParseKeyRingRejectsInvalidValues/empty_entry
+=== CONT  TestParseKeyRingRejectsInvalidValues/extra_separator
+=== CONT  TestParseKeyRingRejectsInvalidValues/empty
+--- PASS: TestParseKeyRingRejectsInvalidValues (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/invalid_active_version (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/wrong_key_size (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/negative_version (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/zero_version (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/invalid_base64 (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/missing_active_version (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/duplicate_version (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/surrounding_whitespace (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/leading_zero_version (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/missing_separator (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/empty_entry (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/extra_separator (0.00s)
+    --- PASS: TestParseKeyRingRejectsInvalidValues/empty (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/cryptox	1.010s
+?   	github.com/sk1fy/amocrm-pro/internal/platform/logging	[no test files]
+=== RUN   TestLoadRequiresStrictPairedNames
+--- PASS: TestLoadRequiresStrictPairedNames (0.00s)
+=== RUN   TestLoadRequiresDownPair
+--- PASS: TestLoadRequiresDownPair (0.00s)
+=== RUN   TestLoadHashesBothDirections
+--- PASS: TestLoadHashesBothDirections (0.00s)
+=== RUN   TestUpdatedAtUsesStatementTimestamp
+--- PASS: TestUpdatedAtUsesStatementTimestamp (0.14s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/migrations	1.164s
+?   	github.com/sk1fy/amocrm-pro/internal/platform/postgres	[no test files]
+=== RUN   TestTextPreservesUTF8BoundaryAndRemovesNUL
+--- PASS: TestTextPreservesUTF8BoundaryAndRemovesNUL (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/sanitize	1.006s
+=== RUN   TestCanonicalOperationKeepsOneSuccessSpelling
+--- PASS: TestCanonicalOperationKeepsOneSuccessSpelling (0.00s)
+=== RUN   TestResponseBudgetIsBoundedAndSuggestsSmallerPage
+--- PASS: TestResponseBudgetIsBoundedAndSuggestsSmallerPage (0.03s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/serviceapi	1.033s
+=== RUN   TestActivityBusinessLocalAndMTLSGRPCParity
+--- PASS: TestActivityBusinessLocalAndMTLSGRPCParity (0.04s)
+=== RUN   TestBootstrapAccountMTLSCoreOnlyAndUpstreamErrors
+--- PASS: TestBootstrapAccountMTLSCoreOnlyAndUpstreamErrors (0.05s)
+=== RUN   TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity
+--- PASS: TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity (0.09s)
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/forged
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/expired
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_token_audience
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_action_grant
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/non-admin
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/admin_revoked
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/pilot_disabled
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/policy_unavailable
+--- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity (0.09s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/forged (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/expired (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_token_audience (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_action_grant (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/non-admin (0.01s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/admin_revoked (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/pilot_disabled (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/policy_unavailable (0.01s)
+=== RUN   TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit
+--- PASS: TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit (0.06s)
+=== RUN   TestLargeOwnerResponsesHaveSameLocalAndGRPCError
+--- PASS: TestLargeOwnerResponsesHaveSameLocalAndGRPCError (0.85s)
+=== RUN   TestActualMTLSGatewayAndPolicyLocalParity
+--- PASS: TestActualMTLSGatewayAndPolicyLocalParity (0.05s)
+=== RUN   TestRPCErrorRetryAfterAndCancellation
+--- PASS: TestRPCErrorRetryAfterAndCancellation (0.01s)
+=== RUN   TestProtobufRoundTripAllPanelStateFields
+--- PASS: TestProtobufRoundTripAllPanelStateFields (0.00s)
+=== RUN   TestReadinessReflectsDependencyFailure
+--- PASS: TestReadinessReflectsDependencyFailure (0.01s)
+=== RUN   TestConnectDoesNotWaitForUnavailableDependency
+--- PASS: TestConnectDoesNotWaitForUnavailableDependency (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	2.276s
+?   	github.com/sk1fy/amocrm-pro/internal/servicerpc/pb	[no test files]
+=== RUN   TestRegistryBindsActualPortsAndReadiness
+--- PASS: TestRegistryBindsActualPortsAndReadiness (0.00s)
+=== RUN   TestRegistryRejectsBrokenRegistration
+=== RUN   TestRegistryRejectsBrokenRegistration/unknown
+=== RUN   TestRegistryRejectsBrokenRegistration/mode
+=== RUN   TestRegistryRejectsBrokenRegistration/nil
+=== RUN   TestRegistryRejectsBrokenRegistration/wrong-contract
+=== RUN   TestRegistryRejectsBrokenRegistration/remote-pool
+=== RUN   TestRegistryRejectsBrokenRegistration/local-no-db
+=== RUN   TestRegistryRejectsBrokenRegistration/no-readiness
+--- PASS: TestRegistryRejectsBrokenRegistration (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/unknown (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/mode (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/nil (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/wrong-contract (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/remote-pool (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/local-no-db (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/no-readiness (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services	1.010s
+=== RUN   TestPostgresSettingsReceiptSurvivesResponseLoss
+--- PASS: TestPostgresSettingsReceiptSurvivesResponseLoss (0.02s)
+=== RUN   TestPanelUsesBoundedBatchAndExplicitCoverage
+--- PASS: TestPanelUsesBoundedBatchAndExplicitCoverage (0.00s)
+=== RUN   TestRevocationStopsLocalAdapterBeforeDataAccess
+--- PASS: TestRevocationStopsLocalAdapterBeforeDataAccess (0.00s)
+=== RUN   TestSettingsBounds
+--- PASS: TestSettingsBounds (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/activity	1.023s
+=== RUN   TestApplicationDependsOnOwnerRepositoryNotSQL
+--- PASS: TestApplicationDependsOnOwnerRepositoryNotSQL (0.00s)
+=== RUN   TestOperationSuccessContractPreservesCompletedStorage
+    operation_contract_integration_test.go:50: wrote real CRM Events operation response for the mounted-panel test
+--- PASS: TestOperationSuccessContractPreservesCompletedStorage (0.04s)
+=== RUN   TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction
+--- PASS: TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction (0.06s)
+=== RUN   TestRecentBackfillIslandCannotHideOlderDowntimeGap
+--- PASS: TestRecentBackfillIslandCannotHideOlderDowntimeGap (0.05s)
+=== RUN   TestCommandBoundsAndStableHash
+--- PASS: TestCommandBoundsAndStableHash (0.00s)
+=== RUN   TestDigestDetectsChangedPageAndCanonicalizesJSON
+--- PASS: TestDigestDetectsChangedPageAndCanonicalizesJSON (0.00s)
+=== RUN   TestUnauthorizedLocalCallsDoNotReachStorage
+--- PASS: TestUnauthorizedLocalCallsDoNotReachStorage (0.00s)
+=== RUN   TestInboxLostReplyConflictAndEmptyWindow
+--- PASS: TestInboxLostReplyConflictAndEmptyWindow (0.05s)
+=== RUN   TestPartialPageRestartDedupUpdatesAndSameTimestampCursor
+--- PASS: TestPartialPageRestartDedupUpdatesAndSameTimestampCursor (0.05s)
+=== RUN   TestLeaseFencingAndDisableInvalidateInflightWriter
+--- PASS: TestLeaseFencingAndDisableInvalidateInflightWriter (0.06s)
+=== RUN   TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable
+--- PASS: TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable (0.07s)
+=== RUN   TestTwoSchedulersAndWorkersCannotDuplicateSource
+--- PASS: TestTwoSchedulersAndWorkersCannotDuplicateSource (0.06s)
+=== RUN   TestPolicyUnavailableReauthAndRecoveryRetainCursor
+--- PASS: TestPolicyUnavailableReauthAndRecoveryRetainCursor (0.06s)
+=== RUN   TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind
+--- PASS: TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind (0.07s)
+=== RUN   TestInstallationIsolationIncludingSameAccountIntegration
+--- PASS: TestInstallationIsolationIncludingSameAccountIntegration (0.05s)
+=== RUN   TestPageWriteAndContinuationRollbackTogether
+--- PASS: TestPageWriteAndContinuationRollbackTogether (0.05s)
+=== RUN   TestBackfillGlobalBudgetAndCurrentPriority
+--- PASS: TestBackfillGlobalBudgetAndCurrentPriority (0.05s)
+=== RUN   TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics
+--- PASS: TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics (0.04s)
+=== RUN   TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling
+--- PASS: TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling (0.05s)
+=== RUN   TestCoreCommandUUIDIsRecipientOperationID
+--- PASS: TestCoreCommandUUIDIsRecipientOperationID (0.03s)
+=== RUN   TestMetricsMapUnknownStorageStateAndRejectCompletedLease
+--- PASS: TestMetricsMapUnknownStorageStateAndRejectCompletedLease (0.05s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	1.886s
+=== RUN   TestActionStoreIdempotentPingContract
+--- PASS: TestActionStoreIdempotentPingContract (0.06s)
+=== RUN   TestActionStoreAdmitsLeadStatusWithDurableOwnership
+--- PASS: TestActionStoreAdmitsLeadStatusWithDurableOwnership (0.06s)
+=== RUN   TestActionStoreRecoversSameRequestStaleProcessingRow
+--- PASS: TestActionStoreRecoversSameRequestStaleProcessingRow (0.05s)
+=== RUN   TestIdempotencySchemaRejectsInconsistentCompletedResponse
+--- PASS: TestIdempotencySchemaRejectsInconsistentCompletedResponse (0.05s)
+=== RUN   TestActionStoreConcurrentTokenAndIdempotencyFencing
+=== RUN   TestActionStoreConcurrentTokenAndIdempotencyFencing/one_disposable_token
+=== RUN   TestActionStoreConcurrentTokenAndIdempotencyFencing/fresh_tokens_share_one_idempotency_key
+--- PASS: TestActionStoreConcurrentTokenAndIdempotencyFencing (0.12s)
+    --- PASS: TestActionStoreConcurrentTokenAndIdempotencyFencing/one_disposable_token (0.04s)
+    --- PASS: TestActionStoreConcurrentTokenAndIdempotencyFencing/fresh_tokens_share_one_idempotency_key (0.01s)
+=== RUN   TestActionStoreRollsBackTokenKeyAndJobTogether
+--- PASS: TestActionStoreRollsBackTokenKeyAndJobTogether (0.05s)
+=== RUN   TestActionStoreRejectsInactiveTenantBeforeConsumption
+--- PASS: TestActionStoreRejectsInactiveTenantBeforeConsumption (0.05s)
+=== RUN   TestActionStoreRejectsInactiveIntegrationBeforeConsumption
+--- PASS: TestActionStoreRejectsInactiveIntegrationBeforeConsumption (0.04s)
+=== RUN   TestActionStoreScopesKeysByInstallationAndReclaimsExpiredRows
+--- PASS: TestActionStoreScopesKeysByInstallationAndReclaimsExpiredRows (0.05s)
+=== RUN   TestLeadStatusCapabilityAdmissionIsolatedForSameAccount
+--- PASS: TestLeadStatusCapabilityAdmissionIsolatedForSameAccount (0.05s)
+=== RUN   TestLeadStatusCapabilityRevocationPreventsWorkerSideEffect
+=== RUN   TestLeadStatusCapabilityRevocationPreventsWorkerSideEffect/before_worker
+=== RUN   TestLeadStatusCapabilityRevocationPreventsWorkerSideEffect/before_patch
+--- PASS: TestLeadStatusCapabilityRevocationPreventsWorkerSideEffect (0.11s)
+    --- PASS: TestLeadStatusCapabilityRevocationPreventsWorkerSideEffect/before_worker (0.05s)
+    --- PASS: TestLeadStatusCapabilityRevocationPreventsWorkerSideEffect/before_patch (0.06s)
+=== RUN   TestLeadStatusRuleRevocationBeforeConfiguration
+--- PASS: TestLeadStatusRuleRevocationBeforeConfiguration (0.05s)
+=== RUN   TestCapabilityMigrationBackfillsOnlyExistingIntegrations
+--- PASS: TestCapabilityMigrationBackfillsOnlyExistingIntegrations (0.05s)
+=== RUN   TestCapabilityRevocationWaitsForAuthorizedMutation
+--- PASS: TestCapabilityRevocationWaitsForAuthorizedMutation (0.07s)
+=== RUN   TestPingHTTPContractAndReplay
+--- PASS: TestPingHTTPContractAndReplay (0.05s)
+=== RUN   TestPingHTTPRejectsInvalidAdmissionBeforeConsumption
+=== RUN   TestPingHTTPRejectsInvalidAdmissionBeforeConsumption/missing_idempotency_key
+=== RUN   TestPingHTTPRejectsInvalidAdmissionBeforeConsumption/multiple_idempotency_keys
+=== RUN   TestPingHTTPRejectsInvalidAdmissionBeforeConsumption/body_is_forbidden
+--- PASS: TestPingHTTPRejectsInvalidAdmissionBeforeConsumption (0.04s)
+    --- PASS: TestPingHTTPRejectsInvalidAdmissionBeforeConsumption/missing_idempotency_key (0.00s)
+    --- PASS: TestPingHTTPRejectsInvalidAdmissionBeforeConsumption/multiple_idempotency_keys (0.00s)
+    --- PASS: TestPingHTTPRejectsInvalidAdmissionBeforeConsumption/body_is_forbidden (0.00s)
+=== RUN   TestLeadSetStatusHTTPAdmissionAndStrictBody
+--- PASS: TestLeadSetStatusHTTPAdmissionAndStrictBody (0.05s)
+=== RUN   TestLeadStatusRuleHTTPAdmissionRequiresCompleteStrictCommand
+--- PASS: TestLeadStatusRuleHTTPAdmissionRequiresCompleteStrictCommand (0.06s)
+=== RUN   TestJobStatusIsWidgetUserScoped
+--- PASS: TestJobStatusIsWidgetUserScoped (0.05s)
+=== RUN   TestJobStatusRendersOnlyTypedWorkflowResult
+--- PASS: TestJobStatusRendersOnlyTypedWorkflowResult (0.05s)
+=== RUN   TestLeadStatusRuleJobStatusIsActorScopedAndTyped
+--- PASS: TestLeadStatusRuleJobStatusIsActorScopedAndTyped (0.05s)
+=== RUN   TestLeadSetStatusWorkflowCompareBeforeWrite
+--- PASS: TestLeadSetStatusWorkflowCompareBeforeWrite (0.06s)
+=== RUN   TestLeadSetStatusWorkflowRetryObservesAppliedState
+--- PASS: TestLeadSetStatusWorkflowRetryObservesAppliedState (0.06s)
+=== RUN   TestLeadSetStatusWorkflowRechecksTenantBeforePatch
+--- PASS: TestLeadSetStatusWorkflowRechecksTenantBeforePatch (0.08s)
+=== RUN   TestLeadSetStatusWorkflowRechecksAdminBeforePatch
+--- PASS: TestLeadSetStatusWorkflowRechecksAdminBeforePatch (0.07s)
+=== RUN   TestLeadSetStatusWorkflowLinearizesConcurrentDisable
+--- PASS: TestLeadSetStatusWorkflowLinearizesConcurrentDisable (0.17s)
+=== RUN   TestLeadSetStatusWorkflowRejectsStaleLeaseAttempt
+--- PASS: TestLeadSetStatusWorkflowRejectsStaleLeaseAttempt (0.07s)
+=== RUN   TestLeadSetStatusWorkflowRejectsInactiveTenantAndNonAdmin
+=== RUN   TestLeadSetStatusWorkflowRejectsInactiveTenantAndNonAdmin/inactive_tenant_makes_no_amoCRM_request
+=== RUN   TestLeadSetStatusWorkflowRejectsInactiveTenantAndNonAdmin/non-admin_cannot_read_or_mutate_lead
+--- PASS: TestLeadSetStatusWorkflowRejectsInactiveTenantAndNonAdmin (0.13s)
+    --- PASS: TestLeadSetStatusWorkflowRejectsInactiveTenantAndNonAdmin/inactive_tenant_makes_no_amoCRM_request (0.06s)
+    --- PASS: TestLeadSetStatusWorkflowRejectsInactiveTenantAndNonAdmin/non-admin_cannot_read_or_mutate_lead (0.07s)
+=== RUN   TestModuleResumesLegacyJobAndReplaysLegacyIdempotencyReceipt
+--- PASS: TestModuleResumesLegacyJobAndReplaysLegacyIdempotencyReceipt (0.09s)
+=== RUN   TestModuleRegistersOwnPreflightsBeforeAuthentication
+--- PASS: TestModuleRegistersOwnPreflightsBeforeAuthentication (0.00s)
+=== RUN   TestLeadStatusRuleConfigureCreateUpdateAndReceiptRetry
+--- PASS: TestLeadStatusRuleConfigureCreateUpdateAndReceiptRetry (0.06s)
+=== RUN   TestLeadStatusRuleConfigureCASAllowsOneWinner
+--- PASS: TestLeadStatusRuleConfigureCASAllowsOneWinner (0.07s)
+=== RUN   TestLeadStatusRuleConfigureRejectsNonAdminAndStaleLease
+--- PASS: TestLeadStatusRuleConfigureRejectsNonAdminAndStaleLease (0.06s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/leadstatus	3.107s
+=== RUN   TestValidateResetTarget
+=== RUN   TestValidateResetTarget/explicit_isolated_test_database
+=== RUN   TestValidateResetTarget/missing_explicit_reset_permission
+=== RUN   TestValidateResetTarget/development_database_rejected
+--- PASS: TestValidateResetTarget (0.00s)
+    --- PASS: TestValidateResetTarget/explicit_isolated_test_database (0.00s)
+    --- PASS: TestValidateResetTarget/missing_explicit_reset_permission (0.00s)
+    --- PASS: TestValidateResetTarget/development_database_rejected (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/testkit	1.010s
+?   	github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware	[no test files]
+=== RUN   TestRunAllPropagatesListenerFailureAndStopsPeers
+--- PASS: TestRunAllPropagatesListenerFailureAndStopsPeers (0.00s)
+=== RUN   TestRunAllRequiresServer
+--- PASS: TestRunAllRequiresServer (0.00s)
+=== RUN   TestPublicAndManagementRouteIsolationWithPostgresReadiness
+--- PASS: TestPublicAndManagementRouteIsolationWithPostgresReadiness (0.03s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/transport/httpserver	1.042s
+=== RUN   TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration
+--- PASS: TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration (0.08s)
+=== RUN   TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect
+=== RUN   TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_worker
+=== RUN   TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_patch
+--- PASS: TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect (0.17s)
+    --- PASS: TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_worker (0.07s)
+    --- PASS: TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_patch (0.10s)
+=== RUN   TestWebhookIngressInstallationLimitIsIsolatedAndObservable
+--- PASS: TestWebhookIngressInstallationLimitIsIsolatedAndObservable (0.07s)
+=== RUN   TestWebhookIngressGlobalLimitRejectsBeforeDurableSideEffects
+--- PASS: TestWebhookIngressGlobalLimitRejectsBeforeDurableSideEffects (0.07s)
+=== RUN   TestWebhookIngressUnknownKeyConsumesGlobalCapacityBeforeLookup
+--- PASS: TestWebhookIngressUnknownKeyConsumesGlobalCapacityBeforeLookup (0.05s)
+=== RUN   TestIngressLimiterValidatesConfiguration
+--- PASS: TestIngressLimiterValidatesConfiguration (0.00s)
+=== RUN   TestIngressLimiterEvictsOnlyIdleInstallationsAndRecreatesBucket
+--- PASS: TestIngressLimiterEvictsOnlyIdleInstallationsAndRecreatesBucket (0.00s)
+=== RUN   TestIngressLimiterRefreshAndActualEvictionRaceUsesOneBucket
+--- PASS: TestIngressLimiterRefreshAndActualEvictionRaceUsesOneBucket (0.00s)
+=== RUN   TestIngressLimiterLastSeenNeverMovesBackward
+--- PASS: TestIngressLimiterLastSeenNeverMovesBackward (0.00s)
+=== RUN   TestIngressLimiterMetricsUseOnlyBoundedLabels
+--- PASS: TestIngressLimiterMetricsUseOnlyBoundedLabels (0.00s)
+=== RUN   TestWorkflowRouteMetricsUseBoundedLabels
+--- PASS: TestWorkflowRouteMetricsUseBoundedLabels (0.00s)
+=== RUN   TestParseMultipleEvents
+--- PASS: TestParseMultipleEvents (0.00s)
+=== RUN   TestDeduplicationKeyIsStable
+--- PASS: TestDeduplicationKeyIsStable (0.00s)
+=== RUN   TestAccountID
+--- PASS: TestAccountID (0.00s)
+=== RUN   TestParseIgnoresUnsupportedEvents
+--- PASS: TestParseIgnoresUnsupportedEvents (0.00s)
+=== RUN   TestReconcileJobHandlerIntegration
+=== RUN   TestReconcileJobHandlerIntegration/already_converged_is_a_no-op
+=== RUN   TestReconcileJobHandlerIntegration/missing_registration_is_created
+=== RUN   TestReconcileJobHandlerIntegration/rate_limit_is_retryable_and_persisted
+=== RUN   TestReconcileJobHandlerIntegration/validation_failure_is_permanent_and_persisted
+=== RUN   TestReconcileJobHandlerIntegration/tenant_payload_mismatch_is_rejected_before_IO
+=== RUN   TestReconcileJobHandlerIntegration/persisted_transport_error_is_sanitized
+--- PASS: TestReconcileJobHandlerIntegration (0.17s)
+    --- PASS: TestReconcileJobHandlerIntegration/already_converged_is_a_no-op (0.04s)
+    --- PASS: TestReconcileJobHandlerIntegration/missing_registration_is_created (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/rate_limit_is_retryable_and_persisted (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/validation_failure_is_permanent_and_persisted (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/tenant_payload_mismatch_is_rejected_before_IO (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/persisted_transport_error_is_sanitized (0.02s)
+=== RUN   TestDeliverySnapshotsSettingsAllowsRepeatedRequestIDAndRetainsDedup
+--- PASS: TestDeliverySnapshotsSettingsAllowsRepeatedRequestIDAndRetainsDedup (0.08s)
+=== RUN   TestLeadStatusWebhookDispatchIsDurablyDeduplicated
+--- PASS: TestLeadStatusWebhookDispatchIsDurablyDeduplicated (0.06s)
+=== RUN   TestLeadStatusWebhookRuleEnabledFlagControlsRouting
+--- PASS: TestLeadStatusWebhookRuleEnabledFlagControlsRouting (0.05s)
+=== RUN   TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect
+--- PASS: TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect (0.09s)
+=== RUN   TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState
+--- PASS: TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState (0.07s)
+=== RUN   TestLeadStatusWorkflowSourceChangedRechecksLeaseBeforeCompletion
+--- PASS: TestLeadStatusWorkflowSourceChangedRechecksLeaseBeforeCompletion (0.06s)
+=== RUN   TestLeadStatusWorkflowCompletedReceiptSurvivesJobCompletionCrash
+--- PASS: TestLeadStatusWorkflowCompletedReceiptSurvivesJobCompletionCrash (0.07s)
+=== RUN   TestLeadStatusWorkflowAlreadyAtTargetDoesNotCreateEffect
+--- PASS: TestLeadStatusWorkflowAlreadyAtTargetDoesNotCreateEffect (0.06s)
+=== RUN   TestLeadStatusWorkflowUncertainAppliedEffectIsNotPatchedAgain
+--- PASS: TestLeadStatusWorkflowUncertainAppliedEffectIsNotPatchedAgain (0.07s)
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_source
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/malformed_source
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_target
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/zero_target
+--- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState (0.20s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_source (0.05s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/malformed_source (0.05s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_target (0.05s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/zero_target (0.06s)
+=== RUN   TestWidgetLeadStatusEffectCorrelatesOnlyAfterAttempt
+--- PASS: TestWidgetLeadStatusEffectCorrelatesOnlyAfterAttempt (0.05s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/webhook	2.476s
+?   	github.com/sk1fy/amocrm-pro/internal/widgetapi	[no test files]
+=== RUN   TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken
+=== PAUSE TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken
+=== RUN   TestVerifyReturnsGrantWithoutConsumingToken
+=== PAUSE TestVerifyReturnsGrantWithoutConsumingToken
+=== RUN   TestVerifyRetainsReplayRecordThroughLeeway
+=== PAUSE TestVerifyRetainsReplayRecordThroughLeeway
+=== RUN   TestAuthenticateRejectsReplay
+=== PAUSE TestAuthenticateRejectsReplay
+=== RUN   TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint
+=== PAUSE TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint
+=== RUN   TestAuthenticateUsesUnverifiedValuesOnlyAsLookupHint
+=== PAUSE TestAuthenticateUsesUnverifiedValuesOnlyAsLookupHint
+=== RUN   TestAuthenticateStrictClaimsValidation
+=== PAUSE TestAuthenticateStrictClaimsValidation
+=== RUN   TestAuthenticateUnknownTenantIsUnauthorized
+=== PAUSE TestAuthenticateUnknownTenantIsUnauthorized
+=== RUN   TestAuthenticatePropagatesInfrastructureErrors
+=== PAUSE TestAuthenticatePropagatesInfrastructureErrors
+=== RUN   TestNewAuthenticatorValidatesOptions
+=== PAUSE TestNewAuthenticatorValidatesOptions
+=== RUN   TestValidateStrictPayloadShapeRejectsDuplicateClaims
+=== PAUSE TestValidateStrictPayloadShapeRejectsDuplicateClaims
+=== RUN   TestFailureReasonForAudienceMismatch
+=== PAUSE TestFailureReasonForAudienceMismatch
+=== RUN   TestFailureReasonForUnknownTenant
+=== PAUSE TestFailureReasonForUnknownTenant
+=== RUN   TestFailureReasonForWrongSignature
+=== PAUSE TestFailureReasonForWrongSignature
+=== RUN   TestMiddlewareLogsSafeReasonAndRequestIDOnly
+=== PAUSE TestMiddlewareLogsSafeReasonAndRequestIDOnly
+=== RUN   TestMiddlewareAuthenticatesBothHeaderContractsWithPostgresReplayStore
+--- PASS: TestMiddlewareAuthenticatesBothHeaderContractsWithPostgresReplayStore (0.08s)
+=== RUN   TestMiddlewareAddsVerifiedPrincipalToContext
+=== PAUSE TestMiddlewareAddsVerifiedPrincipalToContext
+=== RUN   TestMiddlewareAcceptsXAuthToken
+=== PAUSE TestMiddlewareAcceptsXAuthToken
+=== RUN   TestVerificationMiddlewareDefersTokenConsumption
+=== PAUSE TestVerificationMiddlewareDefersTokenConsumption
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders
+=== PAUSE TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders
+=== RUN   TestMiddlewareRejectsMissingInvalidAndReplayedTokens
+=== PAUSE TestMiddlewareRejectsMissingInvalidAndReplayedTokens
+=== RUN   TestMiddlewareReturnsInternalServerErrorForRepositoryFailure
+=== PAUSE TestMiddlewareReturnsInternalServerErrorForRepositoryFailure
+=== RUN   TestPrincipalContextHelpers
+=== PAUSE TestPrincipalContextHelpers
+=== RUN   TestAuthenticationIsolatesIntegrationsInSameAccount
+--- PASS: TestAuthenticationIsolatesIntegrationsInSameAccount (0.17s)
+=== RUN   TestAudienceForRedirectURI
+=== PAUSE TestAudienceForRedirectURI
+=== RUN   TestIssuerForAccountDomain
+=== PAUSE TestIssuerForAccountDomain
+=== RUN   TestNormalizeHTTPSOriginRequiresAbsoluteHTTPSOrigin
+=== PAUSE TestNormalizeHTTPSOriginRequiresAbsoluteHTTPSOrigin
+=== RUN   TestOriginNormalizationRejectsUnsafeValues
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues
+=== CONT  TestVerifyReturnsGrantWithoutConsumingToken
+=== CONT  TestFailureReasonForUnknownTenant
+--- PASS: TestFailureReasonForUnknownTenant (0.00s)
+=== CONT  TestOriginNormalizationRejectsUnsafeValues
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/redirect_
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/redirect_
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/redirect__relative/callback
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/redirect__relative/callback
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/redirect_/relative/callback
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/redirect_/relative/callback
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/redirect_ftp://external.example/callback
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/redirect_ftp://external.example/callback
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/redirect_https://user:pass@external.example/callback
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/redirect_https://user:pass@external.example/callback
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/redirect_https://external.example:/callback
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/redirect_https://external.example:/callback
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/domain_
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/domain_
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/domain__subdomain.amocrm.ru
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/domain__subdomain.amocrm.ru
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/domain_http://subdomain.amocrm.ru
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/domain_http://subdomain.amocrm.ru
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru/path
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru/path
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru?query=yes
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru?query=yes
+=== RUN   TestOriginNormalizationRejectsUnsafeValues/domain_https://user@subdomain.amocrm.ru
+=== PAUSE TestOriginNormalizationRejectsUnsafeValues/domain_https://user@subdomain.amocrm.ru
+=== CONT  TestNormalizeHTTPSOriginRequiresAbsoluteHTTPSOrigin
+--- PASS: TestNormalizeHTTPSOriginRequiresAbsoluteHTTPSOrigin (0.00s)
+=== CONT  TestAudienceForRedirectURI
+=== RUN   TestAudienceForRedirectURI/path_and_query_removed
+=== PAUSE TestAudienceForRedirectURI/path_and_query_removed
+=== RUN   TestAudienceForRedirectURI/nondefault_port_preserved
+=== PAUSE TestAudienceForRedirectURI/nondefault_port_preserved
+=== RUN   TestAudienceForRedirectURI/IPv6
+=== PAUSE TestAudienceForRedirectURI/IPv6
+=== CONT  TestPrincipalContextHelpers
+--- PASS: TestPrincipalContextHelpers (0.00s)
+=== CONT  TestIssuerForAccountDomain
+=== RUN   TestIssuerForAccountDomain/bare_domain
+=== PAUSE TestIssuerForAccountDomain/bare_domain
+=== RUN   TestIssuerForAccountDomain/HTTPS_origin
+=== PAUSE TestIssuerForAccountDomain/HTTPS_origin
+=== CONT  TestMiddlewareReturnsInternalServerErrorForRepositoryFailure
+--- PASS: TestMiddlewareReturnsInternalServerErrorForRepositoryFailure (0.00s)
+=== CONT  TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers
+=== PAUSE TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token
+=== PAUSE TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization
+=== PAUSE TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization
+=== CONT  TestMiddlewareRejectsMissingInvalidAndReplayedTokens
+=== RUN   TestMiddlewareRejectsMissingInvalidAndReplayedTokens/missing
+=== PAUSE TestMiddlewareRejectsMissingInvalidAndReplayedTokens/missing
+=== RUN   TestMiddlewareRejectsMissingInvalidAndReplayedTokens/wrong_scheme
+=== PAUSE TestMiddlewareRejectsMissingInvalidAndReplayedTokens/wrong_scheme
+=== RUN   TestMiddlewareRejectsMissingInvalidAndReplayedTokens/malformed
+=== PAUSE TestMiddlewareRejectsMissingInvalidAndReplayedTokens/malformed
+=== RUN   TestMiddlewareRejectsMissingInvalidAndReplayedTokens/replay
+=== PAUSE TestMiddlewareRejectsMissingInvalidAndReplayedTokens/replay
+=== CONT  TestMiddlewareAcceptsXAuthToken
+--- PASS: TestVerifyReturnsGrantWithoutConsumingToken (0.00s)
+=== CONT  TestMiddlewareAddsVerifiedPrincipalToContext
+--- PASS: TestMiddlewareAcceptsXAuthToken (0.00s)
+=== CONT  TestVerificationMiddlewareDefersTokenConsumption
+--- PASS: TestMiddlewareAddsVerifiedPrincipalToContext (0.00s)
+=== CONT  TestMiddlewareLogsSafeReasonAndRequestIDOnly
+--- PASS: TestMiddlewareLogsSafeReasonAndRequestIDOnly (0.00s)
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/redirect_
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/domain_https://user@subdomain.amocrm.ru
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru?query=yes
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/domain_http://subdomain.amocrm.ru
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/domain__subdomain.amocrm.ru
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru/path
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/redirect_https://external.example:/callback
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/domain_
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/redirect_ftp://external.example/callback
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/redirect_/relative/callback
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/redirect_https://user:pass@external.example/callback
+=== CONT  TestOriginNormalizationRejectsUnsafeValues/redirect__relative/callback
+--- PASS: TestOriginNormalizationRejectsUnsafeValues (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/redirect_ (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/domain_https://user@subdomain.amocrm.ru (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru?query=yes (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/domain_http://subdomain.amocrm.ru (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/domain__subdomain.amocrm.ru (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/domain_https://subdomain.amocrm.ru/path (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/redirect_https://external.example:/callback (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/domain_ (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/redirect_ftp://external.example/callback (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/redirect_/relative/callback (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/redirect_https://user:pass@external.example/callback (0.00s)
+    --- PASS: TestOriginNormalizationRejectsUnsafeValues/redirect__relative/callback (0.00s)
+=== CONT  TestAudienceForRedirectURI/path_and_query_removed
+=== CONT  TestAudienceForRedirectURI/IPv6
+=== CONT  TestAudienceForRedirectURI/nondefault_port_preserved
+=== CONT  TestIssuerForAccountDomain/HTTPS_origin
+=== CONT  TestIssuerForAccountDomain/bare_domain
+--- PASS: TestAudienceForRedirectURI (0.00s)
+    --- PASS: TestAudienceForRedirectURI/path_and_query_removed (0.00s)
+    --- PASS: TestAudienceForRedirectURI/IPv6 (0.00s)
+    --- PASS: TestAudienceForRedirectURI/nondefault_port_preserved (0.00s)
+=== CONT  TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers/authenticate
+--- PASS: TestIssuerForAccountDomain (0.00s)
+    --- PASS: TestIssuerForAccountDomain/HTTPS_origin (0.00s)
+    --- PASS: TestIssuerForAccountDomain/bare_domain (0.00s)
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers/verify
+=== CONT  TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization/authenticate
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization/verify
+=== CONT  TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token/authenticate
+=== RUN   TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token/verify
+--- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders (0.00s)
+    --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers (0.00s)
+        --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers/authenticate (0.00s)
+        --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/both_token_headers/verify (0.00s)
+    --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization (0.00s)
+        --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization/authenticate (0.00s)
+        --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_Authorization/verify (0.00s)
+    --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token (0.00s)
+        --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token/authenticate (0.00s)
+        --- PASS: TestMiddlewareRejectsAmbiguousOrRepeatedTokenHeaders/repeated_X-Auth-Token/verify (0.00s)
+=== CONT  TestMiddlewareRejectsMissingInvalidAndReplayedTokens/missing
+=== CONT  TestMiddlewareRejectsMissingInvalidAndReplayedTokens/replay
+--- PASS: TestVerificationMiddlewareDefersTokenConsumption (0.00s)
+=== CONT  TestMiddlewareRejectsMissingInvalidAndReplayedTokens/malformed
+=== CONT  TestMiddlewareRejectsMissingInvalidAndReplayedTokens/wrong_scheme
+=== CONT  TestFailureReasonForWrongSignature
+=== CONT  TestFailureReasonForAudienceMismatch
+--- PASS: TestFailureReasonForWrongSignature (0.00s)
+--- PASS: TestMiddlewareRejectsMissingInvalidAndReplayedTokens (0.00s)
+    --- PASS: TestMiddlewareRejectsMissingInvalidAndReplayedTokens/missing (0.00s)
+    --- PASS: TestMiddlewareRejectsMissingInvalidAndReplayedTokens/malformed (0.00s)
+    --- PASS: TestMiddlewareRejectsMissingInvalidAndReplayedTokens/replay (0.00s)
+    --- PASS: TestMiddlewareRejectsMissingInvalidAndReplayedTokens/wrong_scheme (0.00s)
+=== CONT  TestValidateStrictPayloadShapeRejectsDuplicateClaims
+--- PASS: TestValidateStrictPayloadShapeRejectsDuplicateClaims (0.00s)
+=== CONT  TestAuthenticatePropagatesInfrastructureErrors
+=== RUN   TestAuthenticatePropagatesInfrastructureErrors/lookup
+=== PAUSE TestAuthenticatePropagatesInfrastructureErrors/lookup
+=== RUN   TestAuthenticatePropagatesInfrastructureErrors/consume
+=== PAUSE TestAuthenticatePropagatesInfrastructureErrors/consume
+=== CONT  TestAuthenticateUnknownTenantIsUnauthorized
+--- PASS: TestFailureReasonForAudienceMismatch (0.00s)
+=== CONT  TestAuthenticateStrictClaimsValidation
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_issuer
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_issuer
+--- PASS: TestAuthenticateUnknownTenantIsUnauthorized (0.00s)
+=== CONT  TestNewAuthenticatorValidatesOptions
+=== RUN   TestAuthenticateStrictClaimsValidation/issuer_has_path
+=== PAUSE TestAuthenticateStrictClaimsValidation/issuer_has_path
+=== RUN   TestAuthenticateStrictClaimsValidation/audience_array
+=== PAUSE TestAuthenticateStrictClaimsValidation/audience_array
+=== RUN   TestNewAuthenticatorValidatesOptions/nil_repository
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_issued_at
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_issued_at
+=== PAUSE TestNewAuthenticatorValidatesOptions/nil_repository
+=== RUN   TestAuthenticateStrictClaimsValidation/future_issued_at
+=== PAUSE TestAuthenticateStrictClaimsValidation/future_issued_at
+=== RUN   TestNewAuthenticatorValidatesOptions/nil_opener
+=== RUN   TestAuthenticateStrictClaimsValidation/future_not_before
+=== PAUSE TestNewAuthenticatorValidatesOptions/nil_opener
+=== PAUSE TestAuthenticateStrictClaimsValidation/future_not_before
+=== RUN   TestNewAuthenticatorValidatesOptions/nil_option
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_expiry
+=== PAUSE TestNewAuthenticatorValidatesOptions/nil_option
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_expiry
+=== RUN   TestNewAuthenticatorValidatesOptions/nil_clock
+=== RUN   TestAuthenticateStrictClaimsValidation/expired
+=== PAUSE TestNewAuthenticatorValidatesOptions/nil_clock
+=== RUN   TestNewAuthenticatorValidatesOptions/negative_leeway
+=== PAUSE TestNewAuthenticatorValidatesOptions/negative_leeway
+=== RUN   TestNewAuthenticatorValidatesOptions/zero_maximum_lifetime
+=== PAUSE TestAuthenticateStrictClaimsValidation/expired
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_jti
+=== PAUSE TestNewAuthenticatorValidatesOptions/zero_maximum_lifetime
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_jti
+=== CONT  TestAuthenticateUsesUnverifiedValuesOnlyAsLookupHint
+--- PASS: TestAuthenticateUsesUnverifiedValuesOnlyAsLookupHint (0.00s)
+=== RUN   TestAuthenticateStrictClaimsValidation/expiry_before_issue
+=== PAUSE TestAuthenticateStrictClaimsValidation/expiry_before_issue
+=== CONT  TestAuthenticateRejectsReplay
+--- PASS: TestAuthenticateRejectsReplay (0.00s)
+=== CONT  TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_account
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_account
+=== RUN   TestAuthenticateStrictClaimsValidation/issuer_mismatch
+=== PAUSE TestAuthenticateStrictClaimsValidation/issuer_mismatch
+=== RUN   TestAuthenticateStrictClaimsValidation/audience_mismatch
+=== PAUSE TestAuthenticateStrictClaimsValidation/audience_mismatch
+=== RUN   TestAuthenticateStrictClaimsValidation/invalid_jti
+=== PAUSE TestAuthenticateStrictClaimsValidation/invalid_jti
+=== RUN   TestAuthenticateStrictClaimsValidation/fractional_issued_at
+=== PAUSE TestAuthenticateStrictClaimsValidation/fractional_issued_at
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_not_before
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_not_before
+=== RUN   TestAuthenticateStrictClaimsValidation/missing_audience
+=== PAUSE TestAuthenticateStrictClaimsValidation/missing_audience
+=== RUN   TestAuthenticateStrictClaimsValidation/audience_has_path
+=== PAUSE TestAuthenticateStrictClaimsValidation/audience_has_path
+=== RUN   TestAuthenticateStrictClaimsValidation/lifetime_too_long
+=== PAUSE TestAuthenticateStrictClaimsValidation/lifetime_too_long
+=== RUN   TestAuthenticateStrictClaimsValidation/zero_user
+=== PAUSE TestAuthenticateStrictClaimsValidation/zero_user
+=== CONT  TestVerifyRetainsReplayRecordThroughLeeway
+--- PASS: TestVerifyRetainsReplayRecordThroughLeeway (0.00s)
+=== CONT  TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken
+--- PASS: TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken (0.00s)
+=== CONT  TestAuthenticatePropagatesInfrastructureErrors/consume
+=== CONT  TestAuthenticatePropagatesInfrastructureErrors/lookup
+=== CONT  TestNewAuthenticatorValidatesOptions/nil_repository
+--- PASS: TestAuthenticatePropagatesInfrastructureErrors (0.00s)
+    --- PASS: TestAuthenticatePropagatesInfrastructureErrors/consume (0.00s)
+    --- PASS: TestAuthenticatePropagatesInfrastructureErrors/lookup (0.00s)
+=== CONT  TestNewAuthenticatorValidatesOptions/negative_leeway
+=== CONT  TestNewAuthenticatorValidatesOptions/zero_maximum_lifetime
+=== CONT  TestNewAuthenticatorValidatesOptions/nil_clock
+=== CONT  TestNewAuthenticatorValidatesOptions/nil_option
+=== CONT  TestNewAuthenticatorValidatesOptions/nil_opener
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_issuer
+--- PASS: TestNewAuthenticatorValidatesOptions (0.00s)
+    --- PASS: TestNewAuthenticatorValidatesOptions/nil_repository (0.00s)
+    --- PASS: TestNewAuthenticatorValidatesOptions/negative_leeway (0.00s)
+    --- PASS: TestNewAuthenticatorValidatesOptions/zero_maximum_lifetime (0.00s)
+    --- PASS: TestNewAuthenticatorValidatesOptions/nil_clock (0.00s)
+    --- PASS: TestNewAuthenticatorValidatesOptions/nil_option (0.00s)
+    --- PASS: TestNewAuthenticatorValidatesOptions/nil_opener (0.00s)
+=== CONT  TestAuthenticateStrictClaimsValidation/zero_user
+=== RUN   TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/HS384
+=== PAUSE TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/HS384
+=== RUN   TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/invalid_client_UUID
+=== PAUSE TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/invalid_client_UUID
+=== RUN   TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/zero_account
+=== PAUSE TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/zero_account
+=== CONT  TestAuthenticateStrictClaimsValidation/lifetime_too_long
+=== CONT  TestAuthenticateStrictClaimsValidation/audience_has_path
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_audience
+=== CONT  TestAuthenticateStrictClaimsValidation/fractional_issued_at
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_not_before
+=== CONT  TestAuthenticateStrictClaimsValidation/invalid_jti
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_account
+=== CONT  TestAuthenticateStrictClaimsValidation/issuer_mismatch
+=== CONT  TestAuthenticateStrictClaimsValidation/expiry_before_issue
+=== CONT  TestAuthenticateStrictClaimsValidation/audience_mismatch
+=== CONT  TestAuthenticateStrictClaimsValidation/expired
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_jti
+=== CONT  TestAuthenticateStrictClaimsValidation/future_not_before
+=== CONT  TestAuthenticateStrictClaimsValidation/future_issued_at
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_issued_at
+=== CONT  TestAuthenticateStrictClaimsValidation/missing_expiry
+=== CONT  TestAuthenticateStrictClaimsValidation/audience_array
+=== CONT  TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/invalid_client_UUID
+=== CONT  TestAuthenticateStrictClaimsValidation/issuer_has_path
+--- PASS: TestAuthenticateStrictClaimsValidation (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_issuer (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/lifetime_too_long (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/zero_user (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/audience_has_path (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_audience (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/fractional_issued_at (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_not_before (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/invalid_jti (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/issuer_mismatch (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/expiry_before_issue (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_account (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/expired (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_jti (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/audience_mismatch (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/future_not_before (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/future_issued_at (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_issued_at (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/missing_expiry (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/audience_array (0.00s)
+    --- PASS: TestAuthenticateStrictClaimsValidation/issuer_has_path (0.00s)
+=== CONT  TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/zero_account
+=== CONT  TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/HS384
+--- PASS: TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint (0.00s)
+    --- PASS: TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/invalid_client_UUID (0.00s)
+    --- PASS: TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/zero_account (0.00s)
+    --- PASS: TestAuthenticateRejectsBeforeLookupForInvalidAlgorithmOrHint/HS384 (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/widgetauth	1.284s
+=== RUN   TestPostgresAuthorizerRequiresActiveInstallationAndIntegration
+--- PASS: TestPostgresAuthorizerRequiresActiveInstallationAndIntegration (0.04s)
+=== RUN   TestPreflightReflectsOnlyStrictActiveOriginContract
+--- PASS: TestPreflightReflectsOnlyStrictActiveOriginContract (0.00s)
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin/inactive_origin
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin/non_HTTPS_origin
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin/non_canonical_origin
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin/unsupported_method
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin/unsupported_header
+=== RUN   TestPreflightRejectsUntrustedMethodHeaderAndOrigin/storage_failure
+--- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin (0.00s)
+    --- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin/inactive_origin (0.00s)
+    --- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin/non_HTTPS_origin (0.00s)
+    --- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin/non_canonical_origin (0.00s)
+    --- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin/unsupported_method (0.00s)
+    --- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin/unsupported_header (0.00s)
+    --- PASS: TestPreflightRejectsUntrustedMethodHeaderAndOrigin/storage_failure (0.00s)
+=== RUN   TestActualBrowserResponseAndNonBrowserPassThrough
+--- PASS: TestActualBrowserResponseAndNonBrowserPassThrough (0.00s)
+=== RUN   TestBindPrincipalIssuer
+=== RUN   TestBindPrincipalIssuer/matching
+=== RUN   TestBindPrincipalIssuer/different
+=== RUN   TestBindPrincipalIssuer/missing_actor
+=== RUN   TestBindPrincipalIssuer/non_browser
+--- PASS: TestBindPrincipalIssuer (0.00s)
+    --- PASS: TestBindPrincipalIssuer/matching (0.00s)
+    --- PASS: TestBindPrincipalIssuer/different (0.00s)
+    --- PASS: TestBindPrincipalIssuer/missing_actor (0.00s)
+    --- PASS: TestBindPrincipalIssuer/non_browser (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/widgetcors	1.053s
+=== RUN   TestHierarchicalLimitsPreserveOtherInstallationBudget
+--- PASS: TestHierarchicalLimitsPreserveOtherInstallationBudget (0.00s)
+=== RUN   TestConcurrentRequestsCannotExceedBurst
+--- PASS: TestConcurrentRequestsCannotExceedBurst (0.00s)
+=== RUN   TestCacheBoundAndIdleEvictionDoNotResetActiveBudgets
+--- PASS: TestCacheBoundAndIdleEvictionDoNotResetActiveBudgets (0.00s)
+=== RUN   TestMiddlewareRequiresVerifiedPrincipalAndReturnsRetryContract
+--- PASS: TestMiddlewareRequiresVerifiedPrincipalAndReturnsRetryContract (0.00s)
+=== RUN   TestConfigurationRejectsUnsafeRatesAndEarlyEviction
+--- PASS: TestConfigurationRejectsUnsafeRatesAndEarlyEviction (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/widgetlimit	1.014s

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/maintenance"
@@ -86,6 +87,23 @@ func run() error {
 	oauthGateway := oauthflow.NewGateway(amocrmclient.NewOAuthClient(externalHTTPClient))
 	tokenProvider := oauthflow.NewTokenProvider(pool, keyRing, oauthGateway)
 	amocrmAPI := amocrmclient.NewClient(externalHTTPClient, tokenProvider)
+	amocrmAPI.SetMetrics(amocrmclient.NewMetrics(registry))
+	componentConfig, err := componentruntime.Load("worker")
+	if err != nil {
+		return err
+	}
+	components, err := componentruntime.StartGateway(ctx, componentConfig, pool, amocrmAPI, registry)
+	if err != nil {
+		return err
+	}
+	defer components.Close()
+	go func() {
+		select {
+		case <-components.Failed():
+			cancelAll()
+		case <-ctx.Done():
+		}
+	}()
 	widgetExecutionStore := widgetapi.NewExecutionStore(pool)
 	leadStatusModule := leadstatus.NewModule(pool, jobStore)
 	leadStatusModule.RegisterEvents(webhookStore)
@@ -143,6 +161,9 @@ func run() error {
 	router.Use(httpmiddleware.AccessLog(logger))
 	router.Get("/live", httpserver.Live)
 	router.Get("/ready", httpserver.Ready(pool, cfg.DatabaseTimeout))
+	if componentConfig.Mode != "off" {
+		router.Get("/components", components.Catalog)
+	}
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	healthServer := httpserver.New(cfg.HTTPAddress, router)
 
@@ -165,6 +186,8 @@ func run() error {
 	var runError error
 	select {
 	case <-signalContext.Done():
+	case <-components.Failed():
+		runError = components.Err()
 	case runError = <-errChannel:
 	}
 	cancelAll()

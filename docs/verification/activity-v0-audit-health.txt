@@ -1,0 +1,70 @@
+2026-09-06T14:38:44.207272+00:00
+GET http://127.0.0.1:18082/ready -> 200 {"status":"ready"}
+GET http://127.0.0.1:18082/components/activity/ready -> 200 ready
+GET http://127.0.0.1:18082/components -> 200 [{"descriptor":{"service_code":"activity","contract_version":"v1","product_version":"v0","migration_owner":"activity","dependencies":["crm-events","gateway","core-policy"],"supported_modes":["embedded","grpc"],"requirement":"activity capability and installation pilot; current server-confirmed admin for all v0 endpoints","default_max_connections":3,"default_workers":0,"health":"/ready","http_routes":[{"Method":"GET","Path":"/api/v1/widget/activity/panel"},{"Method":"GET","Path":"/api/v1/widget/activity/settings"},{"Method":"POST","Path":"/api/v1/widget/activity/settings"}],"rpcs":["GetPanel","GetSettings","Configure","OperationStatus"]},"placement":{"mode":"grpc","owns_database":false,"max_connections":0,"workers":0}},{"descriptor":{"service_code":"crm-events","contract_version":"v1","product_version":"v0","migration_owner":"crm-events","dependencies":["gateway","core-policy"],"supported_modes":["embedded","grpc"],"requirement":"current source and consumer admission","default_max_connections":5,"default_workers":2,"health":"/ready","http_routes":[{"Method":"GET","Path":"/api/v1/widget/activity/status"},{"Method":"POST","Path":"/api/v1/widget/activity/sync"},{"Method":"GET","Path":"/api/v1/widget/activity/operations/{operationID}"}],"rpcs":["Apply","QueryEvents","Status","OperationStatus"]},"placement":{"mode":"grpc","owns_database":false,"max_connections":0,"workers":0}},{"descriptor":{"service_code":"gateway","contract_version":"v1","migration_owner":"core","dependencies":["core-policy","oauth"],"supported_modes":["embedded","grpc"],"requirement":"one active outbound budget owner; shares Core worker pool; bootstrap account restricted to Core identity","default_max_connections":6,"default_workers":0,"health":"/ready","rpcs":["Events","Users","CoreBootstrap.GetAccount"]},"placement":{"mode":"grpc","owns_database":false,"max_connections":0,"workers":0}}]
+$ docker-compose -f docker-compose.activity.yml exec -T worker wget -qO- http://127.0.0.1:8081/components
+[{"descriptor":{"service_code":"gateway","contract_version":"v1","migration_owner":"core","dependencies":["core-policy","oauth"],"supported_modes":["embedded","grpc"],"requirement":"one active outbound budget owner; shares Core worker pool; bootstrap account restricted to Core identity","default_max_connections":6,"default_workers":0,"health":"/ready","rpcs":["Events","Users","CoreBootstrap.GetAccount"]},"placement":{"mode":"grpc","owns_database":true,"max_connections":6,"workers":0}}]
+$ docker-compose -f docker-compose.activity.yml exec -T activity wget -qO- http://127.0.0.1:8091/components
+[{"descriptor":{"service_code":"activity","contract_version":"v1","product_version":"v0","migration_owner":"activity","dependencies":["crm-events","gateway","core-policy"],"supported_modes":["embedded","grpc"],"requirement":"activity capability and installation pilot; current server-confirmed admin for all v0 endpoints","default_max_connections":3,"default_workers":0,"health":"/ready","http_routes":[{"Method":"GET","Path":"/api/v1/widget/activity/panel"},{"Method":"GET","Path":"/api/v1/widget/activity/settings"},{"Method":"POST","Path":"/api/v1/widget/activity/settings"}],"rpcs":["GetPanel","GetSettings","Configure","OperationStatus"]},"placement":{"mode":"grpc","owns_database":true,"max_connections":3,"workers":0}},{"descriptor":{"service_code":"crm-events","contract_version":"v1","product_version":"v0","migration_owner":"crm-events","dependencies":["gateway","core-policy"],"supported_modes":["embedded","grpc"],"requirement":"current source and consumer admission","default_max_connections":5,"default_workers":2,"health":"/ready","http_routes":[{"Method":"GET","Path":"/api/v1/widget/activity/status"},{"Method":"POST","Path":"/api/v1/widget/activity/sync"},{"Method":"GET","Path":"/api/v1/widget/activity/operations/{operationID}"}],"rpcs":["Apply","QueryEvents","Status","OperationStatus"]},"placement":{"mode":"grpc","owns_database":false,"max_connections":0,"workers":0}},{"descriptor":{"service_code":"gateway","contract_version":"v1","migration_owner":"core","dependencies":["core-policy","oauth"],"supported_modes":["embedded","grpc"],"requirement":"one active outbound budget owner; shares Core worker pool; bootstrap account restricted to Core identity","default_max_connections":6,"default_workers":0,"health":"/ready","rpcs":["Events","Users","CoreBootstrap.GetAccount"]},"placement":{"mode":"grpc","owns_database":false,"max_connections":0,"workers":0}}]
+$ docker-compose -f docker-compose.activity.yml exec -T crm-events wget -qO- http://127.0.0.1:8092/components
+[{"descriptor":{"service_code":"crm-events","contract_version":"v1","product_version":"v0","migration_owner":"crm-events","dependencies":["gateway","core-policy"],"supported_modes":["embedded","grpc"],"requirement":"current source and consumer admission","default_max_connections":5,"default_workers":2,"health":"/ready","http_routes":[{"Method":"GET","Path":"/api/v1/widget/activity/status"},{"Method":"POST","Path":"/api/v1/widget/activity/sync"},{"Method":"GET","Path":"/api/v1/widget/activity/operations/{operationID}"}],"rpcs":["Apply","QueryEvents","Status","OperationStatus"]},"placement":{"mode":"grpc","owns_database":true,"max_connections":5,"workers":2}},{"descriptor":{"service_code":"gateway","contract_version":"v1","migration_owner":"core","dependencies":["core-policy","oauth"],"supported_modes":["embedded","grpc"],"requirement":"one active outbound budget owner; shares Core worker pool; bootstrap account restricted to Core identity","default_max_connections":6,"default_workers":0,"health":"/ready","rpcs":["Events","Users","CoreBootstrap.GetAccount"]},"placement":{"mode":"grpc","owns_database":false,"max_connections":0,"workers":0}}]
+$ docker-compose -f docker-compose.activity.yml stop activity
+ Container amocrm-activity-activity-1 Stopping
+ Container amocrm-activity-activity-1 Stopped
+$ docker-compose -f docker-compose.activity.yml restart api
+ Container amocrm-activity-api-1 Restarting
+ Container amocrm-activity-api-1 Started
+GET http://127.0.0.1:18082/ready -> 200 {"status":"ready"}
+GET http://127.0.0.1:18082/components/activity/ready -> 503 not ready
+$ docker-compose -f docker-compose.activity.yml start activity
+ Container amocrm-activity-postgres-1 Waiting
+ Container amocrm-activity-certificates-1 Starting
+ Container amocrm-activity-postgres-1 Waiting
+ Container amocrm-activity-postgres-1 Waiting
+ Container amocrm-activity-certificates-1 Started
+ Container amocrm-activity-postgres-1 Healthy
+ Container amocrm-activity-postgres-1 Healthy
+ Container amocrm-activity-migrate-events-1 Starting
+ Container amocrm-activity-migrate-activity-1 Starting
+ Container amocrm-activity-postgres-1 Healthy
+ Container amocrm-activity-migrate-core-1 Starting
+ Container amocrm-activity-migrate-core-1 Started
+ Container amocrm-activity-certificates-1 Waiting
+ Container amocrm-activity-migrate-core-1 Waiting
+ Container amocrm-activity-migrate-events-1 Started
+ Container amocrm-activity-migrate-activity-1 Started
+ Container amocrm-activity-migrate-core-1 Exited
+ Container amocrm-activity-certificates-1 Exited
+ Container amocrm-activity-migrate-events-1 Waiting
+ Container amocrm-activity-worker-1 Waiting
+ Container amocrm-activity-migrate-events-1 Exited
+ Container amocrm-activity-worker-1 Healthy
+ Container amocrm-activity-crm-events-1 Waiting
+ Container amocrm-activity-migrate-activity-1 Waiting
+ Container amocrm-activity-migrate-activity-1 Exited
+ Container amocrm-activity-crm-events-1 Healthy
+ Container amocrm-activity-activity-1 Starting
+ Container amocrm-activity-activity-1 Started
+GET http://127.0.0.1:18082/ready -> 200 {"status":"ready"}
+GET http://127.0.0.1:18082/components/activity/ready -> 200 ready
+$ docker-compose -f docker-compose.activity.yml ps -q api
+498a9a2710660fecd7a1405cff95f78e31b56b2cac992f4dd6545c54033a439d
+$ docker inspect --format {{.Name}} image={{.Image}} state={{.State.Status}} health={{.State.Health.Status}} 498a9a2710660fecd7a1405cff95f78e31b56b2cac992f4dd6545c54033a439d
+/amocrm-activity-api-1 image=sha256:d9abc974765b294b6394472538f6cb7aa1a4f0867776d14f360506bbc392cc08 state=running health=healthy
+$ docker-compose -f docker-compose.activity.yml ps -q worker
+c64eaf2605f22599322bca1cddf62c78f56362cccec975a128387a2572a73df2
+$ docker inspect --format {{.Name}} image={{.Image}} state={{.State.Status}} health={{.State.Health.Status}} c64eaf2605f22599322bca1cddf62c78f56362cccec975a128387a2572a73df2
+/amocrm-activity-worker-1 image=sha256:807dc3ec2d3f43e42d2ca96317637c6aa185f3ad1bb3076f4f04e6ca46beaac6 state=running health=healthy
+$ docker-compose -f docker-compose.activity.yml ps -q activity
+f9ffee43ecc795aa963ebe27a4d8d7d00c7a738889047258c153506c6a005ca2
+$ docker inspect --format {{.Name}} image={{.Image}} state={{.State.Status}} health={{.State.Health.Status}} f9ffee43ecc795aa963ebe27a4d8d7d00c7a738889047258c153506c6a005ca2
+/amocrm-activity-activity-1 image=sha256:cd7bcc075c638c046ae62e45c4d8ca8d294cadf9174405fd50a4afda1fedd5c8 state=running health=healthy
+$ docker-compose -f docker-compose.activity.yml ps -q crm-events
+f5364dcbe367bacbeced106de63885b6a6c037f96dc0c85cff20b63b8e215964
+$ docker inspect --format {{.Name}} image={{.Image}} state={{.State.Status}} health={{.State.Health.Status}} f5364dcbe367bacbeced106de63885b6a6c037f96dc0c85cff20b63b8e215964
+/amocrm-activity-crm-events-1 image=sha256:86b589e7de192272fe0b2d46a57c1b0766763e9d3cacaa82dba2592fb7974d92 state=running health=healthy
+$ docker-compose -f docker-compose.activity.yml ps -q postgres
+ebafe60bc6dac9e0333b1f83dd075562aed4186e32bb5bd182a63e5d298b8254
+$ docker inspect --format {{.Name}} image={{.Image}} state={{.State.Status}} health={{.State.Health.Status}} ebafe60bc6dac9e0333b1f83dd075562aed4186e32bb5bd182a63e5d298b8254
+/amocrm-activity-postgres-1 image=sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193 state=running health=healthy
+PASS: current grpc runtime registry, local ownership, Core restart while Activity down, recovery; no live amoCRM requests.

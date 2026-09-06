@@ -1,0 +1,22 @@
+# Apply on top of docker-compose.activity.yml. Stop remote product services
+# before changing placement; their owner databases are retained.
+services:
+  activity:
+    profiles: ["remote"]
+  crm-events:
+    profiles: ["remote"]
+  api:
+    environment:
+      ACTIVITY_MODE: embedded
+      ACTIVITY_DATABASE_URL: postgres://activity_runtime:activity_runtime_dev@postgres:5432/amocrm_activity?sslmode=disable
+      CRM_EVENTS_DATABASE_URL: postgres://events_runtime:events_runtime_dev@postgres:5432/amocrm_events?sslmode=disable
+      CRM_EVENTS_WORKERS: "2"
+    volumes:
+      - core-identity:/identity:ro
+      - activity-identity:/identities/activity:ro
+      - events-identity:/identities/crm-events:ro
+    depends_on: !override
+      certificates: {condition: service_completed_successfully}
+      migrate-core: {condition: service_completed_successfully}
+      migrate-activity: {condition: service_completed_successfully}
+      migrate-events: {condition: service_completed_successfully}

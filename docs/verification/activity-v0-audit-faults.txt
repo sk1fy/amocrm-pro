@@ -1,0 +1,12 @@
+=== RUN   TestComponentOSProcessFaults
+    process_faults_integration_test.go:97: FAULT1 PASS: distinct Events PIDs 150/158, stolen lease token>1; second process advanced while first blocked; stale sentinel absent; two schedulers produced one job for due source
+    process_faults_integration_test.go:450: sent and observed SIGKILL for PID168
+    process_faults_integration_test.go:141: FAULT2 PASS: SIGKILL after100committed rows/page2; restarted PID175 resumed exact [1788703825,1788703945] page2 after actual lease expiry;500unique/1000processed, elapsed=30.424631795s
+    process_faults_integration_test.go:450: sent and observed SIGKILL for PID183
+    process_faults_integration_test.go:169: actual interrupted receiver RPC returned unavailable
+    process_faults_integration_test.go:187: FAULT3 PASS: receiver committed then was SIGKILLed before RPC reply; actual executable restart returned same operation683ad1e5-a180-499f-8d37-8e256294225a; one inbox/operation/job, changed payload conflicts
+    process_faults_integration_test.go:450: sent and observed SIGKILL for PID143
+    process_faults_integration_test.go:229: FAULT4 PASS: actual Gateway/policy SIGKILL stopped page progress; restart recovered bounded retry; pilot disable paused in153.04558ms with no calls/data/progress until15s cutoff; explicit sync resumed to1000unique
+--- PASS: TestComponentOSProcessFaults (67.82s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/componentruntime	68.850s

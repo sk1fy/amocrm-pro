@@ -19,6 +19,12 @@ var (
 	WidgetLeadSetStatus           = Route{Method: http.MethodPost, Path: "/api/v1/widget/actions/leads/set-status"}
 	WidgetLeadStatusRuleConfigure = Route{Method: http.MethodPost, Path: "/api/v1/widget/workflow-rules/lead-status/configure"}
 	WidgetJob                     = Route{Method: http.MethodGet, Path: "/api/v1/widget/jobs/{jobID}"}
+	ActivityPanel                 = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/panel"}
+	ActivityStatus                = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/status"}
+	ActivitySettings              = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/settings"}
+	ActivityConfigure             = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/settings"}
+	ActivitySync                  = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/sync"}
+	ActivityOperation             = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/operations/{operationID}"}
 
 	Routes = []Route{
 		Live,
@@ -30,6 +36,12 @@ var (
 		WidgetLeadSetStatus,
 		WidgetLeadStatusRuleConfigure,
 		WidgetJob,
+		ActivityPanel,
+		ActivityStatus,
+		ActivitySettings,
+		ActivityConfigure,
+		ActivitySync,
+		ActivityOperation,
 	}
 
 	ManagementRoutes = []Route{
