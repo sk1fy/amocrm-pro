@@ -81,7 +81,9 @@ func TestComponentProcessesAndModeSwitch(t *testing.T) {
 	bins := filepath.Join(temp, "bin")
 	mustProcess(t, os.Mkdir(bins, 0700))
 	for _, name := range []string{"api", "activity", "crm-events", "service-certs"} {
-		cmd := exec.CommandContext(ctx, "go", "build", "-race", "-o", filepath.Join(bins, name), "./cmd/"+name)
+		// The bind-mounted CI checkout can have a different owner from this
+		// container. Test executables need no VCS stamp (and no Git trust override).
+		cmd := exec.CommandContext(ctx, "go", "build", "-buildvcs=false", "-race", "-o", filepath.Join(bins, name), "./cmd/"+name)
 		cmd.Dir = root
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("build %s: %v %s", name, err, output)

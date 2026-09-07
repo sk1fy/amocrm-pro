@@ -44,7 +44,14 @@ func TestOperationSuccessContractPreservesCompletedStorage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(file, data, 0600); err != nil {
+		// Synthetic operation data contains no credentials. The host Actions
+		// runner must be able to read this artifact created by the test container.
+		if err := os.WriteFile(file, data, 0644); err != nil {
+			t.Fatal(err)
+		}
+		// WriteFile preserves an existing file's mode; also support local reruns
+		// over a fixture produced by the previous 0600 implementation.
+		if err := os.Chmod(file, 0644); err != nil {
 			t.Fatal(err)
 		}
 		t.Log("wrote real CRM Events operation response for the mounted-panel test")

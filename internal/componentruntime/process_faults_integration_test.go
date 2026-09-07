@@ -247,7 +247,8 @@ func newFaultTopology(t *testing.T, ctx context.Context, adminURL string) *fault
 	dir := t.TempDir()
 	f := &faultTopology{t: t, ctx: ctx, dir: dir, identities: filepath.Join(dir, "identities"), gatewayAddr: processAddress(t), from: time.Now().Add(-5 * time.Minute).Unix(), to: time.Now().Add(-3 * time.Minute).Unix()}
 	for _, name := range []string{"crm-events", "service-certs"} {
-		cmd := exec.CommandContext(ctx, "go", "build", "-race", "-o", filepath.Join(dir, name), "./cmd/"+name)
+		// Fixtures run from a checkout bind-mounted across a UID boundary in CI.
+		cmd := exec.CommandContext(ctx, "go", "build", "-buildvcs=false", "-race", "-o", filepath.Join(dir, name), "./cmd/"+name)
 		cmd.Dir = root
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("build%s: %v %s", name, err, output)
