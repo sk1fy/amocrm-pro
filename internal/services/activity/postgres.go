@@ -60,8 +60,12 @@ func (s *Postgres) Configure(ctx context.Context, p serviceapi.Principal, c serv
 			return serviceapi.Operation{}, serviceapi.Fail(serviceapi.Conflict, "command_id has different content")
 		}
 	} else {
-		if _, err := tx.Exec(ctx, `INSERT INTO settings(installation_id,integration_id,initial_days,retention_days) VALUES($1,$2,$3,$4) ON CONFLICT(installation_id) DO UPDATE SET initial_days=EXCLUDED.initial_days,retention_days=EXCLUDED.retention_days,updated_at=now() WHERE settings.integration_id=EXCLUDED.integration_id`, p.InstallationID, p.IntegrationID, c.Settings.InitialDays, c.Settings.RetentionDays); err != nil {
+		tag, err := tx.Exec(ctx, `INSERT INTO settings(installation_id,integration_id,initial_days,retention_days) VALUES($1,$2,$3,$4) ON CONFLICT(installation_id) DO UPDATE SET initial_days=EXCLUDED.initial_days,retention_days=EXCLUDED.retention_days,updated_at=now() WHERE settings.integration_id=EXCLUDED.integration_id`, p.InstallationID, p.IntegrationID, c.Settings.InitialDays, c.Settings.RetentionDays)
+		if err != nil {
 			return serviceapi.Operation{}, err
+		}
+		if tag.RowsAffected() != 1 {
+			return serviceapi.Operation{}, serviceapi.Fail(serviceapi.PermissionDenied, "settings scope mismatch")
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {

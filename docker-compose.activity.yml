@@ -40,6 +40,7 @@ services:
     depends_on: {migrate-core: {condition: service_completed_successfully}}
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: pilot_admin
       POSTGRES_PASSWORD: pilot_admin_dev
@@ -99,6 +100,7 @@ services:
 
   worker:
     <<: *runtime
+    restart: unless-stopped
     build: {<<: *build, target: worker}
     environment:
       <<: *core-env
@@ -117,6 +119,7 @@ services:
       retries: 30
   crm-events:
     <<: *runtime
+    restart: unless-stopped
     build: {<<: *build, target: crm-events}
     environment:
       ACTIVITY_MODE: grpc
@@ -135,6 +138,7 @@ services:
       retries: 30
   activity:
     <<: *runtime
+    restart: unless-stopped
     build: {<<: *build, target: activity}
     environment:
       ACTIVITY_MODE: grpc
@@ -153,6 +157,7 @@ services:
       retries: 30
   api:
     <<: *runtime
+    restart: unless-stopped
     build: {<<: *build, target: api}
     environment:
       <<: *core-env

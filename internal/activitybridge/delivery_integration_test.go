@@ -75,6 +75,23 @@ func TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage(t *testing.T) {
 	}
 }
 
+func TestFirstSyncDuringSettingsOutageIsUnavailableWithoutAdmission(t *testing.T) {
+	pool, p := bridgeDatabase(t)
+	ctx := context.Background()
+	b := New(pool, &admissionPolicy{}, &acceptingActivity{settingsDown: true}, nil)
+	if err := SetPilot(ctx, pool, p.InstallationID, true); err != nil {
+		t.Fatal(err)
+	}
+	_, err := b.Sync(ctx, p, "new-sync-while-settings-down", SyncInput{Kind: "sync"})
+	if serviceapi.ErrorCode(err) != serviceapi.Unavailable {
+		t.Fatalf("initial sync error=%v", err)
+	}
+	var receipts, outbox int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM activity_command_receipts WHERE installation_id=$1),(SELECT count(*) FROM activity_command_outbox o JOIN activity_command_receipts r USING(command_id) WHERE r.installation_id=$1)`, p.InstallationID).Scan(&receipts, &outbox); err != nil || receipts != 0 || outbox != 0 {
+		t.Fatalf("unaccepted sync created work: receipts=%d outbox=%d err=%v", receipts, outbox, err)
+	}
+}
+
 func TestExpiredFinalDeliveryAttemptDoesNotSendAgain(t *testing.T) {
 	pool, p := bridgeDatabase(t)
 	ctx := context.Background()

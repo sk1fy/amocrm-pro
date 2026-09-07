@@ -346,7 +346,7 @@ func TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind(t *testing.T) {
 	if after.VerifiedFrom != before.VerifiedFrom || after.VerifiedThrough != before.VerifiedThrough {
 		t.Fatalf("island bridged gap: before %+v after %+v", before, after)
 	}
-	_, err = testStore(s).pool.Exec(context.Background(), `UPDATE event_sources SET retention_days=1`)
+	_, err = testStore(s).pool.Exec(context.Background(), `UPDATE event_sources SET retention_days=2`)
 	if err != nil {
 		t.Fatal(err)
 	}

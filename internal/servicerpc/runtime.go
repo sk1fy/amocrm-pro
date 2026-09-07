@@ -131,7 +131,10 @@ func allowedCaller(method, caller string) bool {
 	case strings.HasPrefix(method, "/amocrm.services.v1.Activity/"):
 		return caller == serviceapi.CoreService
 	case strings.HasPrefix(method, "/amocrm.services.v1.CRMEvents/"):
-		return caller == serviceapi.CoreService || caller == serviceapi.ActivityService
+		if caller == serviceapi.CoreService {
+			return true
+		}
+		return caller == serviceapi.ActivityService && (method == pb.CRMEvents_QueryEvents_FullMethodName || method == pb.CRMEvents_Status_FullMethodName || method == pb.CRMEvents_OperationStatus_FullMethodName)
 	case strings.HasPrefix(method, "/amocrm.services.v1.Gateway/Events"):
 		return caller == serviceapi.EventsService
 	case strings.HasPrefix(method, "/amocrm.services.v1.Gateway/Users"):

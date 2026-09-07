@@ -27,7 +27,7 @@ func TestCommandBoundsAndStableHash(t *testing.T) {
 	if string(commandHash(a, p)) == string(commandHash(b, p)) {
 		t.Fatal("different payload has same identity")
 	}
-	for _, c := range []serviceapi.Command{{Kind: "sync"}, {CommandID: "x", Kind: "unexpected"}, {CommandID: "x", Kind: "sync", InitialDays: 8}, {CommandID: "x", Kind: "sync", InitialDays: 7, RetentionDays: 2}, {CommandID: "x", Kind: "backfill", From: 10, To: 9}} {
+	for _, c := range []serviceapi.Command{{Kind: "sync"}, {CommandID: "x", Kind: "unexpected"}, {CommandID: "x", Kind: "sync", RetentionDays: 1}, {CommandID: "x", Kind: "sync", RetentionDays: 31}, {CommandID: "x", Kind: "sync", InitialDays: 8}, {CommandID: "x", Kind: "sync", InitialDays: 7, RetentionDays: 2}, {CommandID: "x", Kind: "backfill", From: 10, To: 9}} {
 		if _, err := normalizeCommand(c, now); err == nil {
 			t.Fatalf("accepted %+v", c)
 		}

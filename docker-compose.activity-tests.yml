@@ -21,15 +21,48 @@ services:
       COMPONENT_PROCESS_TEST_ADMIN_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/postgres?sslmode=disable
       COMPONENT_PROCESS_TEST_ALLOWED: "true"
       ACTIVITY_UI_OPERATION_FIXTURE: /src/tmp/activity-v0-evidence/crm-operation.json
-    command: ["-race", "-count=1", "-timeout=15m", "-v", "./api", "./internal/serviceapi", "./internal/services", "./internal/componentruntime", "./internal/activitybridge", "./internal/services/activity", "./internal/services/crmevents", "./internal/corepolicy", "./internal/gateway", "./internal/servicerpc", "./internal/integration/amocrm"]
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        : "$${TEST_DATABASE_URL:?}" "$${ACTIVITY_TEST_DATABASE_URL:?}" "$${CRM_EVENTS_TEST_DATABASE_URL:?}"
+        : "$${COMPONENT_PROCESS_TEST_ADMIN_URL:?}" "$${ACTIVITY_UI_OPERATION_FIXTURE:?}"
+        test "$${TEST_DATABASE_RESET_ALLOWED}" = true
+        test "$${COMPONENT_PROCESS_TEST_ALLOWED}" = true
+        mkdir -p /src/tmp/activity-v0-evidence
+        rm -f "$${ACTIVITY_UI_OPERATION_FIXTURE}"
+        logfile=/src/tmp/activity-v0-evidence/activity-go.log
+        # Packages reset their own shared test schemas: never run them concurrently.
+        if ! go test -race -p 1 -count=1 -timeout=15m -v ./api ./internal/serviceapi ./internal/services ./internal/componentruntime ./internal/activitybridge ./internal/services/activity ./internal/services/crmevents ./internal/corepolicy ./internal/gateway ./internal/servicerpc ./internal/integration/amocrm >"$$logfile" 2>&1; then
+          cat "$$logfile"
+          exit 1
+        fi
+        cat "$$logfile"
+        # Only helper entry points skip in the parent process; their parents
+        # execute them as actual OS subprocesses. Missing DBs must fail CI.
+        awk '/--- SKIP:/ && $$3 !~ /^(TestFaultGatewayFixture|TestFaultReceiverFixture|TestProcessGatewayFixture)$$/ { bad=1 } END { exit bad }' "$$logfile"
+        for required in TestPostgresSettingsReceiptSurvivesResponseLoss TestOperationSuccessContractPreservesCompletedStorage TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit TestComponentProcessesAndModeSwitch TestComponentOSProcessFaults; do
+          grep -q "^--- PASS: $$required (" "$$logfile"
+        done
+        test -s "$${ACTIVITY_UI_OPERATION_FIXTURE}"
     depends_on: {migrate-test-core: {condition: service_completed_successfully}}
   component-ui-tests:
     profiles: ["tests"]
     image: node:22-alpine
-    volumes: [".:/src:ro"]
+    volumes:
+      - .:/src:ro
+      - ./tmp/activity-v0-evidence:/evidence
     working_dir: /src
     environment:
-      ACTIVITY_UI_OPERATION_FIXTURE: /src/tmp/activity-v0-evidence/crm-operation.json
-    command: ["node", "--test", "examples/activity-v0/panel.test.mjs", "examples/activity-v0/panel.operation.test.mjs"]
+      ACTIVITY_UI_OPERATION_FIXTURE: /evidence/crm-operation.json
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        test -s "$${ACTIVITY_UI_OPERATION_FIXTURE:?}"
+        if ! node --test examples/activity-v0/panel.test.mjs examples/activity-v0/panel.operation.test.mjs >/evidence/activity-ui.log 2>&1; then
+          cat /evidence/activity-ui.log
+          exit 1
+        fi
+        cat /evidence/activity-ui.log
+        grep -q '^# skipped 0$$' /evidence/activity-ui.log
 volumes:
   component-test-cache:

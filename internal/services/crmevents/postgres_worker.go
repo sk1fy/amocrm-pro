@@ -205,33 +205,10 @@ func (s *Postgres) SavePage(ctx context.Context, c Slice, page serviceapi.EventP
 	if err = s.lockClaim(ctx, tx, c); err != nil {
 		return err
 	}
-	processed, inserted, updated, dedup := int64(len(page.Events)), int64(0), int64(0), int64(0)
-	// Sorted writes avoid inverse event row lock order. Fingerprint keeps upstream
-	// order conservatively: different traversal order cannot be called stable.
-	ordered := append([]serviceapi.Event(nil), page.Events...)
-	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
-	for _, raw := range ordered {
-		event, b, e := canonicalEvent(raw)
-		if e != nil {
-			return e
-		}
-		hash := sha256.Sum256(b)
-		var old []byte
-		e = tx.QueryRow(ctx, `SELECT content_hash FROM crm_events WHERE installation_id=$1 AND event_id=$2`, c.InstallationID, event.ID).Scan(&old)
-		switch {
-		case errors.Is(e, pgx.ErrNoRows):
-			inserted++
-		case e != nil:
-			return e
-		case bytes.Equal(old, hash[:]):
-			dedup++
-		default:
-			updated++
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO crm_events(installation_id,event_id,created_at,created_by,event_type,entity_id,entity_type,value_before,value_after,content_hash) VALUES($1,$2,to_timestamp($3),$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(installation_id,event_id) DO UPDATE SET created_at=excluded.created_at,created_by=excluded.created_by,event_type=excluded.event_type,entity_id=excluded.entity_id,entity_type=excluded.entity_type,value_before=excluded.value_before,value_after=excluded.value_after,content_hash=excluded.content_hash,observed_at=now()`, c.InstallationID, event.ID, event.CreatedAt, event.CreatedBy, event.Type, event.EntityID, event.EntityType, event.ValueBefore, event.ValueAfter, hash[:])
-		if err != nil {
-			return err
-		}
+	processed := int64(len(page.Events))
+	inserted, updated, dedup, err := s.writeEvents(ctx, tx, c, page.Events)
+	if err != nil {
+		return err
 	}
 	status := "queued"
 	errorCode := ""
@@ -357,22 +334,103 @@ func (s *Postgres) cover(ctx context.Context, tx pgx.Tx, c Slice) error {
 	_, err = tx.Exec(ctx, `UPDATE event_sources SET continuous_from=$2,continuous_to=$3,last_success_at=now(),updated_at=now() WHERE installation_id=$1`, c.InstallationID, start, end)
 	return err
 }
+
+// Retain spends one bounded batch on the least recently visited source. It
+// shares the owner source lock with page persistence and never locks all tenants.
+// retained_from is a conservative guaranteed-history frontier, not a claim that
+// every older row has physically disappeared. Partial batches advance only past
+// their deleted prefix, including a whole timestamp tie; no event-presence query
+// is used to infer that an interval was verified.
 func (s *Postgres) Retain(ctx context.Context) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback(ctx)
-	tag, err := tx.Exec(ctx, `WITH doomed AS (SELECT e.installation_id,e.event_id FROM crm_events e JOIN event_sources s USING(installation_id) WHERE e.created_at < now()-s.retention_days*interval '1 day' ORDER BY e.created_at LIMIT $1 FOR UPDATE OF e SKIP LOCKED) DELETE FROM crm_events e USING doomed d WHERE e.installation_id=d.installation_id AND e.event_id=d.event_id`, s.cfg.RetentionBatch)
+	var installation uuid.UUID
+	var cutoff time.Time
+	err = tx.QueryRow(ctx, `SELECT installation_id,date_trunc('second',now()-retention_days*interval '1 day') FROM event_sources ORDER BY retention_checked_at NULLS FIRST,installation_id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&installation, &cutoff)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	var removed int64
+	var latest *time.Time
+	err = tx.QueryRow(ctx, `WITH doomed AS (SELECT event_id FROM crm_events WHERE installation_id=$1 AND created_at<$2 ORDER BY created_at,event_id LIMIT $3), deleted AS (DELETE FROM crm_events e USING doomed d WHERE e.installation_id=$1 AND e.event_id=d.event_id RETURNING e.created_at) SELECT count(*),max(created_at) FROM deleted`, installation, cutoff, s.cfg.RetentionBatch).Scan(&removed, &latest)
+	if err != nil {
+		return 0, err
+	}
+	frontier := cutoff
+	if removed == int64(s.cfg.RetentionBatch) && latest != nil {
+		frontier = minTime(latest.Truncate(time.Second).Add(time.Second), cutoff)
+	}
+	_, err = tx.Exec(ctx, `UPDATE event_sources SET retained_from=greatest(retained_from,$2::timestamptz),retention_checked_at=clock_timestamp() WHERE installation_id=$1`, installation, frontier)
 	if err != nil {
 		return 0, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, err
 	}
-	_, err = s.pool.Exec(ctx, `UPDATE event_sources SET retained_from=greatest(coalesce(retained_from,continuous_from),now()-retention_days*interval '1 day') WHERE continuous_from IS NOT NULL`)
-	if err != nil {
-		return 0, err
+	return removed, nil
+}
+
+// One owner-locked hash read plus one pgx batch replaces two wire round trips
+// per event. Duplicate IDs are folded after sequential counter accounting, so a
+// page containing insert/change/replay of one ID retains the original semantics.
+func (s *Postgres) writeEvents(ctx context.Context, tx pgx.Tx, c Slice, events []serviceapi.Event) (inserted, updated, dedup int64, err error) {
+	if len(events) == 0 {
+		return
 	}
-	return tag.RowsAffected(), nil
+	ordered := append([]serviceapi.Event(nil), events...)
+	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	ids := make([]string, 0, len(ordered))
+	for _, e := range ordered {
+		ids = append(ids, e.ID)
+	}
+	hashes := make(map[string][]byte, len(ordered))
+	rows, err := tx.Query(ctx, `SELECT event_id,content_hash FROM crm_events WHERE installation_id=$1 AND event_id=ANY($2::text[])`, c.InstallationID, ids)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var id string
+		var hash []byte
+		if err = rows.Scan(&id, &hash); err != nil {
+			rows.Close()
+			return
+		}
+		hashes[id] = hash
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return
+	}
+	batch := &pgx.Batch{}
+	for i, raw := range ordered {
+		var event serviceapi.Event
+		var b []byte
+		event, b, err = canonicalEvent(raw)
+		if err != nil {
+			return
+		}
+		hash := sha256.Sum256(b)
+		old, exists := hashes[event.ID]
+		if !exists {
+			inserted++
+		} else if bytes.Equal(old, hash[:]) {
+			dedup++
+		} else {
+			updated++
+		}
+		hashes[event.ID] = hash[:]
+		if i+1 < len(ordered) && ordered[i+1].ID == event.ID {
+			continue
+		}
+		batch.Queue(`INSERT INTO crm_events(installation_id,event_id,created_at,created_by,event_type,entity_id,entity_type,value_before,value_after,content_hash) VALUES($1,$2,to_timestamp($3),$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(installation_id,event_id) DO UPDATE SET created_at=excluded.created_at,created_by=excluded.created_by,event_type=excluded.event_type,entity_id=excluded.entity_id,entity_type=excluded.entity_type,value_before=excluded.value_before,value_after=excluded.value_after,content_hash=excluded.content_hash,observed_at=now()`, c.InstallationID, event.ID, event.CreatedAt, event.CreatedBy, event.Type, event.EntityID, event.EntityType, event.ValueBefore, event.ValueAfter, hash[:])
+	}
+	err = tx.SendBatch(ctx, batch).Close()
+	return
 }

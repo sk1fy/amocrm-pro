@@ -116,3 +116,23 @@ func TestIssueRestrictsActorScopeAndCollectorGrants(t *testing.T) {
 		t.Fatalf("background %v %+v", err, p)
 	}
 }
+
+func TestPanelDelegationCannotMutateOrInspectUnrelatedOperations(t *testing.T) {
+	s, _, request := testPolicy(t)
+	request.Grants = serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanel)
+	auth, err := ForCaller(s, serviceapi.CoreService).Issue(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, grant := range []serviceapi.Grant{
+		{Audience: serviceapi.ActivityService, Action: serviceapi.ActionSettings},
+		{Audience: serviceapi.ActivityService, Action: serviceapi.ActionOperation},
+		{Audience: serviceapi.EventsService, Action: serviceapi.ActionSync},
+		{Audience: serviceapi.EventsService, Action: serviceapi.ActionOperation},
+		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionEvents},
+	} {
+		if _, err := ForCaller(s, grant.Audience).Validate(context.Background(), auth, grant.Audience, grant.Action); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+			t.Fatalf("panel delegation allows %+v: %v", grant, err)
+		}
+	}
+}

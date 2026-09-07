@@ -1,0 +1,398 @@
+=== RUN   TestOpenAPIContract
+--- PASS: TestOpenAPIContract (0.08s)
+=== RUN   TestActivityOpenAPIOperationStatesMatchApplication
+--- PASS: TestActivityOpenAPIOperationStatesMatchApplication (0.07s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/api	1.172s
+=== RUN   TestUserGrantsForLeastPrivilege
+=== RUN   TestUserGrantsForLeastPrivilege/activity/panel
+=== RUN   TestUserGrantsForLeastPrivilege/activity/settings
+=== RUN   TestUserGrantsForLeastPrivilege/activity/operation
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/read
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/status
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/sync
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/operation
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/events
+=== RUN   TestUserGrantsForLeastPrivilege/activity/sync
+=== RUN   TestUserGrantsForLeastPrivilege//panel
+=== RUN   TestUserGrantsForLeastPrivilege/activity/future
+--- PASS: TestUserGrantsForLeastPrivilege (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/panel (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/settings (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/operation (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/read (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/status (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/sync (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/operation (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/events (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/sync (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege//panel (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/future (0.00s)
+=== RUN   TestCanonicalOperationKeepsOneSuccessSpelling
+--- PASS: TestCanonicalOperationKeepsOneSuccessSpelling (0.00s)
+=== RUN   TestResponseBudgetIsBoundedAndSuggestsSmallerPage
+--- PASS: TestResponseBudgetIsBoundedAndSuggestsSmallerPage (0.03s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/serviceapi	1.043s
+=== RUN   TestRegistryBindsActualPortsAndReadiness
+--- PASS: TestRegistryBindsActualPortsAndReadiness (0.00s)
+=== RUN   TestRegistryRejectsBrokenRegistration
+=== RUN   TestRegistryRejectsBrokenRegistration/unknown
+=== RUN   TestRegistryRejectsBrokenRegistration/mode
+=== RUN   TestRegistryRejectsBrokenRegistration/nil
+=== RUN   TestRegistryRejectsBrokenRegistration/wrong-contract
+=== RUN   TestRegistryRejectsBrokenRegistration/remote-pool
+=== RUN   TestRegistryRejectsBrokenRegistration/local-no-db
+=== RUN   TestRegistryRejectsBrokenRegistration/no-readiness
+--- PASS: TestRegistryRejectsBrokenRegistration (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/unknown (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/mode (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/nil (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/wrong-contract (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/remote-pool (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/local-no-db (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/no-readiness (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services	1.010s
+=== RUN   TestDomainDependencyBoundaries
+--- PASS: TestDomainDependencyBoundaries (0.00s)
+=== RUN   TestStandaloneRejectsForeignConfiguration
+=== RUN   TestStandaloneRejectsForeignConfiguration/DATABASE_URL
+=== RUN   TestStandaloneRejectsForeignConfiguration/ENCRYPTION_KEYS
+=== RUN   TestStandaloneRejectsForeignConfiguration/AMOCRM_CLIENT_SECRET
+=== RUN   TestStandaloneRejectsForeignConfiguration/CRM_EVENTS_DATABASE_URL
+--- PASS: TestStandaloneRejectsForeignConfiguration (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/DATABASE_URL (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/ENCRYPTION_KEYS (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/AMOCRM_CLIENT_SECRET (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/CRM_EVENTS_DATABASE_URL (0.00s)
+=== RUN   TestComponentOSProcessFaults
+    process_faults_integration_test.go:97: FAULT1 PASS: distinct Events PIDs 4147/4155, stolen lease token>1; second process advanced while first blocked; stale sentinel absent; two schedulers produced one job for due source
+    process_faults_integration_test.go:450: sent and observed SIGKILL for PID4165
+    process_faults_integration_test.go:141: FAULT2 PASS: SIGKILL after100committed rows/page2; restarted PID4173 resumed exact [1788779114,1788779234] page2 after actual lease expiry;500unique/1000processed, elapsed=30.528179898s
+    process_faults_integration_test.go:450: sent and observed SIGKILL for PID4181
+    process_faults_integration_test.go:169: actual interrupted receiver RPC returned unavailable
+    process_faults_integration_test.go:187: FAULT3 PASS: receiver committed then was SIGKILLed before RPC reply; actual executable restart returned same operation60e41151-b360-43c6-b3a8-725186d918f8; one inbox/operation/job, changed payload conflicts
+    process_faults_integration_test.go:450: sent and observed SIGKILL for PID4139
+    process_faults_integration_test.go:229: FAULT4 PASS: actual Gateway/policy SIGKILL stopped page progress; restart recovered bounded retry; pilot disable paused in154.204197ms with no calls/data/progress until15s cutoff; explicit sync resumed to1000unique
+--- PASS: TestComponentOSProcessFaults (67.95s)
+=== RUN   TestFaultGatewayFixture
+    process_faults_integration_test.go:554: OS process fixture
+--- SKIP: TestFaultGatewayFixture (0.00s)
+=== RUN   TestFaultReceiverFixture
+    process_faults_integration_test.go:604: OS process fixture
+--- SKIP: TestFaultReceiverFixture (0.00s)
+=== RUN   TestComponentProcessesAndModeSwitch
+    process_integration_test.go:55: VERSION-SKEW SKIPPED: optional COMPONENT_PROCESS_PREVIOUS_API_BINARY unset; grpc phases use current API
+    process_integration_test.go:210: BOOTSTRAP verified: Core-only mTLS RPC reads account through the shared client for both same-account integrations; product identities denied
+    process_integration_test.go:253: second existing leadstatus job completed during collection in 172.210551ms
+    process_integration_test.go:332: product idle Corejob snapshot: backlog=0 oldest_age_seconds=0.000;30completed,0errors,0retries
+    process_integration_test.go:344: product loaded Corejob snapshot: backlog=0 oldest_age_seconds=0.000;30completed,0errors,0retries
+    process_integration_test.go:348: PRODUCT IMPACT passed:30real leadstatus mutations/phase,2closed-loop callers,10000event backfill active throughout; idle admissionP95=15.021897ms P99=15.555729ms completionP95=1.135085s P99=1.139148s; loaded admissionP95=9.187987ms P99=10.999694ms completionP95=1.139283s P99=1.139366s; errors=0,retries=0
+    process_integration_test.go:361: impact core_before metrics:
+        component_db_acquire_seconds_total{service="core"} 0.026835803
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 1
+        component_db_connections_max{service="core"} 5
+        component_db_empty_acquire_total{service="core"} 2
+    process_integration_test.go:361: impact core_after metrics:
+        component_db_acquire_seconds_total{service="core"} 0.027728892
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 1
+        component_db_connections_max{service="core"} 5
+        component_db_empty_acquire_total{service="core"} 2
+    process_integration_test.go:361: impact events metrics:
+        component_db_acquire_seconds_total{service="crm-events"} 0.052050645
+        component_db_canceled_acquire_total{service="crm-events"} 0
+        component_db_connections_acquired{service="crm-events"} 1
+        component_db_connections_max{service="crm-events"} 5
+        component_db_empty_acquire_total{service="crm-events"} 3
+        crm_events_events_total{outcome="deduplicated"} 502
+        crm_events_events_total{outcome="inserted"} 10000
+        crm_events_events_total{outcome="processed"} 10502
+        crm_events_events_total{outcome="updated"} 0
+        crm_events_jobs{state="completed"} 14
+        crm_events_jobs{state="running"} 1
+        crm_events_max_lag_seconds 2.204404
+        crm_events_metrics_up 1
+        crm_events_oldest_job_age_seconds 16.573514
+    process_integration_test.go:361: impact gateway metrics:
+        amocrm_budget_wait_seconds_sum{outcome="admitted"} 51.68209390500004
+        amocrm_requests_total{outcome="2xx"} 456
+        component_db_acquire_seconds_total{service="core"} 0.048829979
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 0
+        component_db_connections_max{service="core"} 4
+        component_db_empty_acquire_total{service="core"} 3
+    process_integration_test.go:363: IMPACT passed: 50ping/concurrency2,10000events/100page/2slots; idle P95=10.389819ms P99=28.352961ms loaded P95=10.145694ms P99=11.072276ms errors=0; local fixture only
+    process_integration_test.go:393: synthetic common-owner outgoing samples: Events=294 LeadRequests=121 LeadPATCH=60 integrations=2; all intervals satisfy 7 burst + 7rps (+1 scheduling tolerance)
+    process_integration_test.go:394: VERIFIED: actual API/Activity/CRM Events/Gateway processes; exclusive logical DB roles; embedded -> grpc -> embedded; retained events/settings/command IDs; Core restart and widget ping while Activity unavailable; durable202 receiver outage; old leadstatus completed using the same Gateway-owner client; pilot revocation. Synthetic amoCRM only; no production load claim.
+--- PASS: TestComponentProcessesAndModeSwitch (84.50s)
+=== RUN   TestProcessGatewayFixture
+    process_integration_test.go:716: subprocess helper
+--- SKIP: TestProcessGatewayFixture (0.00s)
+=== RUN   TestGraphCatalogAndReadinessUseRegisteredComponents
+--- PASS: TestGraphCatalogAndReadinessUseRegisteredComponents (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/componentruntime	153.488s
+=== RUN   TestDeliveryDrainsReadyWorkAndStopsOnCancellation
+--- PASS: TestDeliveryDrainsReadyWorkAndStopsOnCancellation (0.00s)
+=== RUN   TestDeliveryFailureBacksOffAndLogsNoRawError
+--- PASS: TestDeliveryFailureBacksOffAndLogsNoRawError (0.11s)
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation/disabled
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation/database_down
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation/database_timeout
+--- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation (0.00s)
+    --- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation/disabled (0.00s)
+    --- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation/database_down (0.00s)
+    --- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation/database_timeout (0.00s)
+=== RUN   TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage
+--- PASS: TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage (0.06s)
+=== RUN   TestFirstSyncDuringSettingsOutageIsUnavailableWithoutAdmission
+--- PASS: TestFirstSyncDuringSettingsOutageIsUnavailableWithoutAdmission (0.06s)
+=== RUN   TestExpiredFinalDeliveryAttemptDoesNotSendAgain
+--- PASS: TestExpiredFinalDeliveryAttemptDoesNotSendAgain (0.05s)
+=== RUN   TestDeliveryCollectorReportsPendingWithFiniteLabels
+--- PASS: TestDeliveryCollectorReportsPendingWithFiniteLabels (0.05s)
+=== RUN   TestDurableAcceptanceLostResponseAndActorIsolation
+2026/09/07 11:12:48 WARN Activity command delivery deferred or rejected command_id=492ee6f7-9293-4257-bef2-a6412631759f code=unavailable delivery_state=pending_delivery attempt=1
+2026/09/07 11:12:48 WARN Activity command delivery deferred or rejected command_id=492ee6f7-9293-4257-bef2-a6412631759f code=unavailable delivery_state=pending_delivery attempt=2
+--- PASS: TestDurableAcceptanceLostResponseAndActorIsolation (0.06s)
+=== RUN   TestDeliveryRevocationAndAuditedRetry
+2026/09/07 11:12:48 WARN Activity command delivery deferred or rejected command_id=92353a58-6c9b-45f9-86dc-8104b3fe7a75 code=permission_denied delivery_state=failed attempt=1
+--- PASS: TestDeliveryRevocationAndAuditedRetry (0.05s)
+=== RUN   TestDeliveryLeaseFencesStaleSender
+--- PASS: TestDeliveryLeaseFencesStaleSender (0.05s)
+=== RUN   TestConcurrentAdmissionHasOneDurableCommand
+--- PASS: TestConcurrentAdmissionHasOneDurableCommand (0.07s)
+=== RUN   TestPublicInputCannotSupplyTenantOrAdminIdentity
+--- PASS: TestPublicInputCannotSupplyTenantOrAdminIdentity (0.00s)
+=== RUN   TestStableErrorMapping
+--- PASS: TestStableErrorMapping (0.00s)
+=== RUN   TestUnavailableDeliveryMetricsDoNotPublishZeroBacklog
+--- PASS: TestUnavailableDeliveryMetricsDoNotPublishZeroBacklog (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/activitybridge	1.589s
+=== RUN   TestPostgresSettingsReceiptSurvivesResponseLoss
+--- PASS: TestPostgresSettingsReceiptSurvivesResponseLoss (0.03s)
+=== RUN   TestPanelUsesBoundedBatchAndExplicitCoverage
+--- PASS: TestPanelUsesBoundedBatchAndExplicitCoverage (0.00s)
+=== RUN   TestRevocationStopsLocalAdapterBeforeDataAccess
+--- PASS: TestRevocationStopsLocalAdapterBeforeDataAccess (0.00s)
+=== RUN   TestSettingsBounds
+--- PASS: TestSettingsBounds (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/activity	1.042s
+=== RUN   TestRetentionPartialBatchFairnessEmptyAndAtomicRollback
+--- PASS: TestRetentionPartialBatchFairnessEmptyAndAtomicRollback (0.05s)
+=== RUN   TestRetentionSkipsBusySourceAndNeverRewindsFrontier
+--- PASS: TestRetentionSkipsBusySourceAndNeverRewindsFrontier (0.04s)
+=== RUN   TestQueryKeepsCoverageAndEventsInOneRetentionSnapshot
+--- PASS: TestQueryKeepsCoverageAndEventsInOneRetentionSnapshot (0.05s)
+=== RUN   TestBatchDuplicateIDsPreservesSequentialCounters
+--- PASS: TestBatchDuplicateIDsPreservesSequentialCounters (0.04s)
+=== RUN   TestRetentionMigrationRejectsLegacyWithoutSilentClamp
+--- PASS: TestRetentionMigrationRejectsLegacyWithoutSilentClamp (0.03s)
+=== RUN   TestInvalidPageNewSyncRecoversSameWindowWithoutCoverageGap
+2026/09/07 11:12:52 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+--- PASS: TestInvalidPageNewSyncRecoversSameWindowWithoutCoverageGap (0.04s)
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/valid
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/invalid
+2026/09/07 11:12:52 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/fetch_error
+2026/09/07 11:12:52 ERROR CRM Events background operation failed stage=fetch code=internal
+--- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/valid (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/invalid (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/fetch_error (0.00s)
+=== RUN   TestBackgroundDiagnosticsBoundedAndNoPayloads
+--- PASS: TestBackgroundDiagnosticsBoundedAndNoPayloads (0.00s)
+=== RUN   TestPersistenceTimeoutCannotExceedShutdownAllowance
+--- PASS: TestPersistenceTimeoutCannotExceedShutdownAllowance (0.00s)
+=== RUN   TestApplicationDependsOnOwnerRepositoryNotSQL
+--- PASS: TestApplicationDependsOnOwnerRepositoryNotSQL (0.00s)
+=== RUN   TestOperationSuccessContractPreservesCompletedStorage
+    operation_contract_integration_test.go:50: wrote real CRM Events operation response for the mounted-panel test
+--- PASS: TestOperationSuccessContractPreservesCompletedStorage (0.04s)
+=== RUN   TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction
+--- PASS: TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction (0.04s)
+=== RUN   TestRecentBackfillIslandCannotHideOlderDowntimeGap
+--- PASS: TestRecentBackfillIslandCannotHideOlderDowntimeGap (0.04s)
+=== RUN   TestCommandBoundsAndStableHash
+--- PASS: TestCommandBoundsAndStableHash (0.00s)
+=== RUN   TestDigestDetectsChangedPageAndCanonicalizesJSON
+--- PASS: TestDigestDetectsChangedPageAndCanonicalizesJSON (0.00s)
+=== RUN   TestUnauthorizedLocalCallsDoNotReachStorage
+--- PASS: TestUnauthorizedLocalCallsDoNotReachStorage (0.00s)
+=== RUN   TestInboxLostReplyConflictAndEmptyWindow
+--- PASS: TestInboxLostReplyConflictAndEmptyWindow (0.04s)
+=== RUN   TestPartialPageRestartDedupUpdatesAndSameTimestampCursor
+--- PASS: TestPartialPageRestartDedupUpdatesAndSameTimestampCursor (0.05s)
+=== RUN   TestLeaseFencingAndDisableInvalidateInflightWriter
+--- PASS: TestLeaseFencingAndDisableInvalidateInflightWriter (0.03s)
+=== RUN   TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable
+--- PASS: TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable (0.07s)
+=== RUN   TestTwoSchedulersAndWorkersCannotDuplicateSource
+--- PASS: TestTwoSchedulersAndWorkersCannotDuplicateSource (0.06s)
+=== RUN   TestPolicyUnavailableReauthAndRecoveryRetainCursor
+2026/09/07 11:12:52 ERROR CRM Events background operation failed stage=fetch code=unavailable
+2026/09/07 11:12:52 ERROR CRM Events background operation failed stage=fetch code=reauth_required
+--- PASS: TestPolicyUnavailableReauthAndRecoveryRetainCursor (0.04s)
+=== RUN   TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind
+--- PASS: TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind (0.04s)
+=== RUN   TestInstallationIsolationIncludingSameAccountIntegration
+--- PASS: TestInstallationIsolationIncludingSameAccountIntegration (0.04s)
+=== RUN   TestPageWriteAndContinuationRollbackTogether
+--- PASS: TestPageWriteAndContinuationRollbackTogether (0.04s)
+=== RUN   TestBackfillGlobalBudgetAndCurrentPriority
+--- PASS: TestBackfillGlobalBudgetAndCurrentPriority (0.05s)
+=== RUN   TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics
+--- PASS: TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics (0.04s)
+=== RUN   TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling
+2026/09/07 11:12:52 ERROR CRM Events background operation failed stage=fetch code=reauth_required
+--- PASS: TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling (0.05s)
+=== RUN   TestCoreCommandUUIDIsRecipientOperationID
+--- PASS: TestCoreCommandUUIDIsRecipientOperationID (0.03s)
+=== RUN   TestMetricsMapUnknownStorageStateAndRejectCompletedLease
+--- PASS: TestMetricsMapUnknownStorageStateAndRejectCompletedLease (0.03s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	2.016s
+=== RUN   TestDatabasePolicyChecksCurrentPilotCapabilityRoleAndInstallation
+--- PASS: TestDatabasePolicyChecksCurrentPilotCapabilityRoleAndInstallation (0.05s)
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/forged
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_audience
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_service_identity
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/no_identity
+--- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation (0.01s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/forged (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_audience (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_service_identity (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/no_identity (0.00s)
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/nonadmin
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/other_integration_same_installation
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/other_installation
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/Activity_cannot_issue
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_impersonate
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_read_users
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/Core_cannot_drop_original_actor
+--- PASS: TestIssueRestrictsActorScopeAndCollectorGrants (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/nonadmin (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/other_integration_same_installation (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/other_installation (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/Activity_cannot_issue (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_impersonate (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_read_users (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/Core_cannot_drop_original_actor (0.00s)
+=== RUN   TestPanelDelegationCannotMutateOrInspectUnrelatedOperations
+--- PASS: TestPanelDelegationCannotMutateOrInspectUnrelatedOperations (0.00s)
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation
+    authorization_budget_integration_test.go:125: two panels: actual amoCRM role GETs=2 (1/request), directory GETs=2 (first request only)
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/pilot
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/capability
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/integration
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/installation
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/reauth
+--- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation (0.08s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/pilot (0.00s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/capability (0.01s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/integration (0.00s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/installation (0.00s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/reauth (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/corepolicy	1.153s
+=== RUN   TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations
+--- PASS: TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations (0.05s)
+=== RUN   TestBootstrapRestrictedToCoreAndLiveIntegration
+--- PASS: TestBootstrapRestrictedToCoreAndLiveIntegration (0.00s)
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/name
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/group
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/total
+--- PASS: TestOversizedDirectoryIsRejectedBeforeCaching (0.01s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/name (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/group (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/total (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/gateway	1.082s
+=== RUN   TestActivityBusinessLocalAndMTLSGRPCParity
+--- PASS: TestActivityBusinessLocalAndMTLSGRPCParity (0.03s)
+=== RUN   TestBootstrapAccountMTLSCoreOnlyAndUpstreamErrors
+--- PASS: TestBootstrapAccountMTLSCoreOnlyAndUpstreamErrors (0.04s)
+=== RUN   TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity
+--- PASS: TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity (0.08s)
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/forged
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/expired
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_token_audience
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_action_grant
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/non-admin
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/admin_revoked
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/pilot_disabled
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/policy_unavailable
+--- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity (0.09s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/forged (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/expired (0.01s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_token_audience (0.01s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_action_grant (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/non-admin (0.01s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/admin_revoked (0.01s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/pilot_disabled (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/policy_unavailable (0.00s)
+=== RUN   TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit
+--- PASS: TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit (0.06s)
+=== RUN   TestCRMEventsMTLSActivityCannotApply
+--- PASS: TestCRMEventsMTLSActivityCannotApply (0.02s)
+=== RUN   TestLargeOwnerResponsesHaveSameLocalAndGRPCError
+--- PASS: TestLargeOwnerResponsesHaveSameLocalAndGRPCError (0.80s)
+=== RUN   TestActualMTLSGatewayAndPolicyLocalParity
+--- PASS: TestActualMTLSGatewayAndPolicyLocalParity (0.05s)
+=== RUN   TestRPCErrorRetryAfterAndCancellation
+--- PASS: TestRPCErrorRetryAfterAndCancellation (0.01s)
+=== RUN   TestProtobufRoundTripAllPanelStateFields
+--- PASS: TestProtobufRoundTripAllPanelStateFields (0.00s)
+=== RUN   TestReadinessReflectsDependencyFailure
+--- PASS: TestReadinessReflectsDependencyFailure (0.01s)
+=== RUN   TestConnectDoesNotWaitForUnavailableDependency
+--- PASS: TestConnectDoesNotWaitForUnavailableDependency (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	2.241s
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations
+--- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets (0.11s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration (0.05s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations (0.05s)
+=== RUN   TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic
+--- PASS: TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic (0.11s)
+=== RUN   TestBootstrapCancellationRateLimitAndIdentityMismatch
+--- PASS: TestBootstrapCancellationRateLimitAndIdentityMismatch (0.01s)
+=== RUN   TestClientRefreshesAndRetries401Once
+--- PASS: TestClientRefreshesAndRetries401Once (0.00s)
+=== RUN   TestClientMarksReauthAfterSecond401
+--- PASS: TestClientMarksReauthAfterSecond401 (0.00s)
+=== RUN   TestClientBoundsReauthorizationStatusWrite
+--- PASS: TestClientBoundsReauthorizationStatusWrite (0.02s)
+=== RUN   TestAccountBaseURL
+--- PASS: TestAccountBaseURL (0.00s)
+=== RUN   TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL
+--- PASS: TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL (0.00s)
+=== RUN   TestEventsEmptyWindowAndRateLimit
+=== RUN   TestEventsEmptyWindowAndRateLimit/No_Content
+=== RUN   TestEventsEmptyWindowAndRateLimit/Too_Many_Requests
+--- PASS: TestEventsEmptyWindowAndRateLimit (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/No_Content (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/Too_Many_Requests (0.00s)
+=== RUN   TestDirectoryOnlyUsesBoundedApprovedEndpoints
+--- PASS: TestDirectoryOnlyUsesBoundedApprovedEndpoints (0.00s)
+=== RUN   TestSharedBudgetAcrossExistingWidgetsAndEvents
+--- PASS: TestSharedBudgetAcrossExistingWidgetsAndEvents (3.01s)
+=== RUN   TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels
+--- PASS: TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels (0.01s)
+=== RUN   TestBudgetMetricsTransportFailureCategory
+--- PASS: TestBudgetMetricsTransportFailureCategory (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	4.288s

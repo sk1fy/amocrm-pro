@@ -26,10 +26,13 @@ DOCKER_GO := $(DOCKER) run --rm \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test
+.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test activity-ci
 
-ACTIVITY_COMPOSE := $(COMPOSE) -f docker-compose.activity.yml
-ACTIVITY_TEST_COMPOSE := $(ACTIVITY_COMPOSE) -f docker-compose.activity-tests.yml
+ACTIVITY_COMPOSE := $(COMPOSE) -p amocrm-activity -f docker-compose.activity.yml
+ACTIVITY_TEST_PROJECT ?= amocrm-pro-activity-test
+# Explicit -p wins over both the development file name and an inherited
+# COMPOSE_PROJECT_NAME. Test cleanup must never target the pilot cluster.
+ACTIVITY_TEST_COMPOSE := $(COMPOSE) -p $(ACTIVITY_TEST_PROJECT) --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml
 
 activity-up: ## Start isolated development Activity in separate gRPC processes
 	$(ACTIVITY_COMPOSE) up --build --detach
@@ -37,14 +40,24 @@ activity-up: ## Start isolated development Activity in separate gRPC processes
 activity-embedded: ## Start embedded Activity graph (stop remote products first; see runbook)
 	$(ACTIVITY_COMPOSE) -f docker-compose.activity-embedded.yml up --build --detach
 
-activity-test: ## Run owner DB, mTLS and separate process Activity tests in Docker
+activity-test: ## Run owner DB, mTLS, process and UI checks in a separate test project
+	@case "$(ACTIVITY_TEST_PROJECT)" in *-test) ;; *) echo "Refusing non-test project: use a dedicated name ending in -test" >&2; exit 1;; esac
 	mkdir -p tmp/activity-v0-evidence
-	$(ACTIVITY_COMPOSE) up --detach postgres
-	$(ACTIVITY_COMPOSE) exec -T postgres sh < deploy/activity/init-tests.sh
+	$(ACTIVITY_TEST_COMPOSE) up --detach --wait postgres
+	$(ACTIVITY_TEST_COMPOSE) exec -T postgres sh < deploy/activity/init-tests.sh
 	$(ACTIVITY_TEST_COMPOSE) build migrate-test-core component-tests
 	$(ACTIVITY_TEST_COMPOSE) run --rm migrate-test-core up
 	$(ACTIVITY_TEST_COMPOSE) run --rm --no-deps component-tests
 	$(ACTIVITY_TEST_COMPOSE) run --rm --no-deps component-ui-tests
+
+activity-ci: ## Run Activity verification with disposable PostgreSQL and automatic cleanup
+	@set -eu; \
+	case "$(ACTIVITY_TEST_PROJECT)" in *-test) ;; *) echo "Refusing non-test project: use a dedicated name ending in -test" >&2; exit 1;; esac; \
+	mkdir -p tmp/activity-v0-evidence; \
+	cleanup() { $(ACTIVITY_TEST_COMPOSE) down --volumes --remove-orphans >tmp/activity-v0-evidence/compose-cleanup.log 2>&1 || true; }; \
+	trap cleanup EXIT INT TERM; \
+	cleanup; \
+	$(MAKE) COMPOSE="$(COMPOSE)" ACTIVITY_TEST_PROJECT="$(ACTIVITY_TEST_PROJECT)" activity-test
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)

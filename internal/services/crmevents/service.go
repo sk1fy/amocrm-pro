@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +20,8 @@ type Config struct {
 	Overlap        time.Duration
 	Lease          time.Duration
 	CallTimeout    time.Duration
+	PersistTimeout time.Duration
+	Logger         *slog.Logger
 	MaxAttempts    int
 	MaxPasses      int
 	MaxPages       int
@@ -26,7 +30,7 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	return Config{Workers: 2, PollInterval: 5 * time.Minute, Window: time.Hour, Overlap: time.Minute, Lease: 30 * time.Second, CallTimeout: 10 * time.Second, MaxAttempts: 5, MaxPasses: 3, MaxPages: 1000, RetentionBatch: 1000, Now: time.Now}
+	return Config{Workers: 2, PollInterval: 5 * time.Minute, Window: time.Hour, Overlap: time.Minute, Lease: 30 * time.Second, CallTimeout: 10 * time.Second, PersistTimeout: 5 * time.Second, Logger: slog.Default(), MaxAttempts: 5, MaxPasses: 3, MaxPages: 1000, RetentionBatch: 1000, Now: time.Now}
 }
 func normalizeConfig(c Config) Config {
 	d := DefaultConfig()
@@ -47,6 +51,12 @@ func normalizeConfig(c Config) Config {
 	}
 	if c.CallTimeout > 0 {
 		d.CallTimeout = c.CallTimeout
+	}
+	if c.PersistTimeout > 0 {
+		d.PersistTimeout = min(c.PersistTimeout, 5*time.Second)
+	}
+	if c.Logger != nil {
+		d.Logger = c.Logger
 	}
 	if c.MaxAttempts > 0 {
 		d.MaxAttempts = c.MaxAttempts
@@ -84,6 +94,8 @@ type Service struct {
 	policy     serviceapi.Policy
 	gateway    serviceapi.Gateway
 	cfg        Config
+	logMu      sync.Mutex
+	lastLog    map[string]time.Time
 }
 
 func NewWithRepository(repository Repository, policy serviceapi.Policy, gateway serviceapi.Gateway, cfg Config) *Service {
@@ -109,8 +121,8 @@ func normalizeCommand(c serviceapi.Command, now time.Time) (serviceapi.Command, 
 	if c.RetentionDays == 0 {
 		c.RetentionDays = 7
 	}
-	if c.InitialDays < 1 || c.InitialDays > 7 || c.RetentionDays < 1 || c.RetentionDays > 90 || c.RetentionDays < c.InitialDays {
-		return c, serviceapi.Fail(serviceapi.InvalidArgument, "initial days 1..7; retention days initial..90")
+	if c.InitialDays < 1 || c.InitialDays > 7 || c.RetentionDays < 2 || c.RetentionDays > 30 || c.RetentionDays < c.InitialDays {
+		return c, serviceapi.Fail(serviceapi.InvalidArgument, "initial days 1..7; retention days 2..30 and at least initial days")
 	}
 	switch c.Kind {
 	case "enable", "sync", "disable":

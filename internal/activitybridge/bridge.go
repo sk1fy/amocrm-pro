@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
-	"github.com/sk1fy/amocrm-pro/internal/services"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode"
@@ -26,10 +26,11 @@ type Bridge struct {
 	policy   serviceapi.Policy
 	activity serviceapi.Activity
 	events   serviceapi.CRMEvents
+	logger   *slog.Logger
 }
 
 func New(pool *pgxpool.Pool, policy serviceapi.Policy, product serviceapi.Activity, events serviceapi.CRMEvents) *Bridge {
-	return &Bridge{pool: pool, policy: policy, activity: product, events: events}
+	return &Bridge{pool: pool, policy: policy, activity: product, events: events, logger: slog.Default()}
 }
 
 type Receipt struct {
@@ -48,15 +49,15 @@ type SyncInput struct {
 	To   int64  `json:"to,omitempty"`
 }
 
-func (b *Bridge) auth(ctx context.Context, p widgetauth.Principal, requestID string) (serviceapi.Auth, error) {
+func (b *Bridge) auth(ctx context.Context, p widgetauth.Principal, requestID, audience, action string) (serviceapi.Auth, error) {
 	if p.IntegrationID == uuid.Nil || p.InstallationID == uuid.Nil || p.UserID <= 0 {
 		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.Unauthenticated, "verified actor required")
 	}
-	return b.policy.Issue(ctx, serviceapi.IssueRequest{Scope: serviceapi.Scope{IntegrationID: p.IntegrationID, InstallationID: p.InstallationID}, ActorID: p.UserID, Consumer: serviceapi.ActivityService, RequestID: requestID, Grants: serviceapi.UserGrants()})
+	return b.policy.Issue(ctx, serviceapi.IssueRequest{Scope: serviceapi.Scope{IntegrationID: p.IntegrationID, InstallationID: p.InstallationID}, ActorID: p.UserID, Consumer: serviceapi.ActivityService, RequestID: requestID, Grants: serviceapi.UserGrantsFor(audience, action)})
 }
 
 func (b *Bridge) Panel(ctx context.Context, p widgetauth.Principal, q serviceapi.Query) (serviceapi.Panel, error) {
-	auth, err := b.auth(ctx, p, uuid.NewString())
+	auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.ActivityService, serviceapi.ActionPanel)
 	if err != nil {
 		return serviceapi.Panel{}, err
 	}
@@ -64,14 +65,14 @@ func (b *Bridge) Panel(ctx context.Context, p widgetauth.Principal, q serviceapi
 	return b.activity.Panel(ctx, q)
 }
 func (b *Bridge) Settings(ctx context.Context, p widgetauth.Principal) (serviceapi.Settings, error) {
-	auth, err := b.auth(ctx, p, uuid.NewString())
+	auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.ActivityService, serviceapi.ActionSettings)
 	if err != nil {
 		return serviceapi.Settings{}, err
 	}
 	return b.activity.Settings(ctx, auth)
 }
 func (b *Bridge) Status(ctx context.Context, p widgetauth.Principal) (serviceapi.SyncStatus, error) {
-	auth, err := b.auth(ctx, p, uuid.NewString())
+	auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.EventsService, serviceapi.ActionStatus)
 	if err != nil {
 		return serviceapi.SyncStatus{}, err
 	}
@@ -82,7 +83,7 @@ func (b *Bridge) Configure(ctx context.Context, p widgetauth.Principal, key stri
 	if err := serviceapi.ValidateSettings(settings); err != nil {
 		return Receipt{}, err
 	}
-	if _, err := b.auth(ctx, p, uuid.NewString()); err != nil {
+	if _, err := b.auth(ctx, p, uuid.NewString(), serviceapi.ActivityService, serviceapi.ActionSettings); err != nil {
 		return Receipt{}, err
 	}
 	payload, _ := json.Marshal(settings)
@@ -103,7 +104,7 @@ func (b *Bridge) Sync(ctx context.Context, p widgetauth.Principal, key string, i
 	} else if input.From != 0 || input.To != 0 {
 		return Receipt{}, serviceapi.Fail(serviceapi.InvalidArgument, "from/to are only valid for backfill")
 	}
-	auth, err := b.auth(ctx, p, uuid.NewString())
+	auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.ActivityService, serviceapi.ActionSettings)
 	if err != nil {
 		return Receipt{}, err
 	}
@@ -153,8 +154,8 @@ func (b *Bridge) admitHash(ctx context.Context, p widgetauth.Principal, key, tar
 		return Receipt{}, err
 	}
 	defer rollback(tx)
-	if err := services.RequireEnabled(ctx, tx, p.InstallationID, services.Activity, true); err != nil {
-		return Receipt{}, serviceapi.Fail(serviceapi.PermissionDenied, "activity is not enabled")
+	if err := requireActivityEnabled(ctx, tx, p.InstallationID); err != nil {
+		return Receipt{}, err
 	}
 	var marker int
 	err = tx.QueryRow(ctx, `SELECT 1 FROM activity_pilots pilot JOIN installations installation ON installation.id=pilot.installation_id WHERE pilot.installation_id=$1 AND installation.integration_id=$2 AND pilot.enabled FOR SHARE OF pilot`, p.InstallationID, p.IntegrationID).Scan(&marker)

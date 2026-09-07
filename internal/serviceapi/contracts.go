@@ -241,6 +241,23 @@ func ValidateQuery(q Query) error {
 	return nil
 }
 
+// UserGrantsFor returns only the grants needed by a single service operation,
+// including its synchronous downstream calls. Unsupported operations fail
+// closed (Issue rejects an empty grant list).
+func UserGrantsFor(audience, action string) []Grant {
+	switch {
+	case audience == ActivityService && action == ActionPanel:
+		return []Grant{{ActivityService, ActionPanel}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}
+	case audience == ActivityService && (action == ActionSettings || action == ActionOperation):
+		return []Grant{{audience, action}}
+	case audience == EventsService && (action == ActionRead || action == ActionStatus || action == ActionSync || action == ActionOperation):
+		return []Grant{{audience, action}}
+	}
+	return nil
+}
+
+// UserGrants is retained for contract compatibility with earlier Core callers.
+// New ingress and delivery code must use UserGrantsFor for least privilege.
 func UserGrants() []Grant {
 	return []Grant{{ActivityService, ActionPanel}, {ActivityService, ActionSettings}, {ActivityService, ActionOperation}, {EventsService, ActionRead}, {EventsService, ActionStatus}, {EventsService, ActionSync}, {EventsService, ActionOperation}, {GatewayService, ActionUsers}}
 }

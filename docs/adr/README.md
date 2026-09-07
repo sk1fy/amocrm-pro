@@ -12,6 +12,7 @@
 | [0008](0008-multi-widget-capability-boundary.md) | Accepted | Multi-widget provisioning and capability boundary |
 | [0009](0009-service-modules-and-fair-admission.md) | Accepted | Service modules, widget limits and fair queue admission |
 | [0010](0010-activity-v0-service-ownership.md) | Accepted | Activity v2: separate owners, logical DBs, jobs and embedded/gRPC deployment |
+| [0011](0011-activity-authorization-budget.md) | Accepted | One live actor check per request, bounded role snapshot and live Core revocation |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

@@ -42,6 +42,15 @@ func (f fixedCaller) Validate(ctx context.Context, a serviceapi.Auth, s, v strin
 type LiveChecker interface {
 	Check(context.Context, serviceapi.Scope, int64, bool) error
 }
+
+// DelegationChecker rechecks local revocation without repeating the upstream
+// role lookup already certified by Issue. Implementations must check current
+// installation, capability, pilot and reauthorization state on every call.
+// Check remains mandatory for every newly issued delegation. Legacy checkers
+// without this interface keep their more conservative full Check behavior.
+type DelegationChecker interface {
+	CheckDelegation(context.Context, serviceapi.Scope) error
+}
 type Service struct {
 	checker LiveChecker
 	key     ed25519.PrivateKey
@@ -137,8 +146,14 @@ func (s *Service) Validate(ctx context.Context, a serviceapi.Auth, audience, act
 	}
 	ctx, cancel := context.WithTimeout(ctx, ValidationTimeout)
 	defer cancel()
-	if err := s.checker.Check(ctx, c.Scope, c.ActorID, c.System); err != nil {
-		return serviceapi.Principal{}, err
+	var policyErr error
+	if checker, ok := s.checker.(DelegationChecker); ok {
+		policyErr = checker.CheckDelegation(ctx, c.Scope)
+	} else {
+		policyErr = s.checker.Check(ctx, c.Scope, c.ActorID, c.System)
+	}
+	if policyErr != nil {
+		return serviceapi.Principal{}, policyErr
 	}
 	return serviceapi.Principal{Scope: c.Scope, ActorID: c.ActorID, System: c.System, Consumer: c.Consumer, RequestID: c.RequestID, ExpiresAt: c.ExpiresAt.Time}, nil
 }
@@ -152,6 +167,23 @@ type databaseChecker struct {
 }
 
 func (d *databaseChecker) Check(ctx context.Context, scope serviceapi.Scope, actor int64, system bool) error {
+	if err := d.CheckDelegation(ctx, scope); err != nil {
+		return err
+	}
+	if system {
+		return nil
+	}
+	user, err := d.client.GetUserAuthorization(ctx, scope.InstallationID, actor)
+	if err != nil {
+		return MapUpstreamError(err)
+	}
+	if !user.Rights.IsActive || !user.Rights.IsAdmin {
+		return serviceapi.Fail(serviceapi.PermissionDenied, "active administrator role is required")
+	}
+	return nil
+}
+
+func (d *databaseChecker) CheckDelegation(ctx context.Context, scope serviceapi.Scope) error {
 	var enabled bool
 	var reauth bool
 	err := d.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM installations i JOIN integrations n ON n.id=i.integration_id JOIN integration_services c ON c.integration_id=n.id AND c.service_code='activity' JOIN activity_pilots p ON p.installation_id=i.id WHERE i.id=$1 AND n.id=$2 AND i.status='active' AND n.status='active' AND c.enabled AND p.enabled), EXISTS(SELECT 1 FROM installations WHERE id=$1 AND integration_id=$2 AND status='reauth_required')`, scope.InstallationID, scope.IntegrationID).Scan(&enabled, &reauth)
@@ -163,16 +195,6 @@ func (d *databaseChecker) Check(ctx context.Context, scope serviceapi.Scope, act
 	}
 	if !enabled {
 		return serviceapi.Fail(serviceapi.PermissionDenied, "Activity pilot or capability is disabled")
-	}
-	if system {
-		return nil
-	}
-	user, err := d.client.GetUserAuthorization(ctx, scope.InstallationID, actor)
-	if err != nil {
-		return MapUpstreamError(err)
-	}
-	if !user.Rights.IsActive || !user.Rights.IsAdmin {
-		return serviceapi.Fail(serviceapi.PermissionDenied, "active administrator role is required")
 	}
 	return nil
 }

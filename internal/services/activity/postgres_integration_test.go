@@ -68,4 +68,21 @@ func TestPostgresSettingsReceiptSurvivesResponseLoss(t *testing.T) {
 	if err != nil || settings != Defaults() {
 		t.Fatalf("conflict mutated settings=%+v err=%v", settings, err)
 	}
+	// A mismatched owner must fail, not create a successful receipt for an
+	// upsert suppressed by its tenant predicate. Its transaction rolls back.
+	foreignCommand := serviceapi.SettingsCommand{CommandID: uuid.NewString(), Settings: serviceapi.Settings{InitialDays: 3, RetentionDays: 8}}
+	if _, err := s.Configure(ctx, other, foreignCommand); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("foreign settings configure=%v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM command_receipts WHERE command_id=$1`, foreignCommand.CommandID).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("denied configure left a receipt: %d %v", count, err)
+	}
+	// The same command identity is still usable by its legitimate scope.
+	if _, err := s.Configure(ctx, p, foreignCommand); err != nil {
+		t.Fatalf("denied attempt poisoned command identity: %v", err)
+	}
+	settings, err = s.Settings(ctx, p.Scope)
+	if err != nil || settings != foreignCommand.Settings {
+		t.Fatalf("owner update=%+v %v", settings, err)
+	}
 }

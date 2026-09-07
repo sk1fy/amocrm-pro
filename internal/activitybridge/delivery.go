@@ -17,16 +17,29 @@ import (
 // job slots and CRM Events' scheduler. Expired leases are reclaimable by another
 // process; an old sender cannot finalize the new attempt.
 func (b *Bridge) RunDelivery(ctx context.Context) error {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	return b.runDelivery(ctx, b.DeliverOne)
+}
+
+func (b *Bridge) runDelivery(ctx context.Context, deliver func(context.Context) (bool, error)) error {
 	for {
-		if _, err := b.DeliverOne(ctx); err != nil && ctx.Err() != nil {
+		if ctx.Err() != nil {
 			return nil
 		}
+		worked, err := deliver(ctx)
+		if err != nil && ctx.Err() == nil {
+			b.logger.ErrorContext(ctx, "Activity delivery iteration failed", "code", serviceapi.ErrorCode(err))
+		}
+		// Drain available work serially. Failures and an empty queue back off;
+		// a receiver retry already carries its own durable run_after deadline.
+		if worked && err == nil {
+			continue
+		}
+		timer := time.NewTimer(time.Second)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return nil
-		case <-ticker.C:
+		case <-timer.C:
 		}
 	}
 }
@@ -66,7 +79,11 @@ func (b *Bridge) DeliverOne(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	auth, deliveryErr := b.policy.Issue(callCtx, serviceapi.IssueRequest{Scope: scope, ActorID: actor, Consumer: serviceapi.ActivityService, RequestID: id.String(), Grants: serviceapi.UserGrants()})
+	action := serviceapi.ActionSettings
+	if target == serviceapi.EventsService {
+		action = serviceapi.ActionSync
+	}
+	auth, deliveryErr := b.policy.Issue(callCtx, serviceapi.IssueRequest{Scope: scope, ActorID: actor, Consumer: serviceapi.ActivityService, RequestID: id.String(), Grants: serviceapi.UserGrantsFor(target, action)})
 	var operation serviceapi.Operation
 	if deliveryErr == nil {
 		switch target {
@@ -115,6 +132,9 @@ func (b *Bridge) DeliverOne(ctx context.Context) (bool, error) {
 	if tag.RowsAffected() != 1 {
 		return true, serviceapi.Fail(serviceapi.Conflict, "delivery lease lost")
 	}
+	if deliveryErr != nil {
+		b.logger.WarnContext(finishCtx, "Activity command delivery deferred or rejected", "command_id", id.String(), "code", code, "delivery_state", status, "attempt", attempts)
+	}
 	return true, nil
 }
 
@@ -127,16 +147,18 @@ func (b *Bridge) Operation(ctx context.Context, p widgetauth.Principal, id strin
 	if err != nil {
 		return Receipt{}, serviceapi.Fail(serviceapi.NotFound, "operation not found")
 	}
-	auth, err := b.auth(ctx, p, id)
-	if err != nil {
-		return Receipt{}, err
-	}
 	var target, state string
 	var code *string
 	err = b.pool.QueryRow(ctx, `SELECT receipt.target,outbox.status,outbox.error_code FROM activity_command_receipts receipt JOIN activity_command_outbox outbox USING(command_id) WHERE receipt.command_id=$1 AND receipt.installation_id=$2 AND receipt.integration_id=$3 AND receipt.actor_id=$4`, parsed, p.InstallationID, p.IntegrationID, p.UserID).Scan(&target, &state, &code)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Receipt{}, serviceapi.Fail(serviceapi.NotFound, "operation not found")
 	}
+	if err != nil {
+		return Receipt{}, err
+	}
+	// Scope and actor are already constrained by the receipt lookup. Issue only
+	// the owning service's operation grant, even while delivery is pending.
+	auth, err := b.auth(ctx, p, id, target, serviceapi.ActionOperation)
 	if err != nil {
 		return Receipt{}, err
 	}
