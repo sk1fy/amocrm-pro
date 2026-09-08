@@ -134,10 +134,10 @@ func allowedCaller(method, caller string) bool {
 		if caller == serviceapi.CoreService {
 			return true
 		}
-		return caller == serviceapi.ActivityService && (method == pb.CRMEvents_QueryEvents_FullMethodName || method == pb.CRMEvents_Status_FullMethodName || method == pb.CRMEvents_OperationStatus_FullMethodName)
-	case strings.HasPrefix(method, "/amocrm.services.v1.Gateway/Events"):
+		return caller == serviceapi.ActivityService && (method == pb.CRMEvents_GetEvent_FullMethodName || method == pb.CRMEvents_QueryEvents_FullMethodName || method == pb.CRMEvents_Status_FullMethodName || method == pb.CRMEvents_OperationStatus_FullMethodName)
+	case method == pb.Gateway_Events_FullMethodName, method == pb.Gateway_Notes_FullMethodName, method == pb.Gateway_Tasks_FullMethodName, method == pb.Gateway_Pipelines_FullMethodName, method == pb.Gateway_CustomFields_FullMethodName, method == pb.Gateway_Entities_FullMethodName:
 		return caller == serviceapi.EventsService
-	case strings.HasPrefix(method, "/amocrm.services.v1.Gateway/Users"):
+	case method == pb.Gateway_Users_FullMethodName:
 		return caller == serviceapi.ActivityService
 	}
 	return false

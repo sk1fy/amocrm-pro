@@ -1,0 +1,30 @@
+{
+  "completed_at_utc": "2026-09-08T15:11:48.001330+00:00",
+  "base_revision": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "activity_ci_exit_code": 0,
+  "activity_ci_project": "amocrm-stage5-fixes-test",
+  "go_top_level_pass": 174,
+  "go_top_level_skip": [
+    "TestFaultGatewayFixture",
+    "TestFaultReceiverFixture",
+    "TestProcessGatewayFixture"
+  ],
+  "ui_pass": 21,
+  "ui_fail": 0,
+  "ui_skip": 0,
+  "activity_site_pass": 32,
+  "tester_pass": 36,
+  "tester_widget_version": "0.5.1",
+  "runtime_deployed": false,
+  "database_scope": "Disposable amocrm-stage5-fixes-test *_test databases only",
+  "owner_migration": null,
+  "read_version": 3,
+  "interpretation_version": 1,
+  "surfaces": [
+    "examples/activity-v0",
+    "amocrm-pro-service-2",
+    "amocrm-pro-activity-site"
+  ],
+  "verification_report": "fixes.md",
+  "previous_checks": "initial-checks.json"
+}

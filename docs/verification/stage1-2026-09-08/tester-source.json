@@ -1,0 +1,11 @@
+{
+  "package_version": "0.4.0",
+  "source_path": "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-service-2",
+  "files": {
+    "package.json": "4f88a712e0f0a6b382acfc1e4c16f9aa82143dc96e769ed7a5b65448ae693861",
+    "widget/manifest.json": "bd7bea8fecd71e41230eb5fefe7bbf6dc75bdb7b2c466275371d98ff15b9c07b",
+    "widget/lib/activity-panel.js": "6216dcdf268020905c9f31f95e990aefc2b191902fef981f61e839f5cfae3d35",
+    "vendor/activity-v0/panel.mjs": "69b1b3528adb0abd9f1a1ef79457ed6135cb4751a3c6347249a40f4f3854f86f"
+  },
+  "vendor_panel_matches_backend_example": true
+}

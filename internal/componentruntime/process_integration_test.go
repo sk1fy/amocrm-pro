@@ -165,7 +165,7 @@ func TestComponentProcessesAndModeSwitch(t *testing.T) {
 	managementAddr := processAddress(t)
 	activityHealth := processAddress(t)
 	eventsHealth := processAddress(t)
-	common := map[string]string{"ACTIVITY_MODE": "grpc", "GATEWAY_ADDRESS": gatewayAddr, "ACTIVITY_ADDRESS": activityAddr, "CRM_EVENTS_ADDRESS": eventsAddr, "CRM_EVENTS_WORKERS": "2", "CRM_EVENTS_POLL_INTERVAL": "1s", "LOG_LEVEL": "warn"}
+	common := map[string]string{"ACTIVITY_MODE": "grpc", "GATEWAY_ADDRESS": gatewayAddr, "ACTIVITY_ADDRESS": activityAddr, "CRM_EVENTS_ADDRESS": eventsAddr, "CRM_EVENTS_WORKERS": "2", "CRM_EVENTS_POLL_INTERVAL": "1s", "CRM_EVENTS_ENRICHMENT": "0", "LOG_LEVEL": "warn"}
 	tenants, _ := json.Marshal(map[string]string{activityTenant.InstallationID.String(): activityTenant.IntegrationID.String(), secondTenant.InstallationID.String(): secondTenant.IntegrationID.String()})
 	eventAt := time.Now().Add(-2 * time.Minute).Unix()
 	fixtureLog := filepath.Join(temp, "amo-requests.jsonl")

@@ -86,6 +86,21 @@ func (g crmParityGateway) Events(context.Context, serviceapi.EventPageRequest) (
 func (crmParityGateway) Users(context.Context, serviceapi.UsersRequest) (serviceapi.Directory, error) {
 	return serviceapi.Directory{}, nil
 }
+func (crmParityGateway) Notes(context.Context, serviceapi.NotesRequest) (serviceapi.NotePage, error) {
+	return serviceapi.NotePage{}, nil
+}
+func (crmParityGateway) Tasks(context.Context, serviceapi.TasksRequest) (serviceapi.TaskPage, error) {
+	return serviceapi.TaskPage{}, nil
+}
+func (crmParityGateway) Pipelines(context.Context, serviceapi.CatalogRequest) (serviceapi.PipelineCatalog, error) {
+	return serviceapi.PipelineCatalog{}, nil
+}
+func (crmParityGateway) CustomFields(context.Context, serviceapi.CustomFieldsRequest) (serviceapi.CustomFieldCatalog, error) {
+	return serviceapi.CustomFieldCatalog{}, nil
+}
+func (crmParityGateway) Entities(context.Context, serviceapi.EntitiesRequest) (serviceapi.EntityCatalog, error) {
+	return serviceapi.EntityCatalog{}, nil
+}
 
 type crmParityFixture struct {
 	pool   *pgxpool.Pool

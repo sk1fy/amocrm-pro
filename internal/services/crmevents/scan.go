@@ -10,6 +10,7 @@ import (
 )
 
 func canonicalEvent(e serviceapi.Event) (serviceapi.Event, []byte, error) {
+	e = serviceapi.HistoricalEvent(e)
 	// JSON object key order and whitespace are not event mutations.
 	canonical := func(b json.RawMessage) (json.RawMessage, error) {
 		if len(b) == 0 {

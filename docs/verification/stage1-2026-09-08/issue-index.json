@@ -1,0 +1,279 @@
+{
+  "captured_at_utc": "2026-09-08T10:56:22.803031+00:00",
+  "repository": "sk1fy/amocrm-pro",
+  "issues": [
+    {
+      "number": 55,
+      "title": "[BUG-010][WIDGET] X-Auth-Token compatibility and real private-widget E2E",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/55",
+      "updatedAt": "2026-08-30T22:30:34Z"
+    },
+    {
+      "number": 53,
+      "title": "[P8][JOBS] Prove expired-lease reaper capacity at 100k backlog",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/53",
+      "updatedAt": "2026-07-12T11:17:34Z"
+    },
+    {
+      "number": 51,
+      "title": "[P8][JOBS] Bound expired-lease reaping independently from claim size",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/51",
+      "updatedAt": "2026-07-12T10:20:43Z"
+    },
+    {
+      "number": 49,
+      "title": "[P8][OBS] Expose exact PostgreSQL job backlog gauges",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/49",
+      "updatedAt": "2026-07-12T10:00:56Z"
+    },
+    {
+      "number": 47,
+      "title": "[P8][DB] Guard destructive migration rollback",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/47",
+      "updatedAt": "2026-07-11T20:33:27Z"
+    },
+    {
+      "number": 45,
+      "title": "[P8][DB] Use statement time for updated_at triggers",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/45",
+      "updatedAt": "2026-07-11T20:15:04Z"
+    },
+    {
+      "number": 43,
+      "title": "[P7][WORKFLOW] Fence lead status transitions to the observed source state",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/43",
+      "updatedAt": "2026-07-11T20:00:04Z"
+    },
+    {
+      "number": 41,
+      "title": "[P8][INGRESS] Bounded configurable webhook rate limiters",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/41",
+      "updatedAt": "2026-07-11T19:14:20Z"
+    },
+    {
+      "number": 39,
+      "title": "[P8][OPS] Isolate API readiness and metrics on a management listener",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/39",
+      "updatedAt": "2026-07-11T16:59:06Z"
+    },
+    {
+      "number": 37,
+      "title": "[P7][RULES] Async admin-authorized lead-status rule configuration",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/37",
+      "updatedAt": "2026-07-11T16:10:39Z"
+    },
+    {
+      "number": 32,
+      "title": "[P6-P8][HARDENING] Widget browser, retention, and execution authorization",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/32",
+      "updatedAt": "2026-07-11T15:15:26Z"
+    },
+    {
+      "number": 31,
+      "title": "[P6][TEST] Atomic widget action idempotency contract",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/31",
+      "updatedAt": "2026-07-11T01:51:43Z"
+    },
+    {
+      "number": 29,
+      "title": "[BUG][SECURITY] Webhook key can leak through persisted transport errors",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/29",
+      "updatedAt": "2026-07-11T01:19:53Z"
+    },
+    {
+      "number": 28,
+      "title": "[BUG][P1] OAuth refresh finalization and reauth transitions are not safely fenced",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/28",
+      "updatedAt": "2026-07-11T01:19:53Z"
+    },
+    {
+      "number": 27,
+      "title": "[BUG][P1] OAuth callback fails while reading consumed state",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/27",
+      "updatedAt": "2026-07-11T01:19:52Z"
+    },
+    {
+      "number": 26,
+      "title": "[BUG][P1] Reauthorization reconciles stale webhook settings",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/26",
+      "updatedAt": "2026-07-11T01:19:52Z"
+    },
+    {
+      "number": 25,
+      "title": "[BUG][P1] Staggered 401 responses can rotate a fresh OAuth token repeatedly",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/25",
+      "updatedAt": "2026-07-11T01:19:52Z"
+    },
+    {
+      "number": 24,
+      "title": "[P1-P3][TEST] OAuth concurrency and webhook reconciliation contracts",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/24",
+      "updatedAt": "2026-07-11T01:20:01Z"
+    },
+    {
+      "number": 23,
+      "title": "[P6][API] Publish and validate the current OpenAPI contract",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/23",
+      "updatedAt": "2026-07-11T00:44:29Z"
+    },
+    {
+      "number": 21,
+      "title": "[P8] Foundation review hardening backlog",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/21",
+      "updatedAt": "2026-08-30T22:26:33Z"
+    },
+    {
+      "number": 20,
+      "title": "[P0][TEST] Repeatable isolated PostgreSQL integration gate",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/20",
+      "updatedAt": "2026-07-11T00:44:28Z"
+    },
+    {
+      "number": 18,
+      "title": "[BUG][P5] Worker lacks attempt fencing and bounded panic/shutdown handling",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/18",
+      "updatedAt": "2026-07-11T00:19:03Z"
+    },
+    {
+      "number": 17,
+      "title": "[BUG][P0] Migration runner cannot execute reversible/checksummed migrations",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/17",
+      "updatedAt": "2026-07-11T00:19:04Z"
+    },
+    {
+      "number": 16,
+      "title": "[BUG][P4] Webhook invalid-state, request-id, and total-timeout invariants",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/16",
+      "updatedAt": "2026-07-11T00:19:02Z"
+    },
+    {
+      "number": 15,
+      "title": "[INCIDENT] GitHub connector initially lacked Issues write permission",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/15",
+      "updatedAt": "2026-07-10T19:52:52Z"
+    },
+    {
+      "number": 14,
+      "title": "[BUG] Worker image failed to compile because of unused net/http import",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/14",
+      "updatedAt": "2026-07-10T19:52:51Z"
+    },
+    {
+      "number": 13,
+      "title": "[ADR backlog] Decisions not fixed by the architecture plan",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/13",
+      "updatedAt": "2026-07-11T16:10:46Z"
+    },
+    {
+      "number": 12,
+      "title": "[PROGRAM] amoCRM Go backend implementation",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/12",
+      "updatedAt": "2026-08-30T22:30:34Z"
+    },
+    {
+      "number": 11,
+      "title": "[EPIC P8] Production hardening and microservice handoff",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/11",
+      "updatedAt": "2026-07-11T15:15:21Z"
+    },
+    {
+      "number": 10,
+      "title": "[EPIC P7] Workflow, audit, and loop prevention",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/10",
+      "updatedAt": "2026-07-11T20:00:06Z"
+    },
+    {
+      "number": 9,
+      "title": "[EPIC P3] Webhook subscription lifecycle",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/9",
+      "updatedAt": "2026-07-11T15:15:19Z"
+    },
+    {
+      "number": 8,
+      "title": "[EPIC P6] Disposable widget JWT and asynchronous API",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/8",
+      "updatedAt": "2026-07-11T15:15:18Z"
+    },
+    {
+      "number": 7,
+      "title": "[EPIC P4] Durable webhook ingress and deduplication",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/7",
+      "updatedAt": "2026-07-11T15:15:17Z"
+    },
+    {
+      "number": 6,
+      "title": "[EPIC P5] PostgreSQL jobs and resilient Worker",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/6",
+      "updatedAt": "2026-07-11T15:15:15Z"
+    },
+    {
+      "number": 5,
+      "title": "[EPIC P2] Unified amoCRM API client",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/5",
+      "updatedAt": "2026-07-11T15:15:14Z"
+    },
+    {
+      "number": 4,
+      "title": "[EPIC P1] Installations, OAuth, and encrypted credentials",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/4",
+      "updatedAt": "2026-07-11T15:15:13Z"
+    },
+    {
+      "number": 3,
+      "title": "[EPIC P0] Docker-first project foundation",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/3",
+      "updatedAt": "2026-07-11T15:15:12Z"
+    },
+    {
+      "number": 2,
+      "title": "[CONTEXT] amoCRM Go backend — current state and invariants",
+      "state": "OPEN",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/2",
+      "updatedAt": "2026-08-30T22:30:34Z"
+    },
+    {
+      "number": 1,
+      "title": "[Codex test] Проверка после подключения",
+      "state": "CLOSED",
+      "url": "https://github.com/sk1fy/amocrm-pro/issues/1",
+      "updatedAt": "2026-07-10T19:49:06Z"
+    }
+  ]
+}

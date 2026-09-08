@@ -62,7 +62,41 @@ func (b *Bridge) Panel(ctx context.Context, p widgetauth.Principal, q serviceapi
 		return serviceapi.Panel{}, err
 	}
 	q.Auth = auth
-	return b.activity.Panel(ctx, q)
+	result, err := b.activity.Panel(ctx, q)
+	if err != nil {
+		return serviceapi.Panel{}, err
+	}
+	if err := serviceapi.RequireQueryVersion(q, result.Data); err != nil {
+		return serviceapi.Panel{}, err
+	}
+	return result, nil
+}
+func (b *Bridge) GetEvent(ctx context.Context, p widgetauth.Principal, eventID string) (serviceapi.Event, error) {
+	request := serviceapi.EventRequest{EventID: eventID}
+	if err := serviceapi.ValidateEventRequest(request); err != nil {
+		return serviceapi.Event{}, err
+	}
+	if presenter, ok := b.activity.(serviceapi.EventPresenter); ok {
+		auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.ActivityService, serviceapi.ActionPanel)
+		if err != nil {
+			return serviceapi.Event{}, err
+		}
+		request.Auth = auth
+		event, err := presenter.EventCard(ctx, request)
+		if err == nil || serviceapi.ErrorCode(err) != serviceapi.Unavailable {
+			return event, err
+		}
+	}
+	auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.EventsService, serviceapi.ActionRead)
+	if err != nil {
+		return serviceapi.Event{}, err
+	}
+	reader, ok := b.events.(serviceapi.EventReader)
+	if !ok {
+		return serviceapi.Event{}, serviceapi.Fail(serviceapi.Unavailable, "event detail reader unavailable")
+	}
+	request.Auth = auth
+	return reader.GetEvent(ctx, request)
 }
 func (b *Bridge) Settings(ctx context.Context, p widgetauth.Principal) (serviceapi.Settings, error) {
 	auth, err := b.auth(ctx, p, uuid.NewString(), serviceapi.ActivityService, serviceapi.ActionSettings)

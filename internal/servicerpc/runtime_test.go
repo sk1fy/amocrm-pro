@@ -12,6 +12,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/gateway"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
+	"github.com/sk1fy/amocrm-pro/internal/servicerpc/pb"
 	"math/big"
 	"net"
 	"net/url"
@@ -47,6 +48,21 @@ func (f *fakeAPI) ListEvents(ctx context.Context, id uuid.UUID, from, to int64, 
 }
 func (f *fakeAPI) GetDirectory(context.Context, uuid.UUID) (amocrm.AccountDirectory, error) {
 	return amocrm.AccountDirectory{Timezone: "Europe/Moscow", Users: []amocrm.DirectoryUser{{ID: 7, Name: "Alice"}}}, nil
+}
+func (f *fakeAPI) ListNotes(context.Context, uuid.UUID, string, []int64) ([]amocrm.Note, error) {
+	return []amocrm.Note{}, nil
+}
+func (f *fakeAPI) ListTasks(context.Context, uuid.UUID, []int64) ([]amocrm.Task, error) {
+	return []amocrm.Task{}, nil
+}
+func (f *fakeAPI) ListPipelines(context.Context, uuid.UUID) ([]amocrm.Pipeline, error) {
+	return []amocrm.Pipeline{}, nil
+}
+func (f *fakeAPI) ListCustomFields(context.Context, uuid.UUID, string) ([]amocrm.CustomField, error) {
+	return []amocrm.CustomField{}, nil
+}
+func (f *fakeAPI) ListEntities(context.Context, uuid.UUID, string, []int64) ([]amocrm.EntityName, error) {
+	return []amocrm.EntityName{}, nil
 }
 
 type certAuthority struct {
@@ -184,6 +200,77 @@ func TestActualMTLSGatewayAndPolicyLocalParity(t *testing.T) {
 	rogue := dialTest(t, ca, address, "unknown")
 	if err := rogue.Ready(context.Background()); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 		t.Fatalf("unknown service identity %v", err)
+	}
+}
+
+func TestActualMTLSGatewayEnrichmentParity(t *testing.T) {
+	ca := newCA(t)
+	scope := serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}
+	_, key, _ := ed25519.GenerateKey(rand.Reader)
+	policy, err := corepolicy.NewWithChecker(&checker{scope: scope}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := gateway.New(&fakeAPI{}, corepolicy.ForCaller(policy, serviceapi.GatewayService))
+	address := start(t, ca, &Endpoints{Policy: policy, Gateway: gw})
+	remote := dialTest(t, ca, address, serviceapi.EventsService)
+	activity := dialTest(t, ca, address, serviceapi.ActivityService)
+	auth, err := remote.Policy.Issue(context.Background(), serviceapi.IssueRequest{Scope: scope, System: true, Consumer: serviceapi.ActivityService, RequestID: "enrich", Grants: []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: serviceapi.ActionNotes}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionTasks}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionPipelines}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionCustomFields}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionEntities}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	notesReq := serviceapi.NotesRequest{Auth: auth, EntityType: "leads", IDs: []int64{1}}
+	localNotes, err := gw.Notes(ctx, notesReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteNotes, err := remote.Gateway.Notes(ctx, notesReq)
+	if err != nil || len(localNotes.Notes) != len(remoteNotes.Notes) {
+		t.Fatalf("notes local=%+v remote=%+v err=%v", localNotes, remoteNotes, err)
+	}
+	tasksReq := serviceapi.TasksRequest{Auth: auth, IDs: []int64{1}}
+	localTasks, err := gw.Tasks(ctx, tasksReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteTasks, err := remote.Gateway.Tasks(ctx, tasksReq)
+	if err != nil || len(localTasks.Tasks) != len(remoteTasks.Tasks) {
+		t.Fatalf("tasks local=%+v remote=%+v err=%v", localTasks, remoteTasks, err)
+	}
+	localPipelines, err := gw.Pipelines(ctx, serviceapi.CatalogRequest{Auth: auth})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remotePipelines, err := remote.Gateway.Pipelines(ctx, serviceapi.CatalogRequest{Auth: auth})
+	if err != nil || len(localPipelines.Pipelines) != len(remotePipelines.Pipelines) || localPipelines.FetchedAt == 0 || remotePipelines.FetchedAt == 0 {
+		t.Fatalf("pipelines local=%+v remote=%+v err=%v", localPipelines, remotePipelines, err)
+	}
+	fieldsReq := serviceapi.CustomFieldsRequest{Auth: auth, EntityType: "leads"}
+	localFields, err := gw.CustomFields(ctx, fieldsReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteFields, err := remote.Gateway.CustomFields(ctx, fieldsReq)
+	if err != nil || len(localFields.Fields) != len(remoteFields.Fields) || localFields.FetchedAt == 0 || remoteFields.FetchedAt == 0 {
+		t.Fatalf("fields local=%+v remote=%+v err=%v", localFields, remoteFields, err)
+	}
+	entitiesReq := serviceapi.EntitiesRequest{Auth: auth, EntityType: "leads", IDs: []int64{1}}
+	localEntities, err := gw.Entities(ctx, entitiesReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteEntities, err := remote.Gateway.Entities(ctx, entitiesReq)
+	if err != nil || len(localEntities.Entities) != len(remoteEntities.Entities) {
+		t.Fatalf("entities local=%+v remote=%+v err=%v", localEntities, remoteEntities, err)
+	}
+	if _, err := activity.Gateway.Notes(ctx, notesReq); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("activity notes %v", err)
+	}
+	for _, method := range []string{pb.Gateway_Notes_FullMethodName + "Extra", pb.Gateway_Tasks_FullMethodName + "Extra", pb.Gateway_Pipelines_FullMethodName + "Extra", pb.Gateway_CustomFields_FullMethodName + "Extra", pb.Gateway_Entities_FullMethodName + "Extra"} {
+		if allowedCaller(method, serviceapi.EventsService) {
+			t.Fatalf("suffix Extra allowed: %s", method)
+		}
 	}
 }
 func TestRPCErrorRetryAfterAndCancellation(t *testing.T) {

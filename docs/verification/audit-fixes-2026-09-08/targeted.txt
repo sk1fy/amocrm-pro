@@ -1,0 +1,560 @@
+=== RUN   TestUserGrantsForLeastPrivilege
+=== RUN   TestUserGrantsForLeastPrivilege/activity/panel
+=== RUN   TestUserGrantsForLeastPrivilege/activity/settings
+=== RUN   TestUserGrantsForLeastPrivilege/activity/operation
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/read
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/status
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/sync
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/operation
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/events
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/notes
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/tasks
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/pipelines
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/custom_fields
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/entities
+=== RUN   TestUserGrantsForLeastPrivilege/activity/sync
+=== RUN   TestUserGrantsForLeastPrivilege//panel
+=== RUN   TestUserGrantsForLeastPrivilege/activity/future
+--- PASS: TestUserGrantsForLeastPrivilege (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/panel (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/settings (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/operation (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/read (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/status (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/sync (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/operation (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/events (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/notes (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/tasks (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/pipelines (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/custom_fields (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/entities (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/sync (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege//panel (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/future (0.00s)
+=== RUN   TestCanonicalOperationKeepsOneSuccessSpelling
+--- PASS: TestCanonicalOperationKeepsOneSuccessSpelling (0.00s)
+=== RUN   TestAutoBucketsUseActualBucketCount
+=== RUN   TestAutoBucketsUseActualBucketCount/aligned_48_hours
+=== RUN   TestAutoBucketsUseActualBucketCount/unaligned_48_hours
+=== RUN   TestAutoBucketsUseActualBucketCount/inclusive_endpoint
+--- PASS: TestAutoBucketsUseActualBucketCount (0.00s)
+    --- PASS: TestAutoBucketsUseActualBucketCount/aligned_48_hours (0.00s)
+    --- PASS: TestAutoBucketsUseActualBucketCount/unaligned_48_hours (0.00s)
+    --- PASS: TestAutoBucketsUseActualBucketCount/inclusive_endpoint (0.00s)
+=== RUN   TestEntityLabelRequiresMatchingKindTypeAndID
+--- PASS: TestEntityLabelRequiresMatchingKindTypeAndID (0.00s)
+=== RUN   TestEventCategoryMatchesFixtureFamilies
+--- PASS: TestEventCategoryMatchesFixtureFamilies (0.00s)
+=== RUN   TestUnknownTypeStaysNeutralAndOriginal
+--- PASS: TestUnknownTypeStaysNeutralAndOriginal (0.00s)
+=== RUN   TestCustomFieldAndRelationPatterns
+--- PASS: TestCustomFieldAndRelationPatterns (0.00s)
+=== RUN   TestRequirePresentationVersion
+--- PASS: TestRequirePresentationVersion (0.00s)
+=== RUN   TestResponseBudgetIsBoundedAndSuggestsSmallerPage
+--- PASS: TestResponseBudgetIsBoundedAndSuggestsSmallerPage (0.03s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/serviceapi	1.046s
+=== RUN   TestRetentionPartialBatchFairnessEmptyAndAtomicRollback
+--- PASS: TestRetentionPartialBatchFairnessEmptyAndAtomicRollback (0.07s)
+=== RUN   TestRetentionSkipsBusySourceAndNeverRewindsFrontier
+--- PASS: TestRetentionSkipsBusySourceAndNeverRewindsFrontier (0.02s)
+=== RUN   TestQueryKeepsCoverageAndEventsInOneRetentionSnapshot
+--- PASS: TestQueryKeepsCoverageAndEventsInOneRetentionSnapshot (0.03s)
+=== RUN   TestBatchDuplicateIDsPreservesSequentialCounters
+--- PASS: TestBatchDuplicateIDsPreservesSequentialCounters (0.02s)
+=== RUN   TestRetentionMigrationRejectsLegacyWithoutSilentClamp
+--- PASS: TestRetentionMigrationRejectsLegacyWithoutSilentClamp (0.02s)
+=== RUN   TestInvalidPageNewSyncRecoversSameWindowWithoutCoverageGap
+2026/09/08 15:39:27 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+--- PASS: TestInvalidPageNewSyncRecoversSameWindowWithoutCoverageGap (0.03s)
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/valid
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/invalid
+2026/09/08 15:39:27 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/fetch_error
+2026/09/08 15:39:27 ERROR CRM Events background operation failed stage=fetch code=internal
+--- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/valid (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/invalid (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/fetch_error (0.00s)
+=== RUN   TestBackgroundDiagnosticsBoundedAndNoPayloads
+--- PASS: TestBackgroundDiagnosticsBoundedAndNoPayloads (0.00s)
+=== RUN   TestPersistenceTimeoutCannotExceedShutdownAllowance
+--- PASS: TestPersistenceTimeoutCannotExceedShutdownAllowance (0.00s)
+=== RUN   TestApplicationDependsOnOwnerRepositoryNotSQL
+--- PASS: TestApplicationDependsOnOwnerRepositoryNotSQL (0.00s)
+=== RUN   TestEnrichSavePageEnqueuesAndGetEventSidecar
+--- PASS: TestEnrichSavePageEnqueuesAndGetEventSidecar (0.04s)
+=== RUN   TestEnrichOnceNotFoundKeepsEventQueryable
+2026/09/08 15:39:27 ERROR CRM Events background operation failed stage=enrich code=not_found
+--- PASS: TestEnrichOnceNotFoundKeepsEventQueryable (0.04s)
+=== RUN   TestEnrichCollectionSavePageWhenNotesError
+--- PASS: TestEnrichCollectionSavePageWhenNotesError (0.03s)
+=== RUN   TestEnrichRetentionCascade
+--- PASS: TestEnrichRetentionCascade (0.02s)
+=== RUN   TestEnrichmentRecoversAfterFastRetriesExhausted
+2026/09/08 15:39:27 ERROR CRM Events background operation failed stage=enrich code=unavailable
+--- PASS: TestEnrichmentRecoversAfterFastRetriesExhausted (0.03s)
+=== RUN   TestEnrichmentClaimAdmissionIsAtomic
+--- PASS: TestEnrichmentClaimAdmissionIsAtomic (2.04s)
+=== RUN   TestEnrichmentPartialBatchSavesHealthyObjects
+--- PASS: TestEnrichmentPartialBatchSavesHealthyObjects (0.07s)
+=== RUN   TestEnrichmentMigrationResumesLegacyTemporaryErrors
+--- PASS: TestEnrichmentMigrationResumesLegacyTemporaryErrors (0.02s)
+=== RUN   TestEnrichmentReauthWaitIsBoundedAndSlow
+--- PASS: TestEnrichmentReauthWaitIsBoundedAndSlow (0.00s)
+=== RUN   TestEnrichmentNegativeCacheExpires
+=== RUN   TestEnrichmentNegativeCacheExpires/permission_denied
+2026/09/08 15:39:29 ERROR CRM Events background operation failed stage=enrich code=permission_denied
+=== RUN   TestEnrichmentNegativeCacheExpires/not_found
+2026/09/08 15:39:29 ERROR CRM Events background operation failed stage=enrich code=not_found
+--- PASS: TestEnrichmentNegativeCacheExpires (0.07s)
+    --- PASS: TestEnrichmentNegativeCacheExpires/permission_denied (0.04s)
+    --- PASS: TestEnrichmentNegativeCacheExpires/not_found (0.04s)
+=== RUN   TestEnrichmentHistoricalNoteIsolation
+--- PASS: TestEnrichmentHistoricalNoteIsolation (0.03s)
+=== RUN   TestEnrichmentReadyTTLAndLargeCatalog
+--- PASS: TestEnrichmentReadyTTLAndLargeCatalog (0.19s)
+=== RUN   TestEnrichmentRefreshMigrationRepairsLegacyObjects
+--- PASS: TestEnrichmentRefreshMigrationRepairsLegacyObjects (0.04s)
+=== RUN   TestEnrichmentNoteEnvelopePreservesMaximumParams
+--- PASS: TestEnrichmentNoteEnvelopePreservesMaximumParams (0.01s)
+=== RUN   TestPlanFixtureCases
+--- PASS: TestPlanFixtureCases (0.00s)
+=== RUN   TestCanonicalEventHashIgnoresSidecar
+--- PASS: TestCanonicalEventHashIgnoresSidecar (0.00s)
+=== RUN   TestEnrichmentErrorMapping
+--- PASS: TestEnrichmentErrorMapping (0.00s)
+=== RUN   TestEnrichOnceDoesNotFailCollectorSource
+--- PASS: TestEnrichOnceDoesNotFailCollectorSource (0.00s)
+=== RUN   TestFactsCallResponsibleUnconfirmed
+--- PASS: TestFactsCallResponsibleUnconfirmed (0.00s)
+=== RUN   TestFactsDoNotInventChatText
+--- PASS: TestFactsDoNotInventChatText (0.00s)
+=== RUN   TestFactsNullLinkStaysUnknown
+--- PASS: TestFactsNullLinkStaysUnknown (0.00s)
+=== RUN   TestFactsTaskAndNoteAndChange
+--- PASS: TestFactsTaskAndNoteAndChange (0.00s)
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_added
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_completed
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_text
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_deadline
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_type
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_result_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_result_embedded
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/call_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/call_embedded
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/note_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/note_embedded
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/chat_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/chat_enriched_candidate
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/sms_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/lead_status
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/budget
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/responsible
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/custom_multivalue
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/custom_masked
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/contact_link
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/contact_unlink
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/attachment_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/lead_added
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/unknown_type
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/unknown_actor
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/system_actor
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/null_payload
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/missing_payload
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/upstream_top_level_extra
+--- PASS: TestFixtureHTTPGatewayJSONBRoundTrip (0.05s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_added (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_completed (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_text (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_deadline (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_type (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_result_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_result_embedded (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/call_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/call_embedded (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/note_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/note_embedded (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/chat_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/chat_enriched_candidate (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/sms_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/lead_status (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/budget (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/responsible (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/custom_multivalue (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/custom_masked (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/contact_link (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/contact_unlink (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/attachment_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/lead_added (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/unknown_type (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/unknown_actor (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/system_actor (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/null_payload (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/missing_payload (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/upstream_top_level_extra (0.00s)
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/exact_both
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/oversize_before
+2026/09/08 15:39:30 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/oversize_after
+2026/09/08 15:39:30 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/negative_contact
+2026/09/08 15:39:30 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+--- PASS: TestEventPayloadBoundsRemainAtomicAtOwner (0.13s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/exact_both (0.07s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/oversize_before (0.02s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/oversize_after (0.02s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/negative_contact (0.02s)
+=== RUN   TestLinkedTalkContactChangeUpdatesOneEventAndDigest
+--- PASS: TestLinkedTalkContactChangeUpdatesOneEventAndDigest (0.03s)
+=== RUN   TestCanonicalEventAbsentContactRetainsLegacyHashBytes
+--- PASS: TestCanonicalEventAbsentContactRetainsLegacyHashBytes (0.00s)
+=== RUN   TestOperationSuccessContractPreservesCompletedStorage
+--- PASS: TestOperationSuccessContractPreservesCompletedStorage (0.02s)
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected_and_unknown
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/default
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/group_excludes_unknown
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/explicit_deleted
+--- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway (0.03s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected_and_unknown (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/default (0.01s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/group_excludes_unknown (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/explicit_deleted (0.00s)
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/first_repeated_hour
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/second_repeated_hour
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/both_repeated_hours
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/spring_skipped_hour
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/25_hour_day
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/fractional_offset
+--- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST (0.11s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/first_repeated_hour (0.02s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/second_repeated_hour (0.02s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/both_repeated_hours (0.02s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/spring_skipped_hour (0.02s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/25_hour_day (0.02s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/fractional_offset (0.02s)
+=== RUN   TestHistoryFiltersOrderAndWholePeriodSummaries
+=== RUN   TestHistoryFiltersOrderAndWholePeriodSummaries/asc
+=== RUN   TestHistoryFiltersOrderAndWholePeriodSummaries/desc
+--- PASS: TestHistoryFiltersOrderAndWholePeriodSummaries (0.03s)
+    --- PASS: TestHistoryFiltersOrderAndWholePeriodSummaries/asc (0.00s)
+    --- PASS: TestHistoryFiltersOrderAndWholePeriodSummaries/desc (0.00s)
+=== RUN   TestHistoryCursorRejectsScopeAndChangedFilters
+--- PASS: TestHistoryCursorRejectsScopeAndChangedFilters (0.02s)
+=== RUN   TestCompactHistoryBoundedAndFullDetailScoped
+--- PASS: TestCompactHistoryBoundedAndFullDetailScoped (1.05s)
+=== RUN   TestHistoryPaginationIsLiveAcrossLateInsertAndDelete
+--- PASS: TestHistoryPaginationIsLiveAcrossLateInsertAndDelete (0.02s)
+=== RUN   TestUnenabledHistoryRetainsReadContract
+--- PASS: TestUnenabledHistoryRetainsReadContract (0.01s)
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/from
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/users
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/types
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/prefix
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/entity_ids
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/compact
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/categories
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/unknown
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/to
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/entity_type
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/order
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/buckets
+--- PASS: TestEventCursorBindsNormalizedQueryAndScope (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/from (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/users (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/types (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/prefix (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/entity_ids (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/compact (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/categories (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/unknown (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/to (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/entity_type (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/order (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/buckets (0.00s)
+=== RUN   TestEventDetailChecksLivePolicyAndResponseBudget
+--- PASS: TestEventDetailChecksLivePolicyAndResponseBudget (0.08s)
+=== RUN   TestCategoryFilterUnknownAuthorsAndTaskMetrics
+--- PASS: TestCategoryFilterUnknownAuthorsAndTaskMetrics (0.02s)
+=== RUN   TestHourBucketsKeepCoverageAndMatchTotals
+--- PASS: TestHourBucketsKeepCoverageAndMatchTotals (0.02s)
+=== RUN   TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction
+--- PASS: TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction (0.03s)
+=== RUN   TestRecentBackfillIslandCannotHideOlderDowntimeGap
+--- PASS: TestRecentBackfillIslandCannotHideOlderDowntimeGap (0.03s)
+=== RUN   TestCommandBoundsAndStableHash
+--- PASS: TestCommandBoundsAndStableHash (0.00s)
+=== RUN   TestDigestDetectsChangedPageAndCanonicalizesJSON
+--- PASS: TestDigestDetectsChangedPageAndCanonicalizesJSON (0.00s)
+=== RUN   TestUnauthorizedLocalCallsDoNotReachStorage
+--- PASS: TestUnauthorizedLocalCallsDoNotReachStorage (0.00s)
+=== RUN   TestInboxLostReplyConflictAndEmptyWindow
+--- PASS: TestInboxLostReplyConflictAndEmptyWindow (0.02s)
+=== RUN   TestPartialPageRestartDedupUpdatesAndSameTimestampCursor
+--- PASS: TestPartialPageRestartDedupUpdatesAndSameTimestampCursor (0.03s)
+=== RUN   TestLeaseFencingAndDisableInvalidateInflightWriter
+--- PASS: TestLeaseFencingAndDisableInvalidateInflightWriter (0.02s)
+=== RUN   TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable
+--- PASS: TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable (0.04s)
+=== RUN   TestTwoSchedulersAndWorkersCannotDuplicateSource
+--- PASS: TestTwoSchedulersAndWorkersCannotDuplicateSource (0.03s)
+=== RUN   TestPolicyUnavailableReauthAndRecoveryRetainCursor
+2026/09/08 15:39:31 ERROR CRM Events background operation failed stage=fetch code=unavailable
+2026/09/08 15:39:31 ERROR CRM Events background operation failed stage=fetch code=reauth_required
+--- PASS: TestPolicyUnavailableReauthAndRecoveryRetainCursor (0.03s)
+=== RUN   TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind
+--- PASS: TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind (0.04s)
+=== RUN   TestInstallationIsolationIncludingSameAccountIntegration
+--- PASS: TestInstallationIsolationIncludingSameAccountIntegration (0.03s)
+=== RUN   TestPageWriteAndContinuationRollbackTogether
+--- PASS: TestPageWriteAndContinuationRollbackTogether (0.03s)
+=== RUN   TestBackfillGlobalBudgetAndCurrentPriority
+--- PASS: TestBackfillGlobalBudgetAndCurrentPriority (0.04s)
+=== RUN   TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics
+--- PASS: TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics (0.02s)
+=== RUN   TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling
+2026/09/08 15:39:32 ERROR CRM Events background operation failed stage=fetch code=reauth_required
+--- PASS: TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling (0.03s)
+=== RUN   TestCoreCommandUUIDIsRecipientOperationID
+--- PASS: TestCoreCommandUUIDIsRecipientOperationID (0.02s)
+=== RUN   TestMetricsMapUnknownStorageStateAndRejectCompletedLease
+--- PASS: TestMetricsMapUnknownStorageStateAndRejectCompletedLease (0.02s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	5.949s
+=== RUN   TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations
+    bootstrap_integration_test.go:12: TEST_DATABASE_URL is not set; run make integration-test
+--- SKIP: TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations (0.00s)
+=== RUN   TestBootstrapRestrictedToCoreAndLiveIntegration
+--- PASS: TestBootstrapRestrictedToCoreAndLiveIntegration (0.00s)
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_empty
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_51
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_duplicate
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_zero
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_unknown
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_empty
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_51
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_duplicate
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_zero
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/fields_unknown
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_empty
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_51
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_duplicate
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_zero
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_unknown
+--- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_empty (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_51 (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_duplicate (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_zero (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_unknown (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_empty (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_51 (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_duplicate (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_zero (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/fields_unknown (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_empty (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_51 (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_duplicate (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_zero (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_unknown (0.00s)
+=== RUN   TestEnrichmentNotesNormalizeEntityType
+--- PASS: TestEnrichmentNotesNormalizeEntityType (0.00s)
+=== RUN   TestEnrichmentPolicyDenyDoesNotCallAPI
+--- PASS: TestEnrichmentPolicyDenyDoesNotCallAPI (0.00s)
+=== RUN   TestEnrichmentMapsUpstreamErrors
+=== RUN   TestEnrichmentMapsUpstreamErrors/not_found
+=== RUN   TestEnrichmentMapsUpstreamErrors/forbidden
+=== RUN   TestEnrichmentMapsUpstreamErrors/rate_limited
+--- PASS: TestEnrichmentMapsUpstreamErrors (0.00s)
+    --- PASS: TestEnrichmentMapsUpstreamErrors/not_found (0.00s)
+    --- PASS: TestEnrichmentMapsUpstreamErrors/forbidden (0.00s)
+    --- PASS: TestEnrichmentMapsUpstreamErrors/rate_limited (0.00s)
+=== RUN   TestEnrichmentPipelinesCacheHitsWithinTTLStillValidate
+--- PASS: TestEnrichmentPipelinesCacheHitsWithinTTLStillValidate (0.00s)
+=== RUN   TestOversizedCatalogIsRejectedBeforeCaching
+--- PASS: TestOversizedCatalogIsRejectedBeforeCaching (0.01s)
+=== RUN   TestEnrichmentReturnsInvalidIDsSeparately
+--- PASS: TestEnrichmentReturnsInvalidIDsSeparately (0.00s)
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/name
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/group
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/total
+--- PASS: TestOversizedDirectoryIsRejectedBeforeCaching (0.01s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/name (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/group (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/total (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/gateway	1.048s
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations
+--- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets (0.11s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration (0.05s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations (0.05s)
+=== RUN   TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic
+--- PASS: TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic (0.11s)
+=== RUN   TestBootstrapCancellationRateLimitAndIdentityMismatch
+--- PASS: TestBootstrapCancellationRateLimitAndIdentityMismatch (0.00s)
+=== RUN   TestClientRefreshesAndRetries401Once
+--- PASS: TestClientRefreshesAndRetries401Once (0.00s)
+=== RUN   TestClientMarksReauthAfterSecond401
+--- PASS: TestClientMarksReauthAfterSecond401 (0.00s)
+=== RUN   TestClientBoundsReauthorizationStatusWrite
+--- PASS: TestClientBoundsReauthorizationStatusWrite (0.02s)
+=== RUN   TestAccountBaseURL
+--- PASS: TestAccountBaseURL (0.00s)
+=== RUN   TestEnrichmentEntityTypeAllowlist
+--- PASS: TestEnrichmentEntityTypeAllowlist (0.00s)
+=== RUN   TestEnrichmentBatchBounds
+--- PASS: TestEnrichmentBatchBounds (0.00s)
+=== RUN   TestListNotesHappyPathMapsLeadToLeads
+--- PASS: TestListNotesHappyPathMapsLeadToLeads (0.00s)
+=== RUN   TestListNotesRejectsEmptyNextPage
+--- PASS: TestListNotesRejectsEmptyNextPage (0.00s)
+=== RUN   TestListNotesRejectsOversizedParams
+=== RUN   TestListNotesRejectsOversizedParams/exact
+=== RUN   TestListNotesRejectsOversizedParams/over
+--- PASS: TestListNotesRejectsOversizedParams (0.01s)
+    --- PASS: TestListNotesRejectsOversizedParams/exact (0.00s)
+    --- PASS: TestListNotesRejectsOversizedParams/over (0.00s)
+=== RUN   TestListNotesRejectsUnexpectedID
+--- PASS: TestListNotesRejectsUnexpectedID (0.00s)
+=== RUN   TestListTasksHappyPath
+--- PASS: TestListTasksHappyPath (0.00s)
+=== RUN   TestListTasksRejectsEmptyNextPage
+--- PASS: TestListTasksRejectsEmptyNextPage (0.00s)
+=== RUN   TestListTasksRejectsOversizedText
+--- PASS: TestListTasksRejectsOversizedText (0.01s)
+=== RUN   TestListPipelinesHappyPath
+--- PASS: TestListPipelinesHappyPath (0.00s)
+=== RUN   TestListPipelinesRejectsEmptyNextPage
+--- PASS: TestListPipelinesRejectsEmptyNextPage (0.00s)
+=== RUN   TestListPipelinesRejectsBounds
+--- PASS: TestListPipelinesRejectsBounds (0.00s)
+=== RUN   TestListCustomFieldsHappyPath
+--- PASS: TestListCustomFieldsHappyPath (0.00s)
+=== RUN   TestListCustomFieldsPaginatesWithoutFollowingHref
+--- PASS: TestListCustomFieldsPaginatesWithoutFollowingHref (0.00s)
+=== RUN   TestListCustomFieldsRejectsEmptyNextPage
+--- PASS: TestListCustomFieldsRejectsEmptyNextPage (0.00s)
+=== RUN   TestListEntitiesHappyPathMapsLeadToLeads
+--- PASS: TestListEntitiesHappyPathMapsLeadToLeads (0.00s)
+=== RUN   TestListEntitiesRejectsEmptyNextPage
+--- PASS: TestListEntitiesRejectsEmptyNextPage (0.00s)
+=== RUN   TestListEntitiesRejectsOversizedName
+--- PASS: TestListEntitiesRejectsOversizedName (0.00s)
+=== RUN   TestEnrichmentIsolatesOversizedItems
+=== RUN   TestEnrichmentIsolatesOversizedItems/notes
+=== RUN   TestEnrichmentIsolatesOversizedItems/tasks
+=== RUN   TestEnrichmentIsolatesOversizedItems/entities
+--- PASS: TestEnrichmentIsolatesOversizedItems (0.01s)
+    --- PASS: TestEnrichmentIsolatesOversizedItems/notes (0.01s)
+    --- PASS: TestEnrichmentIsolatesOversizedItems/tasks (0.01s)
+    --- PASS: TestEnrichmentIsolatesOversizedItems/entities (0.00s)
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_added
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_completed
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_text
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_deadline
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_type
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_embedded
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_embedded
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_embedded
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_enriched_candidate
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/sms_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_status
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/budget
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/responsible
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_multivalue
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_masked
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_link
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_unlink
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/attachment_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_added
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_type
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_actor
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/system_actor
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/null_payload
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/missing_payload
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/upstream_top_level_extra
+--- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON (0.01s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_added (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_completed (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_text (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_deadline (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_type (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_embedded (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_embedded (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_embedded (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_enriched_candidate (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/sms_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_status (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/budget (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/responsible (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_multivalue (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_masked (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_link (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_unlink (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/attachment_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_added (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_type (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_actor (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/system_actor (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/null_payload (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/missing_payload (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/upstream_top_level_extra (0.00s)
+=== RUN   TestEventsPayloadBoundsRejectWholePage
+=== RUN   TestEventsPayloadBoundsRejectWholePage/exact_both
+=== RUN   TestEventsPayloadBoundsRejectWholePage/over_before
+=== RUN   TestEventsPayloadBoundsRejectWholePage/over_after
+=== RUN   TestEventsPayloadBoundsRejectWholePage/negative_contact
+=== RUN   TestEventsPayloadBoundsRejectWholePage/overflow_contact
+--- PASS: TestEventsPayloadBoundsRejectWholePage (0.01s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/exact_both (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/over_before (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/over_after (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/negative_contact (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/overflow_contact (0.00s)
+=== RUN   TestEventsResponseLimitRejectsPageOfIndividuallyBoundedEvents
+--- PASS: TestEventsResponseLimitRejectsPageOfIndividuallyBoundedEvents (0.05s)
+=== RUN   TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL
+--- PASS: TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL (0.00s)
+=== RUN   TestEventsEmptyWindowAndRateLimit
+=== RUN   TestEventsEmptyWindowAndRateLimit/No_Content
+=== RUN   TestEventsEmptyWindowAndRateLimit/Too_Many_Requests
+--- PASS: TestEventsEmptyWindowAndRateLimit (0.02s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/No_Content (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/Too_Many_Requests (0.02s)
+=== RUN   TestDirectoryOnlyUsesBoundedApprovedEndpoints
+--- PASS: TestDirectoryOnlyUsesBoundedApprovedEndpoints (0.00s)
+=== RUN   TestSharedBudgetAcrossExistingWidgetsAndEvents
+--- PASS: TestSharedBudgetAcrossExistingWidgetsAndEvents (3.01s)
+=== RUN   TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels
+--- PASS: TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels (0.01s)
+=== RUN   TestBudgetMetricsTransportFailureCategory
+--- PASS: TestBudgetMetricsTransportFailureCategory (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	4.442s
+=== RUN   TestInvalidEnrichmentIDsSurviveWire
+--- PASS: TestInvalidEnrichmentIDsSurviveWire (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	1.016s

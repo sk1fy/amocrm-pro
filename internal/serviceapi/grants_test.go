@@ -17,7 +17,7 @@ func TestUserGrantsForLeastPrivilege(t *testing.T) {
 		{EventsService, ActionStatus, []Grant{{EventsService, ActionStatus}}},
 		{EventsService, ActionSync, []Grant{{EventsService, ActionSync}}},
 		{EventsService, ActionOperation, []Grant{{EventsService, ActionOperation}}},
-		{GatewayService, ActionEvents, nil}, {ActivityService, ActionSync, nil}, {"", ActionPanel, nil}, {ActivityService, "future", nil},
+		{GatewayService, ActionEvents, nil}, {GatewayService, ActionNotes, nil}, {GatewayService, ActionTasks, nil}, {GatewayService, ActionPipelines, nil}, {GatewayService, ActionCustomFields, nil}, {GatewayService, ActionEntities, nil}, {ActivityService, ActionSync, nil}, {"", ActionPanel, nil}, {ActivityService, "future", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.audience+"/"+c.action, func(t *testing.T) {

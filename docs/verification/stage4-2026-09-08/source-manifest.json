@@ -1,0 +1,28 @@
+{
+  "created_at_utc": "2026-09-08T13:57:56Z",
+  "base_revision": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "files": {
+    "api/openapi.yaml": "55ceb5883c920d86f2d6258318f3b648a6390560f0d2a98b51d613c826f37631",
+    "api/proto/services.proto": "122d8fb917877676326ccc94bbe33f6bfd73b19c2d245faee23538d98eeae63e",
+    "api/proto/generate-adapters.py": "d1d40e483dc1148af87548ae2f4f0a1a3563bb24bf8ec73a27d9344af57b0e94",
+    "docs/adr/0015-activity-presentation-contract.md": "889678f24e875da1ddaac750d0bdf5bb8de2187b43aa99077f016b00bcb66135",
+    "docs/adr/README.md": "592a7a8557ee89a68655a0ee5d7f94deb49fb6cd560d639d132cbff0bcbf7b37",
+    "docs/specs/activity-data-contract.md": "d9cc237cd8f9ce4b028547b53ccb63175d4362483a927d46079e04beaa5dde76",
+    "docs/plans/2026-09-08-activity-backend-development.md": "9a77598771a54891163ab3cf6789220640aa5abc0bcf4713828e0daefb346a56",
+    "internal/serviceapi/contracts.go": "271c3beb329a6deef49dc676860a6722cac4b589149fb903da6929f68c991b3f",
+    "internal/serviceapi/presentation.go": "3a46b581439976736b47df862ec7270ce2276809ea88953a387ec31e5245de37",
+    "internal/serviceapi/event_reads.go": "b0dddf7b39c62747c2b99cd3b6573719509b212d53bc046a8351f79aa51b7a56",
+    "internal/services/activity/service.go": "049a409e3f74d7862ae1a6340e206aa3345d177d5071d5ea3ecb04c314da4a15",
+    "internal/services/activity/view.go": "c6d45f0f7b0b04c5653362b2c1726ca8117c847dad9cdb9f73c9a4dbabdac3a5",
+    "internal/services/crmevents/postgres_read.go": "2d1032412c78e9f6bb727fb4773caa068aab6fc2fa13df838ea552cf4d0d00d4",
+    "internal/services/crmevents/classify.go": "ffe493c0e61b1caa5c1b410fccc3248c6434308bfb05b0e99c7d0f2b4ad80750",
+    "internal/services/crmevents/query.go": "2b3ce0a4f4e6dd2f422aca5dc9451916e150c2a8fa322a1cca65305d1a35e57b",
+    "internal/activitybridge/http.go": "51f1321e9e79bec6480e36d6ba889aa4ac548b54acb4374a33fd4e5e9ebc1fc7",
+    "internal/activitybridge/bridge.go": "d84e858ee64e4ad95ca0c14b47486ac90bc5491341ee19ace9f3d4bbb56a4d31",
+    "internal/servicerpc/conversion.go": "59f58008b668160aa4cf60fad700b4996700e20590fdf698b52dda1d68b5e8dd",
+    "internal/servicerpc/adapters.go": "801b114d383b0145526089ed05eccbfc4f8a7fc5792999d999f5b0a74075fb03",
+    "examples/activity-v0/panel.mjs": "21b99b3eed2dba7e1aea5988290deb5e5f417aae34c7b5471aa4f55c8b72b9c5",
+    "docs/verification/stage4-2026-09-08/README.md": "0f2c7b886e5420c2b223d92ad5ae2662cd75f87794c137f1c980822b8043d4df",
+    "docs/verification/stage4-2026-09-08/checks.json": "5356b9fc424337b391c3c86f07ce2b19e22e7dd52f606eaab5066ac596262377"
+  }
+}

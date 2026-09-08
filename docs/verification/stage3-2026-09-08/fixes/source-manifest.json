@@ -1,0 +1,9 @@
+{
+  "internal/services/crmevents/enrichment.go": "fe0309a48ea7612fdf3f65b836eecb89efeaf3deec1d2cf29845e6903470a70f",
+  "internal/services/crmevents/postgres_enrichment.go": "5ef5d2f571ad79fb4d6fe0e224983256d19b2c3fc8afa9b98c1ad52e481fce0d",
+  "internal/services/crmevents/postgres_read.go": "18fc9e802e7c051245e115cfb550b5d5a9477d5cb340ac3c9ae42d851d934b63",
+  "internal/services/crmevents/enrichment_integration_test.go": "d14fa6207af003350898cbaacfc83b5b90e1a954159f2ea0bd677c17be96120e",
+  "internal/services/crmevents/enrichment_regression_integration_test.go": "29308e45d42ab38573c987f6321c5cb74f7493fef4fb94273f6887e9947fa5ac",
+  "migrations/crmevents/000005_enrichment_refresh.up.sql": "98a1822b07178832f3afa49335327bc946b2859c131d15c8cb4004539939f8a1",
+  "migrations/crmevents/000005_enrichment_refresh.down.sql": "acd33c60cb4b3e2b62982378d23cd51688a86527bd59c5a80ea690f23d048cf4"
+}

@@ -1,0 +1,19 @@
+{
+  "completed_at_utc": "2026-09-08T13:55:00Z",
+  "base_revision": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "activity_ci_exit_code": 0,
+  "activity_ci_project": "amocrm-stage4-test",
+  "go_top_level_pass": 170,
+  "go_top_level_skip": ["TestFaultGatewayFixture", "TestFaultReceiverFixture", "TestProcessGatewayFixture"],
+  "ui_pass": 5,
+  "ui_fail": 0,
+  "runtime_deployed": false,
+  "database_scope": "Disposable amocrm-stage4-test *_test databases only",
+  "fixture_cases": 29,
+  "owner_migration": null,
+  "read_version": 3,
+  "interpretation_version": 1,
+  "earlier_runs": [
+    "First activity-ci failed TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation (read_version 3 required after default unknown authors) and TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/legacy,compact (29 events including created_by 0 and 71999 vs 27 directory-only). Fixed tests and unknown-author SQL."
+  ]
+}

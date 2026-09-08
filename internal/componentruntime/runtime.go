@@ -165,6 +165,7 @@ func StartAPI(ctx context.Context, c Config, core *pgxpool.Pool, reg prometheus.
 		eCfg := crmevents.DefaultConfig()
 		eCfg.Workers = c.EventsWorkers
 		eCfg.PollInterval = c.PollInterval
+		eCfg.DisableEnrichment = c.DisableEnrichment
 		collector := crmevents.New(ePool, eClient.Policy, eClient.Gateway, eCfg)
 		if reg != nil {
 			reg.MustRegister(collector.Collector())
@@ -328,6 +329,7 @@ func RunStandalone(ctx context.Context, role string) error {
 		cfg := crmevents.DefaultConfig()
 		cfg.Workers = c.EventsWorkers
 		cfg.PollInterval = c.PollInterval
+		cfg.DisableEnrichment = c.DisableEnrichment
 		events := crmevents.New(pool, client.Policy, g.components.Gateway(), cfg)
 		reg.MustRegister(events.Collector())
 		if err := g.components.Register(role, events, ownedPlacement("grpc", c.EventsPool, c.EventsWorkers), pool.Ping); err != nil {

@@ -1,0 +1,21 @@
+{
+  "completed_at_utc": "2026-09-08T15:45:56.267720+00:00",
+  "base_revision": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "activity_ci_project": "amocrm-audit-fixes-test",
+  "activity_ci_exit_code": 0,
+  "go_top_level_pass": 182,
+  "go_top_level_skip": [
+    "TestFaultGatewayFixture",
+    "TestFaultReceiverFixture",
+    "TestProcessGatewayFixture"
+  ],
+  "ui_pass": 21,
+  "ui_fail": 0,
+  "ui_skip": 0,
+  "vet_workspace": "PASS",
+  "gofmt_workspace": "PASS",
+  "owner_migration": "000006_enrichment_retry_recovery",
+  "runtime_deployed": false,
+  "verified_source_manifest": "source-manifest.json",
+  "report": "README.md"
+}

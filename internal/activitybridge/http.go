@@ -12,13 +12,14 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
 func Routes() []apicontract.Route {
-	return []apicontract.Route{apicontract.ActivityPanel, apicontract.ActivityStatus, apicontract.ActivitySettings, apicontract.ActivityConfigure, apicontract.ActivitySync, apicontract.ActivityOperation}
+	return []apicontract.Route{apicontract.ActivityEvent, apicontract.ActivityPanel, apicontract.ActivityStatus, apicontract.ActivitySettings, apicontract.ActivityConfigure, apicontract.ActivitySync, apicontract.ActivityOperation}
 }
 
 // RegisterHTTP uses the existing JWT/CORS/rate middleware. Read middleware must
@@ -29,7 +30,7 @@ func (b *Bridge) RegisterHTTP(router chi.Router, readMiddleware, commandMiddlewa
 		handler http.HandlerFunc
 		write   bool
 	}{
-		{apicontract.ActivityPanel, b.PanelHTTP, false}, {apicontract.ActivityStatus, b.StatusHTTP, false},
+		{apicontract.ActivityEvent, b.EventHTTP, false}, {apicontract.ActivityPanel, b.PanelHTTP, false}, {apicontract.ActivityStatus, b.StatusHTTP, false},
 		{apicontract.ActivitySettings, b.SettingsHTTP, false}, {apicontract.ActivityConfigure, b.ConfigureHTTP, true},
 		{apicontract.ActivitySync, b.SyncHTTP, true}, {apicontract.ActivityOperation, b.OperationHTTP, false},
 	} {
@@ -48,6 +49,20 @@ func (b *Bridge) RegisterHTTP(router chi.Router, readMiddleware, commandMiddlewa
 	}
 }
 
+func (b *Bridge) EventHTTP(w http.ResponseWriter, r *http.Request) {
+	p, ok := principal(w, r)
+	if !ok {
+		return
+	}
+	if r.URL.RawQuery != "" {
+		writeError(w, serviceapi.Fail(serviceapi.InvalidArgument, "event detail accepts no query parameters"))
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	result, err := b.GetEvent(ctx, p, chi.URLParam(r, "eventID"))
+	respond(w, http.StatusOK, result, err)
+}
 func (b *Bridge) PanelHTTP(w http.ResponseWriter, r *http.Request) {
 	p, ok := principal(w, r)
 	if !ok {
@@ -174,8 +189,11 @@ func decode(w http.ResponseWriter, r *http.Request, into any) error {
 	return nil
 }
 func decodeQuery(r *http.Request) (serviceapi.Query, error) {
-	values := r.URL.Query()
-	allowed := map[string]bool{"from": true, "to": true, "user_ids": true, "limit": true, "cursor": true}
+	values, parseErr := url.ParseQuery(r.URL.RawQuery)
+	if parseErr != nil {
+		return serviceapi.Query{}, serviceapi.Fail(serviceapi.InvalidArgument, "malformed query parameters")
+	}
+	allowed := map[string]bool{"from": true, "to": true, "user_ids": true, "limit": true, "cursor": true, "types": true, "type_prefix": true, "entity_type": true, "entity_ids": true, "order": true, "compact": true, "categories": true, "include_unknown_authors": true, "buckets": true, "group_id": true}
 	for key, value := range values {
 		if !allowed[key] || len(value) != 1 {
 			return serviceapi.Query{}, serviceapi.Fail(serviceapi.InvalidArgument, "unknown or repeated query parameter")
@@ -206,6 +224,44 @@ func decodeQuery(r *http.Request) (serviceapi.Query, error) {
 			seen[id] = true
 			query.UserIDs = append(query.UserIDs, id)
 		}
+	}
+	if raw := values.Get("types"); raw != "" {
+		query.Types = strings.Split(raw, ",")
+	}
+	query.TypePrefix = values.Get("type_prefix")
+	query.EntityType = values.Get("entity_type")
+	query.Order = values.Get("order")
+	if raw := values.Get("entity_ids"); raw != "" {
+		for _, entry := range strings.Split(raw, ",") {
+			id, err := strconv.ParseInt(entry, 10, 64)
+			if err != nil {
+				return serviceapi.Query{}, serviceapi.Fail(serviceapi.InvalidArgument, "entity_ids must be positive IDs")
+			}
+			query.EntityIDs = append(query.EntityIDs, id)
+		}
+	}
+	if raw, present := values["compact"]; present {
+		if raw[0] != "true" && raw[0] != "false" {
+			return serviceapi.Query{}, serviceapi.Fail(serviceapi.InvalidArgument, "compact must be true or false")
+		}
+		query.Compact = raw[0] == "true"
+	}
+	if raw := values.Get("categories"); raw != "" {
+		query.Categories = strings.Split(raw, ",")
+	}
+	if raw, present := values["include_unknown_authors"]; present {
+		if raw[0] != "true" && raw[0] != "false" {
+			return serviceapi.Query{}, serviceapi.Fail(serviceapi.InvalidArgument, "include_unknown_authors must be true or false")
+		}
+		query.IncludeUnknownAuthors = raw[0] == "true"
+	}
+	query.Buckets = values.Get("buckets")
+	if raw := values.Get("group_id"); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || id <= 0 {
+			return serviceapi.Query{}, serviceapi.Fail(serviceapi.InvalidArgument, "group_id must be a positive ID")
+		}
+		query.GroupID = id
 	}
 	return query, serviceapi.ValidateQuery(query)
 }

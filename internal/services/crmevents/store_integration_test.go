@@ -43,6 +43,21 @@ func (g *testGateway) Events(_ context.Context, r serviceapi.EventPageRequest) (
 func (g *testGateway) Users(context.Context, serviceapi.UsersRequest) (serviceapi.Directory, error) {
 	return serviceapi.Directory{}, nil
 }
+func (g *testGateway) Notes(context.Context, serviceapi.NotesRequest) (serviceapi.NotePage, error) {
+	return serviceapi.NotePage{}, serviceapi.Fail(serviceapi.Unavailable, "enrichment fixture unavailable")
+}
+func (g *testGateway) Tasks(context.Context, serviceapi.TasksRequest) (serviceapi.TaskPage, error) {
+	return serviceapi.TaskPage{}, serviceapi.Fail(serviceapi.Unavailable, "enrichment fixture unavailable")
+}
+func (g *testGateway) Pipelines(context.Context, serviceapi.CatalogRequest) (serviceapi.PipelineCatalog, error) {
+	return serviceapi.PipelineCatalog{}, serviceapi.Fail(serviceapi.Unavailable, "enrichment fixture unavailable")
+}
+func (g *testGateway) CustomFields(context.Context, serviceapi.CustomFieldsRequest) (serviceapi.CustomFieldCatalog, error) {
+	return serviceapi.CustomFieldCatalog{}, serviceapi.Fail(serviceapi.Unavailable, "enrichment fixture unavailable")
+}
+func (g *testGateway) Entities(context.Context, serviceapi.EntitiesRequest) (serviceapi.EntityCatalog, error) {
+	return serviceapi.EntityCatalog{}, serviceapi.Fail(serviceapi.Unavailable, "enrichment fixture unavailable")
+}
 
 func eventsPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()

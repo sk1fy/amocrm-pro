@@ -43,21 +43,40 @@ type fakeEvents struct {
 	calls  int
 	query  serviceapi.Query
 	status serviceapi.SyncStatus
+	result serviceapi.QueryResult
+	event  serviceapi.Event
+}
+
+func (e *fakeEvents) Status(context.Context, serviceapi.Auth) (serviceapi.SyncStatus, error) {
+	return e.status, nil
 }
 
 func (e *fakeEvents) Query(_ context.Context, q serviceapi.Query) (serviceapi.QueryResult, error) {
 	e.calls++
 	e.query = q
-	return serviceapi.QueryResult{Status: e.status, Summaries: []serviceapi.UserSummary{{UserID: 7}}}, nil
+	if len(e.result.Events) > 0 || len(e.result.Summaries) > 0 || e.result.ReadVersion != 0 {
+		if e.result.ReadVersion == 0 {
+			e.result.ReadVersion = serviceapi.PresentationReadVersion
+		}
+		if e.result.Status == (serviceapi.SyncStatus{}) {
+			e.result.Status = e.status
+		}
+		return e.result, nil
+	}
+	return serviceapi.QueryResult{ReadVersion: serviceapi.PresentationReadVersion, Status: e.status, Summaries: []serviceapi.UserSummary{{UserID: 7}}}, nil
 }
 
 type fakeGateway struct {
 	serviceapi.Gateway
 	calls int
+	users []serviceapi.User
 }
 
 func (g *fakeGateway) Users(context.Context, serviceapi.UsersRequest) (serviceapi.Directory, error) {
 	g.calls++
+	if len(g.users) > 0 {
+		return serviceapi.Directory{Users: g.users, Timezone: "Europe/Moscow"}, nil
+	}
 	return serviceapi.Directory{Users: []serviceapi.User{{ID: 7, Name: "Test"}, {ID: 9, Name: "Other"}}, Timezone: "Europe/Moscow"}, nil
 }
 
@@ -72,25 +91,26 @@ func TestPanelUsesBoundedBatchAndExplicitCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if events.calls != 1 || gateway.calls != 1 || len(events.query.UserIDs) != 2 || events.query.Limit != 100 {
+	if events.calls != 1 || gateway.calls != 1 || len(events.query.UserIDs) != 2 || events.query.Limit != 100 || !events.query.IncludeUnknownAuthors {
 		t.Fatalf("unbounded/per-user calls: %+v %+v", events, gateway)
 	}
-	if panel.Coverage != "unknown" {
-		t.Fatalf("missing history presented as %q", panel.Coverage)
+	if panel.Coverage != "unknown" || panel.Freshness != "current" {
+		t.Fatalf("missing history presented as coverage=%q freshness=%q", panel.Coverage, panel.Freshness)
 	}
 	for _, test := range []struct {
-		status serviceapi.SyncStatus
-		want   string
+		status    serviceapi.SyncStatus
+		coverage  string
+		freshness string
 	}{
-		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 150}, "partial"},
-		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 200, LagSeconds: 601}, "stale"},
-		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 200, ReauthRequired: true}, "stale"},
-		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 200}, "verified"},
+		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 150}, "partial", "current"},
+		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 200, LagSeconds: 601}, "verified", "lagging"},
+		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 200, ReauthRequired: true}, "verified", "reauth_required"},
+		{serviceapi.SyncStatus{VerifiedFrom: 100, HistoryFrom: 100, VerifiedThrough: 200}, "verified", "current"},
 	} {
 		events.status = test.status
 		panel, err = s.Panel(context.Background(), query)
-		if err != nil || panel.Coverage != test.want {
-			t.Fatalf("coverage=%s err=%v want %s", panel.Coverage, err, test.want)
+		if err != nil || panel.Coverage != test.coverage || panel.Freshness != test.freshness {
+			t.Fatalf("coverage=%s freshness=%s err=%v want %s/%s", panel.Coverage, panel.Freshness, err, test.coverage, test.freshness)
 		}
 	}
 }

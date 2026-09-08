@@ -2,6 +2,11 @@ package servicerpc
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/corepolicy"
+	"github.com/sk1fy/amocrm-pro/internal/gateway"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc/pb"
 	"sync/atomic"
@@ -58,6 +63,52 @@ func TestCRMEventsMTLSActivityCannotApply(t *testing.T) {
 	for _, method := range []string{pb.CRMEvents_Apply_FullMethodName, "/amocrm.services.v1.CRMEvents/FutureMutation", pb.CRMEvents_QueryEvents_FullMethodName + "Extra"} {
 		if allowedCaller(method, serviceapi.ActivityService) {
 			t.Fatalf("unrecognized/mutating method allowed: %s", method)
+		}
+	}
+}
+
+func TestGatewayEnrichmentMTLSAllowsOnlyCRMEvents(t *testing.T) {
+	ca := newCA(t)
+	scope := serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}
+	_, key, _ := ed25519.GenerateKey(rand.Reader)
+	policy, err := corepolicy.NewWithChecker(&checker{scope: scope}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := gateway.New(&fakeAPI{}, corepolicy.ForCaller(policy, serviceapi.GatewayService))
+	address := start(t, ca, &Endpoints{Policy: policy, Gateway: gw})
+	auth, err := dialTest(t, ca, address, serviceapi.EventsService).Policy.Issue(context.Background(), serviceapi.IssueRequest{Scope: scope, System: true, Consumer: serviceapi.ActivityService, RequestID: "enrich-acl", Grants: []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: serviceapi.ActionNotes}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionTasks}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionPipelines}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionCustomFields}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionEntities}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	notes := serviceapi.NotesRequest{Auth: auth, EntityType: "leads", IDs: []int64{1}}
+	tasks := serviceapi.TasksRequest{Auth: auth, IDs: []int64{1}}
+	pipelines := serviceapi.CatalogRequest{Auth: auth}
+	fields := serviceapi.CustomFieldsRequest{Auth: auth, EntityType: "leads"}
+	entities := serviceapi.EntitiesRequest{Auth: auth, EntityType: "leads", IDs: []int64{1}}
+	for _, identity := range []string{serviceapi.CoreService, serviceapi.ActivityService, serviceapi.GatewayService, serviceapi.EventsService} {
+		client := dialTest(t, ca, address, identity).Gateway
+		for _, call := range []func() error{
+			func() error { _, err := client.Notes(ctx, notes); return err },
+			func() error { _, err := client.Tasks(ctx, tasks); return err },
+			func() error { _, err := client.Pipelines(ctx, pipelines); return err },
+			func() error { _, err := client.CustomFields(ctx, fields); return err },
+			func() error { _, err := client.Entities(ctx, entities); return err },
+		} {
+			err := call()
+			if identity == serviceapi.EventsService {
+				if err != nil {
+					t.Fatalf("crm-events denied: %v", err)
+				}
+			} else if serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+				t.Fatalf("%s reached enrichment: %v", identity, err)
+			}
+		}
+	}
+	for _, method := range []string{pb.Gateway_Notes_FullMethodName + "Extra", pb.Gateway_Tasks_FullMethodName + "Extra", pb.Gateway_Pipelines_FullMethodName + "Extra", pb.Gateway_CustomFields_FullMethodName + "Extra", pb.Gateway_Entities_FullMethodName + "Extra"} {
+		if allowedCaller(method, serviceapi.EventsService) {
+			t.Fatalf("suffix Extra allowed: %s", method)
 		}
 	}
 }

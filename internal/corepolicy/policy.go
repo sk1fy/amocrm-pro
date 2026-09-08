@@ -111,7 +111,17 @@ func (s *Service) Issue(ctx context.Context, r serviceapi.IssueRequest) (service
 }
 func allowedGrant(g serviceapi.Grant, system bool) bool {
 	if system {
-		return (g.Audience == serviceapi.GatewayService && g.Action == serviceapi.ActionEvents) || (g.Audience == serviceapi.EventsService && (g.Action == serviceapi.ActionSync || g.Action == serviceapi.ActionStatus))
+		if g.Audience == serviceapi.EventsService && (g.Action == serviceapi.ActionSync || g.Action == serviceapi.ActionStatus) {
+			return true
+		}
+		if g.Audience != serviceapi.GatewayService {
+			return false
+		}
+		switch g.Action {
+		case serviceapi.ActionEvents, serviceapi.ActionNotes, serviceapi.ActionTasks, serviceapi.ActionPipelines, serviceapi.ActionCustomFields, serviceapi.ActionEntities:
+			return true
+		}
+		return false
 	}
 	switch g.Audience {
 	case serviceapi.ActivityService:

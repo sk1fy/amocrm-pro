@@ -1,0 +1,87 @@
+✖ review: yesterday includes its last 59 seconds (31.823792ms)
+✖ review: drill in and back restores both selected employees (3.663375ms)
+✖ review: transient detail failure can recover after refresh (2.874166ms)
+✖ review: site reloads pending enrichment after refresh (0.5285ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 94.019125
+
+✖ failing tests:
+
+test at tmp/stage5-review/repro.test.mjs:73:1
+✖ review: yesterday includes its last 59 seconds (31.823792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 1788814740
+  - 1788814799
+            ^
+  
+      at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:78:9)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1788814740,
+    expected: 1788814799,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tmp/stage5-review/repro.test.mjs:81:1
+✖ review: drill in and back restores both selected employees (3.663375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '7' !== '7,9'
+  
+      at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:87:9)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '7',
+    expected: '7,9',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tmp/stage5-review/repro.test.mjs:90:1
+✖ review: transient detail failure can recover after refresh (2.874166ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:94:9)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tmp/stage5-review/repro.test.mjs:98:1
+✖ review: site reloads pending enrichment after refresh (0.5285ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'pending'
+  - 'available'
+  
+      at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:102:9)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'pending',
+    expected: 'available',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

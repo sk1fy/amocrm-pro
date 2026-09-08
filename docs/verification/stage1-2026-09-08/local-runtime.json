@@ -1,0 +1,162 @@
+{
+  "captured_at_utc": "2026-09-08T10:52:40.419433+00:00",
+  "scope": "Local Docker only; target remote server not yet supplied",
+  "git_head": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "branch": "main",
+  "containers": [
+    {
+      "service": "api",
+      "name": "amocrm-activity-api-1",
+      "image_id": "sha256:d9abc974765b294b6394472538f6cb7aa1a4f0867776d14f360506bbc392cc08",
+      "image_tag": "amocrm-activity-api",
+      "container_created": "2026-09-06T14:37:43.39831626Z",
+      "started_at": "2026-09-06T14:38:45.04082286Z",
+      "health": "healthy",
+      "image_revision_label": null,
+      "compose_project": "amocrm-activity",
+      "binary_sha256": "91781b451cde7132b7fa0c2ffb7124e0ff51fc659173a25a1d6f29195fdb8fa8",
+      "go_version": "go1.25.12",
+      "vcs_build_settings": {}
+    },
+    {
+      "service": "worker",
+      "name": "amocrm-activity-worker-1",
+      "image_id": "sha256:807dc3ec2d3f43e42d2ca96317637c6aa185f3ad1bb3076f4f04e6ca46beaac6",
+      "image_tag": "amocrm-activity-worker",
+      "container_created": "2026-09-06T14:37:43.398147093Z",
+      "started_at": "2026-09-06T14:37:45.04861309Z",
+      "health": "healthy",
+      "image_revision_label": null,
+      "compose_project": "amocrm-activity",
+      "binary_sha256": "805bb1b214de1c0ed3797103a3a73ba42114b3e0a197ac452549dff056bc0cc7",
+      "go_version": "go1.25.12",
+      "vcs_build_settings": {}
+    },
+    {
+      "service": "activity",
+      "name": "amocrm-activity-activity-1",
+      "image_id": "sha256:cd7bcc075c638c046ae62e45c4d8ca8d294cadf9174405fd50a4afda1fedd5c8",
+      "image_tag": "amocrm-activity-activity",
+      "container_created": "2026-09-06T14:37:43.709002501Z",
+      "started_at": "2026-09-06T14:38:48.074187123Z",
+      "health": "healthy",
+      "image_revision_label": null,
+      "compose_project": "amocrm-activity",
+      "binary_sha256": "b01197cf514420447ab354b95bc6899ff58f4f3208c0b1c253c966893782769e",
+      "go_version": "go1.25.12",
+      "vcs_build_settings": {}
+    },
+    {
+      "service": "crm-events",
+      "name": "amocrm-activity-crm-events-1",
+      "image_id": "sha256:86b589e7de192272fe0b2d46a57c1b0766763e9d3cacaa82dba2592fb7974d92",
+      "image_tag": "amocrm-activity-crm-events",
+      "container_created": "2026-09-06T14:37:43.589265421Z",
+      "started_at": "2026-09-06T14:37:50.688505377Z",
+      "health": "healthy",
+      "image_revision_label": null,
+      "compose_project": "amocrm-activity",
+      "binary_sha256": "e843f61cc90ed95fe3c2b98c29af6535647f6fea72bed19cb4f599416328b1d5",
+      "go_version": "go1.25.12",
+      "vcs_build_settings": {}
+    },
+    {
+      "service": "postgres",
+      "name": "amocrm-activity-postgres-1",
+      "image_id": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+      "image_tag": "postgres:17-alpine",
+      "container_created": "2026-09-06T11:56:11.500567553Z",
+      "started_at": "2026-09-06T11:56:11.560386612Z",
+      "health": "healthy",
+      "image_revision_label": null,
+      "compose_project": "amocrm-activity"
+    }
+  ],
+  "migrations": {
+    "core": {
+      "database": "amocrm_core",
+      "applied": [
+        {
+          "version": "000001_init.up.sql",
+          "checksum": "5f6e6f734339b91f3c42908b3eea75afc1aa417cf862207b253c789a0d88e0e6",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000002_widget_action_hardening.up.sql",
+          "checksum": "fb1953453e56bdef47c7cd3aba3e667c9f6d3e048da858da1fc2d116c3406066",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000003_webhook_workflow_correlation.up.sql",
+          "checksum": "1abb7ee840c125792e31bac73762e395391cb6b8d36f8961e0989f0547de5cf7",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000004_webhook_payload_retention.up.sql",
+          "checksum": "9d8fe177c6bb45009468936f5d77ad69fd3792bae170a0c6bf697993b6386c40",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000005_lead_status_rule_management.up.sql",
+          "checksum": "a5bb18ec3424b90c72770071d1721b8f5688aa9cd9010078d87a588497d62d2a",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000006_statement_updated_at.up.sql",
+          "checksum": "659288411db3be4bfaebeff49dd2112ce5388cbd237b3e0b3b112426e1428dee",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000007_integration_services.up.sql",
+          "checksum": "2488a5d82e97995d3975a68b19f24b37b1e634f877353491d1378de76a6d26d6",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000008_oauth_state_cleanup.up.sql",
+          "checksum": "c55fe949016cfede957135bde2461f66031cdd7bcdc90ac6805d8a47eb48521e",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000009_fair_job_claims.up.sql",
+          "checksum": "2b06a4cca45eccf53df6a0073dc74664efb1c8c86797168554bac8298502549e",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000010_job_scheduler_indexes.up.sql",
+          "checksum": "5a66de0ad454ad2cfd6ba6e325522b2e4f9aa69e3cad388554fe1d761a3aaf40",
+          "matches_current_up_file": true
+        },
+        {
+          "version": "000011_activity_delivery.up.sql",
+          "checksum": "50e680a337c2d61f6a871a3d0b3d5a7a856a5098fbc8f1ccf9180449f7c65a83",
+          "matches_current_up_file": true
+        }
+      ],
+      "not_applied_from_current_checkout": []
+    },
+    "activity": {
+      "database": "amocrm_activity",
+      "applied": [
+        {
+          "version": "000001_settings.up.sql",
+          "checksum": "b9b9fcddfa3e9e6afc5f9ea5b2e7d5e436257e753fbb7587c16fd5b33f257175",
+          "matches_current_up_file": true
+        }
+      ],
+      "not_applied_from_current_checkout": []
+    },
+    "crm-events": {
+      "database": "amocrm_events",
+      "applied": [
+        {
+          "version": "000001_crm_events.up.sql",
+          "checksum": "7c576c6113b1992f4c877bb050f8a80972b3e09455e6f9e89582ec9a3e877453",
+          "matches_current_up_file": true
+        }
+      ],
+      "not_applied_from_current_checkout": [
+        "000002_retention_consistency.up.sql"
+      ]
+    }
+  }
+}

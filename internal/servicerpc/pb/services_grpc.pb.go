@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.31.1
-// source: api/proto/services.proto
+// source: services.proto
 
 package pb
 
@@ -155,12 +155,17 @@ var Policy_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/services.proto",
+	Metadata: "services.proto",
 }
 
 const (
-	Gateway_Events_FullMethodName = "/amocrm.services.v1.Gateway/Events"
-	Gateway_Users_FullMethodName  = "/amocrm.services.v1.Gateway/Users"
+	Gateway_Events_FullMethodName       = "/amocrm.services.v1.Gateway/Events"
+	Gateway_Users_FullMethodName        = "/amocrm.services.v1.Gateway/Users"
+	Gateway_Notes_FullMethodName        = "/amocrm.services.v1.Gateway/Notes"
+	Gateway_Tasks_FullMethodName        = "/amocrm.services.v1.Gateway/Tasks"
+	Gateway_Pipelines_FullMethodName    = "/amocrm.services.v1.Gateway/Pipelines"
+	Gateway_CustomFields_FullMethodName = "/amocrm.services.v1.Gateway/CustomFields"
+	Gateway_Entities_FullMethodName     = "/amocrm.services.v1.Gateway/Entities"
 )
 
 // GatewayClient is the client API for Gateway service.
@@ -169,6 +174,11 @@ const (
 type GatewayClient interface {
 	Events(ctx context.Context, in *EventPageRequest, opts ...grpc.CallOption) (*EventPage, error)
 	Users(ctx context.Context, in *UsersRequest, opts ...grpc.CallOption) (*Directory, error)
+	Notes(ctx context.Context, in *NotesRequest, opts ...grpc.CallOption) (*NotePage, error)
+	Tasks(ctx context.Context, in *TasksRequest, opts ...grpc.CallOption) (*TaskPage, error)
+	Pipelines(ctx context.Context, in *CatalogRequest, opts ...grpc.CallOption) (*PipelineCatalog, error)
+	CustomFields(ctx context.Context, in *CustomFieldsRequest, opts ...grpc.CallOption) (*CustomFieldCatalog, error)
+	Entities(ctx context.Context, in *EntitiesRequest, opts ...grpc.CallOption) (*EntityCatalog, error)
 }
 
 type gatewayClient struct {
@@ -199,12 +209,67 @@ func (c *gatewayClient) Users(ctx context.Context, in *UsersRequest, opts ...grp
 	return out, nil
 }
 
+func (c *gatewayClient) Notes(ctx context.Context, in *NotesRequest, opts ...grpc.CallOption) (*NotePage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NotePage)
+	err := c.cc.Invoke(ctx, Gateway_Notes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) Tasks(ctx context.Context, in *TasksRequest, opts ...grpc.CallOption) (*TaskPage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskPage)
+	err := c.cc.Invoke(ctx, Gateway_Tasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) Pipelines(ctx context.Context, in *CatalogRequest, opts ...grpc.CallOption) (*PipelineCatalog, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PipelineCatalog)
+	err := c.cc.Invoke(ctx, Gateway_Pipelines_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) CustomFields(ctx context.Context, in *CustomFieldsRequest, opts ...grpc.CallOption) (*CustomFieldCatalog, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CustomFieldCatalog)
+	err := c.cc.Invoke(ctx, Gateway_CustomFields_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) Entities(ctx context.Context, in *EntitiesRequest, opts ...grpc.CallOption) (*EntityCatalog, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EntityCatalog)
+	err := c.cc.Invoke(ctx, Gateway_Entities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GatewayServer is the server API for Gateway service.
 // All implementations must embed UnimplementedGatewayServer
 // for forward compatibility.
 type GatewayServer interface {
 	Events(context.Context, *EventPageRequest) (*EventPage, error)
 	Users(context.Context, *UsersRequest) (*Directory, error)
+	Notes(context.Context, *NotesRequest) (*NotePage, error)
+	Tasks(context.Context, *TasksRequest) (*TaskPage, error)
+	Pipelines(context.Context, *CatalogRequest) (*PipelineCatalog, error)
+	CustomFields(context.Context, *CustomFieldsRequest) (*CustomFieldCatalog, error)
+	Entities(context.Context, *EntitiesRequest) (*EntityCatalog, error)
 	mustEmbedUnimplementedGatewayServer()
 }
 
@@ -220,6 +285,21 @@ func (UnimplementedGatewayServer) Events(context.Context, *EventPageRequest) (*E
 }
 func (UnimplementedGatewayServer) Users(context.Context, *UsersRequest) (*Directory, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Users not implemented")
+}
+func (UnimplementedGatewayServer) Notes(context.Context, *NotesRequest) (*NotePage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Notes not implemented")
+}
+func (UnimplementedGatewayServer) Tasks(context.Context, *TasksRequest) (*TaskPage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Tasks not implemented")
+}
+func (UnimplementedGatewayServer) Pipelines(context.Context, *CatalogRequest) (*PipelineCatalog, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Pipelines not implemented")
+}
+func (UnimplementedGatewayServer) CustomFields(context.Context, *CustomFieldsRequest) (*CustomFieldCatalog, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CustomFields not implemented")
+}
+func (UnimplementedGatewayServer) Entities(context.Context, *EntitiesRequest) (*EntityCatalog, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Entities not implemented")
 }
 func (UnimplementedGatewayServer) mustEmbedUnimplementedGatewayServer() {}
 func (UnimplementedGatewayServer) testEmbeddedByValue()                 {}
@@ -278,6 +358,96 @@ func _Gateway_Users_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Gateway_Notes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).Notes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_Notes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).Notes(ctx, req.(*NotesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_Tasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).Tasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_Tasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).Tasks(ctx, req.(*TasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_Pipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).Pipelines(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_Pipelines_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).Pipelines(ctx, req.(*CatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_CustomFields_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CustomFieldsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).CustomFields(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_CustomFields_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).CustomFields(ctx, req.(*CustomFieldsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_Entities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EntitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).Entities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_Entities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).Entities(ctx, req.(*EntitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Gateway_ServiceDesc is the grpc.ServiceDesc for Gateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -293,12 +463,33 @@ var Gateway_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Users",
 			Handler:    _Gateway_Users_Handler,
 		},
+		{
+			MethodName: "Notes",
+			Handler:    _Gateway_Notes_Handler,
+		},
+		{
+			MethodName: "Tasks",
+			Handler:    _Gateway_Tasks_Handler,
+		},
+		{
+			MethodName: "Pipelines",
+			Handler:    _Gateway_Pipelines_Handler,
+		},
+		{
+			MethodName: "CustomFields",
+			Handler:    _Gateway_CustomFields_Handler,
+		},
+		{
+			MethodName: "Entities",
+			Handler:    _Gateway_Entities_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/services.proto",
+	Metadata: "services.proto",
 }
 
 const (
+	CRMEvents_GetEvent_FullMethodName        = "/amocrm.services.v1.CRMEvents/GetEvent"
 	CRMEvents_Apply_FullMethodName           = "/amocrm.services.v1.CRMEvents/Apply"
 	CRMEvents_QueryEvents_FullMethodName     = "/amocrm.services.v1.CRMEvents/QueryEvents"
 	CRMEvents_Status_FullMethodName          = "/amocrm.services.v1.CRMEvents/Status"
@@ -309,6 +500,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CRMEventsClient interface {
+	GetEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error)
 	Apply(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Operation, error)
 	QueryEvents(ctx context.Context, in *Query, opts ...grpc.CallOption) (*QueryResult, error)
 	Status(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*SyncStatus, error)
@@ -321,6 +513,16 @@ type cRMEventsClient struct {
 
 func NewCRMEventsClient(cc grpc.ClientConnInterface) CRMEventsClient {
 	return &cRMEventsClient{cc}
+}
+
+func (c *cRMEventsClient) GetEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Event)
+	err := c.cc.Invoke(ctx, CRMEvents_GetEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *cRMEventsClient) Apply(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Operation, error) {
@@ -367,6 +569,7 @@ func (c *cRMEventsClient) OperationStatus(ctx context.Context, in *OperationRequ
 // All implementations must embed UnimplementedCRMEventsServer
 // for forward compatibility.
 type CRMEventsServer interface {
+	GetEvent(context.Context, *EventRequest) (*Event, error)
 	Apply(context.Context, *Command) (*Operation, error)
 	QueryEvents(context.Context, *Query) (*QueryResult, error)
 	Status(context.Context, *Auth) (*SyncStatus, error)
@@ -381,6 +584,9 @@ type CRMEventsServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCRMEventsServer struct{}
 
+func (UnimplementedCRMEventsServer) GetEvent(context.Context, *EventRequest) (*Event, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEvent not implemented")
+}
 func (UnimplementedCRMEventsServer) Apply(context.Context, *Command) (*Operation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Apply not implemented")
 }
@@ -412,6 +618,24 @@ func RegisterCRMEventsServer(s grpc.ServiceRegistrar, srv CRMEventsServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&CRMEvents_ServiceDesc, srv)
+}
+
+func _CRMEvents_GetEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMEventsServer).GetEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMEvents_GetEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMEventsServer).GetEvent(ctx, req.(*EventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _CRMEvents_Apply_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -494,6 +718,10 @@ var CRMEvents_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CRMEventsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "GetEvent",
+			Handler:    _CRMEvents_GetEvent_Handler,
+		},
+		{
 			MethodName: "Apply",
 			Handler:    _CRMEvents_Apply_Handler,
 		},
@@ -511,11 +739,12 @@ var CRMEvents_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/services.proto",
+	Metadata: "services.proto",
 }
 
 const (
 	Activity_GetPanel_FullMethodName        = "/amocrm.services.v1.Activity/GetPanel"
+	Activity_GetEvent_FullMethodName        = "/amocrm.services.v1.Activity/GetEvent"
 	Activity_GetSettings_FullMethodName     = "/amocrm.services.v1.Activity/GetSettings"
 	Activity_Configure_FullMethodName       = "/amocrm.services.v1.Activity/Configure"
 	Activity_OperationStatus_FullMethodName = "/amocrm.services.v1.Activity/OperationStatus"
@@ -526,6 +755,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ActivityClient interface {
 	GetPanel(ctx context.Context, in *Query, opts ...grpc.CallOption) (*Panel, error)
+	GetEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error)
 	GetSettings(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*Settings, error)
 	Configure(ctx context.Context, in *SettingsCommand, opts ...grpc.CallOption) (*Operation, error)
 	OperationStatus(ctx context.Context, in *OperationRequest, opts ...grpc.CallOption) (*Operation, error)
@@ -543,6 +773,16 @@ func (c *activityClient) GetPanel(ctx context.Context, in *Query, opts ...grpc.C
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Panel)
 	err := c.cc.Invoke(ctx, Activity_GetPanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) GetEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Event)
+	err := c.cc.Invoke(ctx, Activity_GetEvent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -584,6 +824,7 @@ func (c *activityClient) OperationStatus(ctx context.Context, in *OperationReque
 // for forward compatibility.
 type ActivityServer interface {
 	GetPanel(context.Context, *Query) (*Panel, error)
+	GetEvent(context.Context, *EventRequest) (*Event, error)
 	GetSettings(context.Context, *Auth) (*Settings, error)
 	Configure(context.Context, *SettingsCommand) (*Operation, error)
 	OperationStatus(context.Context, *OperationRequest) (*Operation, error)
@@ -599,6 +840,9 @@ type UnimplementedActivityServer struct{}
 
 func (UnimplementedActivityServer) GetPanel(context.Context, *Query) (*Panel, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPanel not implemented")
+}
+func (UnimplementedActivityServer) GetEvent(context.Context, *EventRequest) (*Event, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEvent not implemented")
 }
 func (UnimplementedActivityServer) GetSettings(context.Context, *Auth) (*Settings, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSettings not implemented")
@@ -644,6 +888,24 @@ func _Activity_GetPanel_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ActivityServer).GetPanel(ctx, req.(*Query))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_GetEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).GetEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_GetEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).GetEvent(ctx, req.(*EventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -714,6 +976,10 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Activity_GetPanel_Handler,
 		},
 		{
+			MethodName: "GetEvent",
+			Handler:    _Activity_GetEvent_Handler,
+		},
+		{
 			MethodName: "GetSettings",
 			Handler:    _Activity_GetSettings_Handler,
 		},
@@ -727,7 +993,7 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/services.proto",
+	Metadata: "services.proto",
 }
 
 const (
@@ -829,5 +1095,5 @@ var CoreBootstrap_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/services.proto",
+	Metadata: "services.proto",
 }

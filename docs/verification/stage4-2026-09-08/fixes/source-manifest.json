@@ -1,0 +1,7 @@
+{
+  "internal/serviceapi/presentation.go": "7eb3babddab6a20615fd91030a7e2a4965ea5b72a22f27ed7b62b1bc9038ee8d",
+  "internal/serviceapi/presentation_regression_test.go": "65647c06adb91e76b078c887dbe0ca87da7e8c669e2e7b138cd8e8646b3c9bfd",
+  "internal/services/activity/service.go": "2455c03aa06ad02931cf530b24891381fe354855f3dd65901de7ce40804cbf3e",
+  "internal/services/crmevents/postgres_read.go": "a4f6072085c86c7bcecaa8d6d20557475bd1838db6d81875e8a4df78f83716d0",
+  "internal/services/crmevents/presentation_regression_integration_test.go": "0fc7d5d084056264a45ee22f2fa7420d1e9fdc0fdf9f572f4c765d1d4773ef1a"
+}

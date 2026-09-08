@@ -115,6 +115,16 @@ func TestIssueRestrictsActorScopeAndCollectorGrants(t *testing.T) {
 	if err != nil || !p.System {
 		t.Fatalf("background %v %+v", err, p)
 	}
+	for _, action := range []string{serviceapi.ActionNotes, serviceapi.ActionTasks, serviceapi.ActionPipelines, serviceapi.ActionCustomFields, serviceapi.ActionEntities} {
+		r.Grants = []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: action}}
+		token, err := ForCaller(s, serviceapi.EventsService).Issue(context.Background(), r)
+		if err != nil {
+			t.Fatalf("collector issue %s: %v", action, err)
+		}
+		if _, err := ForCaller(s, serviceapi.GatewayService).Validate(context.Background(), token, serviceapi.GatewayService, action); err != nil {
+			t.Fatalf("collector validate %s: %v", action, err)
+		}
+	}
 }
 
 func TestPanelDelegationCannotMutateOrInspectUnrelatedOperations(t *testing.T) {
@@ -130,6 +140,11 @@ func TestPanelDelegationCannotMutateOrInspectUnrelatedOperations(t *testing.T) {
 		{Audience: serviceapi.EventsService, Action: serviceapi.ActionSync},
 		{Audience: serviceapi.EventsService, Action: serviceapi.ActionOperation},
 		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionEvents},
+		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionNotes},
+		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionTasks},
+		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionPipelines},
+		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionCustomFields},
+		{Audience: serviceapi.GatewayService, Action: serviceapi.ActionEntities},
 	} {
 		if _, err := ForCaller(s, grant.Audience).Validate(context.Background(), auth, grant.Audience, grant.Action); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 			t.Fatalf("panel delegation allows %+v: %v", grant, err)

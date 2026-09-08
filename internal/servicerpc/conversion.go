@@ -111,6 +111,16 @@ func toEvent(src serviceapi.Event) *pb.Event {
 	out.EntityType = src.EntityType
 	out.ValueBefore = src.ValueBefore
 	out.ValueAfter = src.ValueAfter
+	out.LinkedTalkContactId = src.LinkedTalkContactID
+	for _, item := range src.Enrichment {
+		out.Enrichment = append(out.Enrichment, toEnrichmentObject(item))
+	}
+	for _, item := range src.Names {
+		out.Names = append(out.Names, toCatalogName(item))
+	}
+	if src.View != nil {
+		out.View = toEventView(*src.View)
+	}
 	return out
 }
 func fromEvent(src *pb.Event) serviceapi.Event {
@@ -126,6 +136,522 @@ func fromEvent(src *pb.Event) serviceapi.Event {
 	out.EntityType = src.EntityType
 	out.ValueBefore = src.ValueBefore
 	out.ValueAfter = src.ValueAfter
+	out.LinkedTalkContactID = src.LinkedTalkContactId
+	for _, item := range src.Enrichment {
+		out.Enrichment = append(out.Enrichment, fromEnrichmentObject(item))
+	}
+	for _, item := range src.Names {
+		out.Names = append(out.Names, fromCatalogName(item))
+	}
+	if src.View != nil && (src.View.Category != "" || src.View.Title != "" || src.View.Summary != "" || len(src.View.Details) > 0) {
+		view := fromEventView(src.View)
+		out.View = &view
+	}
+	return out
+}
+func toEventDetail(src serviceapi.EventDetail) *pb.EventDetail {
+	out := new(pb.EventDetail)
+	out.Key = src.Key
+	out.Label = src.Label
+	out.Before = src.Before
+	out.After = src.After
+	out.Text = src.Text
+	out.Source = src.Source
+	out.Current = src.Current
+	return out
+}
+func fromEventDetail(src *pb.EventDetail) serviceapi.EventDetail {
+	var out serviceapi.EventDetail
+	if src == nil {
+		return out
+	}
+	out.Key = src.Key
+	out.Label = src.Label
+	out.Before = src.Before
+	out.After = src.After
+	out.Text = src.Text
+	out.Source = src.Source
+	out.Current = src.Current
+	return out
+}
+func toEventView(src serviceapi.EventView) *pb.EventView {
+	out := new(pb.EventView)
+	out.Category = src.Category
+	out.Title = src.Title
+	out.Summary = src.Summary
+	out.DetailState = src.DetailState
+	out.AuthorLabel = src.AuthorLabel
+	out.EntityLabel = src.EntityLabel
+	for _, item := range src.Details {
+		out.Details = append(out.Details, toEventDetail(item))
+	}
+	out.EnrichmentState = src.EnrichmentState
+	return out
+}
+func fromEventView(src *pb.EventView) serviceapi.EventView {
+	var out serviceapi.EventView
+	if src == nil {
+		return out
+	}
+	out.Category = src.Category
+	out.Title = src.Title
+	out.Summary = src.Summary
+	out.DetailState = src.DetailState
+	out.AuthorLabel = src.AuthorLabel
+	out.EntityLabel = src.EntityLabel
+	for _, item := range src.Details {
+		out.Details = append(out.Details, fromEventDetail(item))
+	}
+	out.EnrichmentState = src.EnrichmentState
+	return out
+}
+func toCategoryCount(src serviceapi.CategoryCount) *pb.CategoryCount {
+	out := new(pb.CategoryCount)
+	out.Category = src.Category
+	out.Count = src.Count
+	return out
+}
+func fromCategoryCount(src *pb.CategoryCount) serviceapi.CategoryCount {
+	var out serviceapi.CategoryCount
+	if src == nil {
+		return out
+	}
+	out.Category = src.Category
+	out.Count = src.Count
+	return out
+}
+func toTimeBucket(src serviceapi.TimeBucket) *pb.TimeBucket {
+	out := new(pb.TimeBucket)
+	out.StartAt = src.StartAt
+	out.EndAt = src.EndAt
+	out.Count = src.Count
+	out.Coverage = src.Coverage
+	return out
+}
+func fromTimeBucket(src *pb.TimeBucket) serviceapi.TimeBucket {
+	var out serviceapi.TimeBucket
+	if src == nil {
+		return out
+	}
+	out.StartAt = src.StartAt
+	out.EndAt = src.EndAt
+	out.Count = src.Count
+	out.Coverage = src.Coverage
+	return out
+}
+func toQueryTotals(src serviceapi.QueryTotals) *pb.QueryTotals {
+	out := new(pb.QueryTotals)
+	out.UniqueEvents = src.UniqueEvents
+	out.EntityCount = src.EntityCount
+	out.TaskCompletedEvents = src.TaskCompletedEvents
+	out.UniqueCompletedTasks = src.UniqueCompletedTasks
+	out.FirstEventAt = src.FirstEventAt
+	out.LastEventAt = src.LastEventAt
+	for _, item := range src.CategoryCounts {
+		out.CategoryCounts = append(out.CategoryCounts, toCategoryCount(item))
+	}
+	return out
+}
+func fromQueryTotals(src *pb.QueryTotals) serviceapi.QueryTotals {
+	var out serviceapi.QueryTotals
+	if src == nil {
+		return out
+	}
+	out.UniqueEvents = src.UniqueEvents
+	out.EntityCount = src.EntityCount
+	out.TaskCompletedEvents = src.TaskCompletedEvents
+	out.UniqueCompletedTasks = src.UniqueCompletedTasks
+	out.FirstEventAt = src.FirstEventAt
+	out.LastEventAt = src.LastEventAt
+	for _, item := range src.CategoryCounts {
+		out.CategoryCounts = append(out.CategoryCounts, fromCategoryCount(item))
+	}
+	return out
+}
+func toEnrichmentObject(src serviceapi.EnrichmentObject) *pb.EnrichmentObject {
+	out := new(pb.EnrichmentObject)
+	out.ObjectKind = src.ObjectKind
+	out.ObjectKey = src.ObjectKey
+	out.State = src.State
+	out.ReasonCode = src.ReasonCode
+	out.Source = src.Source
+	out.FetchedAt = src.FetchedAt
+	out.Payload = src.Payload
+	out.Current = src.Current
+	return out
+}
+func fromEnrichmentObject(src *pb.EnrichmentObject) serviceapi.EnrichmentObject {
+	var out serviceapi.EnrichmentObject
+	if src == nil {
+		return out
+	}
+	out.ObjectKind = src.ObjectKind
+	out.ObjectKey = src.ObjectKey
+	out.State = src.State
+	out.ReasonCode = src.ReasonCode
+	out.Source = src.Source
+	out.FetchedAt = src.FetchedAt
+	out.Payload = src.Payload
+	out.Current = src.Current
+	return out
+}
+func toCatalogName(src serviceapi.CatalogName) *pb.CatalogName {
+	out := new(pb.CatalogName)
+	out.Kind = src.Kind
+	out.Id = src.ID
+	out.Name = src.Name
+	out.State = src.State
+	out.Current = src.Current
+	out.EntityType = src.EntityType
+	return out
+}
+func fromCatalogName(src *pb.CatalogName) serviceapi.CatalogName {
+	var out serviceapi.CatalogName
+	if src == nil {
+		return out
+	}
+	out.Kind = src.Kind
+	out.ID = src.Id
+	out.Name = src.Name
+	out.State = src.State
+	out.Current = src.Current
+	out.EntityType = src.EntityType
+	return out
+}
+func toNotesRequest(src serviceapi.NotesRequest) *pb.NotesRequest {
+	out := new(pb.NotesRequest)
+	out.Auth = toAuth(src.Auth)
+	out.EntityType = src.EntityType
+	out.Ids = append(out.Ids, src.IDs...)
+	return out
+}
+func fromNotesRequest(src *pb.NotesRequest) serviceapi.NotesRequest {
+	var out serviceapi.NotesRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.EntityType = src.EntityType
+	out.IDs = append(out.IDs, src.Ids...)
+	return out
+}
+func toNote(src serviceapi.Note) *pb.Note {
+	out := new(pb.Note)
+	out.Id = src.ID
+	out.EntityId = src.EntityID
+	out.EntityType = src.EntityType
+	out.NoteType = src.NoteType
+	out.CreatedBy = src.CreatedBy
+	out.UpdatedAt = src.UpdatedAt
+	out.Params = src.Params
+	return out
+}
+func fromNote(src *pb.Note) serviceapi.Note {
+	var out serviceapi.Note
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EntityID = src.EntityId
+	out.EntityType = src.EntityType
+	out.NoteType = src.NoteType
+	out.CreatedBy = src.CreatedBy
+	out.UpdatedAt = src.UpdatedAt
+	out.Params = src.Params
+	return out
+}
+func toNotePage(src serviceapi.NotePage) *pb.NotePage {
+	out := new(pb.NotePage)
+	for _, item := range src.Notes {
+		out.Notes = append(out.Notes, toNote(item))
+	}
+	out.InvalidIds = append(out.InvalidIds, src.InvalidIDs...)
+	return out
+}
+func fromNotePage(src *pb.NotePage) serviceapi.NotePage {
+	var out serviceapi.NotePage
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Notes {
+		out.Notes = append(out.Notes, fromNote(item))
+	}
+	out.InvalidIDs = append(out.InvalidIDs, src.InvalidIds...)
+	return out
+}
+func toTasksRequest(src serviceapi.TasksRequest) *pb.TasksRequest {
+	out := new(pb.TasksRequest)
+	out.Auth = toAuth(src.Auth)
+	out.Ids = append(out.Ids, src.IDs...)
+	return out
+}
+func fromTasksRequest(src *pb.TasksRequest) serviceapi.TasksRequest {
+	var out serviceapi.TasksRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.IDs = append(out.IDs, src.Ids...)
+	return out
+}
+func toTask(src serviceapi.Task) *pb.Task {
+	out := new(pb.Task)
+	out.Id = src.ID
+	out.EntityId = src.EntityID
+	out.EntityType = src.EntityType
+	out.ResponsibleUserId = src.ResponsibleUserID
+	out.Text = src.Text
+	out.CompleteTill = src.CompleteTill
+	out.TaskTypeId = src.TaskTypeID
+	out.IsCompleted = src.IsCompleted
+	out.ResultText = src.ResultText
+	out.UpdatedAt = src.UpdatedAt
+	return out
+}
+func fromTask(src *pb.Task) serviceapi.Task {
+	var out serviceapi.Task
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EntityID = src.EntityId
+	out.EntityType = src.EntityType
+	out.ResponsibleUserID = src.ResponsibleUserId
+	out.Text = src.Text
+	out.CompleteTill = src.CompleteTill
+	out.TaskTypeID = src.TaskTypeId
+	out.IsCompleted = src.IsCompleted
+	out.ResultText = src.ResultText
+	out.UpdatedAt = src.UpdatedAt
+	return out
+}
+func toTaskPage(src serviceapi.TaskPage) *pb.TaskPage {
+	out := new(pb.TaskPage)
+	for _, item := range src.Tasks {
+		out.Tasks = append(out.Tasks, toTask(item))
+	}
+	out.InvalidIds = append(out.InvalidIds, src.InvalidIDs...)
+	return out
+}
+func fromTaskPage(src *pb.TaskPage) serviceapi.TaskPage {
+	var out serviceapi.TaskPage
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Tasks {
+		out.Tasks = append(out.Tasks, fromTask(item))
+	}
+	out.InvalidIDs = append(out.InvalidIDs, src.InvalidIds...)
+	return out
+}
+func toCatalogRequest(src serviceapi.CatalogRequest) *pb.CatalogRequest {
+	out := new(pb.CatalogRequest)
+	out.Auth = toAuth(src.Auth)
+	return out
+}
+func fromCatalogRequest(src *pb.CatalogRequest) serviceapi.CatalogRequest {
+	var out serviceapi.CatalogRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	return out
+}
+func toPipelineStatus(src serviceapi.PipelineStatus) *pb.PipelineStatus {
+	out := new(pb.PipelineStatus)
+	out.Id = src.ID
+	out.Name = src.Name
+	return out
+}
+func fromPipelineStatus(src *pb.PipelineStatus) serviceapi.PipelineStatus {
+	var out serviceapi.PipelineStatus
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.Name = src.Name
+	return out
+}
+func toPipeline(src serviceapi.Pipeline) *pb.Pipeline {
+	out := new(pb.Pipeline)
+	out.Id = src.ID
+	out.Name = src.Name
+	for _, item := range src.Statuses {
+		out.Statuses = append(out.Statuses, toPipelineStatus(item))
+	}
+	return out
+}
+func fromPipeline(src *pb.Pipeline) serviceapi.Pipeline {
+	var out serviceapi.Pipeline
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.Name = src.Name
+	for _, item := range src.Statuses {
+		out.Statuses = append(out.Statuses, fromPipelineStatus(item))
+	}
+	return out
+}
+func toPipelineCatalog(src serviceapi.PipelineCatalog) *pb.PipelineCatalog {
+	out := new(pb.PipelineCatalog)
+	for _, item := range src.Pipelines {
+		out.Pipelines = append(out.Pipelines, toPipeline(item))
+	}
+	out.FetchedAt = src.FetchedAt
+	return out
+}
+func fromPipelineCatalog(src *pb.PipelineCatalog) serviceapi.PipelineCatalog {
+	var out serviceapi.PipelineCatalog
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Pipelines {
+		out.Pipelines = append(out.Pipelines, fromPipeline(item))
+	}
+	out.FetchedAt = src.FetchedAt
+	return out
+}
+func toCustomFieldsRequest(src serviceapi.CustomFieldsRequest) *pb.CustomFieldsRequest {
+	out := new(pb.CustomFieldsRequest)
+	out.Auth = toAuth(src.Auth)
+	out.EntityType = src.EntityType
+	return out
+}
+func fromCustomFieldsRequest(src *pb.CustomFieldsRequest) serviceapi.CustomFieldsRequest {
+	var out serviceapi.CustomFieldsRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.EntityType = src.EntityType
+	return out
+}
+func toCustomFieldEnum(src serviceapi.CustomFieldEnum) *pb.CustomFieldEnum {
+	out := new(pb.CustomFieldEnum)
+	out.Id = src.ID
+	out.Value = src.Value
+	return out
+}
+func fromCustomFieldEnum(src *pb.CustomFieldEnum) serviceapi.CustomFieldEnum {
+	var out serviceapi.CustomFieldEnum
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.Value = src.Value
+	return out
+}
+func toCustomField(src serviceapi.CustomField) *pb.CustomField {
+	out := new(pb.CustomField)
+	out.Id = src.ID
+	out.Name = src.Name
+	out.Type = src.Type
+	out.EntityType = src.EntityType
+	for _, item := range src.Enums {
+		out.Enums = append(out.Enums, toCustomFieldEnum(item))
+	}
+	return out
+}
+func fromCustomField(src *pb.CustomField) serviceapi.CustomField {
+	var out serviceapi.CustomField
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.Name = src.Name
+	out.Type = src.Type
+	out.EntityType = src.EntityType
+	for _, item := range src.Enums {
+		out.Enums = append(out.Enums, fromCustomFieldEnum(item))
+	}
+	return out
+}
+func toCustomFieldCatalog(src serviceapi.CustomFieldCatalog) *pb.CustomFieldCatalog {
+	out := new(pb.CustomFieldCatalog)
+	for _, item := range src.Fields {
+		out.Fields = append(out.Fields, toCustomField(item))
+	}
+	out.FetchedAt = src.FetchedAt
+	return out
+}
+func fromCustomFieldCatalog(src *pb.CustomFieldCatalog) serviceapi.CustomFieldCatalog {
+	var out serviceapi.CustomFieldCatalog
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Fields {
+		out.Fields = append(out.Fields, fromCustomField(item))
+	}
+	out.FetchedAt = src.FetchedAt
+	return out
+}
+func toEntitiesRequest(src serviceapi.EntitiesRequest) *pb.EntitiesRequest {
+	out := new(pb.EntitiesRequest)
+	out.Auth = toAuth(src.Auth)
+	out.EntityType = src.EntityType
+	out.Ids = append(out.Ids, src.IDs...)
+	return out
+}
+func fromEntitiesRequest(src *pb.EntitiesRequest) serviceapi.EntitiesRequest {
+	var out serviceapi.EntitiesRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.EntityType = src.EntityType
+	out.IDs = append(out.IDs, src.Ids...)
+	return out
+}
+func toEntityName(src serviceapi.EntityName) *pb.EntityName {
+	out := new(pb.EntityName)
+	out.Id = src.ID
+	out.EntityType = src.EntityType
+	out.Name = src.Name
+	return out
+}
+func fromEntityName(src *pb.EntityName) serviceapi.EntityName {
+	var out serviceapi.EntityName
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EntityType = src.EntityType
+	out.Name = src.Name
+	return out
+}
+func toEntityCatalog(src serviceapi.EntityCatalog) *pb.EntityCatalog {
+	out := new(pb.EntityCatalog)
+	for _, item := range src.Entities {
+		out.Entities = append(out.Entities, toEntityName(item))
+	}
+	out.InvalidIds = append(out.InvalidIds, src.InvalidIDs...)
+	return out
+}
+func fromEntityCatalog(src *pb.EntityCatalog) serviceapi.EntityCatalog {
+	var out serviceapi.EntityCatalog
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Entities {
+		out.Entities = append(out.Entities, fromEntityName(item))
+	}
+	out.InvalidIDs = append(out.InvalidIDs, src.InvalidIds...)
+	return out
+}
+func toEventRequest(src serviceapi.EventRequest) *pb.EventRequest {
+	out := new(pb.EventRequest)
+	out.Auth = toAuth(src.Auth)
+	out.EventId = src.EventID
+	return out
+}
+func fromEventRequest(src *pb.EventRequest) serviceapi.EventRequest {
+	var out serviceapi.EventRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.EventID = src.EventId
 	return out
 }
 func toEventPageRequest(src serviceapi.EventPageRequest) *pb.EventPageRequest {
@@ -229,6 +755,18 @@ func toQuery(src serviceapi.Query) *pb.Query {
 	out.UserIds = append(out.UserIds, src.UserIDs...)
 	out.Limit = boundedInt32(src.Limit)
 	out.Cursor = src.Cursor
+	out.Types = append(out.Types, src.Types...)
+	out.TypePrefix = src.TypePrefix
+	out.EntityType = src.EntityType
+	out.EntityIds = append(out.EntityIds, src.EntityIDs...)
+	out.Order = src.Order
+	out.Compact = src.Compact
+	out.Categories = append(out.Categories, src.Categories...)
+	out.IncludeUnknownAuthors = src.IncludeUnknownAuthors
+	out.Timezone = src.Timezone
+	out.Buckets = src.Buckets
+	out.DirectoryUserIds = append(out.DirectoryUserIds, src.DirectoryUserIDs...)
+	out.GroupId = src.GroupID
 	return out
 }
 func fromQuery(src *pb.Query) serviceapi.Query {
@@ -242,6 +780,18 @@ func fromQuery(src *pb.Query) serviceapi.Query {
 	out.UserIDs = append(out.UserIDs, src.UserIds...)
 	out.Limit = int(src.Limit)
 	out.Cursor = src.Cursor
+	out.Types = append(out.Types, src.Types...)
+	out.TypePrefix = src.TypePrefix
+	out.EntityType = src.EntityType
+	out.EntityIDs = append(out.EntityIDs, src.EntityIds...)
+	out.Order = src.Order
+	out.Compact = src.Compact
+	out.Categories = append(out.Categories, src.Categories...)
+	out.IncludeUnknownAuthors = src.IncludeUnknownAuthors
+	out.Timezone = src.Timezone
+	out.Buckets = src.Buckets
+	out.DirectoryUserIDs = append(out.DirectoryUserIDs, src.DirectoryUserIds...)
+	out.GroupID = src.GroupId
 	return out
 }
 func toUserSummary(src serviceapi.UserSummary) *pb.UserSummary {
@@ -249,6 +799,13 @@ func toUserSummary(src serviceapi.UserSummary) *pb.UserSummary {
 	out.UserId = src.UserID
 	out.UniqueEvents = src.UniqueEvents
 	out.LastEventAt = src.LastEventAt
+	out.FirstEventAt = src.FirstEventAt
+	out.EntityCount = src.EntityCount
+	out.TaskCompletedEvents = src.TaskCompletedEvents
+	out.UniqueCompletedTasks = src.UniqueCompletedTasks
+	for _, item := range src.CategoryCounts {
+		out.CategoryCounts = append(out.CategoryCounts, toCategoryCount(item))
+	}
 	return out
 }
 func fromUserSummary(src *pb.UserSummary) serviceapi.UserSummary {
@@ -259,6 +816,13 @@ func fromUserSummary(src *pb.UserSummary) serviceapi.UserSummary {
 	out.UserID = src.UserId
 	out.UniqueEvents = src.UniqueEvents
 	out.LastEventAt = src.LastEventAt
+	out.FirstEventAt = src.FirstEventAt
+	out.EntityCount = src.EntityCount
+	out.TaskCompletedEvents = src.TaskCompletedEvents
+	out.UniqueCompletedTasks = src.UniqueCompletedTasks
+	for _, item := range src.CategoryCounts {
+		out.CategoryCounts = append(out.CategoryCounts, fromCategoryCount(item))
+	}
 	return out
 }
 func toSyncStatus(src serviceapi.SyncStatus) *pb.SyncStatus {
@@ -310,6 +874,12 @@ func toQueryResult(src serviceapi.QueryResult) *pb.QueryResult {
 	}
 	out.NextCursor = src.NextCursor
 	out.Status = toSyncStatus(src.Status)
+	out.ReadVersion = boundedInt32(src.ReadVersion)
+	out.PayloadsOmitted = src.PayloadsOmitted
+	out.Totals = toQueryTotals(src.Totals)
+	for _, item := range src.Timeline {
+		out.Timeline = append(out.Timeline, toTimeBucket(item))
+	}
 	return out
 }
 func fromQueryResult(src *pb.QueryResult) serviceapi.QueryResult {
@@ -325,6 +895,12 @@ func fromQueryResult(src *pb.QueryResult) serviceapi.QueryResult {
 	}
 	out.NextCursor = src.NextCursor
 	out.Status = fromSyncStatus(src.Status)
+	out.ReadVersion = int(src.ReadVersion)
+	out.PayloadsOmitted = src.PayloadsOmitted
+	out.Totals = fromQueryTotals(src.Totals)
+	for _, item := range src.Timeline {
+		out.Timeline = append(out.Timeline, fromTimeBucket(item))
+	}
 	return out
 }
 func toCommand(src serviceapi.Command) *pb.Command {
@@ -435,6 +1011,9 @@ func toPanel(src serviceapi.Panel) *pb.Panel {
 	out.Data = toQueryResult(src.Data)
 	out.Settings = toSettings(src.Settings)
 	out.Coverage = src.Coverage
+	out.Freshness = src.Freshness
+	out.EmptyReason = src.EmptyReason
+	out.InterpretationVersion = boundedInt32(src.InterpretationVersion)
 	return out
 }
 func fromPanel(src *pb.Panel) serviceapi.Panel {
@@ -449,6 +1028,9 @@ func fromPanel(src *pb.Panel) serviceapi.Panel {
 	out.Data = fromQueryResult(src.Data)
 	out.Settings = fromSettings(src.Settings)
 	out.Coverage = src.Coverage
+	out.Freshness = src.Freshness
+	out.EmptyReason = src.EmptyReason
+	out.InterpretationVersion = int(src.InterpretationVersion)
 	return out
 }
 func toBootstrapAccountRequest(src serviceapi.BootstrapAccountRequest) *pb.BootstrapAccountRequest {

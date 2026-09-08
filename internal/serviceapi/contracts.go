@@ -101,14 +101,18 @@ type Policy interface {
 }
 
 type Event struct {
-	ID          string          `json:"id"`
-	CreatedAt   int64           `json:"created_at"`
-	CreatedBy   int64           `json:"created_by"`
-	Type        string          `json:"type"`
-	EntityID    int64           `json:"entity_id"`
-	EntityType  string          `json:"entity_type"`
-	ValueBefore json.RawMessage `json:"value_before"`
-	ValueAfter  json.RawMessage `json:"value_after"`
+	LinkedTalkContactID int64              `json:"linked_talk_contact_id,omitempty"`
+	ID                  string             `json:"id"`
+	CreatedAt           int64              `json:"created_at"`
+	CreatedBy           int64              `json:"created_by"`
+	Type                string             `json:"type"`
+	EntityID            int64              `json:"entity_id"`
+	EntityType          string             `json:"entity_type"`
+	ValueBefore         json.RawMessage    `json:"value_before"`
+	ValueAfter          json.RawMessage    `json:"value_after"`
+	Enrichment          []EnrichmentObject `json:"enrichment,omitempty"`
+	Names               []CatalogName      `json:"names,omitempty"`
+	View                *EventView         `json:"view,omitempty"`
 }
 type EventPageRequest struct {
 	Auth  Auth  `json:"auth"`
@@ -138,26 +142,52 @@ type UsersRequest struct {
 type Gateway interface {
 	Events(context.Context, EventPageRequest) (EventPage, error)
 	Users(context.Context, UsersRequest) (Directory, error)
+	Notes(context.Context, NotesRequest) (NotePage, error)
+	Tasks(context.Context, TasksRequest) (TaskPage, error)
+	Pipelines(context.Context, CatalogRequest) (PipelineCatalog, error)
+	CustomFields(context.Context, CustomFieldsRequest) (CustomFieldCatalog, error)
+	Entities(context.Context, EntitiesRequest) (EntityCatalog, error)
 }
 
 type Query struct {
-	Auth    Auth    `json:"auth"`
-	From    int64   `json:"from"`
-	To      int64   `json:"to"`
-	UserIDs []int64 `json:"user_ids"`
-	Limit   int     `json:"limit"`
-	Cursor  string  `json:"cursor"`
+	Types                 []string `json:"types,omitempty"`
+	TypePrefix            string   `json:"type_prefix,omitempty"`
+	EntityType            string   `json:"entity_type,omitempty"`
+	EntityIDs             []int64  `json:"entity_ids,omitempty"`
+	Order                 string   `json:"order,omitempty"`
+	Compact               bool     `json:"compact,omitempty"`
+	Auth                  Auth     `json:"auth"`
+	From                  int64    `json:"from"`
+	To                    int64    `json:"to"`
+	UserIDs               []int64  `json:"user_ids"`
+	Limit                 int      `json:"limit"`
+	Cursor                string   `json:"cursor"`
+	Categories            []string `json:"categories,omitempty"`
+	IncludeUnknownAuthors bool     `json:"include_unknown_authors,omitempty"`
+	Timezone              string   `json:"timezone,omitempty"`
+	Buckets               string   `json:"buckets,omitempty"`
+	DirectoryUserIDs      []int64  `json:"directory_user_ids,omitempty"`
+	GroupID               int64    `json:"group_id,omitempty"`
 }
 type UserSummary struct {
-	UserID       int64 `json:"user_id"`
-	UniqueEvents int64 `json:"unique_events"`
-	LastEventAt  int64 `json:"last_event_at"`
+	UserID               int64           `json:"user_id"`
+	UniqueEvents         int64           `json:"unique_events"`
+	LastEventAt          int64           `json:"last_event_at"`
+	FirstEventAt         int64           `json:"first_event_at,omitempty"`
+	EntityCount          int64           `json:"entity_count,omitempty"`
+	TaskCompletedEvents  int64           `json:"task_completed_events,omitempty"`
+	UniqueCompletedTasks int64           `json:"unique_completed_tasks,omitempty"`
+	CategoryCounts       []CategoryCount `json:"category_counts,omitempty"`
 }
 type QueryResult struct {
-	Events     []Event       `json:"events"`
-	Summaries  []UserSummary `json:"summaries"`
-	NextCursor string        `json:"next_cursor,omitempty"`
-	Status     SyncStatus    `json:"status"`
+	ReadVersion     int           `json:"read_version,omitempty"`
+	PayloadsOmitted bool          `json:"payloads_omitted,omitempty"`
+	Events          []Event       `json:"events"`
+	Summaries       []UserSummary `json:"summaries"`
+	NextCursor      string        `json:"next_cursor,omitempty"`
+	Status          SyncStatus    `json:"status"`
+	Totals          QueryTotals   `json:"totals"`
+	Timeline        []TimeBucket  `json:"timeline,omitempty"`
 }
 type SyncStatus struct {
 	Verification    string `json:"verification"`
@@ -215,17 +245,26 @@ type SettingsCommand struct {
 	Settings  Settings `json:"settings"`
 }
 type Panel struct {
-	Coverage string      `json:"coverage"`
-	Users    []User      `json:"users"`
-	Timezone string      `json:"timezone"`
-	Data     QueryResult `json:"data"`
-	Settings Settings    `json:"settings"`
+	Coverage              string      `json:"coverage"`
+	Users                 []User      `json:"users"`
+	Timezone              string      `json:"timezone"`
+	Data                  QueryResult `json:"data"`
+	Settings              Settings    `json:"settings"`
+	Freshness             string      `json:"freshness,omitempty"`
+	EmptyReason           string      `json:"empty_reason,omitempty"`
+	InterpretationVersion int         `json:"interpretation_version,omitempty"`
 }
 type Activity interface {
 	Panel(context.Context, Query) (Panel, error)
 	Settings(context.Context, Auth) (Settings, error)
 	Configure(context.Context, SettingsCommand) (Operation, error)
 	Operation(context.Context, OperationRequest) (Operation, error)
+}
+
+// EventPresenter is an additive product port. Core uses it for the existing
+// detail URL; a missing implementation falls back to the historical envelope.
+type EventPresenter interface {
+	EventCard(context.Context, EventRequest) (Event, error)
 }
 
 // ValidateQuery bounds every domain/transport implementation equally.
@@ -238,7 +277,7 @@ func ValidateQuery(q Query) error {
 			return Fail(InvalidArgument, "user id must be positive")
 		}
 	}
-	return nil
+	return validateEventFilters(q)
 }
 
 // UserGrantsFor returns only the grants needed by a single service operation,

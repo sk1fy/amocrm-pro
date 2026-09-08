@@ -10,16 +10,41 @@ message Grant { string audience = 1; string action = 2; }
 message IssueRequest { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; repeated Grant grants = 7; }
 message ValidateRequest { Auth auth = 1; string audience = 2; string action = 3; }
 message Principal { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; string expires_at = 7; }
-message Event { string id = 1; int64 created_at = 2; int64 created_by = 3; string type = 4; int64 entity_id = 5; string entity_type = 6; bytes value_before = 7; bytes value_after = 8; }
+message Event { string id = 1; int64 created_at = 2; int64 created_by = 3; string type = 4; int64 entity_id = 5; string entity_type = 6; bytes value_before = 7; bytes value_after = 8; int64 linked_talk_contact_id = 9; repeated EnrichmentObject enrichment = 10; repeated CatalogName names = 11; EventView view = 12; }
+message EventDetail { string key = 1; string label = 2; bytes before = 3; bytes after = 4; string text = 5; string source = 6; bool current = 7; }
+message EventView { string category = 1; string title = 2; string summary = 3; string detail_state = 4; string author_label = 5; string entity_label = 6; repeated EventDetail details = 7; string enrichment_state = 8; }
+message CategoryCount { string category = 1; int64 count = 2; }
+message TimeBucket { int64 start_at = 1; int64 end_at = 2; int64 count = 3; string coverage = 4; }
+message QueryTotals { int64 unique_events = 1; int64 entity_count = 2; int64 task_completed_events = 3; int64 unique_completed_tasks = 4; int64 first_event_at = 5; int64 last_event_at = 6; repeated CategoryCount category_counts = 7; }
+message EnrichmentObject { string object_kind = 1; string object_key = 2; string state = 3; string reason_code = 4; string source = 5; int64 fetched_at = 6; bytes payload = 7; bool current = 8; }
+message CatalogName { string kind = 1; int64 id = 2; string name = 3; string state = 4; bool current = 5; string entity_type = 6; }
+message NotesRequest { Auth auth = 1; string entity_type = 2; repeated int64 ids = 3; }
+message Note { int64 id = 1; int64 entity_id = 2; string entity_type = 3; string note_type = 4; int64 created_by = 5; int64 updated_at = 6; bytes params = 7; }
+message NotePage { repeated Note notes = 1; repeated int64 invalid_ids = 2; }
+message TasksRequest { Auth auth = 1; repeated int64 ids = 2; }
+message Task { int64 id = 1; int64 entity_id = 2; string entity_type = 3; int64 responsible_user_id = 4; string text = 5; int64 complete_till = 6; int64 task_type_id = 7; bool is_completed = 8; string result_text = 9; int64 updated_at = 10; }
+message TaskPage { repeated Task tasks = 1; repeated int64 invalid_ids = 2; }
+message CatalogRequest { Auth auth = 1; }
+message PipelineStatus { int64 id = 1; string name = 2; }
+message Pipeline { int64 id = 1; string name = 2; repeated PipelineStatus statuses = 3; }
+message PipelineCatalog { repeated Pipeline pipelines = 1; int64 fetched_at = 2; }
+message CustomFieldsRequest { Auth auth = 1; string entity_type = 2; }
+message CustomFieldEnum { int64 id = 1; string value = 2; }
+message CustomField { int64 id = 1; string name = 2; string type = 3; string entity_type = 4; repeated CustomFieldEnum enums = 5; }
+message CustomFieldCatalog { repeated CustomField fields = 1; int64 fetched_at = 2; }
+message EntitiesRequest { Auth auth = 1; string entity_type = 2; repeated int64 ids = 3; }
+message EntityName { int64 id = 1; string entity_type = 2; string name = 3; }
+message EntityCatalog { repeated EntityName entities = 1; repeated int64 invalid_ids = 2; }
+message EventRequest { Auth auth = 1; string event_id = 2; }
 message EventPageRequest { Auth auth = 1; int64 from = 2; int64 to = 3; int32 page = 4; int32 limit = 5; }
 message EventPage { repeated Event events = 1; bool has_next = 2; }
 message User { int64 id = 1; string name = 2; int64 group_id = 3; string group_name = 4; }
 message UsersRequest { Auth auth = 1; repeated int64 user_ids = 2; }
 message Directory { repeated User users = 1; string timezone = 2; }
-message Query { Auth auth = 1; int64 from = 2; int64 to = 3; repeated int64 user_ids = 4; int32 limit = 5; string cursor = 6; }
-message UserSummary { int64 user_id = 1; int64 unique_events = 2; int64 last_event_at = 3; }
+message Query { Auth auth = 1; int64 from = 2; int64 to = 3; repeated int64 user_ids = 4; int32 limit = 5; string cursor = 6; repeated string types = 7; string type_prefix = 8; string entity_type = 9; repeated int64 entity_ids = 10; string order = 11; bool compact = 12; repeated string categories = 13; bool include_unknown_authors = 14; string timezone = 15; string buckets = 16; repeated int64 directory_user_ids = 17; int64 group_id = 18; }
+message UserSummary { int64 user_id = 1; int64 unique_events = 2; int64 last_event_at = 3; int64 first_event_at = 4; int64 entity_count = 5; int64 task_completed_events = 6; int64 unique_completed_tasks = 7; repeated CategoryCount category_counts = 8; }
 message SyncStatus { bool enabled = 1; string state = 2; int64 history_from = 3; int64 verified_from = 4; int64 verified_through = 5; int64 window_from = 6; int64 window_to = 7; int32 next_page = 8; int64 last_success_at = 9; int64 last_event_at = 10; int64 lag_seconds = 11; string error_code = 12; bool reauth_required = 13; string verification = 14; }
-message QueryResult { repeated Event events = 1; repeated UserSummary summaries = 2; string next_cursor = 3; SyncStatus status = 4; }
+message QueryResult { repeated Event events = 1; repeated UserSummary summaries = 2; string next_cursor = 3; SyncStatus status = 4; int32 read_version = 5; bool payloads_omitted = 6; QueryTotals totals = 7; repeated TimeBucket timeline = 8; }
 message Command { Auth auth = 1; string command_id = 2; string kind = 3; int64 from = 4; int64 to = 5; int32 initial_days = 6; int32 retention_days = 7; }
 // Operation.state is exactly one of accepted, running, retry, paused, failed,
 // succeeded. Owners normalize legacy DB "completed" at the application boundary;
@@ -28,11 +53,11 @@ message Operation { string id = 1; string command_id = 2; string state = 3; stri
 message OperationRequest { Auth auth = 1; string operation_id = 2; }
 message Settings { int32 initial_days = 1; int32 retention_days = 2; }
 message SettingsCommand { Auth auth = 1; string command_id = 2; Settings settings = 3; }
-message Panel { repeated User users = 1; string timezone = 2; QueryResult data = 3; Settings settings = 4; string coverage = 5; }
+message Panel { repeated User users = 1; string timezone = 2; QueryResult data = 3; Settings settings = 4; string coverage = 5; string freshness = 6; string empty_reason = 7; int32 interpretation_version = 8; }
 service Policy { rpc Issue(IssueRequest) returns (Auth); rpc Validate(ValidateRequest) returns (Principal); }
-service Gateway { rpc Events(EventPageRequest) returns (EventPage); rpc Users(UsersRequest) returns (Directory); }
-service CRMEvents { rpc Apply(Command) returns (Operation); rpc QueryEvents(Query) returns (QueryResult); rpc Status(Auth) returns (SyncStatus); rpc OperationStatus(OperationRequest) returns (Operation); }
-service Activity { rpc GetPanel(Query) returns (Panel); rpc GetSettings(Auth) returns (Settings); rpc Configure(SettingsCommand) returns (Operation); rpc OperationStatus(OperationRequest) returns (Operation); }
+service Gateway { rpc Events(EventPageRequest) returns (EventPage); rpc Users(UsersRequest) returns (Directory); rpc Notes(NotesRequest) returns (NotePage); rpc Tasks(TasksRequest) returns (TaskPage); rpc Pipelines(CatalogRequest) returns (PipelineCatalog); rpc CustomFields(CustomFieldsRequest) returns (CustomFieldCatalog); rpc Entities(EntitiesRequest) returns (EntityCatalog); }
+service CRMEvents { rpc GetEvent(EventRequest) returns (Event); rpc Apply(Command) returns (Operation); rpc QueryEvents(Query) returns (QueryResult); rpc Status(Auth) returns (SyncStatus); rpc OperationStatus(OperationRequest) returns (Operation); }
+service Activity { rpc GetPanel(Query) returns (Panel); rpc GetEvent(EventRequest) returns (Event); rpc GetSettings(Auth) returns (Settings); rpc Configure(SettingsCommand) returns (Operation); rpc OperationStatus(OperationRequest) returns (Operation); }
 
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
 // candidate credential is never persisted or exposed to Activity/CRM Events.

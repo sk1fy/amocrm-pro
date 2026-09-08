@@ -1,0 +1,11 @@
+{
+  "created_at_utc": "2026-09-08T14:51:56Z",
+  "base_revision": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "files": {
+    "examples/activity-v0/panel.mjs": "183129e9ad9f89d7dd15b8ab5cfb92114b65c929bdfcf94c56db6c7d83e09650",
+    "examples/activity-v0/panel.css": "e0e01401fa1d079178d2b78f2becb8abdbbb6592d9df8a1ef16c7eae28779a31",
+    "examples/activity-v0/panel.test.mjs": "9dfc134f9f31df2f04b8148552a31ef32c6b646c7dd1290120f70000464dc901",
+    "examples/activity-v0/panel.operation.test.mjs": "039a2e01d90ccaa9460363a77d60fbcbfc0dce6dab8b97e84ca603bdd43d53cb",
+    "examples/activity-v0/README.md": "098b38a636d1c0dcc0758351241c577119f91ecba7ab4bf43d3773aa0c38dca1"
+  }
+}

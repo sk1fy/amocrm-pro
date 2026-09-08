@@ -13,6 +13,10 @@
 | [0009](0009-service-modules-and-fair-admission.md) | Accepted | Service modules, widget limits and fair queue admission |
 | [0010](0010-activity-v0-service-ownership.md) | Accepted | Activity v2: separate owners, logical DBs, jobs and embedded/gRPC deployment |
 | [0011](0011-activity-authorization-budget.md) | Accepted | One live actor check per request, bounded role snapshot and live Core revocation |
+| [0012](0012-separable-product-module-contract.md) | Accepted | Separable product module contract |
+| [0013](0013-event-detail-read-contract.md) | Accepted | CRM Events detail read, filters and cursor compatibility |
+| [0014](0014-event-enrichment-contract.md) | Accepted | CRM Events enrichment owner, bounded Gateway reads and provenance |
+| [0015](0015-activity-presentation-contract.md) | Accepted | Activity presentation, categories, period coverage vs freshness |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

@@ -30,6 +30,10 @@ func (s *Service) Run(ctx context.Context) error {
 			for ctx.Err() == nil {
 				worked, err := s.RunOnce(ctx)
 				s.logBackgroundError("collect", err)
+				if err == nil && !worked {
+					worked, err = s.EnrichOnce(ctx)
+					s.logBackgroundError("enrich", err)
+				}
 				if err != nil || !worked {
 					select {
 					case <-ctx.Done():
@@ -84,7 +88,7 @@ func (s *Service) RunOnce(ctx context.Context) (bool, error) {
 		return true, s.repository.Fail(persistCtx, c, cause)
 	}
 	for _, event := range page.Events {
-		if event.ID == "" || len(event.ID) > 256 || event.CreatedAt < c.From.Unix() || event.CreatedAt > c.To.Unix() || !validJSON(event.ValueBefore) || !validJSON(event.ValueAfter) {
+		if event.ID == "" || len(event.ID) > 128 || event.CreatedAt < c.From.Unix() || event.CreatedAt > c.To.Unix() || event.LinkedTalkContactID < 0 || len(event.ValueBefore) > 32768 || len(event.ValueAfter) > 32768 || !validJSON(event.ValueBefore) || !validJSON(event.ValueAfter) {
 			cause := serviceapi.Fail(serviceapi.InvalidArgument, "invalid upstream event")
 			s.logBackgroundError("validate", cause)
 			return true, s.repository.Fail(persistCtx, c, cause)
@@ -92,6 +96,41 @@ func (s *Service) RunOnce(ctx context.Context) (bool, error) {
 	}
 	return true, s.repository.SavePage(persistCtx, c, page)
 }
+
+func (s *Service) EnrichOnce(ctx context.Context) (bool, error) {
+	if s.cfg.DisableEnrichment {
+		return false, nil
+	}
+	c, err := s.repository.ClaimEnrichment(ctx)
+	if errors.Is(err, ErrNoWork) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	grant := enrichmentGrant(c.Kind)
+	callCtx, cancel := context.WithTimeout(ctx, s.cfg.CallTimeout)
+	var results []enrichmentSave
+	if grant == "" {
+		results = unavailableSaves(c, serviceapi.ReasonUnsupported, "", 0)
+	} else {
+		auth, issueErr := s.policy.Issue(callCtx, serviceapi.IssueRequest{Scope: serviceapi.Scope{InstallationID: c.InstallationID, IntegrationID: c.IntegrationID}, System: true, Consumer: serviceapi.ActivityService, RequestID: c.ID.String(), Grants: []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: grant}}})
+		if issueErr != nil {
+			err = issueErr
+		} else {
+			results, err = s.fetchEnrichment(callCtx, auth, c)
+		}
+	}
+	cancel()
+	persistCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), s.cfg.PersistTimeout)
+	defer stop()
+	if err != nil {
+		s.logBackgroundError("enrich", err)
+		return true, s.repository.FailEnrichment(persistCtx, c, err)
+	}
+	return true, s.repository.SaveEnrichment(persistCtx, c, results)
+}
+
 func validJSON(b []byte) bool  { return len(b) == 0 || json.Valid(b) }
 func (c Slice) String() string { return fmt.Sprintf("%s page %d pass %d", c.ID, c.Page, c.Pass) }
 

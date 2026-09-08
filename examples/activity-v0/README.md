@@ -53,10 +53,22 @@ integration `activity` capability and an operator-enabled installation pilot.
 history. Product disable is the Core operator pilot control. Settings take effect
 in CRM Events on the next sync command, whose receipt snapshots the settings.
 
-Filters are limited to 31 days, 100 employees and 100 events per page. Counts
-refer to registered CRM events; unknown/partial/stale coverage is shown beside
-the data and is never called proof of employee inactivity. The browser chooses
-date inputs in its own local time, while event timestamps use account timezone.
+Filters are limited to 31 days, 100 employees and 100 events per page. Employees
+and departments are chosen by name from `panel.users`; a hidden ID field remains
+only as a fallback. Period presets «Сегодня» / «Вчера» and datetime inputs use
+the account timezone once it is known — never the browser timezone silently.
+Until timezone arrives, the first read uses absolute unix bounds (last 24 hours).
+Unknown timezone is an explicit state and disables calendar presets.
+
+Journal pages request `compact=true` so large before/after payloads stay off the
+list. Opening a row loads `GET /events/{id}` once per panel read when details were omitted and
+keeps the open card across a refresh. Safe entity links are only the relative
+amoCRM paths for lead/contact/company/customer; other types show type and ID.
+
+The short status is coverage, freshness and empty_reason. Collector windows,
+pages, lag, error codes, verification and operation receipt internals stay in
+collapsed «Диагностика». Counts refer to registered CRM events; unknown/partial
+coverage is never called proof of employee inactivity.
 
 Run the pure presentation/bounds checks with:
 
@@ -90,7 +102,12 @@ state displays completion, cancels further polling, and refreshes exactly once.
 Without the generated response path, these two receiver-dependent Node cases
 are explicitly skipped; their execution is not inferred from presentation tests.
 
-This is a reusable adapter, not a submitted marketplace archive. The real
-installed-widget browser flow, the target widget's asset loading/CSP, admin
-rights, CORS and a new live amoCRM event must still be checked in the pilot.
-The Node tests do not claim that integration has been performed.
+This is a reusable adapter, not a submitted marketplace archive. The Node tests
+do not claim a live amoCRM E2E, widget CSP/CORS check, or a new CRM event on a
+real account. Those remain pilot/acceptance work.
+
+Review fixes: calendar presets end at 23:59:50 in the account timezone, with
+seconds preserved in datetime-local controls. Filter choices use a retained
+directory rather than the current result subset. A panel refresh invalidates
+card caches and reloads open cards; transient errors can also be retried by
+closing/reopening the card. Late responses from a previous refresh are ignored.

@@ -1,0 +1,1 @@
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	3.939s

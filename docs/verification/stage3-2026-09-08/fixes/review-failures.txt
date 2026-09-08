@@ -1,0 +1,13 @@
+=== RUN   TestReviewExpiredNegativeCache
+2026/09/08 12:49:58 ERROR CRM Events background operation failed stage=enrich code=permission_denied
+    stage3_review_test.go:19: expired permission_denied cache never retried after access restored
+--- FAIL: TestReviewExpiredNegativeCache (0.05s)
+=== RUN   TestReviewHistoricalNoteIsolation
+    stage3_review_test.go:31: second event has historical payload from first event: {"id": 51, "text": "first version", "facts": {"text": "first version"}, "current": false, "entity_id": 31, "entity_type": "leads"}
+--- FAIL: TestReviewHistoricalNoteIsolation (0.02s)
+=== RUN   TestReviewLargeCatalogPreserved
+    stage3_review_test.go:40: catalog silently lost: input fields=400 output={"current":true}
+--- FAIL: TestReviewLargeCatalogPreserved (0.00s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/services/crmevents	0.081s
+FAIL

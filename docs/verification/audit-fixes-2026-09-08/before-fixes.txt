@@ -1,0 +1,13 @@
+=== RUN   TestAuditReportTemporaryFailureIsTerminal
+    audit_report_review_test.go:17: CONFIRMED: state=error reason=temporary attempts=5; overdue object is not claimable
+--- PASS: TestAuditReportTemporaryFailureIsTerminal (0.05s)
+=== RUN   TestAuditReportTwoClaimsForOneAccount
+    audit_report_review_test.go:28: CONFIRMED: two simultaneously leased kinds note/entity for one installation
+--- PASS: TestAuditReportTwoClaimsForOneAccount (0.53s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	1.600s
+=== RUN   TestAuditReportOversizedNotePoisonsBatch
+    audit_report_review_test.go:18: CONFIRMED: 49 valid notes + 1 oversized note => whole batch rejected, 0 notes returned
+--- PASS: TestAuditReportOversizedNotePoisonsBatch (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	1.017s

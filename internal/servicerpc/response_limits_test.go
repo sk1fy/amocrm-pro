@@ -32,6 +32,9 @@ type responseEvents struct {
 func (e responseEvents) Query(context.Context, serviceapi.Query) (serviceapi.QueryResult, error) {
 	return e.result, nil
 }
+func (e responseEvents) Status(context.Context, serviceapi.Auth) (serviceapi.SyncStatus, error) {
+	return e.result.Status, nil
+}
 
 func TestLargeOwnerResponsesHaveSameLocalAndGRPCError(t *testing.T) {
 	ctx := context.Background()

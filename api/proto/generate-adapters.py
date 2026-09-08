@@ -23,6 +23,9 @@ for name,body in messages.items():
    elif field in ('integration_id','installation_id'):
     out.append(f'{dst}={src}.String()' if direction=='to' else f'{dst}=parseUUID({src})')
    elif field=='expires_at':out.append(f'{dst}={src}.Format(time.RFC3339Nano)' if direction=='to' else f'{dst}=parseTime({src})')
+   elif name=='Event' and field=='view':
+    if direction=='to':out.append('if src.View != nil { out.View = toEventView(*src.View) }')
+    else:out.append('if src.View != nil && (src.View.Category != "" || src.View.Title != "" || src.View.Summary != "" || len(src.View.Details) > 0) { view := fromEventView(src.View); out.View = &view }')
    elif typ in messages:out.append(f'{dst}={direction}{typ}({src})')
    elif typ=='int32':out.append(f'{dst}={"boundedInt32" if direction=="to" else "int"}({src})')
    else:out.append(f'{dst}={src}')

@@ -6,16 +6,24 @@ import { mountActivityPanel } from "./panel.mjs";
 // Only the DOM operations used by the real mount are emulated. No replacement
 // polling/controller implementation is tested, and no browser framework is needed.
 class Element {
-  constructor(tag, document) { this.tagName = tag; this.ownerDocument = document; this.children = []; this.listeners = new Map(); this.attributes = new Map(); this.text = ""; }
+  constructor(tag, document) {
+    this.tagName = tag; this.ownerDocument = document; this.children = []; this.listeners = new Map();
+    this.attributes = new Map(); this.text = ""; this.className = ""; this.hidden = false; this.dataset = {};
+    this.disabled = false; this.value = ""; this.type = ""; this.checked = false; this.selected = false;
+  }
   set textContent(value) { this.text = String(value); this.children = []; }
   get textContent() { return this.text + this.children.map((child) => child.textContent).join(""); }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.text = ""; this.children = children; }
-  setAttribute(name, value) { this.attributes.set(name, value); }
+  setAttribute(name, value) { this.attributes.set(name, value); if (name === "class") this.className = String(value); }
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(name, callback) { this.listeners.set(name, callback); }
-  querySelectorAll(tag) { return this.children.flatMap((child) => [...(child.tagName === tag ? [child] : []), ...child.querySelectorAll(tag)]); }
-  click() { if (!this.disabled) return this.listeners.get("click")?.({ preventDefault() {} }); }
+  querySelectorAll(selector) {
+    const match = (node) => selector.startsWith(".") ? node.className.split(/\s+/).includes(selector.slice(1)) : node.tagName === selector;
+    return this.children.flatMap((child) => [...(match(child) ? [child] : []), ...child.querySelectorAll(selector)]);
+  }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  click() { if (!this.disabled) return this.listeners.get("click")?.({ preventDefault() {}, stopPropagation() {} }); }
 }
 
 const operationFile = process.env.ACTIVITY_UI_OPERATION_FIXTURE;

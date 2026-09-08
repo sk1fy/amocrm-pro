@@ -26,6 +26,7 @@ type Config struct {
 	ActivityPool        int32
 	EventsPool          int32
 	EventsWorkers       int
+	DisableEnrichment   bool
 	PollInterval        time.Duration
 }
 
@@ -79,6 +80,10 @@ func Load(role string) (Config, error) {
 	c.EventsWorkers = int(workers)
 	if c.EventsWorkers > 4 {
 		return c, fmt.Errorf("CRM_EVENTS_WORKERS exceeds pilot maximum 4")
+	}
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("CRM_EVENTS_ENRICHMENT"))) {
+	case "0", "false", "off":
+		c.DisableEnrichment = true
 	}
 	c.PollInterval = 5 * time.Minute
 	if raw := os.Getenv("CRM_EVENTS_POLL_INTERVAL"); raw != "" {

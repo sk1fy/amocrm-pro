@@ -337,7 +337,7 @@ func aFaultAddress(p *processChild) string {
 }
 func (f *faultTopology) events(name, address string) *processChild {
 	health := processAddress(f.t)
-	p := startProcess(f.t, f.dir, "fault-events-"+name, f.binary, nil, map[string]string{"ACTIVITY_MODE": "grpc", "GATEWAY_ADDRESS": f.gatewayAddr, "CRM_EVENTS_DATABASE_URL": f.eventsDSN, "CRM_EVENTS_WORKERS": "1", "CRM_EVENTS_POLL_INTERVAL": "1h", "SERVICE_IDENTITY_DIR": filepath.Join(f.identities, "crm-events"), "SERVICE_RPC_ADDRESS": address, "SERVICE_HEALTH_ADDRESS": health})
+	p := startProcess(f.t, f.dir, "fault-events-"+name, f.binary, nil, map[string]string{"ACTIVITY_MODE": "grpc", "GATEWAY_ADDRESS": f.gatewayAddr, "CRM_EVENTS_DATABASE_URL": f.eventsDSN, "CRM_EVENTS_WORKERS": "1", "CRM_EVENTS_POLL_INTERVAL": "1h", "CRM_EVENTS_ENRICHMENT": "0", "SERVICE_IDENTITY_DIR": filepath.Join(f.identities, "crm-events"), "SERVICE_RPC_ADDRESS": address, "SERVICE_HEALTH_ADDRESS": health})
 	faultAddresses.Store(p, address)
 	waitHTTPProcess(f.t, f.ctx, "http://"+health+"/ready")
 	return p

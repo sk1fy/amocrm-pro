@@ -210,6 +210,9 @@ func (s *Postgres) SavePage(ctx context.Context, c Slice, page serviceapi.EventP
 	if err != nil {
 		return err
 	}
+	if err = s.enqueueEnrichment(ctx, tx, c.InstallationID, page.Events); err != nil {
+		return err
+	}
 	status := "queued"
 	errorCode := ""
 	complete := false
@@ -370,6 +373,9 @@ func (s *Postgres) Retain(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	if err = s.deleteOrphanEnrichment(ctx, tx, installation); err != nil {
+		return 0, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, err
 	}
@@ -429,7 +435,7 @@ func (s *Postgres) writeEvents(ctx context.Context, tx pgx.Tx, c Slice, events [
 		if i+1 < len(ordered) && ordered[i+1].ID == event.ID {
 			continue
 		}
-		batch.Queue(`INSERT INTO crm_events(installation_id,event_id,created_at,created_by,event_type,entity_id,entity_type,value_before,value_after,content_hash) VALUES($1,$2,to_timestamp($3),$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(installation_id,event_id) DO UPDATE SET created_at=excluded.created_at,created_by=excluded.created_by,event_type=excluded.event_type,entity_id=excluded.entity_id,entity_type=excluded.entity_type,value_before=excluded.value_before,value_after=excluded.value_after,content_hash=excluded.content_hash,observed_at=now()`, c.InstallationID, event.ID, event.CreatedAt, event.CreatedBy, event.Type, event.EntityID, event.EntityType, event.ValueBefore, event.ValueAfter, hash[:])
+		batch.Queue(`INSERT INTO crm_events(installation_id,event_id,created_at,created_by,event_type,entity_id,entity_type,value_before,value_after,content_hash,linked_talk_contact_id) VALUES($1,$2,to_timestamp($3),$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(installation_id,event_id) DO UPDATE SET created_at=excluded.created_at,created_by=excluded.created_by,event_type=excluded.event_type,entity_id=excluded.entity_id,entity_type=excluded.entity_type,value_before=excluded.value_before,value_after=excluded.value_after,content_hash=excluded.content_hash,linked_talk_contact_id=excluded.linked_talk_contact_id,observed_at=now()`, c.InstallationID, event.ID, event.CreatedAt, event.CreatedBy, event.Type, event.EntityID, event.EntityType, event.ValueBefore, event.ValueAfter, hash[:], event.LinkedTalkContactID)
 	}
 	err = tx.SendBatch(ctx, batch).Close()
 	return

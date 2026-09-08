@@ -14,19 +14,20 @@ import (
 )
 
 type Config struct {
-	Workers        int
-	PollInterval   time.Duration
-	Window         time.Duration
-	Overlap        time.Duration
-	Lease          time.Duration
-	CallTimeout    time.Duration
-	PersistTimeout time.Duration
-	Logger         *slog.Logger
-	MaxAttempts    int
-	MaxPasses      int
-	MaxPages       int
-	RetentionBatch int
-	Now            func() time.Time
+	Workers           int
+	PollInterval      time.Duration
+	Window            time.Duration
+	Overlap           time.Duration
+	Lease             time.Duration
+	CallTimeout       time.Duration
+	PersistTimeout    time.Duration
+	Logger            *slog.Logger
+	MaxAttempts       int
+	MaxPasses         int
+	MaxPages          int
+	RetentionBatch    int
+	DisableEnrichment bool
+	Now               func() time.Time
 }
 
 func DefaultConfig() Config {
@@ -73,6 +74,7 @@ func normalizeConfig(c Config) Config {
 	if c.Now != nil {
 		d.Now = c.Now
 	}
+	d.DisableEnrichment = c.DisableEnrichment
 	return d
 }
 
@@ -80,12 +82,16 @@ func normalizeConfig(c Config) Config {
 type Repository interface {
 	Apply(context.Context, serviceapi.Command, serviceapi.Principal) (serviceapi.Operation, error)
 	Query(context.Context, serviceapi.Query, serviceapi.Principal) (serviceapi.QueryResult, error)
+	GetEvent(context.Context, serviceapi.Principal, string) (serviceapi.Event, error)
 	Status(context.Context, serviceapi.Principal) (serviceapi.SyncStatus, error)
 	Operation(context.Context, serviceapi.Principal, uuid.UUID) (serviceapi.Operation, error)
 	Schedule(context.Context) error
 	Claim(context.Context) (Slice, error)
 	SavePage(context.Context, Slice, serviceapi.EventPage) error
 	Fail(context.Context, Slice, error) error
+	ClaimEnrichment(context.Context) (EnrichmentClaim, error)
+	SaveEnrichment(context.Context, EnrichmentClaim, []enrichmentSave) error
+	FailEnrichment(context.Context, EnrichmentClaim, error) error
 	Retain(context.Context) (int64, error)
 	MetricsSnapshot(context.Context) (Snapshot, error)
 }

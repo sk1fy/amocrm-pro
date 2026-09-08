@@ -62,10 +62,36 @@ not purged in v0: deleting them needs a coordinated dedup/retry retention policy
   and never rewinds synchronization progress. History counters may therefore
   exceed currently retained row counts.
 
-`Collector()` exposes owner backlog/state, oldest job age, max source lag and
-persisted processed/inserted/updated/deduplicated totals without ID labels. SQL
-and pool metrics are supplied by the composition root. Full payloads are not
-logged.
+Enrichment is a separate owner queue. `SavePage` enqueues missing notes, tasks
+and catalogs after the event write, in the same transaction. `RunOnce` stays the
+Events collector. `Run` calls `EnrichOnce` only when collection is idle.
+Enrichment uses object-level leases, never `event_sources.lease_token`. Gateway
+failures mark the object `retry`/`unavailable`/`error` and do not fail coverage
+or the collector source. `GetEvent` attaches current-state sidecar and names;
+`Query` does not. `CRM_EVENTS_ENRICHMENT=0` disables the worker.
+
+`Collector()` exposes owner backlog/state, oldest job age, max source lag,
+enrichment object states and persisted processed/inserted/updated/deduplicated
+totals without ID labels. SQL and pool metrics are supplied by the composition
+root. Full payloads are not logged.
+
+## Enrichment
+
+The same page transaction that writes `crm_events` enqueues deduplicated
+`event_enrichment_objects` (note, task, entity, pipeline, custom_field) and
+always inserts per-event links. `RunOnce` remains the Events collector and does
+not call Gateway Notes/Tasks/catalogs. `Run` calls `EnrichOnce` only after a
+collection idle (`!worked`). Enrichment uses its own object leases — never
+`event_sources.lease` — and cannot fail a source or move coverage. Fields
+already present in `value_before`/`value_after` are projected on detail reads
+as `ready`, `source=event_payload`, `current=false` from that event only,
+without sharing historical payloads in the current-object cache. `GetEvent` attaches sidecar objects and current names
+from the owner store; `Query` list rows do not include enrichment bodies.
+Ready notes/tasks refresh after 15 minutes, catalogs/entity names after five.
+Transient negatives expire after 15 minutes (not found) or one hour (permission).
+Full enriched objects have a separate 1 MiB owner bound; exceeding it produces
+`error/invalid`, never a truncated ready payload. Migration 000005 repairs old
+shared historical cache rows and truncated placeholders.
 
 ## Owner tests
 

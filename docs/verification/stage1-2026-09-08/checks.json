@@ -1,0 +1,14 @@
+{
+  "checked_at_utc": "2026-09-08T10:59:41.640833+00:00",
+  "go_target": "./internal/componentruntime",
+  "top_level_tests_passed": 3,
+  "subtests_passed": 16,
+  "race_enabled": true,
+  "go_vet_exit_code": 0,
+  "full_runtime_suite_run": false,
+  "fixture_cases": 29,
+  "fixture_categories": 11,
+  "fixture_sha256": "a137691e4c12fa671805796d6e04779abe9c69cf312c3522ed62aa5b307fa7c9",
+  "local_document_links_checked": 84,
+  "remote_server_checked": false
+}

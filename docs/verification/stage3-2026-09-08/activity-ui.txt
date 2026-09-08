@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: actual CRM success scheduled check stops polling and refreshes once
+ok 1 - actual CRM success scheduled check stops polling and refreshes once
+  ---
+  duration_ms: 6.545513
+  type: 'test'
+  ...
+# Subtest: actual CRM success manual check stops polling and refreshes once
+ok 2 - actual CRM success manual check stops polling and refreshes once
+  ---
+  duration_ms: 1.375837
+  type: 'test'
+  ...
+# Subtest: unknown and incomplete observations never claim zero employee activity
+ok 3 - unknown and incomplete observations never claim zero employee activity
+  ---
+  duration_ms: 0.497876
+  type: 'test'
+  ...
+# Subtest: Core acceptance is shown as delivery pending, never completion
+ok 4 - Core acceptance is shown as delivery pending, never completion
+  ---
+  duration_ms: 0.118584
+  type: 'test'
+  ...
+# Subtest: bounded employee period filter supplies no caller identity
+ok 5 - bounded employee period filter supplies no caller identity
+  ---
+  duration_ms: 0.310376
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 77.727029

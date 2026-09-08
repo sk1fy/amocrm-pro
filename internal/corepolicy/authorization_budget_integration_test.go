@@ -65,7 +65,7 @@ func (budgetActivityRepo) Settings(context.Context, serviceapi.Scope) (serviceap
 type budgetEventsRepo struct{ crmevents.Repository }
 
 func (budgetEventsRepo) Query(context.Context, serviceapi.Query, serviceapi.Principal) (serviceapi.QueryResult, error) {
-	return serviceapi.QueryResult{}, nil
+	return serviceapi.QueryResult{ReadVersion: serviceapi.PresentationReadVersion, Events: []serviceapi.Event{}, Summaries: []serviceapi.UserSummary{}}, nil
 }
 
 // Exercise actual Activity -> Gateway + Events service authorization and the

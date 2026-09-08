@@ -1,0 +1,938 @@
+{
+  "fixture_version": 1,
+  "fixture_kind": "project_synthetic_not_guaranteed_amocrm_schema",
+  "created_on": "2026-09-08",
+  "purpose": "BASE-02: примеры для проверки сохранности и проектирования подробностей. Не публичный API и не импорт реального аккаунта.",
+  "privacy": "Все имена, ID, UUID, тексты вымышлены. Нет реальных телефонов, email, URL записей или токенов. Ссылки .invalid не открывать.",
+  "period": {
+    "from": 1788847200,
+    "to": 1788933599,
+    "timezone": "Europe/Moscow",
+    "interval_semantics": "inclusive_from_to_matches_current_query"
+  },
+  "reference_users": [
+    {
+      "id": 71001,
+      "name": "Тестовый сотрудник А",
+      "group_id": 72001,
+      "group_name": "Демонстрационный отдел",
+      "slots": [
+        "synthetic-task_added",
+        "synthetic-task_completed",
+        "synthetic-task_text",
+        "synthetic-task_deadline",
+        "synthetic-task_type",
+        "synthetic-task_result_reference",
+        "synthetic-task_result_embedded",
+        "synthetic-call_reference",
+        "synthetic-call_embedded",
+        "synthetic-note_reference",
+        "synthetic-note_embedded",
+        "synthetic-chat_reference",
+        "synthetic-chat_enriched_candidate",
+        "synthetic-sms_reference",
+        "synthetic-lead_status",
+        "synthetic-budget",
+        "synthetic-responsible",
+        "synthetic-custom_multivalue",
+        "synthetic-custom_masked",
+        "synthetic-contact_link",
+        "synthetic-contact_unlink",
+        "synthetic-attachment_reference",
+        "synthetic-lead_added",
+        "synthetic-unknown_type",
+        "synthetic-null_payload",
+        "synthetic-missing_payload",
+        "synthetic-upstream_top_level_extra"
+      ]
+    },
+    {
+      "id": 71002,
+      "name": "Тестовый сотрудник Б",
+      "group_id": 72001,
+      "group_name": "Демонстрационный отдел",
+      "slots": []
+    },
+    {
+      "id": 71003,
+      "name": "Тестовый сотрудник без событий",
+      "group_id": 0,
+      "group_name": "",
+      "slots": []
+    }
+  ],
+  "reference_users_semantics": "slots содержит ID case input только для иллюстрации; [] означает нет событий за период. Это не требование менять Panel schema. Авторы 71999 и 0 отсутствуют в directory.",
+  "cases": [
+    {
+      "case_id": "task_added",
+      "category": "tasks",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-task_added",
+        "created_at": 1788847200,
+        "created_by": 71001,
+        "type": "task_added",
+        "entity_id": 41001,
+        "entity_type": "task",
+        "value_before": [],
+        "value_after": []
+      },
+      "expectation": "Пустые B/A допустимы: факт создания не требует текста; текущие детали задачи получают отдельно.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "task_completed",
+      "category": "tasks",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-task_completed",
+        "created_at": 1788847260,
+        "created_by": 71001,
+        "type": "task_completed",
+        "entity_id": 41001,
+        "entity_type": "task",
+        "value_before": [],
+        "value_after": []
+      },
+      "expectation": "Сохранить факт завершения и пустые массивы; не синтезировать результат задачи.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "task_text",
+      "category": "tasks",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-task_text",
+        "created_at": 1788847320,
+        "created_by": 71001,
+        "type": "task_text_changed",
+        "entity_id": 41001,
+        "entity_type": "task",
+        "value_before": [
+          {
+            "task": {
+              "text": "Проверить условия"
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "task": {
+              "text": "Проверить условия\nПодготовить ответ — тест 🙂"
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "task_deadline",
+      "category": "tasks",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-task_deadline",
+        "created_at": 1788847380,
+        "created_by": 71001,
+        "type": "task_deadline_changed",
+        "entity_id": 41001,
+        "entity_type": "task",
+        "value_before": [
+          {
+            "task_deadline": {
+              "timestamp": 1788850800
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "task_deadline": {
+              "timestamp": 1788854400
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "task_type",
+      "category": "tasks",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-task_type",
+        "created_at": 1788847440,
+        "created_by": 71001,
+        "type": "task_type_changed",
+        "entity_id": 41001,
+        "entity_type": "task",
+        "value_before": [
+          {
+            "task_type": {
+              "id": 1
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "task_type": {
+              "id": 2
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "task_result_reference",
+      "category": "tasks",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-task_result_reference",
+        "created_at": 1788847500,
+        "created_by": 71001,
+        "type": "task_result_added",
+        "entity_id": 41001,
+        "entity_type": "task",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51001
+            }
+          }
+        ]
+      },
+      "expectation": "note.id не заменяет ID задачи. Родитель Notes неизвестен, пока его не определили Task read или другим доказанным источником.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "task_result_embedded",
+      "category": "tasks",
+      "shape_kind": "synthetic_enriched_like_reference",
+      "input": {
+        "id": "synthetic-task_result_embedded",
+        "created_at": 1788847560,
+        "created_by": 71001,
+        "type": "task_result_added",
+        "entity_id": 41002,
+        "entity_type": "task",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51002,
+              "text": "Демонстрационный результат.\nСледующее действие согласовано."
+            }
+          }
+        ]
+      },
+      "expectation": "Если note.text уже присутствует во входе, он проходит P1–P3; fixture не гарантирует, что обычный Events возвращает этот текст.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "call_reference",
+      "category": "calls",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-call_reference",
+        "created_at": 1788847620,
+        "created_by": 71001,
+        "type": "outgoing_call",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51003
+            }
+          }
+        ]
+      },
+      "expectation": "Направление и note.id доступны сразу; длительность/запись/результат не выдумывать из ссылки на примечание.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "call_embedded",
+      "category": "calls",
+      "shape_kind": "synthetic_enriched_like_reference",
+      "input": {
+        "id": "synthetic-call_embedded",
+        "created_at": 1788847680,
+        "created_by": 71001,
+        "type": "incoming_call",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51004,
+              "duration": 0,
+              "link": null,
+              "src": "SyntheticTelephony",
+              "uniq": "synthetic-call-1",
+              "result": "unknown_provider_result",
+              "text": "Демонстрационный звонок",
+              "phone": null,
+              "from": null,
+              "provider_extra": {
+                "answered": false,
+                "cost": "0.00"
+              }
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить нулевую длительность, null ссылки и неизвестные provider-поля. Это тест расширенного payload, не обещание схемы Notes API.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "note_reference",
+      "category": "notes",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-note_reference",
+        "created_at": 1788847740,
+        "created_by": 71001,
+        "type": "common_note_added",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51005
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "note_embedded",
+      "category": "notes",
+      "shape_kind": "synthetic_enriched_like_reference",
+      "input": {
+        "id": "synthetic-note_embedded",
+        "created_at": 1788847800,
+        "created_by": 71001,
+        "type": "service_note_added",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51006,
+              "text": "Служебная заметка\nСтрока 2: «проверка»",
+              "service": "SyntheticService",
+              "unknown_note_field": {
+                "array": [],
+                "nullable": null
+              }
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "chat_reference",
+      "category": "messages",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-chat_reference",
+        "created_at": 1788847860,
+        "created_by": 71001,
+        "type": "incoming_chat_message",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "message": {
+              "id": "00000000-0000-4000-8000-000000000001"
+            }
+          }
+        ],
+        "linked_talk_contact_id": 32001
+      },
+      "expectation": "message.id и linked_talk_contact_id сохраняются через typed model, Gateway, owner DB, protobuf и HTTP. Текст чата по ID автоматически не извлекается.",
+      "followup": "Сохранение ссылки реализовано EVT-02. ENR-04: проверить доступные источники текста чатов отдельно.",
+      "upstream_extra_fields": [],
+      "baseline_stage1_expectation": "message.id сохраняется; linked_talk_contact_id сейчас отбрасывается typed CRMEvent. Текст чата из ID не извлекается автоматически.",
+      "new_typed_fields": [
+        "linked_talk_contact_id"
+      ]
+    },
+    {
+      "case_id": "chat_enriched_candidate",
+      "category": "messages",
+      "shape_kind": "synthetic_enriched_candidate_not_api_schema",
+      "input": {
+        "id": "synthetic-chat_enriched_candidate",
+        "created_at": 1788847920,
+        "created_by": 71001,
+        "type": "outgoing_chat_message",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "message": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "text": "Искусственный текст сообщения",
+              "channel": "synthetic-channel",
+              "attachments": []
+            }
+          }
+        ]
+      },
+      "expectation": "Проверка сохранности произвольного вложенного JSON. Ни text, ни channel не объявляются гарантированными полями Events или доступного read чатов.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "sms_reference",
+      "category": "messages",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-sms_reference",
+        "created_at": 1788847980,
+        "created_by": 71001,
+        "type": "outgoing_sms",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51007
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "lead_status",
+      "category": "status",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-lead_status",
+        "created_at": 1788848040,
+        "created_by": 71001,
+        "type": "lead_status_changed",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [
+          {
+            "lead_status": {
+              "id": 81001,
+              "pipeline_id": 80001
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "lead_status": {
+              "id": 81002,
+              "pipeline_id": 80002
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "budget",
+      "category": "budget",
+      "shape_kind": "synthetic_scalar_variants",
+      "input": {
+        "id": "synthetic-budget",
+        "created_at": 1788848100,
+        "created_by": 71001,
+        "type": "sale_field_changed",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [
+          {
+            "sale_field_value": {
+              "sale": 0
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "sale_field_value": {
+              "sale": "125000.50"
+            }
+          }
+        ]
+      },
+      "expectation": "Проверить сохранение числа 0 и decimal-строки без преобразования; вариант типа искусственный и не фиксирует денежную схему amoCRM.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "responsible",
+      "category": "responsible",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-responsible",
+        "created_at": 1788848160,
+        "created_by": 71001,
+        "type": "entity_responsible_changed",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [
+          {
+            "responsible_user": {
+              "id": 71999
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "responsible_user": {
+              "id": 71002
+            }
+          }
+        ]
+      },
+      "expectation": "created_by=71001, новый ответственный=71002; прежнего 71999 нет в directory. Отображать роли отдельно.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "custom_multivalue",
+      "category": "custom_fields",
+      "shape_kind": "synthetic_nested_unknown_fields",
+      "input": {
+        "id": "synthetic-custom_multivalue",
+        "created_at": 1788848220,
+        "created_by": 71001,
+        "type": "custom_field_91001_value_changed",
+        "entity_id": 32001,
+        "entity_type": "contact",
+        "value_before": [
+          {
+            "custom_field_value": {
+              "field_id": 91001,
+              "field_type": 8,
+              "enum_id": null,
+              "text": ""
+            }
+          }
+        ],
+        "value_after": [
+          {
+            "custom_field_value": {
+              "field_id": 91001,
+              "field_type": 8,
+              "enum_id": 92001,
+              "text": "Первое значение",
+              "is_masked": false
+            }
+          },
+          {
+            "custom_field_value": {
+              "field_id": 91001,
+              "field_type": 8,
+              "enum_id": 92002,
+              "text": "Второе значение",
+              "extra": {
+                "precise_integer": 9007199254740993,
+                "decimal_text": "1234567890.0123456789",
+                "flags": [
+                  true,
+                  false,
+                  null
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить оба значения, null enum, пустую строку, большой integer и неизвестные поля. Не брать только первый элемент.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "custom_masked",
+      "category": "custom_fields",
+      "shape_kind": "synthetic_masked_variant",
+      "input": {
+        "id": "synthetic-custom_masked",
+        "created_at": 1788848280,
+        "created_by": 71001,
+        "type": "custom_field_value_changed",
+        "entity_id": 32001,
+        "entity_type": "contact",
+        "value_before": [],
+        "value_after": [
+          {
+            "custom_field_value": {
+              "field_id": 91002,
+              "field_type": 1,
+              "enum_id": null,
+              "text": "***",
+              "is_masked": true
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить masking и не восстанавливать скрытый текст из другого источника ради отображения.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "contact_link",
+      "category": "relations",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-contact_link",
+        "created_at": 1788848340,
+        "created_by": 71001,
+        "type": "contact_linked",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "link": {
+              "entity": {
+                "type": "contact",
+                "id": 32001
+              }
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "contact_unlink",
+      "category": "relations",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-contact_unlink",
+        "created_at": 1788848400,
+        "created_by": 71001,
+        "type": "contact_unlinked",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [
+          {
+            "unlink": {
+              "entity": {
+                "type": "contact",
+                "id": 32001
+              }
+            }
+          }
+        ],
+        "value_after": []
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "attachment_reference",
+      "category": "attachments",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-attachment_reference",
+        "created_at": 1788848460,
+        "created_by": 71001,
+        "type": "attachment_note_added",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51008
+            }
+          }
+        ]
+      },
+      "expectation": "Событие с ID примечания не содержит файл; metadata берутся отдельно, байты/доступная запись не выдумываются.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "lead_added",
+      "category": "other",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-lead_added",
+        "created_at": 1788848520,
+        "created_by": 71001,
+        "type": "lead_added",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51009
+            }
+          }
+        ]
+      },
+      "expectation": "Сохранить конверт и B/A через существующий typed путь семантически; порядок ключей JSON несущественен.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "unknown_type",
+      "category": "other",
+      "shape_kind": "synthetic_forward_compatibility",
+      "input": {
+        "id": "synthetic-unknown_type",
+        "created_at": 1788848580,
+        "created_by": 71001,
+        "type": "synthetic_future_event_v9",
+        "entity_id": 61001,
+        "entity_type": "synthetic_entity",
+        "value_before": [],
+        "value_after": [
+          {
+            "unknown": {
+              "list": [
+                1,
+                "1",
+                null,
+                {},
+                []
+              ],
+              "unicode": "Тест 中文 🙂",
+              "flag": true
+            }
+          }
+        ]
+      },
+      "expectation": "Неизвестные тип сущности, тип события и nested keys сохраняются; renderer использует other и raw детали.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "unknown_actor",
+      "category": "other",
+      "shape_kind": "reference_only",
+      "input": {
+        "id": "synthetic-unknown_actor",
+        "created_at": 1788848640,
+        "created_by": 71999,
+        "type": "name_field_changed",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "name_field_value": {
+              "name": "Синтетическая сделка"
+            }
+          }
+        ]
+      },
+      "expectation": "Raw history сохраняет событие автора вне directory; default Activity.Panel сейчас может скрыть его своим UserIDs. Нужен видимый fallback ACT-03.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "system_actor",
+      "category": "other",
+      "shape_kind": "synthetic_edge_case",
+      "input": {
+        "id": "synthetic-system_actor",
+        "created_at": 1788848700,
+        "created_by": 0,
+        "type": "synthetic_system_event",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": []
+      },
+      "expectation": "created_by=0 сохраняется на raw пути. Показывать «Автор не указан», не утверждать, что это робот. Выбор UserIDs=0 в текущем Query запрещён.",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных."
+    },
+    {
+      "case_id": "null_payload",
+      "category": "other",
+      "shape_kind": "synthetic_edge_case",
+      "input": {
+        "id": "synthetic-null_payload",
+        "created_at": 1788848760,
+        "created_by": 71001,
+        "type": "synthetic_null_payload",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": null,
+        "value_after": null
+      },
+      "expectation": "Явный null остаётся null при текущей канонизации, не превращается в [].",
+      "followup": "EVT-01: round-trip fixture; ACT-02/ACT-03: представление доступных данных.",
+      "current_payload_after_canonicalization": {
+        "value_before": null,
+        "value_after": null
+      }
+    },
+    {
+      "case_id": "missing_payload",
+      "category": "other",
+      "shape_kind": "synthetic_edge_case",
+      "input": {
+        "id": "synthetic-missing_payload",
+        "created_at": 1788848820,
+        "created_by": 71001,
+        "type": "synthetic_missing_payload",
+        "entity_id": 31001,
+        "entity_type": "lead"
+      },
+      "expectation": "Отсутствующие B/A текущий canonicalEvent нормализует в []; исходное отсутствие после записи уже неотличимо.",
+      "followup": "EVT-01: подтвердить текущую нормализацию; EVT-02: решить необходимость presence metadata без автоматического raw storage.",
+      "current_payload_after_canonicalization": {
+        "value_before": [],
+        "value_after": []
+      }
+    },
+    {
+      "case_id": "upstream_top_level_extra",
+      "category": "other",
+      "shape_kind": "synthetic_forward_compatibility",
+      "input": {
+        "id": "synthetic-upstream_top_level_extra",
+        "created_at": 1788848880,
+        "created_by": 71001,
+        "type": "lead_added",
+        "entity_id": 31001,
+        "entity_type": "lead",
+        "value_before": [],
+        "value_after": [
+          {
+            "note": {
+              "id": 51010
+            }
+          }
+        ],
+        "account_id": 999001,
+        "_embedded": {
+          "entity": {
+            "id": 31001,
+            "name": "Синтетическая сделка"
+          }
+        },
+        "_links": {
+          "self": {
+            "href": "https://crm.example.invalid/api/v4/events/synthetic-upstream_top_level_extra"
+          }
+        },
+        "future_top_level": {
+          "marker": "not-preserved"
+        }
+      },
+      "expectation": "account_id, _embedded, _links и future_top_level отсутствуют в CRMEvent и отбрасываются. Вложенный note.id сохраняется; tenancy уже задаётся scope.",
+      "followup": "EVT-02: документированно выбрать полезные top-level поля; не утверждать, что типизированная модель сохраняет исходный объект целиком.",
+      "upstream_extra_fields": [
+        "account_id",
+        "_embedded",
+        "_links",
+        "future_top_level"
+      ]
+    }
+  ],
+  "enrichment_samples": [
+    {
+      "sample_id": "task_current",
+      "source_kind": "tasks_read_candidate",
+      "shape_kind": "synthetic_project_sample",
+      "payload": {
+        "id": 41001,
+        "entity_id": 31001,
+        "entity_type": "leads",
+        "responsible_user_id": 71002,
+        "text": "Текущий текст задачи для примера",
+        "complete_till": 1788854400,
+        "task_type_id": 2,
+        "is_completed": true,
+        "result": {
+          "text": "Текущий результат для примера"
+        },
+        "updated_at": 1788857200
+      },
+      "expectation": "Это текущее состояние, не исторический снимок задачи. Parent mapping leads/31001 разрешает выбор Notes пути только при подтверждённой связи."
+    },
+    {
+      "sample_id": "call_note_current",
+      "source_kind": "notes_read_candidate",
+      "shape_kind": "synthetic_project_sample",
+      "payload": {
+        "id": 51003,
+        "entity_id": 31001,
+        "note_type": "call_out",
+        "created_by": 71001,
+        "updated_at": 1788857200,
+        "params": {
+          "uniq": "synthetic-call-2",
+          "duration": 37,
+          "source": "SyntheticPBX",
+          "link": "https://recording.example.invalid/demo-call",
+          "phone": null,
+          "call_responsible": 71002,
+          "provider_extra": {
+            "result": "provider_defined"
+          }
+        }
+      },
+      "expectation": "Не загружать ссылку. call_responsible и created_by сохранять раздельно; provider_extra искусственный, source не подменять молча src."
+    },
+    {
+      "sample_id": "common_note_current",
+      "source_kind": "notes_read_candidate",
+      "shape_kind": "synthetic_project_sample",
+      "payload": {
+        "id": 51005,
+        "entity_id": 31001,
+        "note_type": "common",
+        "updated_at": 1788857200,
+        "params": {
+          "text": "Текущий текст примечания\nВозможно изменён после события."
+        }
+      },
+      "expectation": "Не перезаписывать B/A события текущим текстом; сохранить source/fetched_at отдельно."
+    },
+    {
+      "sample_id": "attachment_note_current",
+      "source_kind": "notes_read_candidate",
+      "shape_kind": "synthetic_project_sample",
+      "payload": {
+        "id": 51008,
+        "entity_id": 31001,
+        "note_type": "attachment",
+        "updated_at": 1788857200,
+        "params": {
+          "file_uuid": "00000000-0000-4000-8000-000000000010",
+          "version_uuid": null,
+          "file_name": "demonstration.txt"
+        }
+      },
+      "expectation": "Не выводить URL, размер или MIME, которых источник не дал; отсутствие версии не означает отсутствие файла."
+    },
+    {
+      "sample_id": "unavailable_note",
+      "source_kind": "future_enrichment_state",
+      "shape_kind": "proposed_project_metadata_not_runtime_contract",
+      "payload": {
+        "object_type": "note",
+        "object_id": 51999,
+        "state": "unavailable",
+        "reason": "not_found",
+        "source": "notes_api",
+        "fetched_at": 1788857200
+      },
+      "expectation": "Исходное событие остаётся; state enrichment не заменяет coverage истории."
+    }
+  ],
+  "updated_for_stage": 2
+}

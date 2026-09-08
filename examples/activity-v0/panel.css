@@ -4,12 +4,24 @@
 .amocrm-activity-v0 p { margin: 8px 0; }
 .amocrm-activity-v0__controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin: 16px 0; }
 .amocrm-activity-v0 label { display: grid; gap: 4px; }
-.amocrm-activity-v0 input { padding: 7px; border: 1px solid #bdc7d1; border-radius: 4px; font: inherit; }
+.amocrm-activity-v0 input, .amocrm-activity-v0 select { padding: 7px; border: 1px solid #bdc7d1; border-radius: 4px; font: inherit; }
+.amocrm-activity-v0 select { min-width: 180px; }
 .amocrm-activity-v0 button { padding: 8px 12px; border: 1px solid #bdc7d1; border-radius: 4px; background: #f0f4f8; color: #172b46; cursor: pointer; margin: 2px; font: inherit; }
 .amocrm-activity-v0 button:disabled { opacity: .5; cursor: default; }
-.amocrm-activity-v0 input:focus-visible, .amocrm-activity-v0 button:focus-visible { outline: 2px solid #2176b9; outline-offset: 2px; }
+.amocrm-activity-v0 input:focus-visible, .amocrm-activity-v0 select:focus-visible, .amocrm-activity-v0 button:focus-visible, .amocrm-activity-v0 summary:focus-visible { outline: 2px solid #2176b9; outline-offset: 2px; }
 .amocrm-activity-v0 table { width: 100%; border-collapse: collapse; margin: 14px 0; }
 .amocrm-activity-v0 th, .amocrm-activity-v0 td { padding: 8px; text-align: left; border-bottom: 1px solid #e2e8ef; overflow-wrap: anywhere; }
 .amocrm-activity-v0 th { background: #f0f4f8; }
 .amocrm-activity-v0__error { color: #a22525; }
+.amocrm-activity-v0__hint, .amocrm-activity-v0__journal-status { color: #5a6a7a; }
+.amocrm-activity-v0__status strong { display: block; margin: 8px 0 4px; }
+.amocrm-activity-v0__diagnostics, .amocrm-activity-v0__advanced { margin: 12px 0; }
+.amocrm-activity-v0__categories { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border: 1px solid #e2e8ef; border-radius: 4px; padding: 8px 10px; }
+.amocrm-activity-v0__categories label { display: flex; gap: 6px; align-items: center; }
+.amocrm-activity-v0__card { background: #f7fafc; }
+.amocrm-activity-v0__fact { margin: 8px 0; }
+.amocrm-activity-v0__current { color: #7a4a00; }
+.amocrm-activity-v0 a { color: #2176b9; }
+.amocrm-activity-v0 pre { margin: 0; white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; }
+.amocrm-activity-v0 td button { padding: 4px 8px; }
 @media (max-width: 620px) { .amocrm-activity-v0 { padding: 8px; } .amocrm-activity-v0 table { display: block; overflow-x: auto; } }

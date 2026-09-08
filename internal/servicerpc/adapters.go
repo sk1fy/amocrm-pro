@@ -40,6 +40,76 @@ func (c gatewayClient) Users(ctx context.Context, r serviceapi.UsersRequest) (se
 	}
 	return fromDirectory(v), nil
 }
+func (s *gatewayServer) Notes(ctx context.Context, r *pb.NotesRequest) (*pb.NotePage, error) {
+	v, err := s.impl.Notes(ctx, fromNotesRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toNotePage(v), nil
+}
+func (c gatewayClient) Notes(ctx context.Context, r serviceapi.NotesRequest) (serviceapi.NotePage, error) {
+	v, err := c.remote.Notes(ctx, toNotesRequest(r))
+	if err != nil {
+		return serviceapi.NotePage{}, err
+	}
+	return fromNotePage(v), nil
+}
+func (s *gatewayServer) Tasks(ctx context.Context, r *pb.TasksRequest) (*pb.TaskPage, error) {
+	v, err := s.impl.Tasks(ctx, fromTasksRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toTaskPage(v), nil
+}
+func (c gatewayClient) Tasks(ctx context.Context, r serviceapi.TasksRequest) (serviceapi.TaskPage, error) {
+	v, err := c.remote.Tasks(ctx, toTasksRequest(r))
+	if err != nil {
+		return serviceapi.TaskPage{}, err
+	}
+	return fromTaskPage(v), nil
+}
+func (s *gatewayServer) Pipelines(ctx context.Context, r *pb.CatalogRequest) (*pb.PipelineCatalog, error) {
+	v, err := s.impl.Pipelines(ctx, fromCatalogRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toPipelineCatalog(v), nil
+}
+func (c gatewayClient) Pipelines(ctx context.Context, r serviceapi.CatalogRequest) (serviceapi.PipelineCatalog, error) {
+	v, err := c.remote.Pipelines(ctx, toCatalogRequest(r))
+	if err != nil {
+		return serviceapi.PipelineCatalog{}, err
+	}
+	return fromPipelineCatalog(v), nil
+}
+func (s *gatewayServer) CustomFields(ctx context.Context, r *pb.CustomFieldsRequest) (*pb.CustomFieldCatalog, error) {
+	v, err := s.impl.CustomFields(ctx, fromCustomFieldsRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toCustomFieldCatalog(v), nil
+}
+func (c gatewayClient) CustomFields(ctx context.Context, r serviceapi.CustomFieldsRequest) (serviceapi.CustomFieldCatalog, error) {
+	v, err := c.remote.CustomFields(ctx, toCustomFieldsRequest(r))
+	if err != nil {
+		return serviceapi.CustomFieldCatalog{}, err
+	}
+	return fromCustomFieldCatalog(v), nil
+}
+func (s *gatewayServer) Entities(ctx context.Context, r *pb.EntitiesRequest) (*pb.EntityCatalog, error) {
+	v, err := s.impl.Entities(ctx, fromEntitiesRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toEntityCatalog(v), nil
+}
+func (c gatewayClient) Entities(ctx context.Context, r serviceapi.EntitiesRequest) (serviceapi.EntityCatalog, error) {
+	v, err := c.remote.Entities(ctx, toEntitiesRequest(r))
+	if err != nil {
+		return serviceapi.EntityCatalog{}, err
+	}
+	return fromEntityCatalog(v), nil
+}
 
 type eventsServer struct {
 	pb.UnimplementedCRMEventsServer
@@ -47,6 +117,24 @@ type eventsServer struct {
 }
 type eventsClient struct{ remote pb.CRMEventsClient }
 
+func (s *eventsServer) GetEvent(ctx context.Context, r *pb.EventRequest) (*pb.Event, error) {
+	impl, ok := s.impl.(serviceapi.EventReader)
+	if !ok {
+		return nil, serviceapi.Fail(serviceapi.Unavailable, "event detail reader unavailable")
+	}
+	v, err := impl.GetEvent(ctx, fromEventRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toEvent(v), nil
+}
+func (c eventsClient) GetEvent(ctx context.Context, r serviceapi.EventRequest) (serviceapi.Event, error) {
+	v, err := c.remote.GetEvent(ctx, toEventRequest(r))
+	if err != nil {
+		return serviceapi.Event{}, err
+	}
+	return fromEvent(v), nil
+}
 func (s *eventsServer) Apply(ctx context.Context, r *pb.Command) (*pb.Operation, error) {
 	v, err := s.impl.Apply(ctx, fromCommand(r))
 	if err != nil {
@@ -73,7 +161,8 @@ func (c eventsClient) Query(ctx context.Context, r serviceapi.Query) (serviceapi
 	if err != nil {
 		return serviceapi.QueryResult{}, err
 	}
-	return fromQueryResult(v), nil
+	result := fromQueryResult(v)
+	return result, serviceapi.RequireQueryVersion(r, result)
 }
 func (s *eventsServer) Status(ctx context.Context, r *pb.Auth) (*pb.SyncStatus, error) {
 	v, err := s.impl.Status(ctx, fromAuth(r))
@@ -122,7 +211,26 @@ func (c activityClient) Panel(ctx context.Context, r serviceapi.Query) (servicea
 	if err != nil {
 		return serviceapi.Panel{}, err
 	}
-	return fromPanel(v), nil
+	result := fromPanel(v)
+	return result, serviceapi.RequireQueryVersion(r, result.Data)
+}
+func (s *activityServer) GetEvent(ctx context.Context, r *pb.EventRequest) (*pb.Event, error) {
+	impl, ok := s.impl.(serviceapi.EventPresenter)
+	if !ok {
+		return nil, serviceapi.Fail(serviceapi.Unavailable, "event presenter unavailable")
+	}
+	v, err := impl.EventCard(ctx, fromEventRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toEvent(v), nil
+}
+func (c activityClient) EventCard(ctx context.Context, r serviceapi.EventRequest) (serviceapi.Event, error) {
+	v, err := c.remote.GetEvent(ctx, toEventRequest(r))
+	if err != nil {
+		return serviceapi.Event{}, err
+	}
+	return fromEvent(v), nil
 }
 func (s *activityServer) GetSettings(ctx context.Context, r *pb.Auth) (*pb.Settings, error) {
 	v, err := s.impl.Settings(ctx, fromAuth(r))

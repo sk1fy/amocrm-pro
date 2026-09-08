@@ -24,6 +24,9 @@ func New(store Repository, policy serviceapi.Policy, events serviceapi.CRMEvents
 	return &Service{store: store, policy: policy, events: events, gateway: gateway}
 }
 
+var _ serviceapi.Activity = (*Service)(nil)
+var _ serviceapi.EventPresenter = (*Service)(nil)
+
 func Defaults() serviceapi.Settings { return serviceapi.DefaultSettings() }
 
 func ValidateSettings(s serviceapi.Settings) error {
@@ -70,47 +73,205 @@ func (s *Service) Panel(ctx context.Context, query serviceapi.Query) (serviceapi
 	}
 	// Resolve a bounded employee batch once, then pass exactly that batch to
 	// the event owner. No per-employee RPC and no history fetch from amoCRM.
-	directory, err := s.gateway.Users(ctx, serviceapi.UsersRequest{Auth: query.Auth, UserIDs: query.UserIDs})
+	directoryIDs := query.UserIDs
+	if query.IncludeUnknownAuthors && query.GroupID == 0 {
+		// A selected subset cannot certify which other authors are unknown.
+		// Keep the existing bounded directory contract; fail if it is too large.
+		directoryIDs = nil
+	}
+	directory, err := s.gateway.Users(ctx, serviceapi.UsersRequest{Auth: query.Auth, UserIDs: directoryIDs})
 	if err != nil {
 		return serviceapi.Panel{}, err
 	}
 	if len(directory.Users) > 100 {
 		return serviceapi.Panel{}, serviceapi.Fail(serviceapi.ResourceExhausted, "select at most 100 employees")
 	}
-	if len(query.UserIDs) == 0 {
-		for _, user := range directory.Users {
-			query.UserIDs = append(query.UserIDs, user.ID)
+	users, resolved, empty := resolveEmployees(query, directory, p.ActorID)
+	if empty {
+		settings, err := s.store.Settings(ctx, p.Scope)
+		if err != nil {
+			return serviceapi.Panel{}, err
 		}
-		if len(query.UserIDs) == 0 {
-			query.UserIDs = []int64{p.ActorID}
+		status, err := s.events.Status(ctx, query.Auth)
+		if err != nil {
+			return serviceapi.Panel{}, err
 		}
+		data := serviceapi.QueryResult{Events: []serviceapi.Event{}, Summaries: []serviceapi.UserSummary{}, ReadVersion: serviceapi.PresentationReadVersion, Status: status}
+		result := serviceapi.Panel{Users: users, Timezone: directory.Timezone, Data: data, Settings: settings, InterpretationVersion: serviceapi.InterpretationVersion}
+		result.Coverage, result.Freshness, result.EmptyReason = periodState(query, data)
+		return result, serviceapi.ValidateResponseSize(result)
 	}
-	data, err := s.events.Query(ctx, query)
+	data, err := s.events.Query(ctx, resolved)
 	if err != nil {
+		return serviceapi.Panel{}, err
+	}
+	if err := serviceapi.RequireQueryVersion(resolved, data); err != nil {
 		return serviceapi.Panel{}, err
 	}
 	settings, err := s.store.Settings(ctx, p.Scope)
 	if err != nil {
 		return serviceapi.Panel{}, err
 	}
-	result := serviceapi.Panel{Users: directory.Users, Timezone: directory.Timezone, Data: data, Settings: settings, Coverage: coverage(query, data.Status)}
+	users = appendUnknownAuthors(users, data.Summaries)
+	data.Events = presentEvents(data.Events, users)
+	result := serviceapi.Panel{Users: users, Timezone: directory.Timezone, Data: data, Settings: settings, InterpretationVersion: serviceapi.InterpretationVersion}
+	result.Coverage, result.Freshness, result.EmptyReason = periodState(query, data)
 	if err := serviceapi.ValidateResponseSize(result); err != nil {
 		return serviceapi.Panel{}, err
 	}
 	return result, nil
 }
 
-// Coverage describes observations, never employee inactivity. A zero registered
-// count is interpretable only together with the verified and retained bounds.
-func coverage(query serviceapi.Query, status serviceapi.SyncStatus) string {
-	if status.VerifiedThrough == 0 || status.VerifiedFrom == 0 {
-		return "unknown"
+func (s *Service) EventCard(ctx context.Context, req serviceapi.EventRequest) (serviceapi.Event, error) {
+	if _, err := s.policy.Validate(ctx, req.Auth, serviceapi.ActivityService, serviceapi.ActionPanel); err != nil {
+		return serviceapi.Event{}, err
 	}
-	if query.From < status.VerifiedFrom || query.From < status.HistoryFrom || query.To > status.VerifiedThrough {
-		return "partial"
+	if err := serviceapi.ValidateEventRequest(req); err != nil {
+		return serviceapi.Event{}, err
 	}
-	if status.ReauthRequired || status.ErrorCode != "" || status.LagSeconds > 600 {
-		return "stale"
+	reader, ok := s.events.(serviceapi.EventReader)
+	if !ok {
+		return serviceapi.Event{}, serviceapi.Fail(serviceapi.Unavailable, "event detail reader unavailable")
 	}
-	return "verified"
+	event, err := reader.GetEvent(ctx, req)
+	if err != nil {
+		return serviceapi.Event{}, err
+	}
+	var users []serviceapi.User
+	if event.CreatedBy > 0 {
+		directory, dirErr := s.gateway.Users(ctx, serviceapi.UsersRequest{Auth: req.Auth, UserIDs: []int64{event.CreatedBy}})
+		if dirErr == nil {
+			users = directory.Users
+		}
+	}
+	event = presentEvent(event, users, true)
+	if err := serviceapi.ValidateResponseSize(event); err != nil {
+		return serviceapi.Event{}, err
+	}
+	return event, nil
+}
+
+func resolveEmployees(query serviceapi.Query, directory serviceapi.Directory, actor int64) ([]serviceapi.User, serviceapi.Query, bool) {
+	known := make([]int64, 0, len(directory.Users))
+	for _, user := range directory.Users {
+		known = append(known, user.ID)
+	}
+	users := append([]serviceapi.User{}, directory.Users...)
+	if query.GroupID > 0 {
+		query.IncludeUnknownAuthors = false
+		var filtered []serviceapi.User
+		for _, user := range users {
+			if user.GroupID == query.GroupID {
+				filtered = append(filtered, user)
+			}
+		}
+		users = filtered
+	}
+	explicit := len(query.UserIDs) > 0
+	if explicit {
+		allowed := map[int64]bool{}
+		for _, user := range users {
+			allowed[user.ID] = true
+		}
+		var selected []int64
+		var selectedUsers []serviceapi.User
+		seen := map[int64]bool{}
+		for _, id := range query.UserIDs {
+			if (query.GroupID > 0 && !allowed[id]) || seen[id] {
+				continue
+			}
+			seen[id] = true
+			selected = append(selected, id)
+			for _, user := range users {
+				if user.ID == id {
+					selectedUsers = append(selectedUsers, user)
+				}
+			}
+		}
+		users = selectedUsers
+		query.UserIDs = selected
+		if len(query.UserIDs) == 0 {
+			return users, query, true
+		}
+	}
+	if len(query.UserIDs) == 0 {
+		for _, user := range users {
+			query.UserIDs = append(query.UserIDs, user.ID)
+		}
+		if len(query.UserIDs) == 0 {
+			if query.GroupID > 0 {
+				return users, query, true
+			}
+			query.UserIDs = []int64{actor}
+		} else if query.GroupID == 0 {
+			query.IncludeUnknownAuthors = true
+		}
+	}
+	if query.IncludeUnknownAuthors {
+		query.DirectoryUserIDs = known
+	} else {
+		query.DirectoryUserIDs = nil
+	}
+	query.GroupID = 0
+	if query.Buckets != "" && query.Buckets != serviceapi.BucketNone {
+		query.Timezone = directory.Timezone
+	} else {
+		query.Timezone = ""
+	}
+	return users, query, false
+}
+
+func appendUnknownAuthors(users []serviceapi.User, summaries []serviceapi.UserSummary) []serviceapi.User {
+	known := map[int64]bool{}
+	for _, user := range users {
+		known[user.ID] = true
+	}
+	for _, summary := range summaries {
+		if known[summary.UserID] {
+			continue
+		}
+		users = append(users, serviceapi.User{ID: summary.UserID, Name: serviceapi.AuthorLabel(summary.UserID, nil)})
+		known[summary.UserID] = true
+	}
+	return users
+}
+
+// periodState splits selected-range coverage from collector freshness.
+// Lag on a later window does not mark an already verified completed range incomplete.
+func periodState(query serviceapi.Query, data serviceapi.QueryResult) (coverage, freshness, empty string) {
+	status := data.Status
+	switch {
+	case status.VerifiedThrough == 0 || status.VerifiedFrom == 0:
+		coverage = serviceapi.CoverageUnknown
+	case query.To < status.VerifiedFrom || query.To < status.HistoryFrom:
+		coverage = serviceapi.CoverageUnknown
+	case query.From < status.VerifiedFrom || query.From < status.HistoryFrom || query.To > status.VerifiedThrough:
+		coverage = serviceapi.CoveragePartial
+	default:
+		coverage = serviceapi.CoverageVerified
+	}
+	switch {
+	case status.ReauthRequired:
+		freshness = serviceapi.FreshnessReauthRequired
+	case status.ErrorCode != "":
+		freshness = serviceapi.FreshnessError
+	case status.LagSeconds > 600:
+		freshness = serviceapi.FreshnessLagging
+	default:
+		freshness = serviceapi.FreshnessCurrent
+	}
+	count := data.Totals.UniqueEvents
+	if count == 0 {
+		for _, summary := range data.Summaries {
+			count += summary.UniqueEvents
+		}
+	}
+	if count == 0 {
+		if coverage == serviceapi.CoverageVerified {
+			empty = serviceapi.EmptyReasonNoEvents
+		} else {
+			empty = serviceapi.EmptyReasonUnverified
+		}
+	}
+	return coverage, freshness, empty
 }

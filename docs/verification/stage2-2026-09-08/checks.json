@@ -1,0 +1,22 @@
+{
+  "completed_at_utc": "2026-09-08T11:44:21.295569+00:00",
+  "base_revision": "8c36827ef041561d2b2d734e5c686f36869812f8",
+  "activity_ci_exit_code": 0,
+  "make_test_exit_code": 0,
+  "go_top_level_pass": 115,
+  "go_top_level_skip": [
+    "TestFaultGatewayFixture",
+    "TestFaultReceiverFixture",
+    "TestProcessGatewayFixture"
+  ],
+  "ui_pass": 5,
+  "ui_skip": 0,
+  "runtime_deployed": false,
+  "database_scope": "Disposable amocrm-stage2-test only; removed by activity-ci cleanup",
+  "fixture_cases": 29,
+  "performance_line": "process_integration_test.go:365: IMPACT passed: 50ping/concurrency2,10000events/100page/2slots; idle P95=6.49958ms P99=26.946935ms loaded P95=5.948717ms P99=6.850247ms errors=0; local fixture only",
+  "earlier_runs": [
+    "First activity-ci failed malformed-query regression; strict ParseQuery fixed it.",
+    "Second activity-ci failed existing relative ping threshold while make test built concurrently. No thresholds or runtime code changed for isolated retry."
+  ]
+}

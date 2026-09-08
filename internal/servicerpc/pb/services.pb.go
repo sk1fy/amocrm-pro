@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.8
 // 	protoc        v6.31.1
-// source: api/proto/services.proto
+// source: services.proto
 
 package pb
 
@@ -33,7 +33,7 @@ type Auth struct {
 
 func (x *Auth) Reset() {
 	*x = Auth{}
-	mi := &file_api_proto_services_proto_msgTypes[0]
+	mi := &file_services_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +45,7 @@ func (x *Auth) String() string {
 func (*Auth) ProtoMessage() {}
 
 func (x *Auth) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[0]
+	mi := &file_services_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +58,7 @@ func (x *Auth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Auth.ProtoReflect.Descriptor instead.
 func (*Auth) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{0}
+	return file_services_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Auth) GetToken() string {
@@ -78,7 +78,7 @@ type Grant struct {
 
 func (x *Grant) Reset() {
 	*x = Grant{}
-	mi := &file_api_proto_services_proto_msgTypes[1]
+	mi := &file_services_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -90,7 +90,7 @@ func (x *Grant) String() string {
 func (*Grant) ProtoMessage() {}
 
 func (x *Grant) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[1]
+	mi := &file_services_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -103,7 +103,7 @@ func (x *Grant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Grant.ProtoReflect.Descriptor instead.
 func (*Grant) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{1}
+	return file_services_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Grant) GetAudience() string {
@@ -135,7 +135,7 @@ type IssueRequest struct {
 
 func (x *IssueRequest) Reset() {
 	*x = IssueRequest{}
-	mi := &file_api_proto_services_proto_msgTypes[2]
+	mi := &file_services_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -147,7 +147,7 @@ func (x *IssueRequest) String() string {
 func (*IssueRequest) ProtoMessage() {}
 
 func (x *IssueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[2]
+	mi := &file_services_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -160,7 +160,7 @@ func (x *IssueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssueRequest.ProtoReflect.Descriptor instead.
 func (*IssueRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{2}
+	return file_services_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *IssueRequest) GetIntegrationId() string {
@@ -223,7 +223,7 @@ type ValidateRequest struct {
 
 func (x *ValidateRequest) Reset() {
 	*x = ValidateRequest{}
-	mi := &file_api_proto_services_proto_msgTypes[3]
+	mi := &file_services_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -235,7 +235,7 @@ func (x *ValidateRequest) String() string {
 func (*ValidateRequest) ProtoMessage() {}
 
 func (x *ValidateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[3]
+	mi := &file_services_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -248,7 +248,7 @@ func (x *ValidateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateRequest.ProtoReflect.Descriptor instead.
 func (*ValidateRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{3}
+	return file_services_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ValidateRequest) GetAuth() *Auth {
@@ -287,7 +287,7 @@ type Principal struct {
 
 func (x *Principal) Reset() {
 	*x = Principal{}
-	mi := &file_api_proto_services_proto_msgTypes[4]
+	mi := &file_services_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -299,7 +299,7 @@ func (x *Principal) String() string {
 func (*Principal) ProtoMessage() {}
 
 func (x *Principal) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[4]
+	mi := &file_services_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -312,7 +312,7 @@ func (x *Principal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Principal.ProtoReflect.Descriptor instead.
 func (*Principal) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{4}
+	return file_services_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Principal) GetIntegrationId() string {
@@ -365,22 +365,26 @@ func (x *Principal) GetExpiresAt() string {
 }
 
 type Event struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	CreatedAt     int64                  `protobuf:"varint,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	CreatedBy     int64                  `protobuf:"varint,3,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	EntityId      int64                  `protobuf:"varint,5,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	EntityType    string                 `protobuf:"bytes,6,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	ValueBefore   []byte                 `protobuf:"bytes,7,opt,name=value_before,json=valueBefore,proto3" json:"value_before,omitempty"`
-	ValueAfter    []byte                 `protobuf:"bytes,8,opt,name=value_after,json=valueAfter,proto3" json:"value_after,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	CreatedAt           int64                  `protobuf:"varint,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedBy           int64                  `protobuf:"varint,3,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	Type                string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	EntityId            int64                  `protobuf:"varint,5,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityType          string                 `protobuf:"bytes,6,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	ValueBefore         []byte                 `protobuf:"bytes,7,opt,name=value_before,json=valueBefore,proto3" json:"value_before,omitempty"`
+	ValueAfter          []byte                 `protobuf:"bytes,8,opt,name=value_after,json=valueAfter,proto3" json:"value_after,omitempty"`
+	LinkedTalkContactId int64                  `protobuf:"varint,9,opt,name=linked_talk_contact_id,json=linkedTalkContactId,proto3" json:"linked_talk_contact_id,omitempty"`
+	Enrichment          []*EnrichmentObject    `protobuf:"bytes,10,rep,name=enrichment,proto3" json:"enrichment,omitempty"`
+	Names               []*CatalogName         `protobuf:"bytes,11,rep,name=names,proto3" json:"names,omitempty"`
+	View                *EventView             `protobuf:"bytes,12,opt,name=view,proto3" json:"view,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_api_proto_services_proto_msgTypes[5]
+	mi := &file_services_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +396,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[5]
+	mi := &file_services_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,7 +409,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{5}
+	return file_services_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Event) GetId() string {
@@ -464,6 +468,1710 @@ func (x *Event) GetValueAfter() []byte {
 	return nil
 }
 
+func (x *Event) GetLinkedTalkContactId() int64 {
+	if x != nil {
+		return x.LinkedTalkContactId
+	}
+	return 0
+}
+
+func (x *Event) GetEnrichment() []*EnrichmentObject {
+	if x != nil {
+		return x.Enrichment
+	}
+	return nil
+}
+
+func (x *Event) GetNames() []*CatalogName {
+	if x != nil {
+		return x.Names
+	}
+	return nil
+}
+
+func (x *Event) GetView() *EventView {
+	if x != nil {
+		return x.View
+	}
+	return nil
+}
+
+type EventDetail struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Before        []byte                 `protobuf:"bytes,3,opt,name=before,proto3" json:"before,omitempty"`
+	After         []byte                 `protobuf:"bytes,4,opt,name=after,proto3" json:"after,omitempty"`
+	Text          string                 `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	Source        string                 `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
+	Current       bool                   `protobuf:"varint,7,opt,name=current,proto3" json:"current,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EventDetail) Reset() {
+	*x = EventDetail{}
+	mi := &file_services_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventDetail) ProtoMessage() {}
+
+func (x *EventDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventDetail.ProtoReflect.Descriptor instead.
+func (*EventDetail) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *EventDetail) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *EventDetail) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *EventDetail) GetBefore() []byte {
+	if x != nil {
+		return x.Before
+	}
+	return nil
+}
+
+func (x *EventDetail) GetAfter() []byte {
+	if x != nil {
+		return x.After
+	}
+	return nil
+}
+
+func (x *EventDetail) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *EventDetail) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *EventDetail) GetCurrent() bool {
+	if x != nil {
+		return x.Current
+	}
+	return false
+}
+
+type EventView struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Category        string                 `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
+	Title           string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Summary         string                 `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
+	DetailState     string                 `protobuf:"bytes,4,opt,name=detail_state,json=detailState,proto3" json:"detail_state,omitempty"`
+	AuthorLabel     string                 `protobuf:"bytes,5,opt,name=author_label,json=authorLabel,proto3" json:"author_label,omitempty"`
+	EntityLabel     string                 `protobuf:"bytes,6,opt,name=entity_label,json=entityLabel,proto3" json:"entity_label,omitempty"`
+	Details         []*EventDetail         `protobuf:"bytes,7,rep,name=details,proto3" json:"details,omitempty"`
+	EnrichmentState string                 `protobuf:"bytes,8,opt,name=enrichment_state,json=enrichmentState,proto3" json:"enrichment_state,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *EventView) Reset() {
+	*x = EventView{}
+	mi := &file_services_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventView) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventView) ProtoMessage() {}
+
+func (x *EventView) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventView.ProtoReflect.Descriptor instead.
+func (*EventView) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *EventView) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *EventView) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *EventView) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *EventView) GetDetailState() string {
+	if x != nil {
+		return x.DetailState
+	}
+	return ""
+}
+
+func (x *EventView) GetAuthorLabel() string {
+	if x != nil {
+		return x.AuthorLabel
+	}
+	return ""
+}
+
+func (x *EventView) GetEntityLabel() string {
+	if x != nil {
+		return x.EntityLabel
+	}
+	return ""
+}
+
+func (x *EventView) GetDetails() []*EventDetail {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+func (x *EventView) GetEnrichmentState() string {
+	if x != nil {
+		return x.EnrichmentState
+	}
+	return ""
+}
+
+type CategoryCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Category      string                 `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
+	Count         int64                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CategoryCount) Reset() {
+	*x = CategoryCount{}
+	mi := &file_services_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CategoryCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CategoryCount) ProtoMessage() {}
+
+func (x *CategoryCount) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CategoryCount.ProtoReflect.Descriptor instead.
+func (*CategoryCount) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CategoryCount) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CategoryCount) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type TimeBucket struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StartAt       int64                  `protobuf:"varint,1,opt,name=start_at,json=startAt,proto3" json:"start_at,omitempty"`
+	EndAt         int64                  `protobuf:"varint,2,opt,name=end_at,json=endAt,proto3" json:"end_at,omitempty"`
+	Count         int64                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	Coverage      string                 `protobuf:"bytes,4,opt,name=coverage,proto3" json:"coverage,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimeBucket) Reset() {
+	*x = TimeBucket{}
+	mi := &file_services_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeBucket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeBucket) ProtoMessage() {}
+
+func (x *TimeBucket) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeBucket.ProtoReflect.Descriptor instead.
+func (*TimeBucket) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *TimeBucket) GetStartAt() int64 {
+	if x != nil {
+		return x.StartAt
+	}
+	return 0
+}
+
+func (x *TimeBucket) GetEndAt() int64 {
+	if x != nil {
+		return x.EndAt
+	}
+	return 0
+}
+
+func (x *TimeBucket) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *TimeBucket) GetCoverage() string {
+	if x != nil {
+		return x.Coverage
+	}
+	return ""
+}
+
+type QueryTotals struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	UniqueEvents         int64                  `protobuf:"varint,1,opt,name=unique_events,json=uniqueEvents,proto3" json:"unique_events,omitempty"`
+	EntityCount          int64                  `protobuf:"varint,2,opt,name=entity_count,json=entityCount,proto3" json:"entity_count,omitempty"`
+	TaskCompletedEvents  int64                  `protobuf:"varint,3,opt,name=task_completed_events,json=taskCompletedEvents,proto3" json:"task_completed_events,omitempty"`
+	UniqueCompletedTasks int64                  `protobuf:"varint,4,opt,name=unique_completed_tasks,json=uniqueCompletedTasks,proto3" json:"unique_completed_tasks,omitempty"`
+	FirstEventAt         int64                  `protobuf:"varint,5,opt,name=first_event_at,json=firstEventAt,proto3" json:"first_event_at,omitempty"`
+	LastEventAt          int64                  `protobuf:"varint,6,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
+	CategoryCounts       []*CategoryCount       `protobuf:"bytes,7,rep,name=category_counts,json=categoryCounts,proto3" json:"category_counts,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *QueryTotals) Reset() {
+	*x = QueryTotals{}
+	mi := &file_services_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryTotals) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryTotals) ProtoMessage() {}
+
+func (x *QueryTotals) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryTotals.ProtoReflect.Descriptor instead.
+func (*QueryTotals) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *QueryTotals) GetUniqueEvents() int64 {
+	if x != nil {
+		return x.UniqueEvents
+	}
+	return 0
+}
+
+func (x *QueryTotals) GetEntityCount() int64 {
+	if x != nil {
+		return x.EntityCount
+	}
+	return 0
+}
+
+func (x *QueryTotals) GetTaskCompletedEvents() int64 {
+	if x != nil {
+		return x.TaskCompletedEvents
+	}
+	return 0
+}
+
+func (x *QueryTotals) GetUniqueCompletedTasks() int64 {
+	if x != nil {
+		return x.UniqueCompletedTasks
+	}
+	return 0
+}
+
+func (x *QueryTotals) GetFirstEventAt() int64 {
+	if x != nil {
+		return x.FirstEventAt
+	}
+	return 0
+}
+
+func (x *QueryTotals) GetLastEventAt() int64 {
+	if x != nil {
+		return x.LastEventAt
+	}
+	return 0
+}
+
+func (x *QueryTotals) GetCategoryCounts() []*CategoryCount {
+	if x != nil {
+		return x.CategoryCounts
+	}
+	return nil
+}
+
+type EnrichmentObject struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ObjectKind    string                 `protobuf:"bytes,1,opt,name=object_kind,json=objectKind,proto3" json:"object_kind,omitempty"`
+	ObjectKey     string                 `protobuf:"bytes,2,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
+	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
+	ReasonCode    string                 `protobuf:"bytes,4,opt,name=reason_code,json=reasonCode,proto3" json:"reason_code,omitempty"`
+	Source        string                 `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
+	FetchedAt     int64                  `protobuf:"varint,6,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	Payload       []byte                 `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
+	Current       bool                   `protobuf:"varint,8,opt,name=current,proto3" json:"current,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnrichmentObject) Reset() {
+	*x = EnrichmentObject{}
+	mi := &file_services_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrichmentObject) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrichmentObject) ProtoMessage() {}
+
+func (x *EnrichmentObject) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrichmentObject.ProtoReflect.Descriptor instead.
+func (*EnrichmentObject) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *EnrichmentObject) GetObjectKind() string {
+	if x != nil {
+		return x.ObjectKind
+	}
+	return ""
+}
+
+func (x *EnrichmentObject) GetObjectKey() string {
+	if x != nil {
+		return x.ObjectKey
+	}
+	return ""
+}
+
+func (x *EnrichmentObject) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *EnrichmentObject) GetReasonCode() string {
+	if x != nil {
+		return x.ReasonCode
+	}
+	return ""
+}
+
+func (x *EnrichmentObject) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *EnrichmentObject) GetFetchedAt() int64 {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return 0
+}
+
+func (x *EnrichmentObject) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *EnrichmentObject) GetCurrent() bool {
+	if x != nil {
+		return x.Current
+	}
+	return false
+}
+
+type CatalogName struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Id            int64                  `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	State         string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	Current       bool                   `protobuf:"varint,5,opt,name=current,proto3" json:"current,omitempty"`
+	EntityType    string                 `protobuf:"bytes,6,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CatalogName) Reset() {
+	*x = CatalogName{}
+	mi := &file_services_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CatalogName) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CatalogName) ProtoMessage() {}
+
+func (x *CatalogName) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CatalogName.ProtoReflect.Descriptor instead.
+func (*CatalogName) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CatalogName) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CatalogName) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *CatalogName) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CatalogName) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *CatalogName) GetCurrent() bool {
+	if x != nil {
+		return x.Current
+	}
+	return false
+}
+
+func (x *CatalogName) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+type NotesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Ids           []int64                `protobuf:"varint,3,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NotesRequest) Reset() {
+	*x = NotesRequest{}
+	mi := &file_services_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NotesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotesRequest) ProtoMessage() {}
+
+func (x *NotesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotesRequest.ProtoReflect.Descriptor instead.
+func (*NotesRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *NotesRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *NotesRequest) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *NotesRequest) GetIds() []int64 {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+type Note struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntityId      int64                  `protobuf:"varint,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,3,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	NoteType      string                 `protobuf:"bytes,4,opt,name=note_type,json=noteType,proto3" json:"note_type,omitempty"`
+	CreatedBy     int64                  `protobuf:"varint,5,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	UpdatedAt     int64                  `protobuf:"varint,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Params        []byte                 `protobuf:"bytes,7,opt,name=params,proto3" json:"params,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Note) Reset() {
+	*x = Note{}
+	mi := &file_services_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Note) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Note) ProtoMessage() {}
+
+func (x *Note) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Note.ProtoReflect.Descriptor instead.
+func (*Note) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *Note) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Note) GetEntityId() int64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *Note) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *Note) GetNoteType() string {
+	if x != nil {
+		return x.NoteType
+	}
+	return ""
+}
+
+func (x *Note) GetCreatedBy() int64 {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return 0
+}
+
+func (x *Note) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *Note) GetParams() []byte {
+	if x != nil {
+		return x.Params
+	}
+	return nil
+}
+
+type NotePage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notes         []*Note                `protobuf:"bytes,1,rep,name=notes,proto3" json:"notes,omitempty"`
+	InvalidIds    []int64                `protobuf:"varint,2,rep,packed,name=invalid_ids,json=invalidIds,proto3" json:"invalid_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NotePage) Reset() {
+	*x = NotePage{}
+	mi := &file_services_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NotePage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotePage) ProtoMessage() {}
+
+func (x *NotePage) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotePage.ProtoReflect.Descriptor instead.
+func (*NotePage) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *NotePage) GetNotes() []*Note {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+func (x *NotePage) GetInvalidIds() []int64 {
+	if x != nil {
+		return x.InvalidIds
+	}
+	return nil
+}
+
+type TasksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	Ids           []int64                `protobuf:"varint,2,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TasksRequest) Reset() {
+	*x = TasksRequest{}
+	mi := &file_services_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TasksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TasksRequest) ProtoMessage() {}
+
+func (x *TasksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TasksRequest.ProtoReflect.Descriptor instead.
+func (*TasksRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *TasksRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *TasksRequest) GetIds() []int64 {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+type Task struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntityId          int64                  `protobuf:"varint,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityType        string                 `protobuf:"bytes,3,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	ResponsibleUserId int64                  `protobuf:"varint,4,opt,name=responsible_user_id,json=responsibleUserId,proto3" json:"responsible_user_id,omitempty"`
+	Text              string                 `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	CompleteTill      int64                  `protobuf:"varint,6,opt,name=complete_till,json=completeTill,proto3" json:"complete_till,omitempty"`
+	TaskTypeId        int64                  `protobuf:"varint,7,opt,name=task_type_id,json=taskTypeId,proto3" json:"task_type_id,omitempty"`
+	IsCompleted       bool                   `protobuf:"varint,8,opt,name=is_completed,json=isCompleted,proto3" json:"is_completed,omitempty"`
+	ResultText        string                 `protobuf:"bytes,9,opt,name=result_text,json=resultText,proto3" json:"result_text,omitempty"`
+	UpdatedAt         int64                  `protobuf:"varint,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *Task) Reset() {
+	*x = Task{}
+	mi := &file_services_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Task) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Task) ProtoMessage() {}
+
+func (x *Task) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Task.ProtoReflect.Descriptor instead.
+func (*Task) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *Task) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Task) GetEntityId() int64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *Task) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *Task) GetResponsibleUserId() int64 {
+	if x != nil {
+		return x.ResponsibleUserId
+	}
+	return 0
+}
+
+func (x *Task) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *Task) GetCompleteTill() int64 {
+	if x != nil {
+		return x.CompleteTill
+	}
+	return 0
+}
+
+func (x *Task) GetTaskTypeId() int64 {
+	if x != nil {
+		return x.TaskTypeId
+	}
+	return 0
+}
+
+func (x *Task) GetIsCompleted() bool {
+	if x != nil {
+		return x.IsCompleted
+	}
+	return false
+}
+
+func (x *Task) GetResultText() string {
+	if x != nil {
+		return x.ResultText
+	}
+	return ""
+}
+
+func (x *Task) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+type TaskPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tasks         []*Task                `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	InvalidIds    []int64                `protobuf:"varint,2,rep,packed,name=invalid_ids,json=invalidIds,proto3" json:"invalid_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskPage) Reset() {
+	*x = TaskPage{}
+	mi := &file_services_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskPage) ProtoMessage() {}
+
+func (x *TaskPage) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskPage.ProtoReflect.Descriptor instead.
+func (*TaskPage) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *TaskPage) GetTasks() []*Task {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
+
+func (x *TaskPage) GetInvalidIds() []int64 {
+	if x != nil {
+		return x.InvalidIds
+	}
+	return nil
+}
+
+type CatalogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CatalogRequest) Reset() {
+	*x = CatalogRequest{}
+	mi := &file_services_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CatalogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CatalogRequest) ProtoMessage() {}
+
+func (x *CatalogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CatalogRequest.ProtoReflect.Descriptor instead.
+func (*CatalogRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *CatalogRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+type PipelineStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineStatus) Reset() {
+	*x = PipelineStatus{}
+	mi := &file_services_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineStatus) ProtoMessage() {}
+
+func (x *PipelineStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineStatus.ProtoReflect.Descriptor instead.
+func (*PipelineStatus) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *PipelineStatus) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *PipelineStatus) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type Pipeline struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Statuses      []*PipelineStatus      `protobuf:"bytes,3,rep,name=statuses,proto3" json:"statuses,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pipeline) Reset() {
+	*x = Pipeline{}
+	mi := &file_services_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pipeline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pipeline) ProtoMessage() {}
+
+func (x *Pipeline) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pipeline.ProtoReflect.Descriptor instead.
+func (*Pipeline) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *Pipeline) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Pipeline) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Pipeline) GetStatuses() []*PipelineStatus {
+	if x != nil {
+		return x.Statuses
+	}
+	return nil
+}
+
+type PipelineCatalog struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pipelines     []*Pipeline            `protobuf:"bytes,1,rep,name=pipelines,proto3" json:"pipelines,omitempty"`
+	FetchedAt     int64                  `protobuf:"varint,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineCatalog) Reset() {
+	*x = PipelineCatalog{}
+	mi := &file_services_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineCatalog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineCatalog) ProtoMessage() {}
+
+func (x *PipelineCatalog) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineCatalog.ProtoReflect.Descriptor instead.
+func (*PipelineCatalog) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *PipelineCatalog) GetPipelines() []*Pipeline {
+	if x != nil {
+		return x.Pipelines
+	}
+	return nil
+}
+
+func (x *PipelineCatalog) GetFetchedAt() int64 {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return 0
+}
+
+type CustomFieldsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomFieldsRequest) Reset() {
+	*x = CustomFieldsRequest{}
+	mi := &file_services_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomFieldsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomFieldsRequest) ProtoMessage() {}
+
+func (x *CustomFieldsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomFieldsRequest.ProtoReflect.Descriptor instead.
+func (*CustomFieldsRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *CustomFieldsRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *CustomFieldsRequest) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+type CustomFieldEnum struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomFieldEnum) Reset() {
+	*x = CustomFieldEnum{}
+	mi := &file_services_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomFieldEnum) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomFieldEnum) ProtoMessage() {}
+
+func (x *CustomFieldEnum) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomFieldEnum.ProtoReflect.Descriptor instead.
+func (*CustomFieldEnum) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CustomFieldEnum) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *CustomFieldEnum) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+type CustomField struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	EntityType    string                 `protobuf:"bytes,4,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Enums         []*CustomFieldEnum     `protobuf:"bytes,5,rep,name=enums,proto3" json:"enums,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomField) Reset() {
+	*x = CustomField{}
+	mi := &file_services_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomField) ProtoMessage() {}
+
+func (x *CustomField) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomField.ProtoReflect.Descriptor instead.
+func (*CustomField) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CustomField) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *CustomField) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CustomField) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *CustomField) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *CustomField) GetEnums() []*CustomFieldEnum {
+	if x != nil {
+		return x.Enums
+	}
+	return nil
+}
+
+type CustomFieldCatalog struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Fields        []*CustomField         `protobuf:"bytes,1,rep,name=fields,proto3" json:"fields,omitempty"`
+	FetchedAt     int64                  `protobuf:"varint,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomFieldCatalog) Reset() {
+	*x = CustomFieldCatalog{}
+	mi := &file_services_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomFieldCatalog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomFieldCatalog) ProtoMessage() {}
+
+func (x *CustomFieldCatalog) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomFieldCatalog.ProtoReflect.Descriptor instead.
+func (*CustomFieldCatalog) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *CustomFieldCatalog) GetFields() []*CustomField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+func (x *CustomFieldCatalog) GetFetchedAt() int64 {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return 0
+}
+
+type EntitiesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Ids           []int64                `protobuf:"varint,3,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntitiesRequest) Reset() {
+	*x = EntitiesRequest{}
+	mi := &file_services_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntitiesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntitiesRequest) ProtoMessage() {}
+
+func (x *EntitiesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntitiesRequest.ProtoReflect.Descriptor instead.
+func (*EntitiesRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *EntitiesRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *EntitiesRequest) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *EntitiesRequest) GetIds() []int64 {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+type EntityName struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityName) Reset() {
+	*x = EntityName{}
+	mi := &file_services_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityName) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityName) ProtoMessage() {}
+
+func (x *EntityName) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityName.ProtoReflect.Descriptor instead.
+func (*EntityName) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *EntityName) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *EntityName) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *EntityName) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type EntityCatalog struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entities      []*EntityName          `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
+	InvalidIds    []int64                `protobuf:"varint,2,rep,packed,name=invalid_ids,json=invalidIds,proto3" json:"invalid_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityCatalog) Reset() {
+	*x = EntityCatalog{}
+	mi := &file_services_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityCatalog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityCatalog) ProtoMessage() {}
+
+func (x *EntityCatalog) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityCatalog.ProtoReflect.Descriptor instead.
+func (*EntityCatalog) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *EntityCatalog) GetEntities() []*EntityName {
+	if x != nil {
+		return x.Entities
+	}
+	return nil
+}
+
+func (x *EntityCatalog) GetInvalidIds() []int64 {
+	if x != nil {
+		return x.InvalidIds
+	}
+	return nil
+}
+
+type EventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	EventId       string                 `protobuf:"bytes,2,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EventRequest) Reset() {
+	*x = EventRequest{}
+	mi := &file_services_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventRequest) ProtoMessage() {}
+
+func (x *EventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventRequest.ProtoReflect.Descriptor instead.
+func (*EventRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *EventRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *EventRequest) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
 type EventPageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
@@ -477,7 +2185,7 @@ type EventPageRequest struct {
 
 func (x *EventPageRequest) Reset() {
 	*x = EventPageRequest{}
-	mi := &file_api_proto_services_proto_msgTypes[6]
+	mi := &file_services_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +2197,7 @@ func (x *EventPageRequest) String() string {
 func (*EventPageRequest) ProtoMessage() {}
 
 func (x *EventPageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[6]
+	mi := &file_services_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +2210,7 @@ func (x *EventPageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventPageRequest.ProtoReflect.Descriptor instead.
 func (*EventPageRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{6}
+	return file_services_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *EventPageRequest) GetAuth() *Auth {
@@ -550,7 +2258,7 @@ type EventPage struct {
 
 func (x *EventPage) Reset() {
 	*x = EventPage{}
-	mi := &file_api_proto_services_proto_msgTypes[7]
+	mi := &file_services_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -562,7 +2270,7 @@ func (x *EventPage) String() string {
 func (*EventPage) ProtoMessage() {}
 
 func (x *EventPage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[7]
+	mi := &file_services_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -575,7 +2283,7 @@ func (x *EventPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventPage.ProtoReflect.Descriptor instead.
 func (*EventPage) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{7}
+	return file_services_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *EventPage) GetEvents() []*Event {
@@ -604,7 +2312,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_api_proto_services_proto_msgTypes[8]
+	mi := &file_services_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -616,7 +2324,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[8]
+	mi := &file_services_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -629,7 +2337,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{8}
+	return file_services_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *User) GetId() int64 {
@@ -670,7 +2378,7 @@ type UsersRequest struct {
 
 func (x *UsersRequest) Reset() {
 	*x = UsersRequest{}
-	mi := &file_api_proto_services_proto_msgTypes[9]
+	mi := &file_services_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -682,7 +2390,7 @@ func (x *UsersRequest) String() string {
 func (*UsersRequest) ProtoMessage() {}
 
 func (x *UsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[9]
+	mi := &file_services_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -695,7 +2403,7 @@ func (x *UsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsersRequest.ProtoReflect.Descriptor instead.
 func (*UsersRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{9}
+	return file_services_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *UsersRequest) GetAuth() *Auth {
@@ -722,7 +2430,7 @@ type Directory struct {
 
 func (x *Directory) Reset() {
 	*x = Directory{}
-	mi := &file_api_proto_services_proto_msgTypes[10]
+	mi := &file_services_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +2442,7 @@ func (x *Directory) String() string {
 func (*Directory) ProtoMessage() {}
 
 func (x *Directory) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[10]
+	mi := &file_services_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +2455,7 @@ func (x *Directory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Directory.ProtoReflect.Descriptor instead.
 func (*Directory) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{10}
+	return file_services_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *Directory) GetUsers() []*User {
@@ -765,20 +2473,32 @@ func (x *Directory) GetTimezone() string {
 }
 
 type Query struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
-	From          int64                  `protobuf:"varint,2,opt,name=from,proto3" json:"from,omitempty"`
-	To            int64                  `protobuf:"varint,3,opt,name=to,proto3" json:"to,omitempty"`
-	UserIds       []int64                `protobuf:"varint,4,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
-	Limit         int32                  `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
-	Cursor        string                 `protobuf:"bytes,6,opt,name=cursor,proto3" json:"cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Auth                  *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	From                  int64                  `protobuf:"varint,2,opt,name=from,proto3" json:"from,omitempty"`
+	To                    int64                  `protobuf:"varint,3,opt,name=to,proto3" json:"to,omitempty"`
+	UserIds               []int64                `protobuf:"varint,4,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	Limit                 int32                  `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	Cursor                string                 `protobuf:"bytes,6,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	Types                 []string               `protobuf:"bytes,7,rep,name=types,proto3" json:"types,omitempty"`
+	TypePrefix            string                 `protobuf:"bytes,8,opt,name=type_prefix,json=typePrefix,proto3" json:"type_prefix,omitempty"`
+	EntityType            string                 `protobuf:"bytes,9,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	EntityIds             []int64                `protobuf:"varint,10,rep,packed,name=entity_ids,json=entityIds,proto3" json:"entity_ids,omitempty"`
+	Order                 string                 `protobuf:"bytes,11,opt,name=order,proto3" json:"order,omitempty"`
+	Compact               bool                   `protobuf:"varint,12,opt,name=compact,proto3" json:"compact,omitempty"`
+	Categories            []string               `protobuf:"bytes,13,rep,name=categories,proto3" json:"categories,omitempty"`
+	IncludeUnknownAuthors bool                   `protobuf:"varint,14,opt,name=include_unknown_authors,json=includeUnknownAuthors,proto3" json:"include_unknown_authors,omitempty"`
+	Timezone              string                 `protobuf:"bytes,15,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Buckets               string                 `protobuf:"bytes,16,opt,name=buckets,proto3" json:"buckets,omitempty"`
+	DirectoryUserIds      []int64                `protobuf:"varint,17,rep,packed,name=directory_user_ids,json=directoryUserIds,proto3" json:"directory_user_ids,omitempty"`
+	GroupId               int64                  `protobuf:"varint,18,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Query) Reset() {
 	*x = Query{}
-	mi := &file_api_proto_services_proto_msgTypes[11]
+	mi := &file_services_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -790,7 +2510,7 @@ func (x *Query) String() string {
 func (*Query) ProtoMessage() {}
 
 func (x *Query) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[11]
+	mi := &file_services_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -803,7 +2523,7 @@ func (x *Query) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Query.ProtoReflect.Descriptor instead.
 func (*Query) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{11}
+	return file_services_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Query) GetAuth() *Auth {
@@ -848,18 +2568,107 @@ func (x *Query) GetCursor() string {
 	return ""
 }
 
+func (x *Query) GetTypes() []string {
+	if x != nil {
+		return x.Types
+	}
+	return nil
+}
+
+func (x *Query) GetTypePrefix() string {
+	if x != nil {
+		return x.TypePrefix
+	}
+	return ""
+}
+
+func (x *Query) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *Query) GetEntityIds() []int64 {
+	if x != nil {
+		return x.EntityIds
+	}
+	return nil
+}
+
+func (x *Query) GetOrder() string {
+	if x != nil {
+		return x.Order
+	}
+	return ""
+}
+
+func (x *Query) GetCompact() bool {
+	if x != nil {
+		return x.Compact
+	}
+	return false
+}
+
+func (x *Query) GetCategories() []string {
+	if x != nil {
+		return x.Categories
+	}
+	return nil
+}
+
+func (x *Query) GetIncludeUnknownAuthors() bool {
+	if x != nil {
+		return x.IncludeUnknownAuthors
+	}
+	return false
+}
+
+func (x *Query) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *Query) GetBuckets() string {
+	if x != nil {
+		return x.Buckets
+	}
+	return ""
+}
+
+func (x *Query) GetDirectoryUserIds() []int64 {
+	if x != nil {
+		return x.DirectoryUserIds
+	}
+	return nil
+}
+
+func (x *Query) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
 type UserSummary struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	UniqueEvents  int64                  `protobuf:"varint,2,opt,name=unique_events,json=uniqueEvents,proto3" json:"unique_events,omitempty"`
-	LastEventAt   int64                  `protobuf:"varint,3,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	UserId               int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UniqueEvents         int64                  `protobuf:"varint,2,opt,name=unique_events,json=uniqueEvents,proto3" json:"unique_events,omitempty"`
+	LastEventAt          int64                  `protobuf:"varint,3,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
+	FirstEventAt         int64                  `protobuf:"varint,4,opt,name=first_event_at,json=firstEventAt,proto3" json:"first_event_at,omitempty"`
+	EntityCount          int64                  `protobuf:"varint,5,opt,name=entity_count,json=entityCount,proto3" json:"entity_count,omitempty"`
+	TaskCompletedEvents  int64                  `protobuf:"varint,6,opt,name=task_completed_events,json=taskCompletedEvents,proto3" json:"task_completed_events,omitempty"`
+	UniqueCompletedTasks int64                  `protobuf:"varint,7,opt,name=unique_completed_tasks,json=uniqueCompletedTasks,proto3" json:"unique_completed_tasks,omitempty"`
+	CategoryCounts       []*CategoryCount       `protobuf:"bytes,8,rep,name=category_counts,json=categoryCounts,proto3" json:"category_counts,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *UserSummary) Reset() {
 	*x = UserSummary{}
-	mi := &file_api_proto_services_proto_msgTypes[12]
+	mi := &file_services_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -871,7 +2680,7 @@ func (x *UserSummary) String() string {
 func (*UserSummary) ProtoMessage() {}
 
 func (x *UserSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[12]
+	mi := &file_services_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +2693,7 @@ func (x *UserSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserSummary.ProtoReflect.Descriptor instead.
 func (*UserSummary) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{12}
+	return file_services_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *UserSummary) GetUserId() int64 {
@@ -906,6 +2715,41 @@ func (x *UserSummary) GetLastEventAt() int64 {
 		return x.LastEventAt
 	}
 	return 0
+}
+
+func (x *UserSummary) GetFirstEventAt() int64 {
+	if x != nil {
+		return x.FirstEventAt
+	}
+	return 0
+}
+
+func (x *UserSummary) GetEntityCount() int64 {
+	if x != nil {
+		return x.EntityCount
+	}
+	return 0
+}
+
+func (x *UserSummary) GetTaskCompletedEvents() int64 {
+	if x != nil {
+		return x.TaskCompletedEvents
+	}
+	return 0
+}
+
+func (x *UserSummary) GetUniqueCompletedTasks() int64 {
+	if x != nil {
+		return x.UniqueCompletedTasks
+	}
+	return 0
+}
+
+func (x *UserSummary) GetCategoryCounts() []*CategoryCount {
+	if x != nil {
+		return x.CategoryCounts
+	}
+	return nil
 }
 
 type SyncStatus struct {
@@ -930,7 +2774,7 @@ type SyncStatus struct {
 
 func (x *SyncStatus) Reset() {
 	*x = SyncStatus{}
-	mi := &file_api_proto_services_proto_msgTypes[13]
+	mi := &file_services_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -942,7 +2786,7 @@ func (x *SyncStatus) String() string {
 func (*SyncStatus) ProtoMessage() {}
 
 func (x *SyncStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[13]
+	mi := &file_services_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -955,7 +2799,7 @@ func (x *SyncStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncStatus.ProtoReflect.Descriptor instead.
 func (*SyncStatus) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{13}
+	return file_services_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SyncStatus) GetEnabled() bool {
@@ -1057,18 +2901,22 @@ func (x *SyncStatus) GetVerification() string {
 }
 
 type QueryResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Events        []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
-	Summaries     []*UserSummary         `protobuf:"bytes,2,rep,name=summaries,proto3" json:"summaries,omitempty"`
-	NextCursor    string                 `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
-	Status        *SyncStatus            `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Events          []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	Summaries       []*UserSummary         `protobuf:"bytes,2,rep,name=summaries,proto3" json:"summaries,omitempty"`
+	NextCursor      string                 `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	Status          *SyncStatus            `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	ReadVersion     int32                  `protobuf:"varint,5,opt,name=read_version,json=readVersion,proto3" json:"read_version,omitempty"`
+	PayloadsOmitted bool                   `protobuf:"varint,6,opt,name=payloads_omitted,json=payloadsOmitted,proto3" json:"payloads_omitted,omitempty"`
+	Totals          *QueryTotals           `protobuf:"bytes,7,opt,name=totals,proto3" json:"totals,omitempty"`
+	Timeline        []*TimeBucket          `protobuf:"bytes,8,rep,name=timeline,proto3" json:"timeline,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *QueryResult) Reset() {
 	*x = QueryResult{}
-	mi := &file_api_proto_services_proto_msgTypes[14]
+	mi := &file_services_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1080,7 +2928,7 @@ func (x *QueryResult) String() string {
 func (*QueryResult) ProtoMessage() {}
 
 func (x *QueryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[14]
+	mi := &file_services_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1093,7 +2941,7 @@ func (x *QueryResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResult.ProtoReflect.Descriptor instead.
 func (*QueryResult) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{14}
+	return file_services_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *QueryResult) GetEvents() []*Event {
@@ -1124,6 +2972,34 @@ func (x *QueryResult) GetStatus() *SyncStatus {
 	return nil
 }
 
+func (x *QueryResult) GetReadVersion() int32 {
+	if x != nil {
+		return x.ReadVersion
+	}
+	return 0
+}
+
+func (x *QueryResult) GetPayloadsOmitted() bool {
+	if x != nil {
+		return x.PayloadsOmitted
+	}
+	return false
+}
+
+func (x *QueryResult) GetTotals() *QueryTotals {
+	if x != nil {
+		return x.Totals
+	}
+	return nil
+}
+
+func (x *QueryResult) GetTimeline() []*TimeBucket {
+	if x != nil {
+		return x.Timeline
+	}
+	return nil
+}
+
 type Command struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
@@ -1139,7 +3015,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_api_proto_services_proto_msgTypes[15]
+	mi := &file_services_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +3027,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[15]
+	mi := &file_services_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,7 +3040,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{15}
+	return file_services_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *Command) GetAuth() *Auth {
@@ -1216,6 +3092,9 @@ func (x *Command) GetRetentionDays() int32 {
 	return 0
 }
 
+// Operation.state is exactly one of accepted, running, retry, paused, failed,
+// succeeded. Owners normalize legacy DB "completed" at the application boundary;
+// it is not a wire value. Core's pending_delivery belongs to its JSON receipt.
 type Operation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1232,7 +3111,7 @@ type Operation struct {
 
 func (x *Operation) Reset() {
 	*x = Operation{}
-	mi := &file_api_proto_services_proto_msgTypes[16]
+	mi := &file_services_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1244,7 +3123,7 @@ func (x *Operation) String() string {
 func (*Operation) ProtoMessage() {}
 
 func (x *Operation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[16]
+	mi := &file_services_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1257,7 +3136,7 @@ func (x *Operation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operation.ProtoReflect.Descriptor instead.
 func (*Operation) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{16}
+	return file_services_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *Operation) GetId() string {
@@ -1326,7 +3205,7 @@ type OperationRequest struct {
 
 func (x *OperationRequest) Reset() {
 	*x = OperationRequest{}
-	mi := &file_api_proto_services_proto_msgTypes[17]
+	mi := &file_services_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1338,7 +3217,7 @@ func (x *OperationRequest) String() string {
 func (*OperationRequest) ProtoMessage() {}
 
 func (x *OperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[17]
+	mi := &file_services_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1351,7 +3230,7 @@ func (x *OperationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OperationRequest.ProtoReflect.Descriptor instead.
 func (*OperationRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{17}
+	return file_services_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *OperationRequest) GetAuth() *Auth {
@@ -1378,7 +3257,7 @@ type Settings struct {
 
 func (x *Settings) Reset() {
 	*x = Settings{}
-	mi := &file_api_proto_services_proto_msgTypes[18]
+	mi := &file_services_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1390,7 +3269,7 @@ func (x *Settings) String() string {
 func (*Settings) ProtoMessage() {}
 
 func (x *Settings) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[18]
+	mi := &file_services_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1403,7 +3282,7 @@ func (x *Settings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Settings.ProtoReflect.Descriptor instead.
 func (*Settings) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{18}
+	return file_services_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *Settings) GetInitialDays() int32 {
@@ -1431,7 +3310,7 @@ type SettingsCommand struct {
 
 func (x *SettingsCommand) Reset() {
 	*x = SettingsCommand{}
-	mi := &file_api_proto_services_proto_msgTypes[19]
+	mi := &file_services_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1443,7 +3322,7 @@ func (x *SettingsCommand) String() string {
 func (*SettingsCommand) ProtoMessage() {}
 
 func (x *SettingsCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[19]
+	mi := &file_services_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1456,7 +3335,7 @@ func (x *SettingsCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SettingsCommand.ProtoReflect.Descriptor instead.
 func (*SettingsCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{19}
+	return file_services_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *SettingsCommand) GetAuth() *Auth {
@@ -1481,19 +3360,22 @@ func (x *SettingsCommand) GetSettings() *Settings {
 }
 
 type Panel struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Users         []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
-	Timezone      string                 `protobuf:"bytes,2,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Data          *QueryResult           `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	Settings      *Settings              `protobuf:"bytes,4,opt,name=settings,proto3" json:"settings,omitempty"`
-	Coverage      string                 `protobuf:"bytes,5,opt,name=coverage,proto3" json:"coverage,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Users                 []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	Timezone              string                 `protobuf:"bytes,2,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Data                  *QueryResult           `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Settings              *Settings              `protobuf:"bytes,4,opt,name=settings,proto3" json:"settings,omitempty"`
+	Coverage              string                 `protobuf:"bytes,5,opt,name=coverage,proto3" json:"coverage,omitempty"`
+	Freshness             string                 `protobuf:"bytes,6,opt,name=freshness,proto3" json:"freshness,omitempty"`
+	EmptyReason           string                 `protobuf:"bytes,7,opt,name=empty_reason,json=emptyReason,proto3" json:"empty_reason,omitempty"`
+	InterpretationVersion int32                  `protobuf:"varint,8,opt,name=interpretation_version,json=interpretationVersion,proto3" json:"interpretation_version,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Panel) Reset() {
 	*x = Panel{}
-	mi := &file_api_proto_services_proto_msgTypes[20]
+	mi := &file_services_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1505,7 +3387,7 @@ func (x *Panel) String() string {
 func (*Panel) ProtoMessage() {}
 
 func (x *Panel) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[20]
+	mi := &file_services_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1518,7 +3400,7 @@ func (x *Panel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Panel.ProtoReflect.Descriptor instead.
 func (*Panel) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{20}
+	return file_services_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *Panel) GetUsers() []*User {
@@ -1556,6 +3438,27 @@ func (x *Panel) GetCoverage() string {
 	return ""
 }
 
+func (x *Panel) GetFreshness() string {
+	if x != nil {
+		return x.Freshness
+	}
+	return ""
+}
+
+func (x *Panel) GetEmptyReason() string {
+	if x != nil {
+		return x.EmptyReason
+	}
+	return ""
+}
+
+func (x *Panel) GetInterpretationVersion() int32 {
+	if x != nil {
+		return x.InterpretationVersion
+	}
+	return 0
+}
+
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
 // candidate credential is never persisted or exposed to Activity/CRM Events.
 type BootstrapAccountRequest struct {
@@ -1569,7 +3472,7 @@ type BootstrapAccountRequest struct {
 
 func (x *BootstrapAccountRequest) Reset() {
 	*x = BootstrapAccountRequest{}
-	mi := &file_api_proto_services_proto_msgTypes[21]
+	mi := &file_services_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1581,7 +3484,7 @@ func (x *BootstrapAccountRequest) String() string {
 func (*BootstrapAccountRequest) ProtoMessage() {}
 
 func (x *BootstrapAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[21]
+	mi := &file_services_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1594,7 +3497,7 @@ func (x *BootstrapAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootstrapAccountRequest.ProtoReflect.Descriptor instead.
 func (*BootstrapAccountRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{21}
+	return file_services_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *BootstrapAccountRequest) GetIntegrationId() string {
@@ -1628,7 +3531,7 @@ type BootstrapAccount struct {
 
 func (x *BootstrapAccount) Reset() {
 	*x = BootstrapAccount{}
-	mi := &file_api_proto_services_proto_msgTypes[22]
+	mi := &file_services_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1640,7 +3543,7 @@ func (x *BootstrapAccount) String() string {
 func (*BootstrapAccount) ProtoMessage() {}
 
 func (x *BootstrapAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_services_proto_msgTypes[22]
+	mi := &file_services_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1653,7 +3556,7 @@ func (x *BootstrapAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootstrapAccount.ProtoReflect.Descriptor instead.
 func (*BootstrapAccount) Descriptor() ([]byte, []int) {
-	return file_api_proto_services_proto_rawDescGZIP(), []int{22}
+	return file_services_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *BootstrapAccount) GetId() int64 {
@@ -1670,11 +3573,11 @@ func (x *BootstrapAccount) GetSubdomain() string {
 	return ""
 }
 
-var File_api_proto_services_proto protoreflect.FileDescriptor
+var File_services_proto protoreflect.FileDescriptor
 
-const file_api_proto_services_proto_rawDesc = "" +
+const file_services_proto_rawDesc = "" +
 	"\n" +
-	"\x18api/proto/services.proto\x12\x12amocrm.services.v1\"\x1c\n" +
+	"\x0eservices.proto\x12\x12amocrm.services.v1\"\x1c\n" +
 	"\x04Auth\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\";\n" +
 	"\x05Grant\x12\x1a\n" +
@@ -1702,7 +3605,7 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"\n" +
 	"request_id\x18\x06 \x01(\tR\trequestId\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\a \x01(\tR\texpiresAt\"\xeb\x01\n" +
+	"expires_at\x18\a \x01(\tR\texpiresAt\"\xd0\x03\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1715,7 +3618,161 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"entityType\x12!\n" +
 	"\fvalue_before\x18\a \x01(\fR\vvalueBefore\x12\x1f\n" +
 	"\vvalue_after\x18\b \x01(\fR\n" +
-	"valueAfter\"\x8e\x01\n" +
+	"valueAfter\x123\n" +
+	"\x16linked_talk_contact_id\x18\t \x01(\x03R\x13linkedTalkContactId\x12D\n" +
+	"\n" +
+	"enrichment\x18\n" +
+	" \x03(\v2$.amocrm.services.v1.EnrichmentObjectR\n" +
+	"enrichment\x125\n" +
+	"\x05names\x18\v \x03(\v2\x1f.amocrm.services.v1.CatalogNameR\x05names\x121\n" +
+	"\x04view\x18\f \x01(\v2\x1d.amocrm.services.v1.EventViewR\x04view\"\xa9\x01\n" +
+	"\vEventDetail\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x16\n" +
+	"\x06before\x18\x03 \x01(\fR\x06before\x12\x14\n" +
+	"\x05after\x18\x04 \x01(\fR\x05after\x12\x12\n" +
+	"\x04text\x18\x05 \x01(\tR\x04text\x12\x16\n" +
+	"\x06source\x18\x06 \x01(\tR\x06source\x12\x18\n" +
+	"\acurrent\x18\a \x01(\bR\acurrent\"\xa6\x02\n" +
+	"\tEventView\x12\x1a\n" +
+	"\bcategory\x18\x01 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
+	"\asummary\x18\x03 \x01(\tR\asummary\x12!\n" +
+	"\fdetail_state\x18\x04 \x01(\tR\vdetailState\x12!\n" +
+	"\fauthor_label\x18\x05 \x01(\tR\vauthorLabel\x12!\n" +
+	"\fentity_label\x18\x06 \x01(\tR\ventityLabel\x129\n" +
+	"\adetails\x18\a \x03(\v2\x1f.amocrm.services.v1.EventDetailR\adetails\x12)\n" +
+	"\x10enrichment_state\x18\b \x01(\tR\x0fenrichmentState\"A\n" +
+	"\rCategoryCount\x12\x1a\n" +
+	"\bcategory\x18\x01 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x03R\x05count\"p\n" +
+	"\n" +
+	"TimeBucket\x12\x19\n" +
+	"\bstart_at\x18\x01 \x01(\x03R\astartAt\x12\x15\n" +
+	"\x06end_at\x18\x02 \x01(\x03R\x05endAt\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x03R\x05count\x12\x1a\n" +
+	"\bcoverage\x18\x04 \x01(\tR\bcoverage\"\xd5\x02\n" +
+	"\vQueryTotals\x12#\n" +
+	"\runique_events\x18\x01 \x01(\x03R\funiqueEvents\x12!\n" +
+	"\fentity_count\x18\x02 \x01(\x03R\ventityCount\x122\n" +
+	"\x15task_completed_events\x18\x03 \x01(\x03R\x13taskCompletedEvents\x124\n" +
+	"\x16unique_completed_tasks\x18\x04 \x01(\x03R\x14uniqueCompletedTasks\x12$\n" +
+	"\x0efirst_event_at\x18\x05 \x01(\x03R\ffirstEventAt\x12\"\n" +
+	"\rlast_event_at\x18\x06 \x01(\x03R\vlastEventAt\x12J\n" +
+	"\x0fcategory_counts\x18\a \x03(\v2!.amocrm.services.v1.CategoryCountR\x0ecategoryCounts\"\xf4\x01\n" +
+	"\x10EnrichmentObject\x12\x1f\n" +
+	"\vobject_kind\x18\x01 \x01(\tR\n" +
+	"objectKind\x12\x1d\n" +
+	"\n" +
+	"object_key\x18\x02 \x01(\tR\tobjectKey\x12\x14\n" +
+	"\x05state\x18\x03 \x01(\tR\x05state\x12\x1f\n" +
+	"\vreason_code\x18\x04 \x01(\tR\n" +
+	"reasonCode\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\tR\x06source\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x06 \x01(\x03R\tfetchedAt\x12\x18\n" +
+	"\apayload\x18\a \x01(\fR\apayload\x12\x18\n" +
+	"\acurrent\x18\b \x01(\bR\acurrent\"\x96\x01\n" +
+	"\vCatalogName\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\tR\x05state\x12\x18\n" +
+	"\acurrent\x18\x05 \x01(\bR\acurrent\x12\x1f\n" +
+	"\ventity_type\x18\x06 \x01(\tR\n" +
+	"entityType\"o\n" +
+	"\fNotesRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x12\x10\n" +
+	"\x03ids\x18\x03 \x03(\x03R\x03ids\"\xc7\x01\n" +
+	"\x04Note\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\x03R\bentityId\x12\x1f\n" +
+	"\ventity_type\x18\x03 \x01(\tR\n" +
+	"entityType\x12\x1b\n" +
+	"\tnote_type\x18\x04 \x01(\tR\bnoteType\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\x03R\tcreatedBy\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\x03R\tupdatedAt\x12\x16\n" +
+	"\x06params\x18\a \x01(\fR\x06params\"[\n" +
+	"\bNotePage\x12.\n" +
+	"\x05notes\x18\x01 \x03(\v2\x18.amocrm.services.v1.NoteR\x05notes\x12\x1f\n" +
+	"\vinvalid_ids\x18\x02 \x03(\x03R\n" +
+	"invalidIds\"N\n" +
+	"\fTasksRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x10\n" +
+	"\x03ids\x18\x02 \x03(\x03R\x03ids\"\xc2\x02\n" +
+	"\x04Task\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\x03R\bentityId\x12\x1f\n" +
+	"\ventity_type\x18\x03 \x01(\tR\n" +
+	"entityType\x12.\n" +
+	"\x13responsible_user_id\x18\x04 \x01(\x03R\x11responsibleUserId\x12\x12\n" +
+	"\x04text\x18\x05 \x01(\tR\x04text\x12#\n" +
+	"\rcomplete_till\x18\x06 \x01(\x03R\fcompleteTill\x12 \n" +
+	"\ftask_type_id\x18\a \x01(\x03R\n" +
+	"taskTypeId\x12!\n" +
+	"\fis_completed\x18\b \x01(\bR\visCompleted\x12\x1f\n" +
+	"\vresult_text\x18\t \x01(\tR\n" +
+	"resultText\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\x03R\tupdatedAt\"[\n" +
+	"\bTaskPage\x12.\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x18.amocrm.services.v1.TaskR\x05tasks\x12\x1f\n" +
+	"\vinvalid_ids\x18\x02 \x03(\x03R\n" +
+	"invalidIds\">\n" +
+	"\x0eCatalogRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\"4\n" +
+	"\x0ePipelineStatus\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"n\n" +
+	"\bPipeline\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12>\n" +
+	"\bstatuses\x18\x03 \x03(\v2\".amocrm.services.v1.PipelineStatusR\bstatuses\"l\n" +
+	"\x0fPipelineCatalog\x12:\n" +
+	"\tpipelines\x18\x01 \x03(\v2\x1c.amocrm.services.v1.PipelineR\tpipelines\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\x03R\tfetchedAt\"d\n" +
+	"\x13CustomFieldsRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\"7\n" +
+	"\x0fCustomFieldEnum\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xa1\x01\n" +
+	"\vCustomField\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1f\n" +
+	"\ventity_type\x18\x04 \x01(\tR\n" +
+	"entityType\x129\n" +
+	"\x05enums\x18\x05 \x03(\v2#.amocrm.services.v1.CustomFieldEnumR\x05enums\"l\n" +
+	"\x12CustomFieldCatalog\x127\n" +
+	"\x06fields\x18\x01 \x03(\v2\x1f.amocrm.services.v1.CustomFieldR\x06fields\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\x03R\tfetchedAt\"r\n" +
+	"\x0fEntitiesRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x12\x10\n" +
+	"\x03ids\x18\x03 \x03(\x03R\x03ids\"Q\n" +
+	"\n" +
+	"EntityName\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"l\n" +
+	"\rEntityCatalog\x12:\n" +
+	"\bentities\x18\x01 \x03(\v2\x1e.amocrm.services.v1.EntityNameR\bentities\x12\x1f\n" +
+	"\vinvalid_ids\x18\x02 \x03(\x03R\n" +
+	"invalidIds\"W\n" +
+	"\fEventRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x19\n" +
+	"\bevent_id\x18\x02 \x01(\tR\aeventId\"\x8e\x01\n" +
 	"\x10EventPageRequest\x12,\n" +
 	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\x03R\x04from\x12\x0e\n" +
@@ -1736,18 +3793,41 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"\buser_ids\x18\x02 \x03(\x03R\auserIds\"W\n" +
 	"\tDirectory\x12.\n" +
 	"\x05users\x18\x01 \x03(\v2\x18.amocrm.services.v1.UserR\x05users\x12\x1a\n" +
-	"\btimezone\x18\x02 \x01(\tR\btimezone\"\xa2\x01\n" +
+	"\btimezone\x18\x02 \x01(\tR\btimezone\"\xa0\x04\n" +
 	"\x05Query\x12,\n" +
 	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\x03R\x04from\x12\x0e\n" +
 	"\x02to\x18\x03 \x01(\x03R\x02to\x12\x19\n" +
 	"\buser_ids\x18\x04 \x03(\x03R\auserIds\x12\x14\n" +
 	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06cursor\x18\x06 \x01(\tR\x06cursor\"o\n" +
+	"\x06cursor\x18\x06 \x01(\tR\x06cursor\x12\x14\n" +
+	"\x05types\x18\a \x03(\tR\x05types\x12\x1f\n" +
+	"\vtype_prefix\x18\b \x01(\tR\n" +
+	"typePrefix\x12\x1f\n" +
+	"\ventity_type\x18\t \x01(\tR\n" +
+	"entityType\x12\x1d\n" +
+	"\n" +
+	"entity_ids\x18\n" +
+	" \x03(\x03R\tentityIds\x12\x14\n" +
+	"\x05order\x18\v \x01(\tR\x05order\x12\x18\n" +
+	"\acompact\x18\f \x01(\bR\acompact\x12\x1e\n" +
+	"\n" +
+	"categories\x18\r \x03(\tR\n" +
+	"categories\x126\n" +
+	"\x17include_unknown_authors\x18\x0e \x01(\bR\x15includeUnknownAuthors\x12\x1a\n" +
+	"\btimezone\x18\x0f \x01(\tR\btimezone\x12\x18\n" +
+	"\abuckets\x18\x10 \x01(\tR\abuckets\x12,\n" +
+	"\x12directory_user_ids\x18\x11 \x03(\x03R\x10directoryUserIds\x12\x19\n" +
+	"\bgroup_id\x18\x12 \x01(\x03R\agroupId\"\xee\x02\n" +
 	"\vUserSummary\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12#\n" +
 	"\runique_events\x18\x02 \x01(\x03R\funiqueEvents\x12\"\n" +
-	"\rlast_event_at\x18\x03 \x01(\x03R\vlastEventAt\"\xe3\x03\n" +
+	"\rlast_event_at\x18\x03 \x01(\x03R\vlastEventAt\x12$\n" +
+	"\x0efirst_event_at\x18\x04 \x01(\x03R\ffirstEventAt\x12!\n" +
+	"\fentity_count\x18\x05 \x01(\x03R\ventityCount\x122\n" +
+	"\x15task_completed_events\x18\x06 \x01(\x03R\x13taskCompletedEvents\x124\n" +
+	"\x16unique_completed_tasks\x18\a \x01(\x03R\x14uniqueCompletedTasks\x12J\n" +
+	"\x0fcategory_counts\x18\b \x03(\v2!.amocrm.services.v1.CategoryCountR\x0ecategoryCounts\"\xe3\x03\n" +
 	"\n" +
 	"SyncStatus\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x14\n" +
@@ -1767,13 +3847,17 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"\n" +
 	"error_code\x18\f \x01(\tR\terrorCode\x12'\n" +
 	"\x0freauth_required\x18\r \x01(\bR\x0ereauthRequired\x12\"\n" +
-	"\fverification\x18\x0e \x01(\tR\fverification\"\xd8\x01\n" +
+	"\fverification\x18\x0e \x01(\tR\fverification\"\x9b\x03\n" +
 	"\vQueryResult\x121\n" +
 	"\x06events\x18\x01 \x03(\v2\x19.amocrm.services.v1.EventR\x06events\x12=\n" +
 	"\tsummaries\x18\x02 \x03(\v2\x1f.amocrm.services.v1.UserSummaryR\tsummaries\x12\x1f\n" +
 	"\vnext_cursor\x18\x03 \x01(\tR\n" +
 	"nextCursor\x126\n" +
-	"\x06status\x18\x04 \x01(\v2\x1e.amocrm.services.v1.SyncStatusR\x06status\"\xd8\x01\n" +
+	"\x06status\x18\x04 \x01(\v2\x1e.amocrm.services.v1.SyncStatusR\x06status\x12!\n" +
+	"\fread_version\x18\x05 \x01(\x05R\vreadVersion\x12)\n" +
+	"\x10payloads_omitted\x18\x06 \x01(\bR\x0fpayloadsOmitted\x127\n" +
+	"\x06totals\x18\a \x01(\v2\x1f.amocrm.services.v1.QueryTotalsR\x06totals\x12:\n" +
+	"\btimeline\x18\b \x03(\v2\x1e.amocrm.services.v1.TimeBucketR\btimeline\"\xd8\x01\n" +
 	"\aCommand\x12,\n" +
 	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1d\n" +
 	"\n" +
@@ -1804,13 +3888,16 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x02 \x01(\tR\tcommandId\x128\n" +
-	"\bsettings\x18\x03 \x01(\v2\x1c.amocrm.services.v1.SettingsR\bsettings\"\xde\x01\n" +
+	"\bsettings\x18\x03 \x01(\v2\x1c.amocrm.services.v1.SettingsR\bsettings\"\xd6\x02\n" +
 	"\x05Panel\x12.\n" +
 	"\x05users\x18\x01 \x03(\v2\x18.amocrm.services.v1.UserR\x05users\x12\x1a\n" +
 	"\btimezone\x18\x02 \x01(\tR\btimezone\x123\n" +
 	"\x04data\x18\x03 \x01(\v2\x1f.amocrm.services.v1.QueryResultR\x04data\x128\n" +
 	"\bsettings\x18\x04 \x01(\v2\x1c.amocrm.services.v1.SettingsR\bsettings\x12\x1a\n" +
-	"\bcoverage\x18\x05 \x01(\tR\bcoverage\"\x8a\x01\n" +
+	"\bcoverage\x18\x05 \x01(\tR\bcoverage\x12\x1c\n" +
+	"\tfreshness\x18\x06 \x01(\tR\tfreshness\x12!\n" +
+	"\fempty_reason\x18\a \x01(\tR\vemptyReason\x125\n" +
+	"\x16interpretation_version\x18\b \x01(\x05R\x15interpretationVersion\"\x8a\x01\n" +
 	"\x17BootstrapAccountRequest\x12%\n" +
 	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12%\n" +
 	"\x0eaccount_domain\x18\x02 \x01(\tR\raccountDomain\x12!\n" +
@@ -1820,17 +3907,24 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"\tsubdomain\x18\x02 \x01(\tR\tsubdomain2\x9d\x01\n" +
 	"\x06Policy\x12C\n" +
 	"\x05Issue\x12 .amocrm.services.v1.IssueRequest\x1a\x18.amocrm.services.v1.Auth\x12N\n" +
-	"\bValidate\x12#.amocrm.services.v1.ValidateRequest\x1a\x1d.amocrm.services.v1.Principal2\xa2\x01\n" +
+	"\bValidate\x12#.amocrm.services.v1.ValidateRequest\x1a\x1d.amocrm.services.v1.Principal2\xbf\x04\n" +
 	"\aGateway\x12M\n" +
 	"\x06Events\x12$.amocrm.services.v1.EventPageRequest\x1a\x1d.amocrm.services.v1.EventPage\x12H\n" +
-	"\x05Users\x12 .amocrm.services.v1.UsersRequest\x1a\x1d.amocrm.services.v1.Directory2\xb7\x02\n" +
-	"\tCRMEvents\x12C\n" +
+	"\x05Users\x12 .amocrm.services.v1.UsersRequest\x1a\x1d.amocrm.services.v1.Directory\x12G\n" +
+	"\x05Notes\x12 .amocrm.services.v1.NotesRequest\x1a\x1c.amocrm.services.v1.NotePage\x12G\n" +
+	"\x05Tasks\x12 .amocrm.services.v1.TasksRequest\x1a\x1c.amocrm.services.v1.TaskPage\x12T\n" +
+	"\tPipelines\x12\".amocrm.services.v1.CatalogRequest\x1a#.amocrm.services.v1.PipelineCatalog\x12_\n" +
+	"\fCustomFields\x12'.amocrm.services.v1.CustomFieldsRequest\x1a&.amocrm.services.v1.CustomFieldCatalog\x12R\n" +
+	"\bEntities\x12#.amocrm.services.v1.EntitiesRequest\x1a!.amocrm.services.v1.EntityCatalog2\x80\x03\n" +
+	"\tCRMEvents\x12G\n" +
+	"\bGetEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event\x12C\n" +
 	"\x05Apply\x12\x1b.amocrm.services.v1.Command\x1a\x1d.amocrm.services.v1.Operation\x12I\n" +
 	"\vQueryEvents\x12\x19.amocrm.services.v1.Query\x1a\x1f.amocrm.services.v1.QueryResult\x12B\n" +
 	"\x06Status\x12\x18.amocrm.services.v1.Auth\x1a\x1e.amocrm.services.v1.SyncStatus\x12V\n" +
-	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\xbc\x02\n" +
+	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\x85\x03\n" +
 	"\bActivity\x12@\n" +
-	"\bGetPanel\x12\x19.amocrm.services.v1.Query\x1a\x19.amocrm.services.v1.Panel\x12E\n" +
+	"\bGetPanel\x12\x19.amocrm.services.v1.Query\x1a\x19.amocrm.services.v1.Panel\x12G\n" +
+	"\bGetEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event\x12E\n" +
 	"\vGetSettings\x12\x18.amocrm.services.v1.Auth\x1a\x1c.amocrm.services.v1.Settings\x12O\n" +
 	"\tConfigure\x12#.amocrm.services.v1.SettingsCommand\x1a\x1d.amocrm.services.v1.Operation\x12V\n" +
 	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2p\n" +
@@ -1839,114 +3933,174 @@ const file_api_proto_services_proto_rawDesc = "" +
 	"GetAccount\x12+.amocrm.services.v1.BootstrapAccountRequest\x1a$.amocrm.services.v1.BootstrapAccountB4Z2github.com/sk1fy/amocrm-pro/internal/servicerpc/pbb\x06proto3"
 
 var (
-	file_api_proto_services_proto_rawDescOnce sync.Once
-	file_api_proto_services_proto_rawDescData []byte
+	file_services_proto_rawDescOnce sync.Once
+	file_services_proto_rawDescData []byte
 )
 
-func file_api_proto_services_proto_rawDescGZIP() []byte {
-	file_api_proto_services_proto_rawDescOnce.Do(func() {
-		file_api_proto_services_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_proto_services_proto_rawDesc), len(file_api_proto_services_proto_rawDesc)))
+func file_services_proto_rawDescGZIP() []byte {
+	file_services_proto_rawDescOnce.Do(func() {
+		file_services_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_services_proto_rawDesc), len(file_services_proto_rawDesc)))
 	})
-	return file_api_proto_services_proto_rawDescData
+	return file_services_proto_rawDescData
 }
 
-var file_api_proto_services_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
-var file_api_proto_services_proto_goTypes = []any{
+var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_services_proto_goTypes = []any{
 	(*Auth)(nil),                    // 0: amocrm.services.v1.Auth
 	(*Grant)(nil),                   // 1: amocrm.services.v1.Grant
 	(*IssueRequest)(nil),            // 2: amocrm.services.v1.IssueRequest
 	(*ValidateRequest)(nil),         // 3: amocrm.services.v1.ValidateRequest
 	(*Principal)(nil),               // 4: amocrm.services.v1.Principal
 	(*Event)(nil),                   // 5: amocrm.services.v1.Event
-	(*EventPageRequest)(nil),        // 6: amocrm.services.v1.EventPageRequest
-	(*EventPage)(nil),               // 7: amocrm.services.v1.EventPage
-	(*User)(nil),                    // 8: amocrm.services.v1.User
-	(*UsersRequest)(nil),            // 9: amocrm.services.v1.UsersRequest
-	(*Directory)(nil),               // 10: amocrm.services.v1.Directory
-	(*Query)(nil),                   // 11: amocrm.services.v1.Query
-	(*UserSummary)(nil),             // 12: amocrm.services.v1.UserSummary
-	(*SyncStatus)(nil),              // 13: amocrm.services.v1.SyncStatus
-	(*QueryResult)(nil),             // 14: amocrm.services.v1.QueryResult
-	(*Command)(nil),                 // 15: amocrm.services.v1.Command
-	(*Operation)(nil),               // 16: amocrm.services.v1.Operation
-	(*OperationRequest)(nil),        // 17: amocrm.services.v1.OperationRequest
-	(*Settings)(nil),                // 18: amocrm.services.v1.Settings
-	(*SettingsCommand)(nil),         // 19: amocrm.services.v1.SettingsCommand
-	(*Panel)(nil),                   // 20: amocrm.services.v1.Panel
-	(*BootstrapAccountRequest)(nil), // 21: amocrm.services.v1.BootstrapAccountRequest
-	(*BootstrapAccount)(nil),        // 22: amocrm.services.v1.BootstrapAccount
+	(*EventDetail)(nil),             // 6: amocrm.services.v1.EventDetail
+	(*EventView)(nil),               // 7: amocrm.services.v1.EventView
+	(*CategoryCount)(nil),           // 8: amocrm.services.v1.CategoryCount
+	(*TimeBucket)(nil),              // 9: amocrm.services.v1.TimeBucket
+	(*QueryTotals)(nil),             // 10: amocrm.services.v1.QueryTotals
+	(*EnrichmentObject)(nil),        // 11: amocrm.services.v1.EnrichmentObject
+	(*CatalogName)(nil),             // 12: amocrm.services.v1.CatalogName
+	(*NotesRequest)(nil),            // 13: amocrm.services.v1.NotesRequest
+	(*Note)(nil),                    // 14: amocrm.services.v1.Note
+	(*NotePage)(nil),                // 15: amocrm.services.v1.NotePage
+	(*TasksRequest)(nil),            // 16: amocrm.services.v1.TasksRequest
+	(*Task)(nil),                    // 17: amocrm.services.v1.Task
+	(*TaskPage)(nil),                // 18: amocrm.services.v1.TaskPage
+	(*CatalogRequest)(nil),          // 19: amocrm.services.v1.CatalogRequest
+	(*PipelineStatus)(nil),          // 20: amocrm.services.v1.PipelineStatus
+	(*Pipeline)(nil),                // 21: amocrm.services.v1.Pipeline
+	(*PipelineCatalog)(nil),         // 22: amocrm.services.v1.PipelineCatalog
+	(*CustomFieldsRequest)(nil),     // 23: amocrm.services.v1.CustomFieldsRequest
+	(*CustomFieldEnum)(nil),         // 24: amocrm.services.v1.CustomFieldEnum
+	(*CustomField)(nil),             // 25: amocrm.services.v1.CustomField
+	(*CustomFieldCatalog)(nil),      // 26: amocrm.services.v1.CustomFieldCatalog
+	(*EntitiesRequest)(nil),         // 27: amocrm.services.v1.EntitiesRequest
+	(*EntityName)(nil),              // 28: amocrm.services.v1.EntityName
+	(*EntityCatalog)(nil),           // 29: amocrm.services.v1.EntityCatalog
+	(*EventRequest)(nil),            // 30: amocrm.services.v1.EventRequest
+	(*EventPageRequest)(nil),        // 31: amocrm.services.v1.EventPageRequest
+	(*EventPage)(nil),               // 32: amocrm.services.v1.EventPage
+	(*User)(nil),                    // 33: amocrm.services.v1.User
+	(*UsersRequest)(nil),            // 34: amocrm.services.v1.UsersRequest
+	(*Directory)(nil),               // 35: amocrm.services.v1.Directory
+	(*Query)(nil),                   // 36: amocrm.services.v1.Query
+	(*UserSummary)(nil),             // 37: amocrm.services.v1.UserSummary
+	(*SyncStatus)(nil),              // 38: amocrm.services.v1.SyncStatus
+	(*QueryResult)(nil),             // 39: amocrm.services.v1.QueryResult
+	(*Command)(nil),                 // 40: amocrm.services.v1.Command
+	(*Operation)(nil),               // 41: amocrm.services.v1.Operation
+	(*OperationRequest)(nil),        // 42: amocrm.services.v1.OperationRequest
+	(*Settings)(nil),                // 43: amocrm.services.v1.Settings
+	(*SettingsCommand)(nil),         // 44: amocrm.services.v1.SettingsCommand
+	(*Panel)(nil),                   // 45: amocrm.services.v1.Panel
+	(*BootstrapAccountRequest)(nil), // 46: amocrm.services.v1.BootstrapAccountRequest
+	(*BootstrapAccount)(nil),        // 47: amocrm.services.v1.BootstrapAccount
 }
-var file_api_proto_services_proto_depIdxs = []int32{
+var file_services_proto_depIdxs = []int32{
 	1,  // 0: amocrm.services.v1.IssueRequest.grants:type_name -> amocrm.services.v1.Grant
 	0,  // 1: amocrm.services.v1.ValidateRequest.auth:type_name -> amocrm.services.v1.Auth
-	0,  // 2: amocrm.services.v1.EventPageRequest.auth:type_name -> amocrm.services.v1.Auth
-	5,  // 3: amocrm.services.v1.EventPage.events:type_name -> amocrm.services.v1.Event
-	0,  // 4: amocrm.services.v1.UsersRequest.auth:type_name -> amocrm.services.v1.Auth
-	8,  // 5: amocrm.services.v1.Directory.users:type_name -> amocrm.services.v1.User
-	0,  // 6: amocrm.services.v1.Query.auth:type_name -> amocrm.services.v1.Auth
-	5,  // 7: amocrm.services.v1.QueryResult.events:type_name -> amocrm.services.v1.Event
-	12, // 8: amocrm.services.v1.QueryResult.summaries:type_name -> amocrm.services.v1.UserSummary
-	13, // 9: amocrm.services.v1.QueryResult.status:type_name -> amocrm.services.v1.SyncStatus
-	0,  // 10: amocrm.services.v1.Command.auth:type_name -> amocrm.services.v1.Auth
-	0,  // 11: amocrm.services.v1.OperationRequest.auth:type_name -> amocrm.services.v1.Auth
-	0,  // 12: amocrm.services.v1.SettingsCommand.auth:type_name -> amocrm.services.v1.Auth
-	18, // 13: amocrm.services.v1.SettingsCommand.settings:type_name -> amocrm.services.v1.Settings
-	8,  // 14: amocrm.services.v1.Panel.users:type_name -> amocrm.services.v1.User
-	14, // 15: amocrm.services.v1.Panel.data:type_name -> amocrm.services.v1.QueryResult
-	18, // 16: amocrm.services.v1.Panel.settings:type_name -> amocrm.services.v1.Settings
-	2,  // 17: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
-	3,  // 18: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
-	6,  // 19: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
-	9,  // 20: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
-	15, // 21: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
-	11, // 22: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
-	0,  // 23: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
-	17, // 24: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	11, // 25: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
-	0,  // 26: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
-	19, // 27: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
-	17, // 28: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	21, // 29: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
-	0,  // 30: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
-	4,  // 31: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
-	7,  // 32: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
-	10, // 33: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
-	16, // 34: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
-	14, // 35: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
-	13, // 36: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
-	16, // 37: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
-	20, // 38: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
-	18, // 39: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
-	16, // 40: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
-	16, // 41: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
-	22, // 42: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
-	30, // [30:43] is the sub-list for method output_type
-	17, // [17:30] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	11, // 2: amocrm.services.v1.Event.enrichment:type_name -> amocrm.services.v1.EnrichmentObject
+	12, // 3: amocrm.services.v1.Event.names:type_name -> amocrm.services.v1.CatalogName
+	7,  // 4: amocrm.services.v1.Event.view:type_name -> amocrm.services.v1.EventView
+	6,  // 5: amocrm.services.v1.EventView.details:type_name -> amocrm.services.v1.EventDetail
+	8,  // 6: amocrm.services.v1.QueryTotals.category_counts:type_name -> amocrm.services.v1.CategoryCount
+	0,  // 7: amocrm.services.v1.NotesRequest.auth:type_name -> amocrm.services.v1.Auth
+	14, // 8: amocrm.services.v1.NotePage.notes:type_name -> amocrm.services.v1.Note
+	0,  // 9: amocrm.services.v1.TasksRequest.auth:type_name -> amocrm.services.v1.Auth
+	17, // 10: amocrm.services.v1.TaskPage.tasks:type_name -> amocrm.services.v1.Task
+	0,  // 11: amocrm.services.v1.CatalogRequest.auth:type_name -> amocrm.services.v1.Auth
+	20, // 12: amocrm.services.v1.Pipeline.statuses:type_name -> amocrm.services.v1.PipelineStatus
+	21, // 13: amocrm.services.v1.PipelineCatalog.pipelines:type_name -> amocrm.services.v1.Pipeline
+	0,  // 14: amocrm.services.v1.CustomFieldsRequest.auth:type_name -> amocrm.services.v1.Auth
+	24, // 15: amocrm.services.v1.CustomField.enums:type_name -> amocrm.services.v1.CustomFieldEnum
+	25, // 16: amocrm.services.v1.CustomFieldCatalog.fields:type_name -> amocrm.services.v1.CustomField
+	0,  // 17: amocrm.services.v1.EntitiesRequest.auth:type_name -> amocrm.services.v1.Auth
+	28, // 18: amocrm.services.v1.EntityCatalog.entities:type_name -> amocrm.services.v1.EntityName
+	0,  // 19: amocrm.services.v1.EventRequest.auth:type_name -> amocrm.services.v1.Auth
+	0,  // 20: amocrm.services.v1.EventPageRequest.auth:type_name -> amocrm.services.v1.Auth
+	5,  // 21: amocrm.services.v1.EventPage.events:type_name -> amocrm.services.v1.Event
+	0,  // 22: amocrm.services.v1.UsersRequest.auth:type_name -> amocrm.services.v1.Auth
+	33, // 23: amocrm.services.v1.Directory.users:type_name -> amocrm.services.v1.User
+	0,  // 24: amocrm.services.v1.Query.auth:type_name -> amocrm.services.v1.Auth
+	8,  // 25: amocrm.services.v1.UserSummary.category_counts:type_name -> amocrm.services.v1.CategoryCount
+	5,  // 26: amocrm.services.v1.QueryResult.events:type_name -> amocrm.services.v1.Event
+	37, // 27: amocrm.services.v1.QueryResult.summaries:type_name -> amocrm.services.v1.UserSummary
+	38, // 28: amocrm.services.v1.QueryResult.status:type_name -> amocrm.services.v1.SyncStatus
+	10, // 29: amocrm.services.v1.QueryResult.totals:type_name -> amocrm.services.v1.QueryTotals
+	9,  // 30: amocrm.services.v1.QueryResult.timeline:type_name -> amocrm.services.v1.TimeBucket
+	0,  // 31: amocrm.services.v1.Command.auth:type_name -> amocrm.services.v1.Auth
+	0,  // 32: amocrm.services.v1.OperationRequest.auth:type_name -> amocrm.services.v1.Auth
+	0,  // 33: amocrm.services.v1.SettingsCommand.auth:type_name -> amocrm.services.v1.Auth
+	43, // 34: amocrm.services.v1.SettingsCommand.settings:type_name -> amocrm.services.v1.Settings
+	33, // 35: amocrm.services.v1.Panel.users:type_name -> amocrm.services.v1.User
+	39, // 36: amocrm.services.v1.Panel.data:type_name -> amocrm.services.v1.QueryResult
+	43, // 37: amocrm.services.v1.Panel.settings:type_name -> amocrm.services.v1.Settings
+	2,  // 38: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
+	3,  // 39: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
+	31, // 40: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
+	34, // 41: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
+	13, // 42: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
+	16, // 43: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
+	19, // 44: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
+	23, // 45: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
+	27, // 46: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
+	30, // 47: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	40, // 48: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
+	36, // 49: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
+	0,  // 50: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
+	42, // 51: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	36, // 52: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
+	30, // 53: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	0,  // 54: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
+	44, // 55: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
+	42, // 56: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	46, // 57: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
+	0,  // 58: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
+	4,  // 59: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
+	32, // 60: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
+	35, // 61: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
+	15, // 62: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
+	18, // 63: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
+	22, // 64: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
+	26, // 65: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
+	29, // 66: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
+	5,  // 67: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
+	41, // 68: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
+	39, // 69: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
+	38, // 70: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
+	41, // 71: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
+	45, // 72: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
+	5,  // 73: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
+	43, // 74: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
+	41, // 75: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
+	41, // 76: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
+	47, // 77: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
+	58, // [58:78] is the sub-list for method output_type
+	38, // [38:58] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
-func init() { file_api_proto_services_proto_init() }
-func file_api_proto_services_proto_init() {
-	if File_api_proto_services_proto != nil {
+func init() { file_services_proto_init() }
+func file_services_proto_init() {
+	if File_services_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_services_proto_rawDesc), len(file_api_proto_services_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_proto_rawDesc), len(file_services_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   5,
 		},
-		GoTypes:           file_api_proto_services_proto_goTypes,
-		DependencyIndexes: file_api_proto_services_proto_depIdxs,
-		MessageInfos:      file_api_proto_services_proto_msgTypes,
+		GoTypes:           file_services_proto_goTypes,
+		DependencyIndexes: file_services_proto_depIdxs,
+		MessageInfos:      file_services_proto_msgTypes,
 	}.Build()
-	File_api_proto_services_proto = out.File
-	file_api_proto_services_proto_goTypes = nil
-	file_api_proto_services_proto_depIdxs = nil
+	File_services_proto = out.File
+	file_services_proto_goTypes = nil
+	file_services_proto_depIdxs = nil
 }

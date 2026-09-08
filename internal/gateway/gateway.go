@@ -1,4 +1,4 @@
-// Package gateway exposes only bounded events and directory reads through the
+// Package gateway exposes only bounded events, directory and enrichment reads through the
 // existing Core-owned amoCRM client. No new token storage or rate limiter exists.
 package gateway
 
@@ -16,20 +16,41 @@ import (
 type API interface {
 	ListEvents(context.Context, uuid.UUID, int64, int64, int, int) (amocrm.CRMEventPage, error)
 	GetDirectory(context.Context, uuid.UUID) (amocrm.AccountDirectory, error)
+	ListNotes(context.Context, uuid.UUID, string, []int64) ([]amocrm.Note, error)
+	ListTasks(context.Context, uuid.UUID, []int64) ([]amocrm.Task, error)
+	ListPipelines(context.Context, uuid.UUID) ([]amocrm.Pipeline, error)
+	ListCustomFields(context.Context, uuid.UUID, string) ([]amocrm.CustomField, error)
+	ListEntities(context.Context, uuid.UUID, string, []int64) ([]amocrm.EntityName, error)
 }
 type cached struct {
 	data  amocrm.AccountDirectory
 	until time.Time
+}
+type cachedPipelines struct {
+	data      []amocrm.Pipeline
+	fetchedAt int64
+	until     time.Time
+}
+type cachedFields struct {
+	data      []amocrm.CustomField
+	fetchedAt int64
+	until     time.Time
+}
+type fieldCacheKey struct {
+	installation uuid.UUID
+	entityType   string
 }
 type Service struct {
 	api       API
 	policy    serviceapi.Policy
 	mu        sync.Mutex
 	directory map[uuid.UUID]cached
+	pipelines map[uuid.UUID]cachedPipelines
+	fields    map[fieldCacheKey]cachedFields
 }
 
 func New(api API, policy serviceapi.Policy) *Service {
-	return &Service{api: api, policy: policy, directory: map[uuid.UUID]cached{}}
+	return &Service{api: api, policy: policy, directory: map[uuid.UUID]cached{}, pipelines: map[uuid.UUID]cachedPipelines{}, fields: map[fieldCacheKey]cachedFields{}}
 }
 func (s *Service) Events(ctx context.Context, r serviceapi.EventPageRequest) (serviceapi.EventPage, error) {
 	if r.From < 0 || r.To < r.From || r.To-r.From > 31*86400 || r.Page < 1 || r.Page > 100000 || r.Limit < 1 || r.Limit > 100 {
@@ -47,7 +68,7 @@ func (s *Service) Events(ctx context.Context, r serviceapi.EventPageRequest) (se
 	}
 	events := make([]serviceapi.Event, 0, len(page.Events))
 	for _, e := range page.Events {
-		events = append(events, serviceapi.Event{ID: e.ID, CreatedAt: e.CreatedAt, CreatedBy: e.CreatedBy, Type: e.Type, EntityID: e.EntityID, EntityType: e.EntityType, ValueBefore: e.ValueBefore, ValueAfter: e.ValueAfter})
+		events = append(events, serviceapi.Event{ID: e.ID, CreatedAt: e.CreatedAt, CreatedBy: e.CreatedBy, Type: e.Type, EntityID: e.EntityID, EntityType: e.EntityType, LinkedTalkContactID: e.LinkedTalkContactID, ValueBefore: e.ValueBefore, ValueAfter: e.ValueAfter})
 	}
 	return serviceapi.EventPage{Events: events, HasNext: page.HasNext}, nil
 }

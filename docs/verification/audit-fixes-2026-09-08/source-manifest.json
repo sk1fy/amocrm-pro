@@ -1,0 +1,13 @@
+{
+  "internal/services/crmevents/enrichment.go": "17b68f8ce8efda3e2cee9977c89153b08f96c9ff10eed94f5703df2de82b67f2",
+  "internal/services/crmevents/postgres_enrichment.go": "e217170815b49a6e70beee1bf9035f326de43a4cb7a49f2bfc7719c22f0329be",
+  "internal/integration/amocrm/enrichment.go": "7f436d84c67e4bc9ec43c689155683824e98bb28455a184379f3cf45a2fb81cd",
+  "internal/gateway/enrichment.go": "4eaa49a23c8a75006c77c44e6f36d6594c76d71a82980fc34992f58acf9f7344",
+  "internal/serviceapi/enrichment.go": "16f812b56fdc12eb5c31a8e9f4cc7bd93aec13c721d58ce7a4c879f3aeb0063d",
+  "api/proto/services.proto": "6af86c560227644d530c2e2d288999267b332062d5e4a58de97b394723384d6c",
+  "internal/servicerpc/conversion.go": "7a166e477a246bfa980e4155e0a26bef2fad98d17fbd796f288ade8456ef25f0",
+  "internal/servicerpc/pb/services.pb.go": "c06f2710ecb0fea3666afb77aecc3c2d46e40b792db31711ed7f83c32ea30225",
+  "internal/servicerpc/pb/services_grpc.pb.go": "23615c1b508e745ad728f35d6ceb3b52d4ae4655483af880175445abdc32cad8",
+  "migrations/crmevents/000006_enrichment_retry_recovery.up.sql": "7f05250cb0e817f45e82a9dbfdd31980508dc41e74dc2a5576790fecf237d381",
+  "migrations/crmevents/000006_enrichment_retry_recovery.down.sql": "cfffd66ccbafdd056df50ff4300e9b4e82d258e7932ad064b8dbe4ed46fea030"
+}

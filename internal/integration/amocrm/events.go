@@ -16,14 +16,15 @@ import (
 const EventsPageLimit = 100
 
 type CRMEvent struct {
-	ID          string          `json:"id"`
-	CreatedAt   int64           `json:"created_at"`
-	CreatedBy   int64           `json:"created_by"`
-	Type        string          `json:"type"`
-	EntityID    int64           `json:"entity_id"`
-	EntityType  string          `json:"entity_type"`
-	ValueBefore json.RawMessage `json:"value_before"`
-	ValueAfter  json.RawMessage `json:"value_after"`
+	ID                  string          `json:"id"`
+	CreatedAt           int64           `json:"created_at"`
+	CreatedBy           int64           `json:"created_by"`
+	Type                string          `json:"type"`
+	EntityID            int64           `json:"entity_id"`
+	EntityType          string          `json:"entity_type"`
+	LinkedTalkContactID int64           `json:"linked_talk_contact_id,omitempty"`
+	ValueBefore         json.RawMessage `json:"value_before"`
+	ValueAfter          json.RawMessage `json:"value_after"`
 }
 type CRMEventPage struct {
 	Events  []CRMEvent
@@ -55,7 +56,7 @@ func (c *Client) ListEvents(ctx context.Context, id uuid.UUID, from, to int64, p
 		return CRMEventPage{}, ErrIncompleteResponse
 	}
 	for _, e := range result.Embedded.Events {
-		if e.ID == "" || len(e.ID) > 128 || e.CreatedAt < from || e.CreatedAt > to || len(e.ValueBefore) > 32768 || len(e.ValueAfter) > 32768 {
+		if e.ID == "" || len(e.ID) > 128 || e.CreatedAt < from || e.CreatedAt > to || e.LinkedTalkContactID < 0 || len(e.ValueBefore) > 32768 || len(e.ValueAfter) > 32768 {
 			return CRMEventPage{}, ErrIncompleteResponse
 		}
 	}

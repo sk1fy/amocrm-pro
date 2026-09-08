@@ -5,17 +5,28 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
 type Snapshot struct {
-	States                                     map[string]int64
-	AgeSeconds, LagSeconds                     float64
-	Processed, Inserted, Updated, Deduplicated int64
+	States                                       map[string]int64
+	EnrichmentStates                             map[string]int64
+	AgeSeconds, LagSeconds, EnrichmentAgeSeconds float64
+	Processed, Inserted, Updated, Deduplicated   int64
 }
 
 func metricState(state string) string {
 	switch state {
 	case "queued", "running", "retry", "paused", "completed", "failed":
+		return state
+	default:
+		return "other"
+	}
+}
+
+func enrichmentMetricState(state string) string {
+	switch state {
+	case serviceapi.EnrichmentPending, serviceapi.EnrichmentReady, serviceapi.EnrichmentUnavailable, serviceapi.EnrichmentRetry, serviceapi.EnrichmentError:
 		return state
 	default:
 		return "other"
@@ -28,15 +39,17 @@ func (s *Service) Collector() prometheus.Collector { return &collector{s: s} }
 type collector struct{ s *Service }
 
 var (
-	queueDesc   = prometheus.NewDesc("crm_events_jobs", "CRM Events owner jobs by state", []string{"state"}, nil)
-	ageDesc     = prometheus.NewDesc("crm_events_oldest_job_age_seconds", "Oldest unfinished owner job", nil, nil)
-	lagDesc     = prometheus.NewDesc("crm_events_max_lag_seconds", "Largest lag of an admitted source with verified progress", nil, nil)
-	counterDesc = prometheus.NewDesc("crm_events_events_total", "Persisted page event counters including replay passes", []string{"outcome"}, nil)
-	upDesc      = prometheus.NewDesc("crm_events_metrics_up", "Whether the owner metrics snapshot succeeded", nil, nil)
+	queueDesc         = prometheus.NewDesc("crm_events_jobs", "CRM Events owner jobs by state", []string{"state"}, nil)
+	ageDesc           = prometheus.NewDesc("crm_events_oldest_job_age_seconds", "Oldest unfinished owner job", nil, nil)
+	lagDesc           = prometheus.NewDesc("crm_events_max_lag_seconds", "Largest lag of an admitted source with verified progress", nil, nil)
+	counterDesc       = prometheus.NewDesc("crm_events_events_total", "Persisted page event counters including replay passes", []string{"outcome"}, nil)
+	enrichmentDesc    = prometheus.NewDesc("crm_events_enrichment", "CRM Events enrichment objects by state", []string{"state"}, nil)
+	enrichmentAgeDesc = prometheus.NewDesc("crm_events_enrichment_oldest_age_seconds", "Oldest unfinished enrichment object", nil, nil)
+	upDesc            = prometheus.NewDesc("crm_events_metrics_up", "Whether the owner metrics snapshot succeeded", nil, nil)
 )
 
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range []*prometheus.Desc{queueDesc, ageDesc, lagDesc, counterDesc, upDesc} {
+	for _, d := range []*prometheus.Desc{queueDesc, ageDesc, lagDesc, counterDesc, enrichmentDesc, enrichmentAgeDesc, upDesc} {
 		ch <- d
 	}
 }
@@ -61,4 +74,12 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	for name, n := range map[string]int64{"processed": snapshot.Processed, "inserted": snapshot.Inserted, "updated": snapshot.Updated, "deduplicated": snapshot.Deduplicated} {
 		ch <- prometheus.MustNewConstMetric(counterDesc, prometheus.CounterValue, float64(n), name)
 	}
+	enrichment := map[string]int64{serviceapi.EnrichmentPending: 0, serviceapi.EnrichmentReady: 0, serviceapi.EnrichmentUnavailable: 0, serviceapi.EnrichmentRetry: 0, serviceapi.EnrichmentError: 0, "other": 0}
+	for state, n := range snapshot.EnrichmentStates {
+		enrichment[enrichmentMetricState(state)] += n
+	}
+	for state, n := range enrichment {
+		ch <- prometheus.MustNewConstMetric(enrichmentDesc, prometheus.GaugeValue, float64(n), state)
+	}
+	ch <- prometheus.MustNewConstMetric(enrichmentAgeDesc, prometheus.GaugeValue, max(0, snapshot.EnrichmentAgeSeconds))
 }

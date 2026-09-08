@@ -404,6 +404,81 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/activity/events/{eventID}:
+    get:
+      tags: [Widget]
+      operationId: getActivityEvent
+      summary: Read one retained CRM event with full before/after payloads.
+      description: >-
+        Uses the same active installation, Activity capability, pilot, current administrator and fresh JWT checks.
+        The lookup is scoped to the authenticated installation; no client tenant or account is accepted.
+        Missing, expired and foreign event IDs return not_found. Paused collection retains access to history.
+        No direct amoCRM request or fallback list scan is performed. Requires an updated CRM Events detail reader.
+        Optional enrichment and names are current-state sidecar data and do not replace value_before/value_after.
+      security:
+      - widgetToken: []
+      - widgetBearer: []
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - name: eventID
+        in: path
+        required: true
+        schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_.:-]+$'}
+      responses:
+        '200':
+          description: Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityEvent'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '401':
+          description: Authentication failed or disposable JWT already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '403':
+          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '404':
+          description: Retained event not found in the authenticated installation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '409':
+          description: The same key has different content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '429':
+          description: Ingress or bounded downstream capacity exhausted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '503':
+          description: Policy, Gateway or owner unavailable; no false success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
+        '504':
+          description: Bounded RPC deadline elapsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityError'
   /api/v1/widget/activity/panel:
     get:
       tags:
@@ -412,7 +487,12 @@ paths:
       summary: Read a bounded CRM observation panel.
       description: Requires an active installation, explicit Activity capability and pilot, and a server-confirmed
         amoCRM admin. No frontend role claim is trusted. Existing widget JWT/CORS/ingress limits apply; middleware
-        errors may use the existing text/plain authentication contract.
+        errors may use the existing text/plain authentication contract. Summaries cover the full filtered period.
+        Extended options or any cursor require read_version 2 end to end; older services fail unavailable instead of ignoring filters.
+        Category filters, unknown-author inclusion and time buckets require read_version 3.
+        Cursors bind scope and normalized filters, including order/compact, but not page size.
+        Legacy or incompatible cursors are rejected; restart at the first page. Pagination is not a snapshot.
+        Coverage describes the selected period; freshness is collector lag/error and does not mark a verified completed day incomplete.
       security:
       - widgetToken: []
       - widgetBearer: []
@@ -450,6 +530,63 @@ paths:
           type: string
           maxLength: 512
         description: Opaque cursor for the same filters and period.
+      - name: types
+        in: query
+        style: form
+        explode: false
+        schema:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_.:-]+$'}
+        description: Exact types, combined with type_prefix using OR.
+      - name: type_prefix
+        in: query
+        schema: {type: string, maxLength: 64, pattern: '^[A-Za-z0-9_.:-]+$'}
+        description: Literal prefix such as task_ or custom_field_; no wildcard syntax.
+      - name: entity_type
+        in: query
+        schema: {type: string, maxLength: 64, pattern: '^[A-Za-z0-9_.:-]+$'}
+      - name: entity_ids
+        in: query
+        style: form
+        explode: false
+        schema:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: {type: integer, format: int64, minimum: 1}
+        description: Requires entity_type; combined with period, users and type filters using AND.
+      - name: order
+        in: query
+        schema: {type: string, enum: [asc, desc], default: asc}
+        description: Stable created_at and event ID ordering.
+      - name: compact
+        in: query
+        schema: {type: boolean, default: false}
+        description: Omit both payloads from the page as null and set data.payloads_omitted=true. Detail returns full values.
+      - name: categories
+        in: query
+        style: form
+        explode: false
+        schema:
+          type: array
+          maxItems: 11
+          uniqueItems: true
+          items: {type: string, enum: [tasks, calls, notes, messages, status, budget, responsible, custom_fields, relations, attachments, other]}
+        description: Product families applied to the page and whole-period summaries. Combined with types/prefix using AND.
+      - name: include_unknown_authors
+        in: query
+        schema: {type: boolean, default: false}
+        description: Include created_by=0 and authors absent from the current directory. Default panel sets this when no user_ids are supplied.
+      - name: buckets
+        in: query
+        schema: {type: string, enum: [hour, day, auto, none]}
+        description: Optional time distribution in the account timezone. Hour is limited to 48 buckets.
+      - name: group_id
+        in: query
+        schema: {type: integer, format: int64, minimum: 1}
+        description: Current directory group. Historical membership is not promised. Resolved to employee IDs before the event owner query.
       responses:
         '200':
           description: Result.
@@ -1043,8 +1180,25 @@ components:
         type: *id002
         entity_id: *id001
         entity_type: *id002
+        linked_talk_contact_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional related chat contact from Events; zero/absent is omitted.
         value_before: {}
         value_after: {}
+        enrichment:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/ActivityEventEnrichment'
+        names:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/ActivityEventName'
+        view:
+          $ref: '#/components/schemas/ActivityEventView'
       required:
       - id
       - created_at
@@ -1055,12 +1209,115 @@ components:
       - value_before
       - value_after
       additionalProperties: false
+    ActivityEventEnrichment:
+      type: object
+      properties:
+        object_kind: *id002
+        object_key: *id002
+        state: *id002
+        reason_code: *id002
+        source: *id002
+        fetched_at: *id001
+        payload: {}
+        current: {type: boolean}
+      required:
+      - object_kind
+      - object_key
+      - state
+      - source
+      - current
+      additionalProperties: false
+      description: Current-state enrichment. Never a historical replacement for value_before/value_after.
+    ActivityEventName:
+      type: object
+      properties:
+        kind: *id002
+        id: *id001
+        name: *id002
+        state: *id002
+        current: {type: boolean}
+        entity_type: *id002
+      required:
+      - kind
+      - id
+      - name
+      - state
+      - current
+      additionalProperties: false
+      description: Catalog-current label. IDs remain authoritative when the name is empty.
+    ActivityEventView:
+      type: object
+      properties:
+        category: {type: string, enum: [tasks, calls, notes, messages, status, budget, responsible, custom_fields, relations, attachments, other]}
+        title: *id002
+        summary: *id002
+        detail_state: {type: string, enum: [omitted, available, pending, unavailable, mixed]}
+        enrichment_state: *id002
+        author_label: *id002
+        entity_label: *id002
+        details:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/ActivityEventDetail'
+      additionalProperties: false
+      description: Product presentation. CRM texts are plain strings, never trusted HTML. Original type remains authoritative.
+    ActivityEventDetail:
+      type: object
+      properties:
+        key: *id002
+        label: *id002
+        before: {}
+        after: {}
+        text: *id002
+        source: *id002
+        current: {type: boolean}
+      additionalProperties: false
+    ActivityCategoryCount:
+      type: object
+      properties:
+        category: *id002
+        count: *id001
+      required: [category, count]
+      additionalProperties: false
+    ActivityTimeBucket:
+      type: object
+      properties:
+        start_at: *id001
+        end_at: *id001
+        count: *id001
+        coverage: {type: string, enum: [unknown, partial, verified]}
+      required: [start_at, end_at, count, coverage]
+      additionalProperties: false
+      description: Incomplete buckets keep their coverage flag. Zero is registered count, not unknown.
+    ActivityQueryTotals:
+      type: object
+      properties:
+        unique_events: *id001
+        entity_count: *id001
+        task_completed_events: *id001
+        unique_completed_tasks: *id001
+        first_event_at: *id001
+        last_event_at: *id001
+        category_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityCategoryCount'
+      additionalProperties: false
     ActivityUserSummary:
       type: object
       properties:
         user_id: *id001
         unique_events: *id001
         last_event_at: *id001
+        first_event_at: *id001
+        entity_count: *id001
+        task_completed_events: *id001
+        unique_completed_tasks: *id001
+        category_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityCategoryCount'
       required:
       - user_id
       - unique_events
@@ -1068,9 +1325,18 @@ components:
       additionalProperties: false
       description: Count of registered unique CRM events in the requested interval, not an employee inactivity assessment.
         Last-event zero means no registered event; assess coverage first.
+        first_event_at and category_counts cover the full filtered period, not the current page.
+        task_completed_events counts completion events; unique_completed_tasks counts distinct task IDs.
     ActivityData:
       type: object
       properties:
+        read_version:
+          type: integer
+          minimum: 2
+          description: 2 certifies filters/order/compact. 3 certifies category filters, unknown authors and time buckets.
+        payloads_omitted:
+          type: boolean
+          description: True for compact projection. Null payloads then do not describe the original source values.
         events:
           type: array
           maxItems: 100
@@ -1084,6 +1350,13 @@ components:
         next_cursor: *id002
         status:
           $ref: '#/components/schemas/ActivitySyncStatus'
+        totals:
+          $ref: '#/components/schemas/ActivityQueryTotals'
+        timeline:
+          type: array
+          maxItems: 48
+          items:
+            $ref: '#/components/schemas/ActivityTimeBucket'
       required:
       - events
       - summaries
@@ -1122,6 +1395,16 @@ components:
           - partial
           - stale
           - verified
+          description: Selected-period verification. Collector lag no longer turns a verified completed range into stale.
+        freshness:
+          type: string
+          enum: [current, lagging, error, reauth_required]
+        empty_reason:
+          type: string
+          enum: [no_events, unverified_empty]
+        interpretation_version:
+          type: integer
+          minimum: 1
       required:
       - users
       - timezone
@@ -1129,9 +1412,9 @@ components:
       - settings
       - coverage
       additionalProperties: false
-      description: CRM observations and freshness. Unknown, partial, or stale coverage must not be displayed as zero
-        employee activity. Employee metadata is a bounded Gateway batch; no event history is fetched live when opening
-        the panel.
+      description: Coverage is the selected period. Freshness is collector lag or error. A verified empty period is
+        no_events, not employee inactivity. Employee metadata is a bounded Gateway batch; no event history is fetched
+        live when opening the panel.
     ActivityOwnerOperation:
       type: object
       properties:
