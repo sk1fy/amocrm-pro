@@ -121,7 +121,13 @@ func TestFinalAuditOwnerRPCPublicCards(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = os.WriteFile(path, raw, 0600); err != nil {
+		// These synthetic cards contain no credentials. The host Actions runner
+		// must be able to upload the fixture written by the test container.
+		if err = os.WriteFile(path, raw, 0644); err != nil {
+			t.Fatal(err)
+		}
+		// WriteFile preserves an existing mode, including old 0600 fixtures.
+		if err = os.Chmod(path, 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
