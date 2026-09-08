@@ -1,24 +1,26 @@
 mkdir -p tmp/activity-v0-evidence
 docker-compose -p amocrm-audit-fixes-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml up --detach --wait postgres
- Network amocrm-audit-fixes-test_default Creating 
- Network amocrm-audit-fixes-test_default Created 
- Volume amocrm-audit-fixes-test_pilot-data Creating 
- Volume amocrm-audit-fixes-test_pilot-data Created 
- Container amocrm-audit-fixes-test-postgres-1 Creating 
- Container amocrm-audit-fixes-test-postgres-1 Created 
- Container amocrm-audit-fixes-test-postgres-1 Starting 
- Container amocrm-audit-fixes-test-postgres-1 Started 
- Container amocrm-audit-fixes-test-postgres-1 Waiting 
- Container amocrm-audit-fixes-test-postgres-1 Healthy 
+ Network amocrm-audit-fixes-test_default Creating
+ Network amocrm-audit-fixes-test_default Created
+ Volume amocrm-audit-fixes-test_pilot-data Creating
+ Volume amocrm-audit-fixes-test_pilot-data Created
+ Container amocrm-audit-fixes-test-postgres-1 Creating
+ Container amocrm-audit-fixes-test-postgres-1 Created
+ Container amocrm-audit-fixes-test-postgres-1 Starting
+ Container amocrm-audit-fixes-test-postgres-1 Started
+ Container amocrm-audit-fixes-test-postgres-1 Waiting
+ Container amocrm-audit-fixes-test-postgres-1 Healthy
 docker-compose -p amocrm-audit-fixes-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml exec -T postgres sh < deploy/activity/init-tests.sh
 CREATE DATABASE
 CREATE DATABASE
 CREATE DATABASE
 docker-compose -p amocrm-audit-fixes-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml build migrate-test-core component-tests
 time="2026-09-08T18:40:57+03:00" level=warning msg="Docker Compose requires buildx plugin to be installed"
- Image amocrm-audit-fixes-test-migrate-test-core Building 
- Image amocrm-audit-fixes-test-migrate-test-core Building 
-Sending build context to Docker daemon  524.4kBSending build context to Docker daemon  854.5kB
+ Image amocrm-audit-fixes-test-migrate-test-core Building
+ Image amocrm-audit-fixes-test-migrate-test-core Building
+Sending build context to Docker daemon  524.4kB
+Sending build context to Docker daemon  854.5kB
+
 Step 1/32 : ARG GO_VERSION=1.25
 Step 2/32 : ARG ALPINE_VERSION=3.21
 Step 3/32 : FROM golang:${GO_VERSION}-alpine AS dependencies
@@ -111,11 +113,13 @@ Step 32/32 : LABEL com.docker.compose.image.builder=classic
  ---> 929800ae1c46
 Successfully built 929800ae1c46
 Successfully tagged amocrm-audit-fixes-test-migrate-test-core:latest
- Image amocrm-audit-fixes-test-migrate-test-core Built 
- Image amocrm-audit-fixes-test-migrate-test-core Built 
- Image amocrm-audit-fixes-test-component-tests Building 
- Image amocrm-audit-fixes-test-component-tests Building 
-Sending build context to Docker daemon  524.4kBSending build context to Docker daemon  854.5kB
+ Image amocrm-audit-fixes-test-migrate-test-core Built
+ Image amocrm-audit-fixes-test-migrate-test-core Built
+ Image amocrm-audit-fixes-test-component-tests Building
+ Image amocrm-audit-fixes-test-component-tests Building
+Sending build context to Docker daemon  524.4kB
+Sending build context to Docker daemon  854.5kB
+
 Step 1/20 : ARG GO_VERSION=1.25
 Step 2/20 : ARG ALPINE_VERSION=3.21
 Step 3/20 : FROM golang:${GO_VERSION}-alpine AS dependencies
@@ -170,20 +174,20 @@ Step 20/20 : LABEL com.docker.compose.image.builder=classic
  ---> e27c0aa61bfa
 Successfully built e27c0aa61bfa
 Successfully tagged amocrm-audit-fixes-test-component-tests:latest
- Image amocrm-audit-fixes-test-component-tests Built 
- Image amocrm-audit-fixes-test-component-tests Built 
+ Image amocrm-audit-fixes-test-component-tests Built
+ Image amocrm-audit-fixes-test-component-tests Built
 docker-compose -p amocrm-audit-fixes-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm migrate-test-core up
- Container amocrm-audit-fixes-test-postgres-1 Running 
- Container amocrm-audit-fixes-test-postgres-1 Waiting 
- Container amocrm-audit-fixes-test-postgres-1 Healthy 
- Container amocrm-audit-fixes-test-migrate-test-core-run-23633c8fc687 Creating 
- Container amocrm-audit-fixes-test-migrate-test-core-run-23633c8fc687 Created 
+ Container amocrm-audit-fixes-test-postgres-1 Running
+ Container amocrm-audit-fixes-test-postgres-1 Waiting
+ Container amocrm-audit-fixes-test-postgres-1 Healthy
+ Container amocrm-audit-fixes-test-migrate-test-core-run-23633c8fc687 Creating
+ Container amocrm-audit-fixes-test-migrate-test-core-run-23633c8fc687 Created
 migrations up completed in 50ms
 docker-compose -p amocrm-audit-fixes-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps component-tests
- Volume amocrm-audit-fixes-test_component-test-cache Creating 
- Volume amocrm-audit-fixes-test_component-test-cache Created 
- Container amocrm-audit-fixes-test-component-tests-run-c209c5ecb45d Creating 
- Container amocrm-audit-fixes-test-component-tests-run-c209c5ecb45d Created 
+ Volume amocrm-audit-fixes-test_component-test-cache Creating
+ Volume amocrm-audit-fixes-test_component-test-cache Created
+ Container amocrm-audit-fixes-test-component-tests-run-c209c5ecb45d Creating
+ Container amocrm-audit-fixes-test-component-tests-run-c209c5ecb45d Created
 === RUN   TestOpenAPIContract
 --- PASS: TestOpenAPIContract (0.10s)
 === RUN   TestActivityOpenAPIOperationStatesMatchApplication
@@ -1073,8 +1077,8 @@ ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	3.210s
 PASS
 ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	4.386s
 docker-compose -p amocrm-audit-fixes-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps component-ui-tests
- Container amocrm-audit-fixes-test-component-ui-tests-run-43294eb2d972 Creating 
- Container amocrm-audit-fixes-test-component-ui-tests-run-43294eb2d972 Created 
+ Container amocrm-audit-fixes-test-component-ui-tests-run-43294eb2d972 Creating
+ Container amocrm-audit-fixes-test-component-ui-tests-run-43294eb2d972 Created
 TAP version 13
 # Subtest: actual CRM success scheduled check stops polling and refreshes once
 ok 1 - actual CRM success scheduled check stops polling and refreshes once

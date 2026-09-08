@@ -17,11 +17,11 @@ test at tmp/stage5-review/repro.test.mjs:73:1
 ✖ review: yesterday includes its last 59 seconds (31.823792ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + 1788814740
   - 1788814799
             ^
-  
+
       at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:78:9)
       at async Test.run (node:internal/test_runner/test:1208:7)
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
@@ -36,9 +36,9 @@ test at tmp/stage5-review/repro.test.mjs:73:1
 test at tmp/stage5-review/repro.test.mjs:81:1
 ✖ review: drill in and back restores both selected employees (3.663375ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   '7' !== '7,9'
-  
+
       at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:87:9)
       at async Test.run (node:internal/test_runner/test:1208:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
@@ -53,9 +53,9 @@ test at tmp/stage5-review/repro.test.mjs:81:1
 test at tmp/stage5-review/repro.test.mjs:90:1
 ✖ review: transient detail failure can recover after refresh (2.874166ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   1 !== 2
-  
+
       at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:94:9)
       at async Test.run (node:internal/test_runner/test:1208:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
@@ -71,10 +71,10 @@ test at tmp/stage5-review/repro.test.mjs:98:1
 ✖ review: site reloads pending enrichment after refresh (0.5285ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + 'pending'
   - 'available'
-  
+
       at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/tmp/stage5-review/repro.test.mjs:102:9)
       at async Test.run (node:internal/test_runner/test:1208:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
