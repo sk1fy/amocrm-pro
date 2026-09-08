@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"log/slog"
 	"net/http"
 	"os"
@@ -30,6 +31,9 @@ import (
 )
 
 func main() {
+	if buildinfo.PrintVersion(os.Args, os.Stdout) {
+		return
+	}
 	if err := run(); err != nil {
 		slog.Error("worker stopped", "error", err)
 		os.Exit(1)

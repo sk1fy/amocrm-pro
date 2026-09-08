@@ -1,0 +1,72 @@
+{
+  "go_host": {
+    "command": [
+      "go",
+      "version"
+    ],
+    "exit_code": 0,
+    "output": "go version go1.26.5 darwin/arm64"
+  },
+  "node_host": {
+    "command": [
+      "node",
+      "--version"
+    ],
+    "exit_code": 0,
+    "output": "v25.9.0"
+  },
+  "docker": {
+    "command": [
+      "docker",
+      "version",
+      "--format",
+      "{{.Server.Version}}"
+    ],
+    "exit_code": 0,
+    "output": "29.5.2"
+  },
+  "compose": {
+    "command": [
+      "docker-compose",
+      "version"
+    ],
+    "exit_code": 0,
+    "output": "Docker Compose version 5.1.4"
+  },
+  "go_ci": {
+    "command": [
+      "docker",
+      "run",
+      "--rm",
+      "--pull=never",
+      "golang:1.25-alpine",
+      "go",
+      "version"
+    ],
+    "exit_code": 0,
+    "output": "go version go1.25.12 linux/arm64"
+  },
+  "node_ci": {
+    "command": [
+      "docker",
+      "run",
+      "--rm",
+      "--pull=never",
+      "node:22-alpine",
+      "node",
+      "--version"
+    ],
+    "exit_code": 0,
+    "output": "v22.22.3"
+  },
+  "resources": {
+    "command": [
+      "docker",
+      "info",
+      "--format",
+      "{{.NCPU}} CPU; {{.MemTotal}} bytes; {{.Architecture}}"
+    ],
+    "exit_code": 0,
+    "output": "2 CPU; 4094447616 bytes; aarch64"
+  }
+}

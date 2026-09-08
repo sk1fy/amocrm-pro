@@ -1,0 +1,40 @@
+ Container amocrm-final-audit-test-component-tests-run-f46ada155083 Creating
+ Container amocrm-final-audit-test-component-tests-run-f46ada155083 Created
+=== RUN   TestBudgetCardPreservesZeroAndPrecision
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/1000_→_0
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/0_→_1000
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/0_→_0
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/—_→_0
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/—_→_0#01
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/9007199254740993.125_→_1e30
+--- PASS: TestBudgetCardPreservesZeroAndPrecision (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/1000_→_0 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/0_→_1000 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/0_→_0 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/—_→_0 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/—_→_0#01 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/9007199254740993.125_→_1e30 (0.00s)
+=== RUN   TestEnumCardScopesCatalogAndUnavailableFallback
+--- PASS: TestEnumCardScopesCatalogAndUnavailableFallback (0.00s)
+=== RUN   TestEnumCardKeepsLabelsBeyondDetailBlockLimit
+--- PASS: TestEnumCardKeepsLabelsBeyondDetailBlockLimit (0.00s)
+=== RUN   TestEventCardUsesHistoricalPayloadAndLabels
+--- PASS: TestEventCardUsesHistoricalPayloadAndLabels (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/activity	1.016s
+=== RUN   TestFinalAuditOwnerRPCPublicCards
+=== RUN   TestFinalAuditOwnerRPCPublicCards/enum
+=== RUN   TestFinalAuditOwnerRPCPublicCards/incoming
+=== RUN   TestFinalAuditOwnerRPCPublicCards/outgoing
+=== RUN   TestFinalAuditOwnerRPCPublicCards/removed
+=== RUN   TestFinalAuditOwnerRPCPublicCards/note
+=== RUN   TestFinalAuditOwnerRPCPublicCards/budget
+--- PASS: TestFinalAuditOwnerRPCPublicCards (0.19s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/enum (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/incoming (0.00s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/outgoing (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/removed (0.00s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/note (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/budget (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	1.207s

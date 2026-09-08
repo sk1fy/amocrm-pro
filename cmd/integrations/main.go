@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"io"
 	"os"
 	"strings"
@@ -20,6 +21,9 @@ import (
 const usage = "usage: integrations <create|update|disable|enable|rotate-secret|set-service> --actor ID --code CODE [--client-id UUID --redirect-uri HTTPS_URL --webhook-events CSV --services CSV|none --secret-stdin --service CODE --enabled true|false]"
 
 func main() {
+	if buildinfo.PrintVersion(os.Args, os.Stdout) {
+		return
+	}
 	if err := run(os.Args[1:], os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -1,0 +1,49 @@
+✖ audit: unknown coverage retains known counts in employee rows (1.043417ms)
+✖ audit: local time rejects DST gaps and chooses the earlier repeated hour (38.45225ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 101.436583
+
+✖ failing tests:
+
+test at examples/activity-v0/panel.test.mjs:388:1
+✖ audit: unknown coverage retains known counts in employee rows (1.043417ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^7 зарегистрировано/. Input:
+
+  'Нет проверенных данных'
+
+      at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/examples/activity-v0/panel.test.mjs:390:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Нет проверенных данных',
+    expected: /^7 зарегистрировано/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at examples/activity-v0/panel.test.mjs:400:1
+✖ audit: local time rejects DST gaps and chooses the earlier repeated hour (38.45225ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/nikpeskov/Projects/amocrm-pro/examples/activity-v0/panel.test.mjs:402:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

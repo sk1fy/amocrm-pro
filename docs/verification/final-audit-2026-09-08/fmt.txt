@@ -1,0 +1,1 @@
+docker run --rm --user "501:20" --env HOME=/tmp --env GOCACHE=/tmp/go-build --env GOMODCACHE=/tmp/go/pkg/mod --volume "/Users/nikpeskov/Projects/amocrm-pro:/src" --workdir /src golang:1.25-alpine sh -ec 'files="$(gofmt -l .)"; if [ -n "$files" ]; then printf "%s\n" "$files"; exit 1; fi'

@@ -1,0 +1,30 @@
+✔ unknown and incomplete observations never claim zero employee activity (0.450625ms)
+✔ Core acceptance is shown as delivery pending, never completion (0.07375ms)
+✔ bounded employee period filter supplies no caller identity (3.259333ms)
+✔ panel query sends group, categories, compact and never actor_id (0.084666ms)
+✔ today and yesterday use account timezone calendar days (31.958459ms)
+✔ entityHref allows only CRM object paths (0.105625ms)
+✔ mounted journal sends compact group categories without actor_id (5.611834ms)
+✔ stale panel generation is ignored (1.423917ms)
+✔ open event is preserved across a second panel payload (2.673917ms)
+✔ compact page fetches event detail once on expand (1.744709ms)
+✔ unavailable detail is shown without a fetch (1.161208ms)
+✔ missing event detail is unavailable (0.956791ms)
+✔ summary keeps zero rows for directory users without events (1.026292ms)
+✔ short status omits collector diagnostics (1.408375ms)
+✔ calendar presets and refresh keep inclusive 23:59:50 (8.303583ms)
+✔ filtered directory preserves employees and departments through drill and back (3.9375ms)
+✔ transient detail failure retries on reopening without remount (2.692958ms)
+✔ refresh reloads pending enrichment and preserves the open event (3.253375ms)
+✔ a late detail response cannot replace the refreshed card (2.784583ms)
+✔ audit: unknown coverage retains known counts in employee rows (2.580375ms)
+✔ audit: local time rejects DST gaps and chooses the earlier repeated hour (2.702125ms)
+✔ audit: manual DST gaps on either bound never issue a panel request (2.954375ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 143.816125

@@ -1,0 +1,35 @@
+ Container amocrm-final-audit-test-component-tests-run-df42db91de82 Creating
+ Container amocrm-final-audit-test-component-tests-run-df42db91de82 Created
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/false
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/true
+--- PASS: TestUpdatedEventReplacesEnrichmentLinks (0.13s)
+    --- PASS: TestUpdatedEventReplacesEnrichmentLinks/false (0.08s)
+    --- PASS: TestUpdatedEventReplacesEnrichmentLinks/true (0.05s)
+=== RUN   TestUpdatedTaskResultReconcilesDependentNote
+--- PASS: TestUpdatedTaskResultReconcilesDependentNote (0.06s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	1.203s
+=== RUN   TestFinalAuditOwnerRPCPublicCards
+=== RUN   TestFinalAuditOwnerRPCPublicCards/enum
+    final_audit_integration_test.go:80: GET /api/v1/widget/activity/events/enum status=404 want=200 body={"error":{"code":"not_found"}}
+=== RUN   TestFinalAuditOwnerRPCPublicCards/incoming
+    final_audit_integration_test.go:80: GET /api/v1/widget/activity/events/incoming status=404 want=200 body={"error":{"code":"not_found"}}
+=== RUN   TestFinalAuditOwnerRPCPublicCards/outgoing
+    final_audit_integration_test.go:80: GET /api/v1/widget/activity/events/outgoing status=404 want=200 body={"error":{"code":"not_found"}}
+=== RUN   TestFinalAuditOwnerRPCPublicCards/removed
+    final_audit_integration_test.go:80: GET /api/v1/widget/activity/events/removed status=404 want=200 body={"error":{"code":"not_found"}}
+=== RUN   TestFinalAuditOwnerRPCPublicCards/note
+    final_audit_integration_test.go:80: GET /api/v1/widget/activity/events/note status=404 want=200 body={"error":{"code":"not_found"}}
+=== RUN   TestFinalAuditOwnerRPCPublicCards/budget
+    final_audit_integration_test.go:80: GET /api/v1/widget/activity/events/budget status=404 want=200 body={"error":{"code":"not_found"}}
+--- FAIL: TestFinalAuditOwnerRPCPublicCards (0.14s)
+    --- FAIL: TestFinalAuditOwnerRPCPublicCards/enum (0.00s)
+    --- FAIL: TestFinalAuditOwnerRPCPublicCards/incoming (0.00s)
+    --- FAIL: TestFinalAuditOwnerRPCPublicCards/outgoing (0.00s)
+    --- FAIL: TestFinalAuditOwnerRPCPublicCards/removed (0.00s)
+    --- FAIL: TestFinalAuditOwnerRPCPublicCards/note (0.00s)
+    --- FAIL: TestFinalAuditOwnerRPCPublicCards/budget (0.00s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/servicerpc	0.150s
+FAIL

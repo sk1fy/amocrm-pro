@@ -1,0 +1,127 @@
+--- a/src/employees.mjs
++++ b/src/employees.mjs
+@@ -6,7 +6,7 @@
+     if (!rows.has(id)) {
+       rows.set(id, {
+         user: { id, name: String(id), group_id: 0, group_name: "—" },
+-        summary: { user_id: id, unique_events: 0, last_event_at: 0 },
++        summary: { user_id: id, ...(Array.isArray(panel.data?.summaries) ? {unique_events: 0} : {}), last_event_at: 0 },
+         events: [],
+       });
+     }
+--- a/test/view.test.mjs
++++ b/test/view.test.mjs
+@@ -84,8 +84,8 @@
+     log: [{ time: "12:00:00", method: "GET", path: "/api/v1/widget/activity/panel?from=1&to=2", status: 200, duration_ms: 12 }],
+   });
+   assert.match(el.html, /Иванов Иван/);
+-  assert.match(el.html, /Нет проверенных данных/);
+-  assert.doesNotMatch(el.html, /0 зарегистрировано/);
++  assert.match(el.html, /зарегистрировано; полнота периода не подтверждена/);
++  assert.doesNotMatch(el.html, /Нет событий за выбранный период/);
+   assert.match(el.html, /event-dot/);
+   assert.match(el.html, /Примечание добавлено/);
+   assert.match(el.html, /Было/);
+@@ -160,3 +160,13 @@
+   assert.equal(rows[0].user.name, "Иванов Иван");
+   assert.equal(rows[0].events[0].id, "evt-1");
+ });
++
++import {readFile} from 'node:fs/promises';
++if(process.env.ACTIVITY_UI_CARDS_FIXTURE)test('audit: actual public HTTP cards show enum and message details',async()=>{
++ const cards=JSON.parse(await readFile(process.env.ACTIVITY_UI_CARDS_FIXTURE,'utf8'));
++ for(const [id,wants] of Object.entries({enum:['Новое имя (#1)','Большой (#1)','название варианта недоступно'],incoming:['Входящее сообщение','Текст отсутствует','msg-in'],outgoing:['Исходящее сообщение','Текст из payload','test-channel'],removed:['Значение: null']})) {
++  const el=root();const event=cards[id];
++  render(el,{mode:'connected',bootstrap:{account_id:EXPECTED_ACCOUNT_ID,installation_id:'inst',user_id:7,client_uuid:'uuid'},panel:{...panel,data:{...panel.data,events:[event]}},events:[event],periodFrom:event.created_at-1,periodTo:event.created_at+1,inputs:defaultPeriodInputs(),selectedEventId:id,openerOrigin:'https://example.amocrm.ru',log:[]});
++  for(const want of wants)assert.ok(el.html.includes(want),`${id}: missing ${want}`);
++ }
++});
+--- a/test/labels.test.mjs
++++ b/test/labels.test.mjs
+@@ -3,9 +3,9 @@
+ import { observationLabel, operationLabel, panelQuery, settingsPayload } from "../src/labels.mjs";
+ 
+ test("unknown and incomplete observations never claim zero employee activity", () => {
+-  assert.equal(observationLabel({ unique_events: 0 }, "unknown"), "Нет проверенных данных");
+-  assert.equal(observationLabel({ unique_events: 0 }, "partial"), "Полных данных нет");
+-  assert.equal(observationLabel({ unique_events: 0 }, "stale"), "Полных данных нет");
++  assert.equal(observationLabel({ unique_events: 0 }, "unknown"), "0 зарегистрировано; полнота периода не подтверждена");
++  assert.equal(observationLabel({ unique_events: 0 }, "partial"), "0 зарегистрировано; полнота периода не подтверждена");
++  assert.equal(observationLabel({ unique_events: 0 }, "stale"), "0 зарегистрировано; полнота периода не подтверждена");
+   assert.equal(observationLabel({ unique_events: 0 }, "verified"), "0 зарегистрировано");
+   assert.match(observationLabel({ unique_events: 4 }, "partial"), /^4 зарегистрировано/);
+ });
+@@ -67,3 +67,14 @@
+     }
+   }
+ });
++
++import {parsePeriodBound} from '../src/labels.mjs';
++test('audit: observed count and DST validation',()=>{
++ assert.match(observationLabel({unique_events:7},'unknown'),/^7 зарегистрировано/);
++ assert.equal(observationLabel({unique_events:-1},'unknown'),'Нет проверенных данных');
++ for(const [from,to] of [['2026-03-29T02:30','2026-03-29T04:00'],['2026-03-29T01:00','2026-03-29T02:30']])assert.throws(()=>panelQuery(from,to,'',{timezone:'Europe/Oslo'}));
++ assert.equal(parsePeriodBound('2026-10-25T02:30','Europe/Oslo'),Date.parse('2026-10-25T00:30:00Z')/1000);
++ assert.throws(()=>parsePeriodBound('2026-02-30T10:00','Europe/Oslo'));
++ const month=accountDayRange('Europe/Moscow',-1,new Date('2026-09-01T12:00:00Z'));
++ assert.equal(month.from,'2026-08-31T00:00:00');
++});
+--- a/src/labels.mjs
++++ b/src/labels.mjs
+@@ -83,8 +83,8 @@
+ 
+ export function observationLabel(summary, coverage) {
+   const count = summary?.unique_events;
+-  if (coverage === "unknown" || !Number.isSafeInteger(count)) return "Нет проверенных данных";
+-  if (coverage !== "verified" && count === 0) return "Полных данных нет";
++  if (!Number.isSafeInteger(count) || count < 0) return "Нет проверенных данных";
++  if (coverage !== "verified") return `${count} зарегистрировано; полнота периода не подтверждена`;
+   return `${count} зарегистрировано${coverage === "verified" ? "" : " (данные неполные или устарели)"}`;
+ }
+ 
+@@ -141,8 +141,16 @@
+ export function zonedUnix(parts, timeZone) {
+   if (!isValidTimeZone(timeZone)) throw new Error(TIMEZONE_ERROR);
+   const utcGuess = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour || 0, parts.minute || 0, parts.second || 0);
+-  const utc = utcGuess - tzOffsetMs(utcGuess - tzOffsetMs(utcGuess, timeZone), timeZone);
+-  return Math.floor(utc / 1000);
++  const wanted = {year:parts.year, month:parts.month, day:parts.day, hour:parts.hour || 0, minute:parts.minute || 0, second:parts.second || 0};
++  const offsets = new Set([-2,-1,0,1,2].map(days => tzOffsetMs(utcGuess + days * 86400000,timeZone)));
++  const candidates = [...offsets].map(offset => (utcGuess-offset)/1000).filter(unix => {
++    if (!Number.isSafeInteger(unix) || unix <= 0) return false;
++    const actual=zonedParts(new Date(unix*1000),timeZone);
++    return Object.keys(wanted).every(key=>wanted[key]===actual[key]);
++  });
++  if (!candidates.length) throw new Error("Указанное время не существует в часовом поясе аккаунта. Проверьте дату и время.");
++  // A repeated local hour uses its earlier occurrence.
++  return Math.min(...candidates);
+ }
+ 
+ export function formatDateTimeLocal(unix, timeZone) {
+@@ -154,18 +162,20 @@
+ export function accountDayRange(timeZone, dayOffset = 0, now = new Date()) {
+   if (!isValidTimeZone(timeZone)) throw new Error(TIMEZONE_ERROR);
+   const parts = zonedParts(now, timeZone);
++  const startDay=new Date(Date.UTC(parts.year,parts.month-1,parts.day+dayOffset));
++  const nextDay=new Date(Date.UTC(parts.year,parts.month-1,parts.day+dayOffset+1));
+   const start = zonedUnix({
+-    year: parts.year,
+-    month: parts.month,
+-    day: parts.day + dayOffset,
++    year: startDay.getUTCFullYear(),
++    month: startDay.getUTCMonth()+1,
++    day: startDay.getUTCDate(),
+     hour: 0,
+     minute: 0,
+     second: 0,
+   }, timeZone);
+   const next = zonedUnix({
+-    year: parts.year,
+-    month: parts.month,
+-    day: parts.day + dayOffset + 1,
++    year: nextDay.getUTCFullYear(),
++    month: nextDay.getUTCMonth()+1,
++    day: nextDay.getUTCDate(),
+     hour: 0,
+     minute: 0,
+     second: 0,

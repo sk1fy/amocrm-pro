@@ -1,0 +1,1291 @@
+mkdir -p tmp/activity-v0-evidence
+docker-compose -p amocrm-final-verify-0908-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml up --detach --wait postgres
+ Network amocrm-final-verify-0908-test_default Creating
+ Network amocrm-final-verify-0908-test_default Created
+ Volume amocrm-final-verify-0908-test_pilot-data Creating
+ Volume amocrm-final-verify-0908-test_pilot-data Created
+ Container amocrm-final-verify-0908-test-postgres-1 Creating
+ Container amocrm-final-verify-0908-test-postgres-1 Created
+ Container amocrm-final-verify-0908-test-postgres-1 Starting
+ Container amocrm-final-verify-0908-test-postgres-1 Started
+ Container amocrm-final-verify-0908-test-postgres-1 Waiting
+ Container amocrm-final-verify-0908-test-postgres-1 Healthy
+docker-compose -p amocrm-final-verify-0908-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml exec -T postgres sh < deploy/activity/init-tests.sh
+CREATE DATABASE
+CREATE DATABASE
+CREATE DATABASE
+docker-compose -p amocrm-final-verify-0908-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml build migrate-test-core component-tests
+time="2026-09-08T21:04:56+03:00" level=warning msg="Docker Compose requires buildx plugin to be installed"
+ Image amocrm-final-verify-0908-test-migrate-test-core Building
+ Image amocrm-final-verify-0908-test-migrate-test-core Building
+Sending build context to Docker daemon  524.4kB
+Sending build context to Docker daemon  932.6kB
+
+Step 1/35 : ARG GO_VERSION=1.25
+Step 2/35 : ARG ALPINE_VERSION=3.21
+Step 3/35 : FROM golang:${GO_VERSION}-alpine AS dependencies
+ ---> 56961d79ea81
+Step 4/35 : ENV CGO_ENABLED=0     GOFLAGS=-mod=readonly
+ ---> Using cache
+ ---> c129fc5c6efa
+Step 5/35 : WORKDIR /src
+ ---> Using cache
+ ---> 679185202210
+Step 6/35 : RUN apk add --no-cache ca-certificates git
+ ---> Using cache
+ ---> 130c30352b4e
+Step 7/35 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> 595575d36750
+Step 8/35 : RUN go mod download
+ ---> Using cache
+ ---> 2007f8a16ef9
+Step 9/35 : FROM dependencies AS source
+ ---> 2007f8a16ef9
+Step 10/35 : ARG BUILD_REVISION=unknown
+ ---> Using cache
+ ---> 1bd2484f3a89
+Step 11/35 : COPY . .
+ ---> 99b6202616f8
+Step 12/35 : FROM source AS openapi-test
+ ---> 99b6202616f8
+Step 13/35 : RUN go test -count=1 ./api
+ ---> Running in 3178f77ab618
+ok  	github.com/sk1fy/amocrm-pro/api	0.031s
+ ---> Removed intermediate container 3178f77ab618
+ ---> 62fa9bb9c490
+Step 14/35 : FROM dependencies AS test-base
+ ---> 2007f8a16ef9
+Step 15/35 : ENV CGO_ENABLED=1
+ ---> Using cache
+ ---> 0cb76f34cfee
+Step 16/35 : RUN apk add --no-cache build-base
+ ---> Using cache
+ ---> d78651ab4bb9
+Step 17/35 : COPY . .
+ ---> 519c8c1a135b
+Step 18/35 : FROM test-base AS integration-test
+ ---> 519c8c1a135b
+Step 19/35 : ENTRYPOINT ["go", "test"]
+ ---> Running in d8f3a4ff6ee9
+ ---> Removed intermediate container d8f3a4ff6ee9
+ ---> df6da483f3a1
+Step 20/35 : CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+ ---> Running in adcc68282590
+ ---> Removed intermediate container adcc68282590
+ ---> df8097cae908
+Step 21/35 : FROM alpine:${ALPINE_VERSION} AS runtime
+ ---> 48b0309ca019
+Step 22/35 : ARG BUILD_REVISION=unknown
+ ---> Using cache
+ ---> 40450ff4cde1
+Step 23/35 : LABEL org.opencontainers.image.revision=$BUILD_REVISION
+ ---> Using cache
+ ---> 5f1d22536ce8
+Step 24/35 : RUN apk add --no-cache ca-certificates tzdata     && addgroup -S -g 10001 app     && adduser -S -D -H -u 10001 -G app app
+ ---> Using cache
+ ---> d70f06bd2cd3
+Step 25/35 : WORKDIR /app
+ ---> Using cache
+ ---> ab25a82bf4ad
+Step 26/35 : USER app
+ ---> Using cache
+ ---> e8a65879e07e
+Step 27/35 : FROM source AS migrate-build
+ ---> 99b6202616f8
+Step 28/35 : RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-migrate ./cmd/migrate
+ ---> Running in dda154ecb51d
+ ---> Removed intermediate container dda154ecb51d
+ ---> 739d8552072b
+Step 29/35 : FROM runtime AS migrate
+ ---> e8a65879e07e
+Step 30/35 : COPY --from=migrate-build --chown=app:app /out/amocrm-migrate /usr/local/bin/amocrm-migrate
+ ---> Using cache
+ ---> b0aec82555ba
+Step 31/35 : COPY --from=migrate-build --chown=app:app /src/migrations /migrations
+ ---> Using cache
+ ---> ad9745fe0d7a
+Step 32/35 : ENV MIGRATIONS_DIR=/migrations
+ ---> Using cache
+ ---> 30db60faa34a
+Step 33/35 : ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
+ ---> Using cache
+ ---> 19e861798e13
+Step 34/35 : CMD ["up"]
+ ---> Using cache
+ ---> 1c95a9394474
+Step 35/35 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in fc71e617ac88
+ ---> Removed intermediate container fc71e617ac88
+ ---> ebde4ffd815f
+Successfully built ebde4ffd815f
+Successfully tagged amocrm-final-verify-0908-test-migrate-test-core:latest
+ Image amocrm-final-verify-0908-test-migrate-test-core Built
+ Image amocrm-final-verify-0908-test-migrate-test-core Built
+ Image amocrm-final-verify-0908-test-component-tests Building
+ Image amocrm-final-verify-0908-test-component-tests Building
+Sending build context to Docker daemon  524.4kB
+Sending build context to Docker daemon  933.3kB
+
+Step 1/21 : ARG GO_VERSION=1.25
+Step 2/21 : ARG ALPINE_VERSION=3.21
+Step 3/21 : FROM golang:${GO_VERSION}-alpine AS dependencies
+ ---> 56961d79ea81
+Step 4/21 : ENV CGO_ENABLED=0     GOFLAGS=-mod=readonly
+ ---> Using cache
+ ---> c129fc5c6efa
+Step 5/21 : WORKDIR /src
+ ---> Using cache
+ ---> 679185202210
+Step 6/21 : RUN apk add --no-cache ca-certificates git
+ ---> Using cache
+ ---> 130c30352b4e
+Step 7/21 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> 595575d36750
+Step 8/21 : RUN go mod download
+ ---> Using cache
+ ---> 2007f8a16ef9
+Step 9/21 : FROM dependencies AS source
+ ---> 2007f8a16ef9
+Step 10/21 : ARG BUILD_REVISION=unknown
+ ---> Using cache
+ ---> 1bd2484f3a89
+Step 11/21 : COPY . .
+ ---> 49206dfdd64d
+Step 12/21 : FROM source AS openapi-test
+ ---> 49206dfdd64d
+Step 13/21 : RUN go test -count=1 ./api
+ ---> Running in 95cfdc1c22e7
+ok  	github.com/sk1fy/amocrm-pro/api	0.071s
+ ---> Removed intermediate container 95cfdc1c22e7
+ ---> 8ef805a64060
+Step 14/21 : FROM dependencies AS test-base
+ ---> 2007f8a16ef9
+Step 15/21 : ENV CGO_ENABLED=1
+ ---> Using cache
+ ---> 0cb76f34cfee
+Step 16/21 : RUN apk add --no-cache build-base
+ ---> Using cache
+ ---> d78651ab4bb9
+Step 17/21 : COPY . .
+ ---> 2323f7004235
+Step 18/21 : FROM test-base AS integration-test
+ ---> 2323f7004235
+Step 19/21 : ENTRYPOINT ["go", "test"]
+ ---> Running in 838cf0f4c113
+ ---> Removed intermediate container 838cf0f4c113
+ ---> a238267d41e5
+Step 20/21 : CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+ ---> Running in 6fc0c69e7eaf
+ ---> Removed intermediate container 6fc0c69e7eaf
+ ---> ec4f421d08d0
+Step 21/21 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in 40d0959e315f
+ ---> Removed intermediate container 40d0959e315f
+ ---> 0b366bfb3f57
+Successfully built 0b366bfb3f57
+Successfully tagged amocrm-final-verify-0908-test-component-tests:latest
+ Image amocrm-final-verify-0908-test-component-tests Built
+ Image amocrm-final-verify-0908-test-component-tests Built
+docker-compose -p amocrm-final-verify-0908-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm migrate-test-core up
+ Container amocrm-final-verify-0908-test-postgres-1 Running
+ Container amocrm-final-verify-0908-test-postgres-1 Waiting
+ Container amocrm-final-verify-0908-test-postgres-1 Healthy
+ Container amocrm-final-verify-0908-test-migrate-test-core-run-6bdcc8f1be31 Creating
+ Container amocrm-final-verify-0908-test-migrate-test-core-run-6bdcc8f1be31 Created
+migrations up completed in 138ms
+docker-compose -p amocrm-final-verify-0908-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps component-tests
+ Volume amocrm-final-verify-0908-test_component-test-cache Creating
+ Volume amocrm-final-verify-0908-test_component-test-cache Created
+ Container amocrm-final-verify-0908-test-component-tests-run-fc2caa5bf820 Creating
+ Container amocrm-final-verify-0908-test-component-tests-run-fc2caa5bf820 Created
+=== RUN   TestOpenAPIContract
+--- PASS: TestOpenAPIContract (0.17s)
+=== RUN   TestActivityOpenAPIOperationStatesMatchApplication
+--- PASS: TestActivityOpenAPIOperationStatesMatchApplication (0.15s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/api	1.340s
+=== RUN   TestUserGrantsForLeastPrivilege
+=== RUN   TestUserGrantsForLeastPrivilege/activity/panel
+=== RUN   TestUserGrantsForLeastPrivilege/activity/settings
+=== RUN   TestUserGrantsForLeastPrivilege/activity/operation
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/read
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/status
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/sync
+=== RUN   TestUserGrantsForLeastPrivilege/crm-events/operation
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/events
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/notes
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/tasks
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/pipelines
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/custom_fields
+=== RUN   TestUserGrantsForLeastPrivilege/gateway/entities
+=== RUN   TestUserGrantsForLeastPrivilege/activity/sync
+=== RUN   TestUserGrantsForLeastPrivilege//panel
+=== RUN   TestUserGrantsForLeastPrivilege/activity/future
+--- PASS: TestUserGrantsForLeastPrivilege (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/panel (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/settings (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/operation (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/read (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/status (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/sync (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/crm-events/operation (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/events (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/notes (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/tasks (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/pipelines (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/custom_fields (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/gateway/entities (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/sync (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege//panel (0.00s)
+    --- PASS: TestUserGrantsForLeastPrivilege/activity/future (0.00s)
+=== RUN   TestCanonicalOperationKeepsOneSuccessSpelling
+--- PASS: TestCanonicalOperationKeepsOneSuccessSpelling (0.00s)
+=== RUN   TestAutoBucketsUseActualBucketCount
+=== RUN   TestAutoBucketsUseActualBucketCount/aligned_48_hours
+=== RUN   TestAutoBucketsUseActualBucketCount/unaligned_48_hours
+=== RUN   TestAutoBucketsUseActualBucketCount/inclusive_endpoint
+--- PASS: TestAutoBucketsUseActualBucketCount (0.00s)
+    --- PASS: TestAutoBucketsUseActualBucketCount/aligned_48_hours (0.00s)
+    --- PASS: TestAutoBucketsUseActualBucketCount/unaligned_48_hours (0.00s)
+    --- PASS: TestAutoBucketsUseActualBucketCount/inclusive_endpoint (0.00s)
+=== RUN   TestEntityLabelRequiresMatchingKindTypeAndID
+--- PASS: TestEntityLabelRequiresMatchingKindTypeAndID (0.00s)
+=== RUN   TestEventCategoryMatchesFixtureFamilies
+--- PASS: TestEventCategoryMatchesFixtureFamilies (0.01s)
+=== RUN   TestUnknownTypeStaysNeutralAndOriginal
+--- PASS: TestUnknownTypeStaysNeutralAndOriginal (0.00s)
+=== RUN   TestCustomFieldAndRelationPatterns
+--- PASS: TestCustomFieldAndRelationPatterns (0.00s)
+=== RUN   TestRequirePresentationVersion
+--- PASS: TestRequirePresentationVersion (0.00s)
+=== RUN   TestResponseBudgetIsBoundedAndSuggestsSmallerPage
+--- PASS: TestResponseBudgetIsBoundedAndSuggestsSmallerPage (0.07s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/serviceapi	1.092s
+=== RUN   TestRegistryBindsActualPortsAndReadiness
+--- PASS: TestRegistryBindsActualPortsAndReadiness (0.00s)
+=== RUN   TestRegistryRejectsBrokenRegistration
+=== RUN   TestRegistryRejectsBrokenRegistration/unknown
+=== RUN   TestRegistryRejectsBrokenRegistration/mode
+=== RUN   TestRegistryRejectsBrokenRegistration/nil
+=== RUN   TestRegistryRejectsBrokenRegistration/wrong-contract
+=== RUN   TestRegistryRejectsBrokenRegistration/remote-pool
+=== RUN   TestRegistryRejectsBrokenRegistration/local-no-db
+=== RUN   TestRegistryRejectsBrokenRegistration/no-readiness
+--- PASS: TestRegistryRejectsBrokenRegistration (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/unknown (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/mode (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/nil (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/wrong-contract (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/remote-pool (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/local-no-db (0.00s)
+    --- PASS: TestRegistryRejectsBrokenRegistration/no-readiness (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services	1.009s
+=== RUN   TestDomainDependencyBoundaries
+--- PASS: TestDomainDependencyBoundaries (0.01s)
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/foreign_repository
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/similar_name_is_not_own
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/credentials
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/core_queue
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/core_catalog_store
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/raw_client
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/direct_http
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/direct_socket
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/composition
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/contracts
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/url_value
+=== RUN   TestNewProductDirectoriesCannotBypassBoundaries/own_adapter
+--- PASS: TestNewProductDirectoriesCannotBypassBoundaries (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/foreign_repository (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/similar_name_is_not_own (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/credentials (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/core_queue (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/core_catalog_store (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/raw_client (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/direct_http (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/direct_socket (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/composition (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/contracts (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/url_value (0.00s)
+    --- PASS: TestNewProductDirectoriesCannotBypassBoundaries/own_adapter (0.00s)
+=== RUN   TestStandaloneRejectsForeignConfiguration
+=== RUN   TestStandaloneRejectsForeignConfiguration/DATABASE_URL
+=== RUN   TestStandaloneRejectsForeignConfiguration/ENCRYPTION_KEYS
+=== RUN   TestStandaloneRejectsForeignConfiguration/AMOCRM_CLIENT_SECRET
+=== RUN   TestStandaloneRejectsForeignConfiguration/CRM_EVENTS_DATABASE_URL
+--- PASS: TestStandaloneRejectsForeignConfiguration (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/DATABASE_URL (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/ENCRYPTION_KEYS (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/AMOCRM_CLIENT_SECRET (0.00s)
+    --- PASS: TestStandaloneRejectsForeignConfiguration/CRM_EVENTS_DATABASE_URL (0.00s)
+=== RUN   TestComponentOSProcessFaults
+    process_faults_integration_test.go:97: FAULT1 PASS: distinct Events PIDs 4145/4153, stolen lease token>1; second process advanced while first blocked; stale sentinel absent; two schedulers produced one job for due source
+    process_faults_integration_test.go:451: sent and observed SIGKILL for PID4164
+    process_faults_integration_test.go:141: FAULT2 PASS: SIGKILL after100committed rows/page2; restarted PID4172 resumed exact [1788890611,1788890731] page2 after actual lease expiry;500unique/1000processed, elapsed=30.728618099s
+    process_faults_integration_test.go:451: sent and observed SIGKILL for PID4180
+    process_faults_integration_test.go:169: actual interrupted receiver RPC returned unavailable
+    process_faults_integration_test.go:187: FAULT3 PASS: receiver committed then was SIGKILLed before RPC reply; actual executable restart returned same operation1a83ca03-66ae-4c12-8a08-5550e358fad3; one inbox/operation/job, changed payload conflicts
+    process_faults_integration_test.go:451: sent and observed SIGKILL for PID4138
+    process_faults_integration_test.go:229: FAULT4 PASS: actual Gateway/policy SIGKILL stopped page progress; restart recovered bounded retry; pilot disable paused in160.012762ms with no calls/data/progress until15s cutoff; explicit sync resumed to1000unique
+--- PASS: TestComponentOSProcessFaults (68.60s)
+=== RUN   TestFaultGatewayFixture
+    process_faults_integration_test.go:555: OS process fixture
+--- SKIP: TestFaultGatewayFixture (0.00s)
+=== RUN   TestFaultReceiverFixture
+    process_faults_integration_test.go:605: OS process fixture
+--- SKIP: TestFaultReceiverFixture (0.00s)
+=== RUN   TestComponentProcessesAndModeSwitch
+    process_integration_test.go:55: VERSION-SKEW SKIPPED: optional COMPONENT_PROCESS_PREVIOUS_API_BINARY unset; grpc phases use current API
+    process_integration_test.go:212: BOOTSTRAP verified: Core-only mTLS RPC reads account through the shared client for both same-account integrations; product identities denied
+    process_integration_test.go:255: second existing leadstatus job completed during collection in 202.237869ms
+    process_integration_test.go:334: product idle Corejob snapshot: backlog=0 oldest_age_seconds=0.000;30completed,0errors,0retries
+    process_integration_test.go:346: product loaded Corejob snapshot: backlog=0 oldest_age_seconds=0.000;30completed,0errors,0retries
+    process_integration_test.go:350: PRODUCT IMPACT passed:30real leadstatus mutations/phase,2closed-loop callers,10000event backfill active throughout; idle admissionP95=12.703081ms P99=14.914171ms completionP95=1.139841s P99=1.144334s; loaded admissionP95=6.033226ms P99=9.967906ms completionP95=1.132362s P99=1.134759s; errors=0,retries=0
+    process_integration_test.go:363: impact core_before metrics:
+        component_db_acquire_seconds_total{service="core"} 0.038791039
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 0
+        component_db_connections_max{service="core"} 5
+        component_db_empty_acquire_total{service="core"} 2
+    process_integration_test.go:363: impact core_after metrics:
+        component_db_acquire_seconds_total{service="core"} 0.039294865
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 1
+        component_db_connections_max{service="core"} 5
+        component_db_empty_acquire_total{service="core"} 2
+    process_integration_test.go:363: impact events metrics:
+        component_db_acquire_seconds_total{service="crm-events"} 0.063380292
+        component_db_canceled_acquire_total{service="crm-events"} 0
+        component_db_connections_acquired{service="crm-events"} 1
+        component_db_connections_max{service="crm-events"} 5
+        component_db_empty_acquire_total{service="crm-events"} 2
+        crm_events_enrichment{state="error"} 0
+        crm_events_enrichment{state="other"} 0
+        crm_events_enrichment{state="pending"} 1
+        crm_events_enrichment{state="ready"} 0
+        crm_events_enrichment{state="retry"} 0
+        crm_events_enrichment{state="unavailable"} 0
+        crm_events_enrichment_oldest_age_seconds 43.642378
+        crm_events_events_total{outcome="deduplicated"} 402
+        crm_events_events_total{outcome="inserted"} 10000
+        crm_events_events_total{outcome="processed"} 10402
+        crm_events_events_total{outcome="updated"} 0
+        crm_events_jobs{state="completed"} 13
+        crm_events_jobs{state="running"} 1
+        crm_events_max_lag_seconds 1.730695
+        crm_events_metrics_up 1
+        crm_events_oldest_job_age_seconds 16.576217
+    process_integration_test.go:363: impact gateway metrics:
+        amocrm_budget_wait_seconds_sum{outcome="admitted"} 50.86816184499998
+        amocrm_requests_total{outcome="2xx"} 453
+        component_db_acquire_seconds_total{service="core"} 0.140437088
+        component_db_canceled_acquire_total{service="core"} 0
+        component_db_connections_acquired{service="core"} 0
+        component_db_connections_max{service="core"} 4
+        component_db_empty_acquire_total{service="core"} 3
+    process_integration_test.go:365: IMPACT passed: 50ping/concurrency2,10000events/100page/2slots; idle P95=9.592031ms P99=24.22691ms loaded P95=9.735863ms P99=10.136865ms errors=0; local fixture only
+    process_integration_test.go:395: synthetic common-owner outgoing samples: Events=294 LeadRequests=121 LeadPATCH=60 integrations=2; all intervals satisfy 7 burst + 7rps (+1 scheduling tolerance)
+    process_integration_test.go:396: VERIFIED: actual API/Activity/CRM Events/Gateway processes; exclusive logical DB roles; embedded -> grpc -> embedded; retained events/settings/command IDs; Core restart and widget ping while Activity unavailable; durable202 receiver outage; old leadstatus completed using the same Gateway-owner client; pilot revocation. Synthetic amoCRM only; no production load claim.
+--- PASS: TestComponentProcessesAndModeSwitch (90.67s)
+=== RUN   TestProcessGatewayFixture
+    process_integration_test.go:718: subprocess helper
+--- SKIP: TestProcessGatewayFixture (0.00s)
+=== RUN   TestGraphCatalogAndReadinessUseRegisteredComponents
+--- PASS: TestGraphCatalogAndReadinessUseRegisteredComponents (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/componentruntime	160.307s
+=== RUN   TestDeliveryDrainsReadyWorkAndStopsOnCancellation
+--- PASS: TestDeliveryDrainsReadyWorkAndStopsOnCancellation (0.00s)
+=== RUN   TestDeliveryFailureBacksOffAndLogsNoRawError
+--- PASS: TestDeliveryFailureBacksOffAndLogsNoRawError (0.10s)
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation/disabled
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation/database_down
+=== RUN   TestCapabilityStorageFailureIsNotReportedAsRevocation/database_timeout
+--- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation (0.00s)
+    --- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation/disabled (0.00s)
+    --- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation/database_down (0.00s)
+    --- PASS: TestCapabilityStorageFailureIsNotReportedAsRevocation/database_timeout (0.00s)
+=== RUN   TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage
+--- PASS: TestSyncRetryKeepsOriginalSnapshotDuringActivityOutage (0.06s)
+=== RUN   TestFirstSyncDuringSettingsOutageIsUnavailableWithoutAdmission
+--- PASS: TestFirstSyncDuringSettingsOutageIsUnavailableWithoutAdmission (0.07s)
+=== RUN   TestExpiredFinalDeliveryAttemptDoesNotSendAgain
+--- PASS: TestExpiredFinalDeliveryAttemptDoesNotSendAgain (0.06s)
+=== RUN   TestDeliveryCollectorReportsPendingWithFiniteLabels
+--- PASS: TestDeliveryCollectorReportsPendingWithFiniteLabels (0.06s)
+=== RUN   TestDurableAcceptanceLostResponseAndActorIsolation
+2026/09/08 18:11:13 WARN Activity command delivery deferred or rejected command_id=0e18857f-323c-4bea-87f3-b0d975208de7 code=unavailable delivery_state=pending_delivery attempt=1
+2026/09/08 18:11:13 WARN Activity command delivery deferred or rejected command_id=0e18857f-323c-4bea-87f3-b0d975208de7 code=unavailable delivery_state=pending_delivery attempt=2
+--- PASS: TestDurableAcceptanceLostResponseAndActorIsolation (0.06s)
+=== RUN   TestDeliveryRevocationAndAuditedRetry
+2026/09/08 18:11:13 WARN Activity command delivery deferred or rejected command_id=1353ed70-71e8-4bf0-93d3-ee627c284650 code=permission_denied delivery_state=failed attempt=1
+--- PASS: TestDeliveryRevocationAndAuditedRetry (0.06s)
+=== RUN   TestDeliveryLeaseFencesStaleSender
+--- PASS: TestDeliveryLeaseFencesStaleSender (0.06s)
+=== RUN   TestConcurrentAdmissionHasOneDurableCommand
+--- PASS: TestConcurrentAdmissionHasOneDurableCommand (0.07s)
+=== RUN   TestPublicInputCannotSupplyTenantOrAdminIdentity
+--- PASS: TestPublicInputCannotSupplyTenantOrAdminIdentity (0.00s)
+=== RUN   TestStableErrorMapping
+--- PASS: TestStableErrorMapping (0.00s)
+=== RUN   TestUnavailableDeliveryMetricsDoNotPublishZeroBacklog
+--- PASS: TestUnavailableDeliveryMetricsDoNotPublishZeroBacklog (0.00s)
+=== RUN   TestStage2HTTPQueryDecodesBoundedReadOptions
+--- PASS: TestStage2HTTPQueryDecodesBoundedReadOptions (0.00s)
+=== RUN   TestStage2BridgeRejectsUnprovenReadCapabilities
+--- PASS: TestStage2BridgeRejectsUnprovenReadCapabilities (0.00s)
+=== RUN   TestStage2DetailRouteRequiresReadMiddlewareAndAuthentication
+--- PASS: TestStage2DetailRouteRequiresReadMiddlewareAndAuthentication (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/activitybridge	1.625s
+=== RUN   TestBudgetCardPreservesZeroAndPrecision
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/1000_→_0
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/0_→_1000
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/0_→_0
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/—_→_0
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/—_→_0#01
+=== RUN   TestBudgetCardPreservesZeroAndPrecision/9007199254740993.125_→_1e30
+--- PASS: TestBudgetCardPreservesZeroAndPrecision (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/1000_→_0 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/0_→_1000 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/0_→_0 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/—_→_0 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/—_→_0#01 (0.00s)
+    --- PASS: TestBudgetCardPreservesZeroAndPrecision/9007199254740993.125_→_1e30 (0.00s)
+=== RUN   TestEnumCardScopesCatalogAndUnavailableFallback
+--- PASS: TestEnumCardScopesCatalogAndUnavailableFallback (0.00s)
+=== RUN   TestPostgresSettingsReceiptSurvivesResponseLoss
+--- PASS: TestPostgresSettingsReceiptSurvivesResponseLoss (0.03s)
+=== RUN   TestPanelPresentsLabelsAndKeepsZeroEmployees
+--- PASS: TestPanelPresentsLabelsAndKeepsZeroEmployees (0.00s)
+=== RUN   TestGroupFilterDoesNotQueryAllAuthors
+--- PASS: TestGroupFilterDoesNotQueryAllAuthors (0.00s)
+=== RUN   TestEventCardUsesHistoricalPayloadAndLabels
+--- PASS: TestEventCardUsesHistoricalPayloadAndLabels (0.00s)
+=== RUN   TestUnknownAuthorsKeepSelectedEmployees
+--- PASS: TestUnknownAuthorsKeepSelectedEmployees (0.00s)
+=== RUN   TestGroupFilterClearsUnknownAuthors
+--- PASS: TestGroupFilterClearsUnknownAuthors (0.00s)
+=== RUN   TestPeriodStateDoesNotMarkVerifiedDayStaleForLag
+--- PASS: TestPeriodStateDoesNotMarkVerifiedDayStaleForLag (0.00s)
+=== RUN   TestPanelUsesBoundedBatchAndExplicitCoverage
+--- PASS: TestPanelUsesBoundedBatchAndExplicitCoverage (0.00s)
+=== RUN   TestRevocationStopsLocalAdapterBeforeDataAccess
+--- PASS: TestRevocationStopsLocalAdapterBeforeDataAccess (0.00s)
+=== RUN   TestSettingsBounds
+--- PASS: TestSettingsBounds (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/activity	1.043s
+=== RUN   TestRetentionPartialBatchFairnessEmptyAndAtomicRollback
+--- PASS: TestRetentionPartialBatchFairnessEmptyAndAtomicRollback (0.07s)
+=== RUN   TestRetentionSkipsBusySourceAndNeverRewindsFrontier
+--- PASS: TestRetentionSkipsBusySourceAndNeverRewindsFrontier (0.05s)
+=== RUN   TestQueryKeepsCoverageAndEventsInOneRetentionSnapshot
+--- PASS: TestQueryKeepsCoverageAndEventsInOneRetentionSnapshot (0.07s)
+=== RUN   TestBatchDuplicateIDsPreservesSequentialCounters
+--- PASS: TestBatchDuplicateIDsPreservesSequentialCounters (0.04s)
+=== RUN   TestRetentionMigrationRejectsLegacyWithoutSilentClamp
+--- PASS: TestRetentionMigrationRejectsLegacyWithoutSilentClamp (0.04s)
+=== RUN   TestInvalidPageNewSyncRecoversSameWindowWithoutCoverageGap
+2026/09/08 18:11:17 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+--- PASS: TestInvalidPageNewSyncRecoversSameWindowWithoutCoverageGap (0.06s)
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/valid
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/invalid
+2026/09/08 18:11:17 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/fetch_error
+2026/09/08 18:11:17 ERROR CRM Events background operation failed stage=fetch code=internal
+--- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/valid (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/invalid (0.00s)
+    --- PASS: TestCanceledFetchPersistsAdmittedPageAndFailureWithBoundedContext/fetch_error (0.00s)
+=== RUN   TestBackgroundDiagnosticsBoundedAndNoPayloads
+--- PASS: TestBackgroundDiagnosticsBoundedAndNoPayloads (0.00s)
+=== RUN   TestPersistenceTimeoutCannotExceedShutdownAllowance
+--- PASS: TestPersistenceTimeoutCannotExceedShutdownAllowance (0.00s)
+=== RUN   TestApplicationDependsOnOwnerRepositoryNotSQL
+--- PASS: TestApplicationDependsOnOwnerRepositoryNotSQL (0.00s)
+=== RUN   TestEnrichSavePageEnqueuesAndGetEventSidecar
+--- PASS: TestEnrichSavePageEnqueuesAndGetEventSidecar (0.09s)
+=== RUN   TestEnrichOnceNotFoundKeepsEventQueryable
+2026/09/08 18:11:17 ERROR CRM Events background operation failed stage=enrich code=not_found
+--- PASS: TestEnrichOnceNotFoundKeepsEventQueryable (0.09s)
+=== RUN   TestEnrichCollectionSavePageWhenNotesError
+--- PASS: TestEnrichCollectionSavePageWhenNotesError (0.06s)
+=== RUN   TestEnrichRetentionCascade
+--- PASS: TestEnrichRetentionCascade (0.05s)
+=== RUN   TestEnrichmentRecoversAfterFastRetriesExhausted
+2026/09/08 18:11:17 ERROR CRM Events background operation failed stage=enrich code=unavailable
+--- PASS: TestEnrichmentRecoversAfterFastRetriesExhausted (0.06s)
+=== RUN   TestEnrichmentClaimAdmissionIsAtomic
+--- PASS: TestEnrichmentClaimAdmissionIsAtomic (2.09s)
+=== RUN   TestEnrichmentPartialBatchSavesHealthyObjects
+--- PASS: TestEnrichmentPartialBatchSavesHealthyObjects (0.08s)
+=== RUN   TestEnrichmentMigrationResumesLegacyTemporaryErrors
+--- PASS: TestEnrichmentMigrationResumesLegacyTemporaryErrors (0.04s)
+=== RUN   TestEnrichmentReauthWaitIsBoundedAndSlow
+--- PASS: TestEnrichmentReauthWaitIsBoundedAndSlow (0.00s)
+=== RUN   TestEnrichmentNegativeCacheExpires
+=== RUN   TestEnrichmentNegativeCacheExpires/permission_denied
+2026/09/08 18:11:19 ERROR CRM Events background operation failed stage=enrich code=permission_denied
+=== RUN   TestEnrichmentNegativeCacheExpires/not_found
+2026/09/08 18:11:19 ERROR CRM Events background operation failed stage=enrich code=not_found
+--- PASS: TestEnrichmentNegativeCacheExpires (0.11s)
+    --- PASS: TestEnrichmentNegativeCacheExpires/permission_denied (0.06s)
+    --- PASS: TestEnrichmentNegativeCacheExpires/not_found (0.06s)
+=== RUN   TestEnrichmentHistoricalNoteIsolation
+--- PASS: TestEnrichmentHistoricalNoteIsolation (0.05s)
+=== RUN   TestEnrichmentReadyTTLAndLargeCatalog
+--- PASS: TestEnrichmentReadyTTLAndLargeCatalog (0.22s)
+=== RUN   TestEnrichmentRefreshMigrationRepairsLegacyObjects
+--- PASS: TestEnrichmentRefreshMigrationRepairsLegacyObjects (0.05s)
+=== RUN   TestEnrichmentNoteEnvelopePreservesMaximumParams
+--- PASS: TestEnrichmentNoteEnvelopePreservesMaximumParams (0.01s)
+=== RUN   TestPlanFixtureCases
+--- PASS: TestPlanFixtureCases (0.00s)
+=== RUN   TestCanonicalEventHashIgnoresSidecar
+--- PASS: TestCanonicalEventHashIgnoresSidecar (0.00s)
+=== RUN   TestEnrichmentErrorMapping
+--- PASS: TestEnrichmentErrorMapping (0.00s)
+=== RUN   TestEnrichOnceDoesNotFailCollectorSource
+--- PASS: TestEnrichOnceDoesNotFailCollectorSource (0.00s)
+=== RUN   TestFactsCallResponsibleUnconfirmed
+--- PASS: TestFactsCallResponsibleUnconfirmed (0.00s)
+=== RUN   TestFactsDoNotInventChatText
+--- PASS: TestFactsDoNotInventChatText (0.00s)
+=== RUN   TestFactsNullLinkStaysUnknown
+--- PASS: TestFactsNullLinkStaysUnknown (0.00s)
+=== RUN   TestFactsTaskAndNoteAndChange
+--- PASS: TestFactsTaskAndNoteAndChange (0.00s)
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/false
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/true
+--- PASS: TestUpdatedEventReplacesEnrichmentLinks (0.09s)
+    --- PASS: TestUpdatedEventReplacesEnrichmentLinks/false (0.05s)
+    --- PASS: TestUpdatedEventReplacesEnrichmentLinks/true (0.04s)
+=== RUN   TestUpdatedTaskResultReconcilesDependentNote
+--- PASS: TestUpdatedTaskResultReconcilesDependentNote (0.05s)
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_added
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_completed
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_text
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_deadline
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_type
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_result_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/task_result_embedded
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/call_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/call_embedded
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/note_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/note_embedded
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/chat_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/chat_enriched_candidate
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/sms_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/lead_status
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/budget
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/responsible
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/custom_multivalue
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/custom_masked
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/contact_link
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/contact_unlink
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/attachment_reference
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/lead_added
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/unknown_type
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/unknown_actor
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/system_actor
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/null_payload
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/missing_payload
+=== RUN   TestFixtureHTTPGatewayJSONBRoundTrip/upstream_top_level_extra
+--- PASS: TestFixtureHTTPGatewayJSONBRoundTrip (0.08s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_added (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_completed (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_text (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_deadline (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_type (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_result_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/task_result_embedded (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/call_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/call_embedded (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/note_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/note_embedded (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/chat_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/chat_enriched_candidate (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/sms_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/lead_status (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/budget (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/responsible (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/custom_multivalue (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/custom_masked (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/contact_link (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/contact_unlink (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/attachment_reference (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/lead_added (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/unknown_type (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/unknown_actor (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/system_actor (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/null_payload (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/missing_payload (0.00s)
+    --- PASS: TestFixtureHTTPGatewayJSONBRoundTrip/upstream_top_level_extra (0.00s)
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/exact_both
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/oversize_before
+2026/09/08 18:11:20 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/oversize_after
+2026/09/08 18:11:20 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+=== RUN   TestEventPayloadBoundsRemainAtomicAtOwner/negative_contact
+2026/09/08 18:11:20 ERROR CRM Events background operation failed stage=validate code=invalid_argument
+--- PASS: TestEventPayloadBoundsRemainAtomicAtOwner (0.19s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/exact_both (0.08s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/oversize_before (0.04s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/oversize_after (0.03s)
+    --- PASS: TestEventPayloadBoundsRemainAtomicAtOwner/negative_contact (0.04s)
+=== RUN   TestLinkedTalkContactChangeUpdatesOneEventAndDigest
+--- PASS: TestLinkedTalkContactChangeUpdatesOneEventAndDigest (0.04s)
+=== RUN   TestCanonicalEventAbsentContactRetainsLegacyHashBytes
+--- PASS: TestCanonicalEventAbsentContactRetainsLegacyHashBytes (0.00s)
+=== RUN   TestOperationSuccessContractPreservesCompletedStorage
+    operation_contract_integration_test.go:57: wrote real CRM Events operation response for the mounted-panel test
+--- PASS: TestOperationSuccessContractPreservesCompletedStorage (0.04s)
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected_and_unknown
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/default
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/group_excludes_unknown
+=== RUN   TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/explicit_deleted
+--- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway (0.05s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/selected_and_unknown (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/default (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/group_excludes_unknown (0.00s)
+    --- PASS: TestPanelSelectedAndUnknownAuthorsWithFilteredGateway/explicit_deleted (0.00s)
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/first_repeated_hour
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/second_repeated_hour
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/both_repeated_hours
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/spring_skipped_hour
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/25_hour_day
+=== RUN   TestTimelineUsesAbsoluteBoundariesAcrossDST/fractional_offset
+--- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST (0.22s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/first_repeated_hour (0.04s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/second_repeated_hour (0.04s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/both_repeated_hours (0.04s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/spring_skipped_hour (0.04s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/25_hour_day (0.04s)
+    --- PASS: TestTimelineUsesAbsoluteBoundariesAcrossDST/fractional_offset (0.04s)
+=== RUN   TestHistoryFiltersOrderAndWholePeriodSummaries
+=== RUN   TestHistoryFiltersOrderAndWholePeriodSummaries/asc
+=== RUN   TestHistoryFiltersOrderAndWholePeriodSummaries/desc
+--- PASS: TestHistoryFiltersOrderAndWholePeriodSummaries (0.04s)
+    --- PASS: TestHistoryFiltersOrderAndWholePeriodSummaries/asc (0.00s)
+    --- PASS: TestHistoryFiltersOrderAndWholePeriodSummaries/desc (0.00s)
+=== RUN   TestHistoryCursorRejectsScopeAndChangedFilters
+--- PASS: TestHistoryCursorRejectsScopeAndChangedFilters (0.04s)
+=== RUN   TestCompactHistoryBoundedAndFullDetailScoped
+--- PASS: TestCompactHistoryBoundedAndFullDetailScoped (1.44s)
+=== RUN   TestHistoryPaginationIsLiveAcrossLateInsertAndDelete
+--- PASS: TestHistoryPaginationIsLiveAcrossLateInsertAndDelete (0.07s)
+=== RUN   TestUnenabledHistoryRetainsReadContract
+--- PASS: TestUnenabledHistoryRetainsReadContract (0.04s)
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/from
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/to
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/users
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/types
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/entity_ids
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/order
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/compact
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/unknown
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/prefix
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/entity_type
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/categories
+=== RUN   TestEventCursorBindsNormalizedQueryAndScope/buckets
+--- PASS: TestEventCursorBindsNormalizedQueryAndScope (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/from (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/to (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/users (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/types (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/entity_ids (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/order (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/compact (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/unknown (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/prefix (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/entity_type (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/categories (0.00s)
+    --- PASS: TestEventCursorBindsNormalizedQueryAndScope/buckets (0.00s)
+=== RUN   TestEventDetailChecksLivePolicyAndResponseBudget
+--- PASS: TestEventDetailChecksLivePolicyAndResponseBudget (0.12s)
+=== RUN   TestCategoryFilterUnknownAuthorsAndTaskMetrics
+--- PASS: TestCategoryFilterUnknownAuthorsAndTaskMetrics (0.06s)
+=== RUN   TestHourBucketsKeepCoverageAndMatchTotals
+--- PASS: TestHourBucketsKeepCoverageAndMatchTotals (0.05s)
+=== RUN   TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction
+--- PASS: TestLongDowntimeRecoveryKeepsCheckpointAndUnfinishedPageAcrossReconstruction (0.07s)
+=== RUN   TestRecentBackfillIslandCannotHideOlderDowntimeGap
+--- PASS: TestRecentBackfillIslandCannotHideOlderDowntimeGap (0.07s)
+=== RUN   TestCommandBoundsAndStableHash
+--- PASS: TestCommandBoundsAndStableHash (0.00s)
+=== RUN   TestDigestDetectsChangedPageAndCanonicalizesJSON
+--- PASS: TestDigestDetectsChangedPageAndCanonicalizesJSON (0.00s)
+=== RUN   TestUnauthorizedLocalCallsDoNotReachStorage
+--- PASS: TestUnauthorizedLocalCallsDoNotReachStorage (0.00s)
+=== RUN   TestInboxLostReplyConflictAndEmptyWindow
+--- PASS: TestInboxLostReplyConflictAndEmptyWindow (0.07s)
+=== RUN   TestPartialPageRestartDedupUpdatesAndSameTimestampCursor
+--- PASS: TestPartialPageRestartDedupUpdatesAndSameTimestampCursor (0.11s)
+=== RUN   TestLeaseFencingAndDisableInvalidateInflightWriter
+--- PASS: TestLeaseFencingAndDisableInvalidateInflightWriter (0.07s)
+=== RUN   TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable
+--- PASS: TestMutatingPaginationReplaysMissingEventAndNeverVerifiesUnstable (0.10s)
+=== RUN   TestTwoSchedulersAndWorkersCannotDuplicateSource
+--- PASS: TestTwoSchedulersAndWorkersCannotDuplicateSource (0.10s)
+=== RUN   TestPolicyUnavailableReauthAndRecoveryRetainCursor
+2026/09/08 18:11:23 ERROR CRM Events background operation failed stage=fetch code=unavailable
+2026/09/08 18:11:23 ERROR CRM Events background operation failed stage=fetch code=reauth_required
+--- PASS: TestPolicyUnavailableReauthAndRecoveryRetainCursor (0.13s)
+=== RUN   TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind
+--- PASS: TestBackfillIslandDoesNotCloseGapAndRetentionDoesNotRewind (0.10s)
+=== RUN   TestInstallationIsolationIncludingSameAccountIntegration
+--- PASS: TestInstallationIsolationIncludingSameAccountIntegration (0.08s)
+=== RUN   TestPageWriteAndContinuationRollbackTogether
+--- PASS: TestPageWriteAndContinuationRollbackTogether (0.07s)
+=== RUN   TestBackfillGlobalBudgetAndCurrentPriority
+--- PASS: TestBackfillGlobalBudgetAndCurrentPriority (0.11s)
+=== RUN   TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics
+--- PASS: TestGatewayNetworkDoesNotHoldWriteTransactionAndMetrics (0.09s)
+=== RUN   TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling
+2026/09/08 18:11:24 ERROR CRM Events background operation failed stage=fetch code=reauth_required
+--- PASS: TestSourceReauthBlocksOtherQueuedJobsAndManualFailurePreservesPolling (0.13s)
+=== RUN   TestCoreCommandUUIDIsRecipientOperationID
+--- PASS: TestCoreCommandUUIDIsRecipientOperationID (0.08s)
+=== RUN   TestMetricsMapUnknownStorageStateAndRejectCompletedLease
+--- PASS: TestMetricsMapUnknownStorageStateAndRejectCompletedLease (0.10s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	8.460s
+=== RUN   TestDatabasePolicyChecksCurrentPilotCapabilityRoleAndInstallation
+--- PASS: TestDatabasePolicyChecksCurrentPilotCapabilityRoleAndInstallation (0.09s)
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/forged
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_audience
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_service_identity
+=== RUN   TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/no_identity
+--- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation (0.02s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/forged (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_audience (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/wrong_service_identity (0.00s)
+    --- PASS: TestDelegationSignatureAudienceIdentityExpiryAndLiveRevocation/no_identity (0.00s)
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/nonadmin
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/other_integration_same_installation
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/other_installation
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/Activity_cannot_issue
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_impersonate
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_read_users
+=== RUN   TestIssueRestrictsActorScopeAndCollectorGrants/Core_cannot_drop_original_actor
+--- PASS: TestIssueRestrictsActorScopeAndCollectorGrants (0.01s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/nonadmin (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/other_integration_same_installation (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/other_installation (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/Activity_cannot_issue (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_impersonate (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/collector_cannot_read_users (0.00s)
+    --- PASS: TestIssueRestrictsActorScopeAndCollectorGrants/Core_cannot_drop_original_actor (0.00s)
+=== RUN   TestPanelDelegationCannotMutateOrInspectUnrelatedOperations
+--- PASS: TestPanelDelegationCannotMutateOrInspectUnrelatedOperations (0.01s)
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation
+    authorization_budget_integration_test.go:125: two panels: actual amoCRM role GETs=2 (1/request), directory GETs=2 (first request only)
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/pilot
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/capability
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/integration
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/installation
+=== RUN   TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/reauth
+--- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation (0.13s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/pilot (0.01s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/capability (0.01s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/integration (0.01s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/installation (0.01s)
+    --- PASS: TestPanelUsesOneLiveActorLookupAndImmediateDatabaseRevocation/reauth (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/corepolicy	1.269s
+=== RUN   TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations
+--- PASS: TestBootstrapDatabaseBindsKnownAccountAcrossIntegrations (0.05s)
+=== RUN   TestBootstrapRestrictedToCoreAndLiveIntegration
+--- PASS: TestBootstrapRestrictedToCoreAndLiveIntegration (0.00s)
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_empty
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_51
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_duplicate
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_zero
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_unknown
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_empty
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_51
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_duplicate
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_zero
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/fields_unknown
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_empty
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_51
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_duplicate
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_zero
+=== RUN   TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_unknown
+--- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_empty (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_51 (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_duplicate (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_zero (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/notes_unknown (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_empty (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_51 (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_duplicate (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/tasks_zero (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/fields_unknown (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_empty (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_51 (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_duplicate (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_zero (0.00s)
+    --- PASS: TestEnrichmentBoundsRejectInvalidIDsAndEntityTypes/entities_unknown (0.00s)
+=== RUN   TestEnrichmentNotesNormalizeEntityType
+--- PASS: TestEnrichmentNotesNormalizeEntityType (0.00s)
+=== RUN   TestEnrichmentPolicyDenyDoesNotCallAPI
+--- PASS: TestEnrichmentPolicyDenyDoesNotCallAPI (0.00s)
+=== RUN   TestEnrichmentMapsUpstreamErrors
+=== RUN   TestEnrichmentMapsUpstreamErrors/not_found
+=== RUN   TestEnrichmentMapsUpstreamErrors/forbidden
+=== RUN   TestEnrichmentMapsUpstreamErrors/rate_limited
+--- PASS: TestEnrichmentMapsUpstreamErrors (0.00s)
+    --- PASS: TestEnrichmentMapsUpstreamErrors/not_found (0.00s)
+    --- PASS: TestEnrichmentMapsUpstreamErrors/forbidden (0.00s)
+    --- PASS: TestEnrichmentMapsUpstreamErrors/rate_limited (0.00s)
+=== RUN   TestEnrichmentPipelinesCacheHitsWithinTTLStillValidate
+--- PASS: TestEnrichmentPipelinesCacheHitsWithinTTLStillValidate (0.00s)
+=== RUN   TestOversizedCatalogIsRejectedBeforeCaching
+--- PASS: TestOversizedCatalogIsRejectedBeforeCaching (0.02s)
+=== RUN   TestEnrichmentReturnsInvalidIDsSeparately
+--- PASS: TestEnrichmentReturnsInvalidIDsSeparately (0.00s)
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/group
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/total
+=== RUN   TestOversizedDirectoryIsRejectedBeforeCaching/name
+--- PASS: TestOversizedDirectoryIsRejectedBeforeCaching (0.02s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/group (0.00s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/total (0.02s)
+    --- PASS: TestOversizedDirectoryIsRejectedBeforeCaching/name (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/gateway	1.106s
+=== RUN   TestActivityBusinessLocalAndMTLSGRPCParity
+--- PASS: TestActivityBusinessLocalAndMTLSGRPCParity (0.04s)
+=== RUN   TestBootstrapAccountMTLSCoreOnlyAndUpstreamErrors
+--- PASS: TestBootstrapAccountMTLSCoreOnlyAndUpstreamErrors (0.04s)
+=== RUN   TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity
+--- PASS: TestCRMEventsOwnPostgresApplyStatusOperationLocalMTLSParity (0.08s)
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/forged
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/expired
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_token_audience
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_action_grant
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/non-admin
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/admin_revoked
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/pilot_disabled
+=== RUN   TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/policy_unavailable
+--- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity (0.09s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/forged (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/expired (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_token_audience (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/wrong_action_grant (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/non-admin (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/admin_revoked (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/pilot_disabled (0.00s)
+    --- PASS: TestCRMEventsOwnPostgresCurrentPolicyAndScopeLocalMTLSParity/policy_unavailable (0.00s)
+=== RUN   TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit
+--- PASS: TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit (0.06s)
+=== RUN   TestInvalidEnrichmentIDsSurviveWire
+--- PASS: TestInvalidEnrichmentIDsSurviveWire (0.00s)
+=== RUN   TestFinalAuditOwnerRPCPublicCards
+=== RUN   TestFinalAuditOwnerRPCPublicCards/removed
+=== RUN   TestFinalAuditOwnerRPCPublicCards/note
+=== RUN   TestFinalAuditOwnerRPCPublicCards/budget
+=== RUN   TestFinalAuditOwnerRPCPublicCards/enum
+=== RUN   TestFinalAuditOwnerRPCPublicCards/incoming
+=== RUN   TestFinalAuditOwnerRPCPublicCards/outgoing
+--- PASS: TestFinalAuditOwnerRPCPublicCards (0.14s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/removed (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/note (0.00s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/budget (0.00s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/enum (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/incoming (0.00s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/outgoing (0.00s)
+=== RUN   TestCRMEventsMTLSActivityCannotApply
+--- PASS: TestCRMEventsMTLSActivityCannotApply (0.02s)
+=== RUN   TestGatewayEnrichmentMTLSAllowsOnlyCRMEvents
+--- PASS: TestGatewayEnrichmentMTLSAllowsOnlyCRMEvents (0.06s)
+=== RUN   TestLargeOwnerResponsesHaveSameLocalAndGRPCError
+--- PASS: TestLargeOwnerResponsesHaveSameLocalAndGRPCError (0.79s)
+=== RUN   TestActualMTLSGatewayAndPolicyLocalParity
+--- PASS: TestActualMTLSGatewayAndPolicyLocalParity (0.06s)
+=== RUN   TestActualMTLSGatewayEnrichmentParity
+--- PASS: TestActualMTLSGatewayEnrichmentParity (0.03s)
+=== RUN   TestRPCErrorRetryAfterAndCancellation
+--- PASS: TestRPCErrorRetryAfterAndCancellation (0.02s)
+=== RUN   TestProtobufRoundTripAllPanelStateFields
+--- PASS: TestProtobufRoundTripAllPanelStateFields (0.00s)
+=== RUN   TestReadinessReflectsDependencyFailure
+--- PASS: TestReadinessReflectsDependencyFailure (0.02s)
+=== RUN   TestConnectDoesNotWaitForUnavailableDependency
+--- PASS: TestConnectDoesNotWaitForUnavailableDependency (0.01s)
+=== RUN   TestStage2MixedVersionReadOptionsFailClosed
+--- PASS: TestStage2MixedVersionReadOptionsFailClosed (0.06s)
+=== RUN   TestStage2EventDetailMTLSAllowsOnlyReadCallers
+--- PASS: TestStage2EventDetailMTLSAllowsOnlyReadCallers (0.05s)
+=== RUN   TestStage2OldServerWithoutDetailReturnsUnavailable
+--- PASS: TestStage2OldServerWithoutDetailReturnsUnavailable (0.02s)
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/embedded/all-details
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/remote/all-details
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/legacy
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/type
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/family
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/entity
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/unknown-type
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/absent-directory-author
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/compact
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/empty-user
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/embedded/errors
+=== RUN   TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/remote/errors
+--- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity (0.94s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/embedded/all-details (0.14s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/remote/all-details (0.15s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/legacy (0.16s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/type (0.01s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/family (0.04s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/entity (0.03s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/unknown-type (0.01s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/absent-directory-author (0.02s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/compact (0.18s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/empty-user (0.01s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/embedded/errors (0.00s)
+    --- PASS: TestStage2OwnPostgresFixtureHTTPAndMTLSReadParity/remote/errors (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	3.548s
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration
+=== RUN   TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations
+--- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets (0.10s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_integration (0.05s)
+    --- PASS: TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets/same_account_across_integrations (0.05s)
+=== RUN   TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic
+--- PASS: TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic (0.11s)
+=== RUN   TestBootstrapCancellationRateLimitAndIdentityMismatch
+--- PASS: TestBootstrapCancellationRateLimitAndIdentityMismatch (0.00s)
+=== RUN   TestClientRefreshesAndRetries401Once
+--- PASS: TestClientRefreshesAndRetries401Once (0.00s)
+=== RUN   TestClientMarksReauthAfterSecond401
+--- PASS: TestClientMarksReauthAfterSecond401 (0.00s)
+=== RUN   TestClientBoundsReauthorizationStatusWrite
+--- PASS: TestClientBoundsReauthorizationStatusWrite (0.02s)
+=== RUN   TestAccountBaseURL
+--- PASS: TestAccountBaseURL (0.00s)
+=== RUN   TestEnrichmentEntityTypeAllowlist
+--- PASS: TestEnrichmentEntityTypeAllowlist (0.00s)
+=== RUN   TestEnrichmentBatchBounds
+--- PASS: TestEnrichmentBatchBounds (0.00s)
+=== RUN   TestListNotesHappyPathMapsLeadToLeads
+--- PASS: TestListNotesHappyPathMapsLeadToLeads (0.00s)
+=== RUN   TestListNotesRejectsEmptyNextPage
+--- PASS: TestListNotesRejectsEmptyNextPage (0.00s)
+=== RUN   TestListNotesRejectsOversizedParams
+=== RUN   TestListNotesRejectsOversizedParams/exact
+=== RUN   TestListNotesRejectsOversizedParams/over
+--- PASS: TestListNotesRejectsOversizedParams (0.01s)
+    --- PASS: TestListNotesRejectsOversizedParams/exact (0.01s)
+    --- PASS: TestListNotesRejectsOversizedParams/over (0.00s)
+=== RUN   TestListNotesRejectsUnexpectedID
+--- PASS: TestListNotesRejectsUnexpectedID (0.00s)
+=== RUN   TestListTasksHappyPath
+--- PASS: TestListTasksHappyPath (0.00s)
+=== RUN   TestListTasksRejectsEmptyNextPage
+--- PASS: TestListTasksRejectsEmptyNextPage (0.00s)
+=== RUN   TestListTasksRejectsOversizedText
+--- PASS: TestListTasksRejectsOversizedText (0.00s)
+=== RUN   TestListPipelinesHappyPath
+--- PASS: TestListPipelinesHappyPath (0.00s)
+=== RUN   TestListPipelinesRejectsEmptyNextPage
+--- PASS: TestListPipelinesRejectsEmptyNextPage (0.00s)
+=== RUN   TestListPipelinesRejectsBounds
+--- PASS: TestListPipelinesRejectsBounds (0.00s)
+=== RUN   TestListCustomFieldsHappyPath
+--- PASS: TestListCustomFieldsHappyPath (0.00s)
+=== RUN   TestListCustomFieldsPaginatesWithoutFollowingHref
+--- PASS: TestListCustomFieldsPaginatesWithoutFollowingHref (0.00s)
+=== RUN   TestListCustomFieldsRejectsEmptyNextPage
+--- PASS: TestListCustomFieldsRejectsEmptyNextPage (0.00s)
+=== RUN   TestListEntitiesHappyPathMapsLeadToLeads
+--- PASS: TestListEntitiesHappyPathMapsLeadToLeads (0.00s)
+=== RUN   TestListEntitiesRejectsEmptyNextPage
+--- PASS: TestListEntitiesRejectsEmptyNextPage (0.00s)
+=== RUN   TestListEntitiesRejectsOversizedName
+--- PASS: TestListEntitiesRejectsOversizedName (0.00s)
+=== RUN   TestEnrichmentIsolatesOversizedItems
+=== RUN   TestEnrichmentIsolatesOversizedItems/notes
+=== RUN   TestEnrichmentIsolatesOversizedItems/tasks
+=== RUN   TestEnrichmentIsolatesOversizedItems/entities
+--- PASS: TestEnrichmentIsolatesOversizedItems (0.02s)
+    --- PASS: TestEnrichmentIsolatesOversizedItems/notes (0.01s)
+    --- PASS: TestEnrichmentIsolatesOversizedItems/tasks (0.01s)
+    --- PASS: TestEnrichmentIsolatesOversizedItems/entities (0.01s)
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_added
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_completed
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_text
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_deadline
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_type
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_embedded
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_embedded
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_embedded
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_enriched_candidate
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/sms_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_status
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/budget
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/responsible
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_multivalue
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_masked
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_link
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_unlink
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/attachment_reference
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_added
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_type
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_actor
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/system_actor
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/null_payload
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/missing_payload
+=== RUN   TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/upstream_top_level_extra
+--- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON (0.02s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_added (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_completed (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_text (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_deadline (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_type (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/task_result_embedded (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/call_embedded (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/note_embedded (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/chat_enriched_candidate (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/sms_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_status (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/budget (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/responsible (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_multivalue (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/custom_masked (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_link (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/contact_unlink (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/attachment_reference (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/lead_added (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_type (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/unknown_actor (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/system_actor (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/null_payload (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/missing_payload (0.00s)
+    --- PASS: TestEventsFixtureDecodingPreservesTypedEnvelopeAndNestedJSON/upstream_top_level_extra (0.00s)
+=== RUN   TestEventsPayloadBoundsRejectWholePage
+=== RUN   TestEventsPayloadBoundsRejectWholePage/exact_both
+=== RUN   TestEventsPayloadBoundsRejectWholePage/over_before
+=== RUN   TestEventsPayloadBoundsRejectWholePage/over_after
+=== RUN   TestEventsPayloadBoundsRejectWholePage/negative_contact
+=== RUN   TestEventsPayloadBoundsRejectWholePage/overflow_contact
+--- PASS: TestEventsPayloadBoundsRejectWholePage (0.02s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/exact_both (0.01s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/over_before (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/over_after (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/negative_contact (0.00s)
+    --- PASS: TestEventsPayloadBoundsRejectWholePage/overflow_contact (0.00s)
+=== RUN   TestEventsResponseLimitRejectsPageOfIndividuallyBoundedEvents
+--- PASS: TestEventsResponseLimitRejectsPageOfIndividuallyBoundedEvents (0.06s)
+=== RUN   TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL
+--- PASS: TestEventsUsesBoundedFixedRangeAndDoesNotFollowNextURL (0.00s)
+=== RUN   TestEventsEmptyWindowAndRateLimit
+=== RUN   TestEventsEmptyWindowAndRateLimit/No_Content
+=== RUN   TestEventsEmptyWindowAndRateLimit/Too_Many_Requests
+--- PASS: TestEventsEmptyWindowAndRateLimit (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/No_Content (0.00s)
+    --- PASS: TestEventsEmptyWindowAndRateLimit/Too_Many_Requests (0.00s)
+=== RUN   TestDirectoryOnlyUsesBoundedApprovedEndpoints
+--- PASS: TestDirectoryOnlyUsesBoundedApprovedEndpoints (0.00s)
+=== RUN   TestSharedBudgetAcrossExistingWidgetsAndEvents
+--- PASS: TestSharedBudgetAcrossExistingWidgetsAndEvents (3.00s)
+=== RUN   TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels
+--- PASS: TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels (0.00s)
+=== RUN   TestBudgetMetricsTransportFailureCategory
+--- PASS: TestBudgetMetricsTransportFailureCategory (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	4.433s
+docker-compose -p amocrm-final-verify-0908-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps component-ui-tests
+ Container amocrm-final-verify-0908-test-component-ui-tests-run-cc0c2ccbe829 Creating
+ Container amocrm-final-verify-0908-test-component-ui-tests-run-cc0c2ccbe829 Created
+TAP version 13
+# Subtest: actual CRM success scheduled check stops polling and refreshes once
+ok 1 - actual CRM success scheduled check stops polling and refreshes once
+  ---
+  duration_ms: 33.363383
+  type: 'test'
+  ...
+# Subtest: actual CRM success manual check stops polling and refreshes once
+ok 2 - actual CRM success manual check stops polling and refreshes once
+  ---
+  duration_ms: 3.932219
+  type: 'test'
+  ...
+# Subtest: unknown and incomplete observations never claim zero employee activity
+ok 3 - unknown and incomplete observations never claim zero employee activity
+  ---
+  duration_ms: 0.734918
+  type: 'test'
+  ...
+# Subtest: Core acceptance is shown as delivery pending, never completion
+ok 4 - Core acceptance is shown as delivery pending, never completion
+  ---
+  duration_ms: 0.131126
+  type: 'test'
+  ...
+# Subtest: bounded employee period filter supplies no caller identity
+ok 5 - bounded employee period filter supplies no caller identity
+  ---
+  duration_ms: 0.680627
+  type: 'test'
+  ...
+# Subtest: panel query sends group, categories, compact and never actor_id
+ok 6 - panel query sends group, categories, compact and never actor_id
+  ---
+  duration_ms: 0.152125
+  type: 'test'
+  ...
+# Subtest: today and yesterday use account timezone calendar days
+ok 7 - today and yesterday use account timezone calendar days
+  ---
+  duration_ms: 12.273742
+  type: 'test'
+  ...
+# Subtest: entityHref allows only CRM object paths
+ok 8 - entityHref allows only CRM object paths
+  ---
+  duration_ms: 0.097251
+  type: 'test'
+  ...
+# Subtest: mounted journal sends compact group categories without actor_id
+ok 9 - mounted journal sends compact group categories without actor_id
+  ---
+  duration_ms: 13.309828
+  type: 'test'
+  ...
+# Subtest: stale panel generation is ignored
+ok 10 - stale panel generation is ignored
+  ---
+  duration_ms: 1.490796
+  type: 'test'
+  ...
+# Subtest: open event is preserved across a second panel payload
+ok 11 - open event is preserved across a second panel payload
+  ---
+  duration_ms: 4.568388
+  type: 'test'
+  ...
+# Subtest: compact page fetches event detail once on expand
+ok 12 - compact page fetches event detail once on expand
+  ---
+  duration_ms: 3.254884
+  type: 'test'
+  ...
+# Subtest: unavailable detail is shown without a fetch
+ok 13 - unavailable detail is shown without a fetch
+  ---
+  duration_ms: 1.668963
+  type: 'test'
+  ...
+# Subtest: missing event detail is unavailable
+ok 14 - missing event detail is unavailable
+  ---
+  duration_ms: 2.140214
+  type: 'test'
+  ...
+# Subtest: summary keeps zero rows for directory users without events
+ok 15 - summary keeps zero rows for directory users without events
+  ---
+  duration_ms: 1.983005
+  type: 'test'
+  ...
+# Subtest: short status omits collector diagnostics
+ok 16 - short status omits collector diagnostics
+  ---
+  duration_ms: 1.833422
+  type: 'test'
+  ...
+# Subtest: calendar presets and refresh keep inclusive 23:59:50
+ok 17 - calendar presets and refresh keep inclusive 23:59:50
+  ---
+  duration_ms: 10.844197
+  type: 'test'
+  ...
+# Subtest: filtered directory preserves employees and departments through drill and back
+ok 18 - filtered directory preserves employees and departments through drill and back
+  ---
+  duration_ms: 7.42927
+  type: 'test'
+  ...
+# Subtest: transient detail failure retries on reopening without remount
+ok 19 - transient detail failure retries on reopening without remount
+  ---
+  duration_ms: 3.191925
+  type: 'test'
+  ...
+# Subtest: refresh reloads pending enrichment and preserves the open event
+ok 20 - refresh reloads pending enrichment and preserves the open event
+  ---
+  duration_ms: 5.569724
+  type: 'test'
+  ...
+# Subtest: a late detail response cannot replace the refreshed card
+ok 21 - a late detail response cannot replace the refreshed card
+  ---
+  duration_ms: 4.297512
+  type: 'test'
+  ...
+# Subtest: audit: unknown coverage retains known counts in employee rows
+ok 22 - audit: unknown coverage retains known counts in employee rows
+  ---
+  duration_ms: 4.972138
+  type: 'test'
+  ...
+# Subtest: audit: local time rejects DST gaps and chooses the earlier repeated hour
+ok 23 - audit: local time rejects DST gaps and chooses the earlier repeated hour
+  ---
+  duration_ms: 4.070553
+  type: 'test'
+  ...
+# Subtest: audit: public HTTP cards render enum, message and removed values
+ok 24 - audit: public HTTP cards render enum, message and removed values
+  ---
+  duration_ms: 6.636101
+  type: 'test'
+  ...
+# Subtest: audit: manual DST gaps on either bound never issue a panel request
+ok 25 - audit: manual DST gaps on either bound never issue a panel request
+  ---
+  duration_ms: 9.308692
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 210.614577

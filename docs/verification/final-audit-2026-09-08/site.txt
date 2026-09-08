@@ -1,0 +1,47 @@
+
+> amocrm-pro-activity-site@0.1.0 check
+> node --check src/app.mjs && node --check src/bridge-client.mjs && node --check src/activity-api.mjs && node --test test/*.test.mjs && node scripts/build.mjs
+
+✔ bootstrap success and HTTP 401/403/429/503 map to user errors (3.926208ms)
+✔ uncertain 503 keeps idempotency payload; 403 does not retry the same key (1.351ms)
+✔ 202 is acceptance; succeeded stops polling and reloads panel once (0.935583ms)
+✔ compact panel pages keep group_id, dedupe events and cache cards (0.894958ms)
+✔ stale panel responses do not replace a newer filter result (0.396709ms)
+✔ HTTP log never receives a token field from the API wrapper (0.80075ms)
+✔ refresh invalidates pending cards, pagination keeps the current cache (0.90025ms)
+✔ old inflight detail cannot overwrite a card fetched after refresh (0.439833ms)
+✔ allowlist accepts bootstrap and Activity routes only (1.847084ms)
+✔ JWT-like values are redacted and detected (0.418291ms)
+✔ opener origin is taken from the hash and must be HTTPS origin (0.684583ms)
+✔ handshake then Activity request returns only status and body (5.116042ms)
+✔ foreign origin and foreign source are ignored (3.3915ms)
+✔ wrong session is rejected without transport (2.0015ms)
+✔ forbidden route never reaches Core transport (1.2195ms)
+✔ request times out when transport never settles (21.628834ms)
+✔ closing the site window stops the host (0.199834ms)
+✔ POST retry keeps payload and Idempotency-Key; transport is called again (0.821167ms)
+✔ star targetOrigin is never used by host or client (0.147084ms)
+✔ unknown and incomplete observations never claim zero employee activity (0.677833ms)
+✔ Core acceptance is shown as delivery pending, never completion (0.065208ms)
+✔ bounded employee period filter supplies no caller identity (0.510125ms)
+✔ journal query keeps compact, group_id and known categories in account timezone (26.595208ms)
+✔ settings keep initial 1–7, retention 2–30 and retention >= initial (0.763125ms)
+✔ calendar presets round-trip inclusive 23:59:50 in the account timezone (11.981625ms)
+✔ audit: observed count and DST validation (3.351292ms)
+✔ direct open shows connection instructions and no employee demo rows (0.774458ms)
+✔ account mismatch shows confirmed ids and disables actions (1.343042ms)
+✔ employee list renders a timeline and does not treat unknown coverage as zero activity (21.473083ms)
+✔ eventTitle prefers view.title and falls back to the raw type (0.24525ms)
+✔ 202 acceptance text is not shown as completion (0.965917ms)
+✔ empty reasons and omitted details are distinct from verified inactivity (1.812375ms)
+✔ timeline positions events inside the selected period (0.311167ms)
+✔ audit: actual public HTTP cards show enum and message details (8.151042ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 167.61325
+Built static files to dist/

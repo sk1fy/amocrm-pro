@@ -1,0 +1,39 @@
+[
+  {
+    "name": "site",
+    "cwd": "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-activity-site",
+    "command": "ACTIVITY_UI_CARDS_FIXTURE=/Users/nikpeskov/Projects/amocrm-pro/tmp/activity-v0-evidence/cards.json npm run check",
+    "exit_code": 0
+  },
+  {
+    "name": "tester",
+    "cwd": "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-service-2",
+    "command": "npm run activity-assets && npm run check && npm run pack",
+    "exit_code": 0
+  },
+  {
+    "name": "version-skew",
+    "command": "docker-compose -p amocrm-final-audit-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps -e COMPONENT_PROCESS_PREVIOUS_API_BINARY=/src/tmp/activity-v0-evidence/pre-audit-api --entrypoint go component-tests test -race -count=1 -v -run ^TestComponentProcessesAndModeSwitch$ ./internal/componentruntime",
+    "exit_code": 0
+  },
+  {
+    "name": "final-presentation",
+    "command": "docker-compose -p amocrm-final-audit-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps --entrypoint go component-tests test -race -p 1 -count=1 -v -run 'TestBudgetCard|TestEnumCard|TestEventCard|TestFinalAuditOwnerRPCPublicCards' ./internal/services/activity ./internal/servicerpc",
+    "exit_code": 0
+  },
+  {
+    "name": "enum-overflow-local",
+    "command": "go test -race -count=1 -v ./internal/services/activity",
+    "exit_code": 0
+  },
+  {
+    "name": "enum-overflow-vet",
+    "command": "go vet ./internal/services/activity",
+    "exit_code": 0
+  },
+  {
+    "name": "client-artifacts",
+    "command": "python3 tmp/final-audit-artifacts.py",
+    "exit_code": 0
+  }
+]

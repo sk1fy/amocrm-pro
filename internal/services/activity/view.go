@@ -76,11 +76,11 @@ func eventSummary(event serviceapi.Event, view serviceapi.EventView) string {
 			parts = append(parts, change)
 		}
 	case serviceapi.CategoryBudget:
-		if change := scalarChange(event, "sale_field_value", "sale"); change != "" {
+		if change := scalarChange(event, "sale_field_value", "sale", formatAmount); change != "" {
 			parts = append(parts, change)
 		}
 	case serviceapi.CategoryResponsible:
-		if change := scalarChange(event, "responsible_user", "id"); change != "" {
+		if change := scalarChange(event, "responsible_user", "id", formatID); change != "" {
 			parts = append(parts, change)
 		}
 	case serviceapi.CategoryNotes, serviceapi.CategoryCalls, serviceapi.CategoryAttachments, serviceapi.CategoryMessages:
@@ -101,12 +101,20 @@ func eventSummary(event serviceapi.Event, view serviceapi.EventView) string {
 
 func eventDetails(event serviceapi.Event) []serviceapi.EventDetail {
 	var details []serviceapi.EventDetail
-	if len(event.ValueBefore) > 0 && !bytes.Equal(event.ValueBefore, []byte("null")) {
+	if len(event.ValueBefore) > 0 {
 		details = append(details, serviceapi.EventDetail{Key: "value_before", Label: "Было", Before: bytes.Clone(event.ValueBefore), Source: serviceapi.SourceEventPayload})
 	}
-	if len(event.ValueAfter) > 0 && !bytes.Equal(event.ValueAfter, []byte("null")) {
+	if len(event.ValueAfter) > 0 {
 		details = append(details, serviceapi.EventDetail{Key: "value_after", Label: "Стало", After: bytes.Clone(event.ValueAfter), Source: serviceapi.SourceEventPayload})
 	}
+	for i := range details {
+		if bytes.Equal(bytes.TrimSpace(details[i].Before), []byte("null")) || bytes.Equal(bytes.TrimSpace(details[i].After), []byte("null")) {
+			details[i].Text = "Значение: null"
+		}
+	}
+	details = append(details, customFieldDetails(event)...)
+	details = append(details, messageDetails(event)...)
+
 	for _, object := range event.Enrichment {
 		detail := serviceapi.EventDetail{Key: object.ObjectKind + ":" + object.ObjectKey, Label: object.ObjectKind, Source: object.Source, Current: object.Current, After: bytes.Clone(object.Payload)}
 		if object.State != "" && object.State != serviceapi.EnrichmentReady {
@@ -132,13 +140,13 @@ func leadStatusChange(event serviceapi.Event) string {
 	return formatID(before["id"]) + " → " + formatID(after["id"])
 }
 
-func scalarChange(event serviceapi.Event, object, field string) string {
+func scalarChange(event serviceapi.Event, object, field string, format func(json.RawMessage) string) string {
 	before := nestedObject(event.ValueBefore, object)
 	after := nestedObject(event.ValueAfter, object)
 	if before == nil && after == nil {
 		return ""
 	}
-	return formatID(before[field]) + " → " + formatID(after[field])
+	return format(before[field]) + " → " + format(after[field])
 }
 
 func linkLabel(event serviceapi.Event) string {
@@ -226,6 +234,18 @@ func formatID(raw json.RawMessage) string {
 	}
 	if s, ok := jsonString(raw); ok && s != "" {
 		return s
+	}
+	return "—"
+}
+
+// Decode into Number to preserve zeros, decimals and large integers exactly.
+func formatAmount(raw json.RawMessage) string {
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return "—"
+	}
+	var n json.Number
+	if json.Unmarshal(raw, &n) == nil && n.String() != "" {
+		return n.String()
 	}
 	return "—"
 }

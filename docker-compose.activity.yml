@@ -5,6 +5,8 @@ name: amocrm-activity
 x-build: &build
   context: .
   dockerfile: Dockerfile
+  args:
+    BUILD_REVISION: "${BUILD_REVISION:-unknown}"
 x-runtime: &runtime
   init: true
   read_only: true

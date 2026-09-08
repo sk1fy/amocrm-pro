@@ -1,0 +1,1332 @@
+diff --git a/Dockerfile b/Dockerfile
+index 0458ccb..4734da5 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -18,6 +18,8 @@ RUN go mod download
+ 
+ FROM dependencies AS source
+ 
++ARG BUILD_REVISION=unknown
++
+ COPY . .
+ 
+ FROM source AS openapi-test
+@@ -39,6 +41,9 @@ CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "
+ 
+ FROM alpine:${ALPINE_VERSION} AS runtime
+ 
++ARG BUILD_REVISION=unknown
++LABEL org.opencontainers.image.revision=$BUILD_REVISION
++
+ RUN apk add --no-cache ca-certificates tzdata \
+     && addgroup -S -g 10001 app \
+     && adduser -S -D -H -u 10001 -G app app
+@@ -49,7 +54,10 @@ USER app
+ 
+ FROM source AS migrate-build
+ 
+-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-migrate ./cmd/migrate
++# Declare in each build stage for classic Docker builder compatibility.
++ARG BUILD_REVISION=unknown
++
++RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-migrate ./cmd/migrate
+ 
+ FROM runtime AS migrate
+ 
+@@ -63,7 +71,10 @@ CMD ["up"]
+ 
+ FROM source AS integrations-build
+ 
+-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-integrations ./cmd/integrations
++# Declare in each build stage for classic Docker builder compatibility.
++ARG BUILD_REVISION=unknown
++
++RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-integrations ./cmd/integrations
+ 
+ FROM runtime AS integrations
+ 
+@@ -73,7 +84,10 @@ ENTRYPOINT ["/usr/local/bin/amocrm-integrations"]
+ 
+ FROM source AS api-build
+ 
+-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-api ./cmd/api
++# Declare in each build stage for classic Docker builder compatibility.
++ARG BUILD_REVISION=unknown
++
++RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-api ./cmd/api
+ 
+ FROM runtime AS api
+ 
+@@ -85,7 +99,10 @@ ENTRYPOINT ["/usr/local/bin/amocrm-api"]
+ 
+ FROM source AS worker-build
+ 
+-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-worker ./cmd/worker
++# Declare in each build stage for classic Docker builder compatibility.
++ARG BUILD_REVISION=unknown
++
++RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-worker ./cmd/worker
+ 
+ FROM runtime AS worker
+ 
+@@ -100,10 +117,13 @@ ENTRYPOINT ["/usr/local/bin/amocrm-worker"]
+ 
+ FROM source AS component-build
+ 
+-RUN go build -trimpath -ldflags="-s -w" -o /out/activity ./cmd/activity \
+-    && go build -trimpath -ldflags="-s -w" -o /out/crm-events ./cmd/crm-events \
+-    && go build -trimpath -ldflags="-s -w" -o /out/activity-control ./cmd/activity-control \
+-    && go build -trimpath -ldflags="-s -w" -o /out/service-certs ./cmd/service-certs
++# Declare in each build stage for classic Docker builder compatibility.
++ARG BUILD_REVISION=unknown
++
++RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity \
++    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/crm-events ./cmd/crm-events \
++    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity-control ./cmd/activity-control \
++    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/service-certs ./cmd/service-certs
+ 
+ FROM runtime AS activity
+ COPY --from=component-build --chown=app:app /out/activity /usr/local/bin/activity
+diff --git a/Makefile b/Makefile
+index 290c87b..cd2c1b0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,5 +1,10 @@
+ SHELL := /bin/sh
+ 
++# Include staged, unstaged and untracked changes; dirty builds are never
++# advertised as exact clean commits. Direct Compose defaults to unknown.
++BUILD_REVISION := $(shell git rev-parse --verify HEAD 2>/dev/null || echo unknown)$(shell test -z "$$(git status --porcelain 2>/dev/null)" || echo -dirty)
++export BUILD_REVISION
++
+ DOCKER ?= docker
+ COMPOSE ?= docker-compose
+ GO_VERSION ?= 1.25
+diff --git a/cmd/activity-control/main.go b/cmd/activity-control/main.go
+index fcf289c..3e73da2 100644
+--- a/cmd/activity-control/main.go
++++ b/cmd/activity-control/main.go
+@@ -6,12 +6,16 @@ import (
+ 	"fmt"
+ 	"github.com/google/uuid"
+ 	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
+ 	"os"
+ 	"time"
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	if err := run(os.Args[1:]); err != nil {
+ 		fmt.Fprintln(os.Stderr, err)
+ 		os.Exit(1)
+diff --git a/cmd/activity/main.go b/cmd/activity/main.go
+index dabd695..25441a5 100644
+--- a/cmd/activity/main.go
++++ b/cmd/activity/main.go
+@@ -2,6 +2,7 @@ package main
+ 
+ import (
+ 	"context"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+ 	"log/slog"
+ 	"os"
+@@ -10,6 +11,9 @@ import (
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+ 	defer stop()
+ 	if err := componentruntime.RunStandalone(ctx, "activity"); err != nil {
+diff --git a/cmd/api/main.go b/cmd/api/main.go
+index 4098c3b..526edd1 100644
+--- a/cmd/api/main.go
++++ b/cmd/api/main.go
+@@ -2,6 +2,7 @@ package main
+ 
+ import (
+ 	"context"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"log/slog"
+ 	"net/http"
+ 	"os"
+@@ -33,6 +34,9 @@ import (
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	if err := run(); err != nil {
+ 		slog.Error("api stopped", "error", err)
+ 		os.Exit(1)
+diff --git a/cmd/crm-events/main.go b/cmd/crm-events/main.go
+index 46f2f79..c49c813 100644
+--- a/cmd/crm-events/main.go
++++ b/cmd/crm-events/main.go
+@@ -2,6 +2,7 @@ package main
+ 
+ import (
+ 	"context"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+ 	"log/slog"
+ 	"os"
+@@ -10,6 +11,9 @@ import (
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+ 	defer stop()
+ 	if err := componentruntime.RunStandalone(ctx, "crm-events"); err != nil {
+diff --git a/cmd/integrations/main.go b/cmd/integrations/main.go
+index f87d058..1d8caf5 100644
+--- a/cmd/integrations/main.go
++++ b/cmd/integrations/main.go
+@@ -6,6 +6,7 @@ import (
+ 	"errors"
+ 	"flag"
+ 	"fmt"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"io"
+ 	"os"
+ 	"strings"
+@@ -20,6 +21,9 @@ import (
+ const usage = "usage: integrations <create|update|disable|enable|rotate-secret|set-service> --actor ID --code CODE [--client-id UUID --redirect-uri HTTPS_URL --webhook-events CSV --services CSV|none --secret-stdin --service CODE --enabled true|false]"
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	if err := run(os.Args[1:], os.Stdin, os.Stdout); err != nil {
+ 		fmt.Fprintln(os.Stderr, err)
+ 		os.Exit(1)
+diff --git a/cmd/migrate/main.go b/cmd/migrate/main.go
+index 65b3a51..ea4ab3e 100644
+--- a/cmd/migrate/main.go
++++ b/cmd/migrate/main.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"errors"
+ 	"fmt"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"os"
+ 	"time"
+ 
+@@ -18,6 +19,9 @@ const (
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	command, err := migrationCommand(os.Args[1:], os.Getenv)
+ 	if errors.Is(err, errUsage) {
+ 		fmt.Fprintln(os.Stderr, "usage: migrate [up|down]")
+diff --git a/cmd/service-certs/main.go b/cmd/service-certs/main.go
+index 5491ac9..b077793 100644
+--- a/cmd/service-certs/main.go
++++ b/cmd/service-certs/main.go
+@@ -9,6 +9,7 @@ import (
+ 	"crypto/x509/pkix"
+ 	"encoding/pem"
+ 	"fmt"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"math/big"
+ 	"net/url"
+ 	"os"
+@@ -17,6 +18,9 @@ import (
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	if len(os.Args) != 2 {
+ 		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY (development only, refuses existing keys)")
+ 		os.Exit(2)
+diff --git a/cmd/worker/main.go b/cmd/worker/main.go
+index 0f9917d..fd2d441 100644
+--- a/cmd/worker/main.go
++++ b/cmd/worker/main.go
+@@ -3,6 +3,7 @@ package main
+ import (
+ 	"context"
+ 	"errors"
++	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+ 	"log/slog"
+ 	"net/http"
+ 	"os"
+@@ -30,6 +31,9 @@ import (
+ )
+ 
+ func main() {
++	if buildinfo.PrintVersion(os.Args, os.Stdout) {
++		return
++	}
+ 	if err := run(); err != nil {
+ 		slog.Error("worker stopped", "error", err)
+ 		os.Exit(1)
+diff --git a/docker-compose.activity-tests.yml b/docker-compose.activity-tests.yml
+index 6e3104c..9b2b409 100644
+--- a/docker-compose.activity-tests.yml
++++ b/docker-compose.activity-tests.yml
+@@ -21,6 +21,7 @@ services:
+       COMPONENT_PROCESS_TEST_ADMIN_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/postgres?sslmode=disable
+       COMPONENT_PROCESS_TEST_ALLOWED: "true"
+       ACTIVITY_UI_OPERATION_FIXTURE: /src/tmp/activity-v0-evidence/crm-operation.json
++      ACTIVITY_UI_CARDS_FIXTURE: /src/tmp/activity-v0-evidence/cards.json
+     entrypoint: ["/bin/sh", "-ec"]
+     command:
+       - |
+@@ -29,7 +30,7 @@ services:
+         test "$${TEST_DATABASE_RESET_ALLOWED}" = true
+         test "$${COMPONENT_PROCESS_TEST_ALLOWED}" = true
+         mkdir -p /src/tmp/activity-v0-evidence
+-        rm -f "$${ACTIVITY_UI_OPERATION_FIXTURE}"
++        rm -f "$${ACTIVITY_UI_OPERATION_FIXTURE}" "$${ACTIVITY_UI_CARDS_FIXTURE:?}"
+         logfile=/src/tmp/activity-v0-evidence/activity-go.log
+         # Packages reset their own shared test schemas: never run them concurrently.
+         if ! go test -race -p 1 -count=1 -timeout=15m -v ./api ./internal/serviceapi ./internal/services ./internal/componentruntime ./internal/activitybridge ./internal/services/activity ./internal/services/crmevents ./internal/corepolicy ./internal/gateway ./internal/servicerpc ./internal/integration/amocrm >"$$logfile" 2>&1; then
+@@ -44,6 +45,7 @@ services:
+           grep -q "^--- PASS: $$required (" "$$logfile"
+         done
+         test -s "$${ACTIVITY_UI_OPERATION_FIXTURE}"
++        test -s "$${ACTIVITY_UI_CARDS_FIXTURE:?}"
+     depends_on: {migrate-test-core: {condition: service_completed_successfully}}
+   component-ui-tests:
+     profiles: ["tests"]
+@@ -54,10 +56,12 @@ services:
+     working_dir: /src
+     environment:
+       ACTIVITY_UI_OPERATION_FIXTURE: /evidence/crm-operation.json
++      ACTIVITY_UI_CARDS_FIXTURE: /evidence/cards.json
+     entrypoint: ["/bin/sh", "-ec"]
+     command:
+       - |
+         test -s "$${ACTIVITY_UI_OPERATION_FIXTURE:?}"
++        test -s "$${ACTIVITY_UI_CARDS_FIXTURE:?}"
+         if ! node --test examples/activity-v0/panel.test.mjs examples/activity-v0/panel.operation.test.mjs >/evidence/activity-ui.log 2>&1; then
+           cat /evidence/activity-ui.log
+           exit 1
+diff --git a/docker-compose.activity.yml b/docker-compose.activity.yml
+index b2c8075..9434b6c 100644
+--- a/docker-compose.activity.yml
++++ b/docker-compose.activity.yml
+@@ -5,6 +5,8 @@ name: amocrm-activity
+ x-build: &build
+   context: .
+   dockerfile: Dockerfile
++  args:
++    BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+ x-runtime: &runtime
+   init: true
+   read_only: true
+diff --git a/docker-compose.test.yml b/docker-compose.test.yml
+index a138f6e..1bc27bf 100644
+--- a/docker-compose.test.yml
++++ b/docker-compose.test.yml
+@@ -23,6 +23,7 @@ services:
+       dockerfile: Dockerfile
+       target: migrate
+       args:
++        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+         GO_VERSION: "${GO_VERSION:-1.25}"
+     environment:
+       DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
+@@ -42,6 +43,7 @@ services:
+       dockerfile: Dockerfile
+       target: integration-test
+       args:
++        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+         GO_VERSION: "${GO_VERSION:-1.25}"
+     environment:
+       TEST_DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 85bc2b5..329377e 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -26,6 +26,7 @@ services:
+       dockerfile: Dockerfile
+       target: migrate
+       args:
++        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+         GO_VERSION: "${GO_VERSION:-1.25}"
+     environment:
+       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
+@@ -46,6 +47,7 @@ services:
+       dockerfile: Dockerfile
+       target: integrations
+       args:
++        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+         GO_VERSION: "${GO_VERSION:-1.25}"
+     environment:
+       APP_ENV: "${APP_ENV:-development}"
+@@ -70,6 +72,7 @@ services:
+       dockerfile: Dockerfile
+       target: api
+       args:
++        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+         GO_VERSION: "${GO_VERSION:-1.25}"
+     init: true
+     environment:
+@@ -136,6 +139,7 @@ services:
+       dockerfile: Dockerfile
+       target: worker
+       args:
++        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+         GO_VERSION: "${GO_VERSION:-1.25}"
+     init: true
+     environment:
+diff --git a/docs/adr/0014-event-enrichment-contract.md b/docs/adr/0014-event-enrichment-contract.md
+index 0b8e9ee..dfb2778 100644
+--- a/docs/adr/0014-event-enrichment-contract.md
++++ b/docs/adr/0014-event-enrichment-contract.md
+@@ -153,3 +153,23 @@ bounded Retain. Просроченный негативный кеш с дейс
+ protobuf-поле additive. Старый owner безопасно увидит пропущенный объект как
+ not_found, а старый Gateway может продолжать отклонять батч целиком — точная
+ изоляция требует обновления обеих сторон. Публичный HTTP-контракт не меняется.
++
++## Уточнение итогового аудита 08.09.2026
++
++При SavePage связи enrichment заменяются атомарно по последней версии каждого
++ID, в том числе при повторении ID внутри страницы. Общие объекты остаются;
++обычный bounded retention удаляет сирот. Завершение task enrichment блокирует
++строки связанных событий и пересчитывает зависимые note-связи по текущему
++хранимому payload. Ошибка чтения готовой задачи откатывает транзакцию.
++
++Ранее накопленные лишние связи исправляются при следующем сохранении события
++(для task-result также при обновлении задачи). Массовая сверка не запускалась.
++Для старой истории без повторного чтения потребуется отдельная ограниченная
++owner-local сверка по хранимому payload с checkpoint и лимитом событий на батч.
++
++Enum-названия проецируются Activity из существующего sidecar в view.details:
++ключ включает тип сущности, поле, enum и сторону изменения. Название и ID видны
++рядом, current=true / source=custom_fields_api обозначают текущий справочник.
++Исходные B/A и каталоги сохранены; names[] и wire-схема не расширялись.
++Недоступный вариант остаётся с ID. deleted/missing_in_source по-прежнему
++зарезервированы: 404 и отсутствие поля не доказывают конкретную причину.
+diff --git a/docs/adr/0015-activity-presentation-contract.md b/docs/adr/0015-activity-presentation-contract.md
+index 494d1d3..0fcf767 100644
+--- a/docs/adr/0015-activity-presentation-contract.md
++++ b/docs/adr/0015-activity-presentation-contract.md
+@@ -90,3 +90,17 @@ SQL использует тот же упорядоченный массив г
+ Core. Старый CRM Events при новых presentation options даёт unavailable.
+ Старые cursors с новыми опциями начать заново. Owner-миграции этапа 4 нет.
+ ZIP виджета и product UI реализованы на этапе 5 локально; установка ZIP и пилот — этап 8.
++
++## Уточнение итогового аудита 08.09.2026
++
++Бюджет форматируется как сумма без # и вымышленной валюты. Ноль отличается от
++null/отсутствующего значения; json.Number сохраняет точность исходного числа.
++Карточка явно показывает null, названия выбранных enum из текущего справочника,
++направление сообщения, доступные ID/текст/канал/источник и отсутствие текста.
++Raw B/A сохраняются. Дополнительного chat API нет.
++
++Известный счётчик показывается и при неизвестном покрытии; неизвестный или
++некорректный счётчик не становится нулём. Несуществующий локальный час/дата
++отклоняются до запроса. При повторяющемся часе выбирается первое, более раннее
++вхождение (например Oslo 2026-10-25 02:30 → 00:30Z). Пресеты завершаются в
++23:59:50 по принятому решению: включительный to исключает 23:59:51–23:59:59.
+diff --git a/docs/plans/2026-09-08-activity-backend-development.md b/docs/plans/2026-09-08-activity-backend-development.md
+index 77919c1..cbbfa5e 100644
+--- a/docs/plans/2026-09-08-activity-backend-development.md
++++ b/docs/plans/2026-09-08-activity-backend-development.md
+@@ -520,6 +520,14 @@ REL-03 реализует owner cleanup по общей политике CORE-05
+ 
+ #### REL-02. Оптимизировать чтение на измерениях
+ 
++**Открытый остаток итогового аудита:** L-01 (доля refresh, возраст очереди,
++задержка деталей и отставание collector при нескольких установках), L-02
++(EXPLAIN ANALYZE BUFFERS истории/сводки/timeline/claim на реалистичном объёме),
++L-03 (размер и задержки owner → RPC → Activity → HTTP до/сверх 3 MiB).
++Локальные функциональные тесты не подтверждают нагрузочную готовность.
++Профиль стенда и критерии измерений согласовать/записать до прогона.
++
++
+ **Тип и граница задачи:** Измерение и условная оптимизация. Новые индексы, кеши и агрегатные таблицы вводятся только по результатам.
+ 
+ **Что сделать:**
+@@ -1144,3 +1152,13 @@ DeleteWebhook уже есть: нужен завершённый lifecycle. Ст
+ - Сохранять компактный отчёт и воспроизводимые команды; лог должен соответствовать проверенной версии. Не выдавать старый CI за результат новых изменений и не скрывать исправленный промежуточный FAIL.
+ - В конце ответа сообщить, что теперь работает, чем проверено, что требуется для развёртывания и что ещё не проверялось. Отчёт не должен заставлять пользователя восстанавливать хронологию инструментов.
+ - При выпуске учитывать совместимость схемы/бинарей, старые команды и курсоры, повторную доставку, drain и rollback. Down-миграция не возвращает удалённые данные. Доступ к production и действия выпуска не подразумеваются самим локальным PASS.
++
++
++## Итоговый аудит A/B от 08.09.2026
++
++Локально исправлены A-01–A-04: замена enrichment-связей, ноль бюджета,
++счётчики при unknown coverage и DST. Карточки B-01/B-02 проверяются через
++PostgreSQL/RPC/HTTP и реальные функции рендера. Тестер пересобран в 0.5.2;
++сайт синхронизирован локально. Исторические результаты этапов выше сохранены.
++Актуальные команды и результаты: [итоговая verification-сводка](../verification/final-audit-2026-09-08/README.md).
++BASE-01, REL-02/L-01–L-03 и живая приёмка этапа 8 остаются открытыми.
+diff --git a/docs/runbooks/activity-v0.md b/docs/runbooks/activity-v0.md
+index 7576ec3..6dba930 100644
+--- a/docs/runbooks/activity-v0.md
++++ b/docs/runbooks/activity-v0.md
+@@ -246,3 +246,23 @@ docker-compose -f docker-compose.activity.yml exec -T crm-events \
+ Сверяйте event count, source windows, operations и dedup, затем пробный restart.
+ Перенос DSN/инстанса — отдельная процедура; этот runbook переключает только
+ процессы. Наличие примера backup-команды не означает выполненную restore-проверку.
++
++## Invalid-страница и идентификация артефактов
++
++Код invalid_argument виден в status.error_code и коде операции, а в адаптере —
++в «Диагностике». Collector отклоняет некорректную страницу до SavePage; исходная
++история и checkpoint не должны частично продвигаться. Проверить версию Gateway
++и owner, лимиты/форму Events-ответа и наличие обязательных ID. Диагностика
++публичного ответа не содержит raw CRM payload и может не различать конкретные
++поля: воспроизводить на синтетическом ответе либо исследовать источник в
++авторизованной среде. Перед новым sync устранить причину/исправить источник;
++повтор того же invalid-ответа восстановлением не считается. Raw quarantine
++не добавлялся (ADR-0013).
++
++Все бинарные команды поддерживают --version без подключения БД или загрузки
++секретов. Make передаёт BUILD_REVISION=SHA[-dirty] в бинарь и OCI revision label;
++прямой docker/Compose build без аргумента честно маркируется unknown. Для прямой
++сборки передать BUILD_REVISION явно, учитывая git status. --version и
++org.opencontainers.image.revision должны совпадать; digest/хеш бинаря и ZIP
++фиксируются отдельно в release manifest. Миграции рабочего сервера проверяются
++в каждом owner отдельно и не выводятся из номера сборки.
+diff --git a/examples/activity-v0/panel.mjs b/examples/activity-v0/panel.mjs
+index 31ed996..5292d75 100644
+--- a/examples/activity-v0/panel.mjs
++++ b/examples/activity-v0/panel.mjs
+@@ -44,9 +44,9 @@ const zeroSummary = { unique_events: 0, first_event_at: 0, last_event_at: 0, ent
+ 
+ export function observationLabel(summary, coverage, emptyReason) {
+   const count = summary?.unique_events;
+-  if (coverage === "unknown" || !Number.isSafeInteger(count)) return "Нет проверенных данных";
++  if (!Number.isSafeInteger(count) || count < 0) return "Нет проверенных данных";
+   if (coverage === "verified" && count === 0) return "Нет событий за выбранный период";
+-  if (coverage !== "verified" && count === 0) return emptyReason === "unverified_empty" ? "0 зарегистрированных событий (покрытие неполное)" : "Полных данных нет";
++  if (coverage !== "verified") return `${count} зарегистрировано; полнота периода не подтверждена`;
+   return `${count} зарегистрировано${coverage === "verified" ? "" : " (данные неполные или устарели)"}`;
+ }
+ export function operationLabel(receipt) {
+@@ -89,11 +89,14 @@ export function parseDateTimeLocal(value, timezone) {
+     const parts = zoneParts(ms, timezone);
+     return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second || 0)) - ms;
+   };
+-  let instant = asUTC - offset(asUTC);
+-  instant = asUTC - offset(instant);
+-  const unix = Math.floor(instant / 1000);
+-  if (!Number.isSafeInteger(unix) || unix <= 0) throw new Error(periodError);
+-  return unix;
++  const wanted = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6] || "00"}`;
++  // Consider both offsets around a transition. A fold selects the earlier
++  // occurrence; a gap (or normalized invalid date) has no matching instant.
++  const offsets = new Set([-2, -1, 0, 1, 2].map(days => offset(asUTC + days * 86400000)));
++  const candidates = [...offsets].map(value => (asUTC - value) / 1000)
++    .filter(unix => Number.isSafeInteger(unix) && unix > 0 && formatDateTimeLocal(unix, timezone) === wanted);
++  if (!candidates.length) throw new Error("Указанное время не существует в часовом поясе аккаунта. Проверьте дату и время.");
++  return Math.min(...candidates);
+ }
+ function addUtcDays(ymd, days) {
+   const [year, month, day] = ymd.split("-").map(Number);
+@@ -406,7 +409,7 @@ export function mountActivityPanel(element, authorizedRequest) {
+     head.append(header);
+     const body = make("tbody");
+     for (const user of panel.users || []) {
+-      const summary = summaries.get(user.id) || zeroSummary;
++      const summary = summaries.get(user.id) || (Array.isArray(panel.data?.summaries) ? zeroSummary : {});
+       const row = make("tr");
+       const name = make("td");
+       const pick = make("button", user.name || String(user.id));
+diff --git a/examples/activity-v0/panel.test.mjs b/examples/activity-v0/panel.test.mjs
+index 2f913b8..c2f6138 100644
+--- a/examples/activity-v0/panel.test.mjs
++++ b/examples/activity-v0/panel.test.mjs
+@@ -1,4 +1,5 @@
+ import test from "node:test";
++import { readFile } from "node:fs/promises";
+ import assert from "node:assert/strict";
+ import {
+   calendarDayRange, entityHref, formatDateTimeLocal, isKnownTimezone, observationLabel,
+@@ -6,11 +7,11 @@ import {
+ } from "./panel.mjs";
+ 
+ test("unknown and incomplete observations never claim zero employee activity", () => {
+-  assert.equal(observationLabel({ unique_events: 0 }, "unknown"), "Нет проверенных данных");
+-  assert.equal(observationLabel({ unique_events: 0 }, "partial"), "Полных данных нет");
+-  assert.equal(observationLabel({ unique_events: 0 }, "stale"), "Полных данных нет");
++  assert.equal(observationLabel({ unique_events: 0 }, "unknown"), "0 зарегистрировано; полнота периода не подтверждена");
++  assert.equal(observationLabel({ unique_events: 0 }, "partial"), "0 зарегистрировано; полнота периода не подтверждена");
++  assert.equal(observationLabel({ unique_events: 0 }, "stale"), "0 зарегистрировано; полнота периода не подтверждена");
+   assert.equal(observationLabel({ unique_events: 0 }, "verified"), "Нет событий за выбранный период");
+-  assert.equal(observationLabel({ unique_events: 0 }, "partial", "unverified_empty"), "0 зарегистрированных событий (покрытие неполное)");
++  assert.equal(observationLabel({ unique_events: 0 }, "partial", "unverified_empty"), "0 зарегистрировано; полнота периода не подтверждена");
+   assert.equal(observationLabel({ unique_events: 0 }, "verified", "no_events"), "Нет событий за выбранный период");
+   assert.match(observationLabel({ unique_events: 4 }, "partial"), /^4 зарегистрировано/);
+ });
+@@ -384,3 +385,52 @@ test("a late detail response cannot replace the refreshed card", async (t) => {
+   release();await h.flush();
+   assert.equal(reads,2);assert.match(h.element.textContent,/New response/);assert.doesNotMatch(h.element.textContent,/Old response/);
+ });
++
++test("audit: unknown coverage retains known counts in employee rows", async () => {
++  for (const coverage of ["unknown", "partial"]) {
++    assert.match(observationLabel({ unique_events: 7 }, coverage), /^7 зарегистрировано/);
++    const { element, flush, panel } = mount(async () => ({ status: 200, body: panelBody({ coverage, summaries: [{user_id: 7, unique_events: 7}, {user_id: 9, unique_events: 0}] }) }));
++    await flush();
++    assert.match(element.querySelectorAll("tr").find(row => row.textContent.includes("Alpha")).textContent, /7 зарегистрировано/);
++    assert.match(element.querySelectorAll("tr").find(row => row.textContent.includes("Beta")).textContent, /0 зарегистрировано/);
++    panel.destroy();
++  }
++  for (const count of [undefined, null, -1, NaN, "7"]) assert.equal(observationLabel({unique_events: count}, "unknown"), "Нет проверенных данных");
++});
++
++test("audit: local time rejects DST gaps and chooses the earlier repeated hour", () => {
++  const tz = "Europe/Oslo";
++  assert.throws(() => parseDateTimeLocal("2026-03-29T02:30:00", tz));
++  assert.throws(() => parseDateTimeLocal("2026-02-30T10:00:00", tz));
++  assert.throws(() => parseDateTimeLocal("2026-09-08T10:00:00", "unknown"));
++  const ordinary = "2026-03-29T03:30:00";
++  assert.equal(formatDateTimeLocal(parseDateTimeLocal(ordinary,tz),tz),ordinary);
++  assert.equal(parseDateTimeLocal("2026-10-25T02:30:00",tz),Date.parse("2026-10-25T00:30:00Z")/1000);
++  for (const [from,to] of [["2026-03-29T02:30:00","2026-03-29T04:00:00"],["2026-03-29T01:00:00","2026-03-29T02:30:00"]]) assert.throws(()=>panelQuery(from,to,"",{timezone:tz}));
++});
++
++// When run by Activity CI these are actual public HTTP cards, collected via
++// PostgreSQL and mTLS, rather than hand-authored presenter-shaped fixtures.
++if (process.env.ACTIVITY_UI_CARDS_FIXTURE) test("audit: public HTTP cards render enum, message and removed values", async () => {
++ const cards=JSON.parse(await readFile(process.env.ACTIVITY_UI_CARDS_FIXTURE,"utf8"));
++ for (const [id,wants] of Object.entries({enum:["Новое имя (#1)","Большой (#1)","#2 (название варианта недоступно)","Текущее значение справочника"],incoming:["Входящее сообщение","msg-in","Текст отсутствует","32"],outgoing:["Исходящее сообщение","Текст из payload","test-channel"],removed:["Значение: null","Новое имя (#1)"]})) {
++  const {element,flush,find,panel}=mount(async({path})=>({status:200,body:path.includes("/events/")?cards[id]:panelBody({events:[{id,type:cards[id].type,view:{detail_state:"omitted"}}]})}));
++  await flush();find("Подробнее").click();await flush();
++  for(const want of wants)assert.ok(element.textContent.includes(want), `${id}: missing ${want}`);
++  panel.destroy();
++ }
++});
++
++test("audit: manual DST gaps on either bound never issue a panel request", async () => {
++ for(const badBound of [0,1]) {
++  let calls=0;
++  const {element,flush,find,panel}=mount(async()=>{calls++;return {status:200,body:panelBody({timezone:"Europe/Oslo"})}});
++  await flush();
++  const bounds=element.querySelectorAll("input").filter(input=>input.type==="datetime-local");
++  bounds[0].value="2026-03-29T01:30:00";bounds[1].value="2026-03-29T03:30:00";
++  bounds[badBound].value="2026-03-29T02:30:00";
++  find("Показать").click();await flush();
++  assert.equal(calls,1);assert.match(element.textContent,/время не существует/);
++  panel.destroy();
++ }
++});
+diff --git a/internal/services/activity/view.go b/internal/services/activity/view.go
+index 999a84e..bfc6c38 100644
+--- a/internal/services/activity/view.go
++++ b/internal/services/activity/view.go
+@@ -76,11 +76,11 @@ func eventSummary(event serviceapi.Event, view serviceapi.EventView) string {
+ 			parts = append(parts, change)
+ 		}
+ 	case serviceapi.CategoryBudget:
+-		if change := scalarChange(event, "sale_field_value", "sale"); change != "" {
++		if change := scalarChange(event, "sale_field_value", "sale", formatAmount); change != "" {
+ 			parts = append(parts, change)
+ 		}
+ 	case serviceapi.CategoryResponsible:
+-		if change := scalarChange(event, "responsible_user", "id"); change != "" {
++		if change := scalarChange(event, "responsible_user", "id", formatID); change != "" {
+ 			parts = append(parts, change)
+ 		}
+ 	case serviceapi.CategoryNotes, serviceapi.CategoryCalls, serviceapi.CategoryAttachments, serviceapi.CategoryMessages:
+@@ -101,12 +101,20 @@ func eventSummary(event serviceapi.Event, view serviceapi.EventView) string {
+ 
+ func eventDetails(event serviceapi.Event) []serviceapi.EventDetail {
+ 	var details []serviceapi.EventDetail
+-	if len(event.ValueBefore) > 0 && !bytes.Equal(event.ValueBefore, []byte("null")) {
++	if len(event.ValueBefore) > 0 {
+ 		details = append(details, serviceapi.EventDetail{Key: "value_before", Label: "Было", Before: bytes.Clone(event.ValueBefore), Source: serviceapi.SourceEventPayload})
+ 	}
+-	if len(event.ValueAfter) > 0 && !bytes.Equal(event.ValueAfter, []byte("null")) {
++	if len(event.ValueAfter) > 0 {
+ 		details = append(details, serviceapi.EventDetail{Key: "value_after", Label: "Стало", After: bytes.Clone(event.ValueAfter), Source: serviceapi.SourceEventPayload})
+ 	}
++	for i := range details {
++		if bytes.Equal(bytes.TrimSpace(details[i].Before), []byte("null")) || bytes.Equal(bytes.TrimSpace(details[i].After), []byte("null")) {
++			details[i].Text = "Значение: null"
++		}
++	}
++	details = append(details, customFieldDetails(event)...)
++	details = append(details, messageDetails(event)...)
++
+ 	for _, object := range event.Enrichment {
+ 		detail := serviceapi.EventDetail{Key: object.ObjectKind + ":" + object.ObjectKey, Label: object.ObjectKind, Source: object.Source, Current: object.Current, After: bytes.Clone(object.Payload)}
+ 		if object.State != "" && object.State != serviceapi.EnrichmentReady {
+@@ -132,13 +140,13 @@ func leadStatusChange(event serviceapi.Event) string {
+ 	return formatID(before["id"]) + " → " + formatID(after["id"])
+ }
+ 
+-func scalarChange(event serviceapi.Event, object, field string) string {
++func scalarChange(event serviceapi.Event, object, field string, format func(json.RawMessage) string) string {
+ 	before := nestedObject(event.ValueBefore, object)
+ 	after := nestedObject(event.ValueAfter, object)
+ 	if before == nil && after == nil {
+ 		return ""
+ 	}
+-	return formatID(before[field]) + " → " + formatID(after[field])
++	return format(before[field]) + " → " + format(after[field])
+ }
+ 
+ func linkLabel(event serviceapi.Event) string {
+@@ -229,3 +237,15 @@ func formatID(raw json.RawMessage) string {
+ 	}
+ 	return "—"
+ }
++
++// Decode into Number to preserve zeros, decimals and large integers exactly.
++func formatAmount(raw json.RawMessage) string {
++	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
++		return "—"
++	}
++	var n json.Number
++	if json.Unmarshal(raw, &n) == nil && n.String() != "" {
++		return n.String()
++	}
++	return "—"
++}
+diff --git a/internal/services/crmevents/postgres_enrichment.go b/internal/services/crmevents/postgres_enrichment.go
+index c99a37f..a9d4272 100644
+--- a/internal/services/crmevents/postgres_enrichment.go
++++ b/internal/services/crmevents/postgres_enrichment.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"encoding/json"
+ 	"errors"
++	"sort"
+ 
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+@@ -18,8 +19,25 @@ func (s *Postgres) enqueueEnrichment(ctx context.Context, tx pgx.Tx, installatio
+ 		eventID string
+ 		object  plannedObject
+ 	}
+-	var links []link
++	// Match writeEvents' last occurrence for every ID, including duplicates
++	// within a page. Rebuild links transactionally; shared cached objects survive.
++	latest := make(map[string]serviceapi.Event, len(events))
+ 	for _, event := range events {
++		if event.ID != "" {
++			latest[event.ID] = event
++		}
++	}
++	ids := make([]string, 0, len(latest))
++	for id := range latest {
++		ids = append(ids, id)
++	}
++	sort.Strings(ids)
++	if _, err := tx.Exec(ctx, `DELETE FROM event_enrichment_links WHERE installation_id=$1 AND event_id=ANY($2::text[])`, installation, ids); err != nil {
++		return err
++	}
++	var links []link
++	for _, id := range ids {
++		event := latest[id]
+ 		if event.ID == "" {
+ 			continue
+ 		}
+@@ -29,7 +47,11 @@ func (s *Postgres) enqueueEnrichment(ctx context.Context, tx pgx.Tx, installatio
+ 			}
+ 			links = append(links, link{eventID: event.ID, object: object})
+ 		}
+-		for _, object := range s.notesForReadyTask(ctx, tx, installation, event) {
++		notes, err := s.notesForReadyTask(ctx, tx, installation, event)
++		if err != nil {
++			return err
++		}
++		for _, object := range notes {
+ 			links = append(links, link{eventID: event.ID, object: object})
+ 		}
+ 	}
+@@ -49,19 +71,22 @@ func (s *Postgres) enqueueEnrichment(ctx context.Context, tx pgx.Tx, installatio
+ 	return tx.SendBatch(ctx, batch).Close()
+ }
+ 
+-func (s *Postgres) notesForReadyTask(ctx context.Context, tx pgx.Tx, installation uuid.UUID, event serviceapi.Event) []plannedObject {
++func (s *Postgres) notesForReadyTask(ctx context.Context, tx pgx.Tx, installation uuid.UUID, event serviceapi.Event) ([]plannedObject, error) {
+ 	if event.Type != "task_result_added" || event.EntityID <= 0 {
+-		return nil
++		return nil, nil
+ 	}
+ 	var state, parentType string
+ 	var parentID int64
+ 	var payload json.RawMessage
+ 	err := tx.QueryRow(ctx, `SELECT state,parent_type,parent_id,payload FROM event_enrichment_objects WHERE installation_id=$1 AND object_kind=$2 AND object_key=$3`, installation, serviceapi.ObjectTask, numericKey(event.EntityID)).Scan(&state, &parentType, &parentID, &payload)
++	if errors.Is(err, pgx.ErrNoRows) {
++		return nil, nil
++	}
+ 	if err != nil {
+-		return nil
++		return nil, err
+ 	}
+ 	if state != serviceapi.EnrichmentReady {
+-		return nil
++		return nil, nil
+ 	}
+ 	if parentType == "" || parentID == 0 {
+ 		var task serviceapi.Task
+@@ -70,9 +95,9 @@ func (s *Postgres) notesForReadyTask(ctx context.Context, tx pgx.Tx, installatio
+ 	}
+ 	object, ok := planNoteAfterTask(event, parentType, parentID)
+ 	if !ok {
+-		return nil
++		return nil, nil
+ 	}
+-	return []plannedObject{object}
++	return []plannedObject{object}, nil
+ }
+ 
+ // Only transient negative results expire. Unsupported/invalid results stay terminal; transient
+@@ -189,7 +214,7 @@ func (s *Postgres) enqueueNotesForReadyTask(ctx context.Context, tx pgx.Tx, inst
+ 	if _, ok := serviceapi.CatalogEntityType(parentType); !ok || parentID <= 0 {
+ 		return nil
+ 	}
+-	rows, err := tx.Query(ctx, `SELECT e.event_id,e.created_by,e.event_type,e.entity_id,e.entity_type,e.value_before,e.value_after FROM crm_events e JOIN event_enrichment_links l ON l.installation_id=e.installation_id AND l.event_id=e.event_id WHERE l.installation_id=$1 AND l.object_kind=$2 AND l.object_key=$3 AND e.event_type='task_result_added'`, installation, serviceapi.ObjectTask, result.Key)
++	rows, err := tx.Query(ctx, `SELECT e.event_id,e.created_by,e.event_type,e.entity_id,e.entity_type,e.value_before,e.value_after FROM crm_events e JOIN event_enrichment_links l ON l.installation_id=e.installation_id AND l.event_id=e.event_id WHERE l.installation_id=$1 AND l.object_kind=$2 AND l.object_key=$3 AND e.event_type='task_result_added' ORDER BY e.event_id FOR UPDATE OF e`, installation, serviceapi.ObjectTask, result.Key)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -207,21 +232,7 @@ func (s *Postgres) enqueueNotesForReadyTask(ctx context.Context, tx pgx.Tx, inst
+ 	if err != nil {
+ 		return err
+ 	}
+-	batch := &pgx.Batch{}
+-	queued := false
+-	for _, event := range events {
+-		object, ok := planNoteAfterTask(event, parentType, parentID)
+-		if !ok {
+-			continue
+-		}
+-		queued = true
+-		batch.Queue(`INSERT INTO event_enrichment_objects(installation_id,object_kind,object_key,parent_type,parent_id,object_id,state,reason_code,source,payload,run_after,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) ON CONFLICT DO NOTHING`, installation, object.Kind, object.Key, object.ParentType, object.ParentID, object.ObjectID, object.State, object.Reason, object.Source, jsonbOrNull(object.Payload))
+-		batch.Queue(`INSERT INTO event_enrichment_links(installation_id,event_id,object_kind,object_key) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, installation, event.ID, object.Kind, object.Key)
+-	}
+-	if !queued {
+-		return nil
+-	}
+-	return tx.SendBatch(ctx, batch).Close()
++	return s.enqueueEnrichment(ctx, tx, installation, events)
+ }
+ 
+ func (s *Postgres) FailEnrichment(ctx context.Context, c EnrichmentClaim, cause error) error {
+--- /dev/null
++++ b/internal/buildinfo/buildinfo.go
+@@ -0,0 +1,40 @@
++// Package buildinfo identifies artifacts without requiring runtime configuration.
++package buildinfo
++
++import (
++	"fmt"
++	"io"
++	"runtime/debug"
++)
++
++// Revision is set by Docker/Make. Direct Go builds fall back to VCS build info.
++var Revision = "unknown"
++
++func SourceRevision() string {
++	if Revision != "unknown" && Revision != "" {
++		return Revision
++	}
++	revision, dirty := "unknown", false
++	if info, ok := debug.ReadBuildInfo(); ok {
++		for _, s := range info.Settings {
++			switch s.Key {
++			case "vcs.revision":
++				revision = s.Value
++			case "vcs.modified":
++				dirty = s.Value == "true"
++			}
++		}
++	}
++	if dirty && revision != "unknown" {
++		revision += "-dirty"
++	}
++	return revision
++}
++
++func PrintVersion(args []string, out io.Writer) bool {
++	if len(args) != 2 || args[1] != "--version" {
++		return false
++	}
++	fmt.Fprintln(out, SourceRevision())
++	return true
++}
+--- /dev/null
++++ b/internal/buildinfo/buildinfo_test.go
+@@ -0,0 +1,19 @@
++package buildinfo
++
++import (
++	"bytes"
++	"testing"
++)
++
++func TestVersionDoesNotRequireRuntimeConfiguration(t *testing.T) {
++	old := Revision
++	t.Cleanup(func() { Revision = old })
++	Revision = "abc-dirty"
++	var out bytes.Buffer
++	if !PrintVersion([]string{"activity", "--version"}, &out) || out.String() != "abc-dirty\n" {
++		t.Fatalf("%q", out.String())
++	}
++	if PrintVersion([]string{"activity", "up"}, &out) {
++		t.Fatal("intercepted runtime command")
++	}
++}
+--- /dev/null
++++ b/internal/servicerpc/final_audit_integration_test.go
+@@ -0,0 +1,128 @@
++package servicerpc
++
++import (
++	"context"
++	"encoding/json"
++	"net/http"
++	"os"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/google/uuid"
++	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
++	"github.com/sk1fy/amocrm-pro/internal/corepolicy"
++	"github.com/sk1fy/amocrm-pro/internal/gateway"
++	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
++	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
++	product "github.com/sk1fy/amocrm-pro/internal/services/activity"
++	"github.com/sk1fy/amocrm-pro/internal/services/crmevents"
++	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
++)
++
++type finalAuditAPI struct{ stage2ReadAPI }
++
++func (a finalAuditAPI) ListCustomFields(context.Context, uuid.UUID, string) ([]amocrm.CustomField, error) {
++	return []amocrm.CustomField{{ID: 10, Name: "Цвет", EntityType: "leads", Enums: []amocrm.CustomFieldEnum{{ID: 1, Value: "Новое имя"}}}, {ID: 20, Name: "Размер", EntityType: "leads", Enums: []amocrm.CustomFieldEnum{{ID: 1, Value: "Большой"}}}}, nil
++}
++
++func TestFinalAuditOwnerRPCPublicCards(t *testing.T) {
++	f := newCRMParity(t)
++	ctx := context.Background()
++	ca := newCA(t)
++	at := time.Now().Add(-time.Minute).Unix()
++	api := finalAuditAPI{stage2ReadAPI{dir: amocrm.AccountDirectory{Timezone: "UTC", Users: []amocrm.DirectoryUser{{ID: 7, Name: "Employee"}}}}}
++	add := func(id, kind, before, after string) {
++		api.events = append(api.events, amocrm.CRMEvent{ID: id, Type: kind, CreatedAt: at, CreatedBy: 7, EntityType: "lead", EntityID: 31, LinkedTalkContactID: 32, ValueBefore: json.RawMessage(before), ValueAfter: json.RawMessage(after)})
++	}
++	add("budget", "sale_field_changed", `[{"sale_field_value":{"sale":1000}}]`, `[{"sale_field_value":{"sale":0}}]`)
++	add("enum", "custom_field_value_changed", `[{"custom_field_value":{"field_id":10,"enum_id":1,"text":"Старое имя"}}]`, `[{"custom_field_value":{"field_id":10,"enum_id":2}},{"custom_field_value":{"field_id":20,"enum_id":1}}]`)
++	add("incoming", "incoming_chat_message", `[]`, `[{"message":{"id":"msg-in"}}]`)
++	add("outgoing", "outgoing_chat_message", `[]`, `[{"message":{"id":"msg-out","text":"Текст из payload","source":"test-channel"}}]`)
++	add("removed", "custom_field_value_changed", `[{"custom_field_value":{"field_id":10,"enum_id":1}}]`, `null`)
++	add("note", "common_note_added", `[]`, `[{"note":{"id":101}}]`)
++	add("note", "common_note_added", `[]`, `[{"note":{"id":202}}]`)
++	gw := gateway.New(api, corepolicy.ForCaller(f.policy, serviceapi.GatewayService))
++	gwAddr := start(t, ca, &Endpoints{Gateway: gw})
++	cfg := crmevents.DefaultConfig()
++	cfg.Window = 24 * time.Hour
++	owner := crmevents.New(f.pool, corepolicy.ForCaller(f.policy, serviceapi.EventsService), dialTest(t, ca, gwAddr, serviceapi.EventsService).Gateway, cfg)
++	if _, err := owner.Apply(ctx, serviceapi.Command{Auth: f.auth, CommandID: uuid.NewString(), Kind: "sync", InitialDays: 1, RetentionDays: 7}); err != nil {
++		t.Fatal(err)
++	}
++	for i := 0; i < 2; i++ {
++		if worked, err := owner.RunOnce(ctx); err != nil || !worked {
++			t.Fatalf("collect %v %v", worked, err)
++		}
++	}
++	for i := 0; i < 20; i++ {
++		worked, err := owner.EnrichOnce(ctx)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if !worked {
++			break
++		}
++		if i == 19 {
++			t.Fatal("enrichment did not drain")
++		}
++	}
++	ownerAddr := startCRMParity(t, ca, owner)
++	ownerRPC := dialTest(t, ca, ownerAddr, serviceapi.ActivityService).CRMEvents
++	repo := &parityRepository{settings: serviceapi.DefaultSettings(), commands: map[string]serviceapi.SettingsCommand{}}
++	remoteProduct := product.New(repo, corepolicy.ForCaller(f.policy, serviceapi.ActivityService), ownerRPC, dialTest(t, ca, gwAddr, serviceapi.ActivityService).Gateway)
++	remote := dialTest(t, ca, start(t, ca, &Endpoints{Activity: remoteProduct}), serviceapi.CoreService).Activity
++	principal := widgetauth.Principal{IntegrationID: f.check.primary.IntegrationID, InstallationID: f.check.primary.InstallationID, AccountID: 42, UserID: 7}
++	handler := stage2HTTP(t, activitybridge.New(nil, corepolicy.ForCaller(f.policy, serviceapi.CoreService), remote, dialTest(t, ca, ownerAddr, serviceapi.CoreService).CRMEvents), principal)
++	expected := map[string][]string{"budget": {"1000 → 0"}, "enum": {"Новое имя (#1)", "Большой (#1)", "#2 (название варианта недоступно)", "Старое имя"}, "incoming": {"Входящее сообщение", "msg-in", "Текст отсутствует", "32"}, "outgoing": {"Исходящее сообщение", "msg-out", "Текст из payload", "test-channel"}, "removed": {"Значение: null", "Новое имя (#1)"}, "note": {"202"}}
++	cards := map[string]serviceapi.Event{}
++	for id, wants := range expected {
++		t.Run(id, func(t *testing.T) {
++			var got serviceapi.Event
++			stage2Request(t, handler, "/api/v1/widget/activity/events/"+id, http.StatusOK, &got)
++			raw, err := json.Marshal(got)
++			if err != nil {
++				t.Fatal(err)
++			}
++			for _, want := range wants {
++				if !strings.Contains(string(raw), want) {
++					t.Fatalf("missing %q in %s", want, raw)
++				}
++			}
++			if id == "enum" {
++				n := 0
++				for _, d := range got.View.Details {
++					if strings.HasPrefix(d.Key, "custom_field_enum:") {
++						n++
++						if !d.Current || d.Source != serviceapi.SourceCustomFieldsAPI {
++							t.Fatal(d)
++						}
++					}
++				}
++				if n != 3 {
++					t.Fatalf("enum labels=%d", n)
++				}
++			}
++			if id == "note" {
++				for _, o := range got.Enrichment {
++					if o.ObjectKind == "note" && o.ObjectKey != "202" {
++						t.Fatalf("stale note %+v", o)
++					}
++				}
++			}
++			if id == "removed" && string(got.ValueAfter) != "null" {
++				t.Fatal("null lost")
++			}
++			cards[id] = got
++		})
++	}
++	if path := os.Getenv("ACTIVITY_UI_CARDS_FIXTURE"); path != "" {
++		raw, err := json.Marshal(cards)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if err = os.WriteFile(path, raw, 0600); err != nil {
++			t.Fatal(err)
++		}
++	}
++}
+--- /dev/null
++++ b/internal/services/activity/final_audit_test.go
+@@ -0,0 +1,89 @@
++package activity
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
++	"strings"
++	"testing"
++)
++
++func TestBudgetCardPreservesZeroAndPrecision(t *testing.T) {
++	for _, tc := range []struct{ before, after, want string }{
++		{`{"sale":1000}`, `{"sale":0}`, "1000 → 0"},
++		{`{"sale":0}`, `{"sale":1000}`, "0 → 1000"},
++		{`{"sale":0}`, `{"sale":0}`, "0 → 0"},
++		{`{}`, `{"sale":0}`, "— → 0"},
++		{`{"sale":null}`, `{"sale":0}`, "— → 0"},
++		{`{"sale":9007199254740993.125}`, `{"sale":1e30}`, "9007199254740993.125 → 1e30"},
++	} {
++		t.Run(tc.want, func(t *testing.T) {
++			e := serviceapi.Event{ID: "budget", Type: "sale_field_changed", ValueBefore: json.RawMessage(`[{"sale_field_value":` + tc.before + `}]`), ValueAfter: json.RawMessage(`[{"sale_field_value":` + tc.after + `}]`)}
++			s := New(&memorySettings{}, &fakePolicy{}, &fakeEvents{event: e}, &fakeGateway{})
++			got, err := s.EventCard(context.Background(), serviceapi.EventRequest{Auth: serviceapi.Auth{Token: "verified"}, EventID: e.ID})
++			if err != nil || got.View == nil || !strings.Contains(got.View.Summary, tc.want) {
++				t.Fatalf("card %+v err=%v", got.View, err)
++			}
++			if string(got.ValueBefore) != string(e.ValueBefore) || string(got.ValueAfter) != string(e.ValueAfter) {
++				t.Fatal("payload changed")
++			}
++		})
++	}
++	e := presentEvent(serviceapi.Event{Type: "entity_responsible_changed", ValueBefore: json.RawMessage(`[{"responsible_user":{"id":1000}}]`), ValueAfter: json.RawMessage(`[{"responsible_user":{"id":7}}]`)}, nil, true)
++	if !strings.Contains(e.View.Summary, "#1000 → #7") {
++		t.Fatal(e.View.Summary)
++	}
++}
++
++func TestEnumCardScopesCatalogAndUnavailableFallback(t *testing.T) {
++	e := serviceapi.Event{ID: "enum", Type: "custom_field_value_changed", EntityType: "lead", ValueAfter: json.RawMessage(`[{"custom_field_value":{"field_id":10,"enum_id":1}}]`)}
++	catalog := json.RawMessage(`{"fields":[{"id":10,"name":"Wrong entity","entity_type":"contacts","enums":[{"id":1,"value":"Wrong label"}]}]}`)
++	for _, o := range []serviceapi.EnrichmentObject{
++		{ObjectKind: serviceapi.ObjectCustomField, ObjectKey: "contacts", State: serviceapi.EnrichmentReady, Payload: catalog},
++		{ObjectKind: serviceapi.ObjectCustomField, ObjectKey: "leads", State: serviceapi.EnrichmentReady, Payload: catalog},
++		{ObjectKind: serviceapi.ObjectCustomField, ObjectKey: "leads", State: serviceapi.EnrichmentUnavailable},
++	} {
++		e.Enrichment = []serviceapi.EnrichmentObject{o}
++		got := presentEvent(e, nil, true)
++		found := false
++		for _, d := range got.View.Details {
++			if strings.HasPrefix(d.Key, "custom_field_enum:") {
++				found = true
++				if d.Text != "#1 (название варианта недоступно)" || strings.Contains(d.Label, "Wrong") {
++					t.Fatal(d)
++				}
++			}
++		}
++		if !found {
++			t.Fatal("missing enum fallback")
++		}
++	}
++}
++
++func TestEnumCardKeepsLabelsBeyondDetailBlockLimit(t *testing.T) {
++	entries := make([]string, 40)
++	field := serviceapi.CustomField{ID: 10, EntityType: "leads", Name: "Варианты"}
++	for i := range entries {
++		id := int64(i + 1)
++		entries[i] = fmt.Sprintf(`{"custom_field_value":{"field_id":10,"enum_id":%d}}`, id)
++		field.Enums = append(field.Enums, serviceapi.CustomFieldEnum{ID: id, Value: fmt.Sprintf("Вариант %d", id)})
++	}
++	payload, _ := json.Marshal(serviceapi.CustomFieldCatalog{Fields: []serviceapi.CustomField{field}})
++	event := presentEvent(serviceapi.Event{Type: "custom_field_value_changed", EntityType: "lead", ValueAfter: json.RawMessage("[" + strings.Join(entries, ",") + "]"), Enrichment: []serviceapi.EnrichmentObject{{ObjectKind: serviceapi.ObjectCustomField, ObjectKey: "leads", State: serviceapi.EnrichmentReady, Payload: payload}}}, nil, true)
++	var labels strings.Builder
++	for _, detail := range event.View.Details {
++		if strings.HasPrefix(detail.Key, "custom_field_enum:") {
++			labels.WriteString(detail.Text)
++		}
++	}
++	for i := range entries {
++		want := fmt.Sprintf("Вариант %d (#%d)", i+1, i+1)
++		if !strings.Contains(labels.String(), want) {
++			t.Fatalf("missing %s", want)
++		}
++	}
++	if len(event.View.Details) > 32 {
++		t.Fatalf("too many detail blocks: %d", len(event.View.Details))
++	}
++}
+--- /dev/null
++++ b/internal/services/activity/view_facts.go
+@@ -0,0 +1,106 @@
++package activity
++
++import (
++	"encoding/json"
++	"strconv"
++
++	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
++)
++
++// Resolve selected enum values from the existing sidecar. Identity includes
++// entity type and field ID; the raw historical before/after remains untouched.
++func customFieldDetails(event serviceapi.Event) []serviceapi.EventDetail {
++	entityType, ok := serviceapi.CatalogEntityType(event.EntityType)
++	if !ok {
++		return nil
++	}
++	fields := map[int64]serviceapi.CustomField{}
++	for _, object := range event.Enrichment {
++		if object.ObjectKind != serviceapi.ObjectCustomField || object.ObjectKey != entityType || object.State != serviceapi.EnrichmentReady {
++			continue
++		}
++		var catalog serviceapi.CustomFieldCatalog
++		if json.Unmarshal(object.Payload, &catalog) != nil {
++			continue
++		}
++		for _, field := range catalog.Fields {
++			if field.EntityType != "" {
++				kind, ok := serviceapi.CatalogEntityType(field.EntityType)
++				if !ok || kind != entityType {
++					continue
++				}
++			}
++			fields[field.ID] = field
++		}
++	}
++	var details []serviceapi.EventDetail
++	for _, side := range []struct {
++		key, label string
++		raw        json.RawMessage
++	}{{"before", "Было", event.ValueBefore}, {"after", "Стало", event.ValueAfter}} {
++		var entries []json.RawMessage
++		if json.Unmarshal(side.raw, &entries) != nil {
++			continue
++		}
++		for _, entry := range entries {
++			value := jsonObject(jsonObject(entry)["custom_field_value"])
++			fieldID, enumID := jsonInt64(value["field_id"]), jsonInt64(value["enum_id"])
++			if fieldID <= 0 || enumID <= 0 {
++				continue
++			}
++			field := fields[fieldID]
++			fieldLabel := "поле #" + strconv.FormatInt(fieldID, 10)
++			if field.Name != "" {
++				fieldLabel = field.Name + " (#" + strconv.FormatInt(fieldID, 10) + ")"
++			}
++			text := "#" + strconv.FormatInt(enumID, 10) + " (название варианта недоступно)"
++			for _, option := range field.Enums {
++				if option.ID == enumID && option.Value != "" {
++					text = option.Value + " (#" + strconv.FormatInt(enumID, 10) + ")"
++					break
++				}
++			}
++			if len(details) < 16 {
++				details = append(details, serviceapi.EventDetail{Key: "custom_field_enum:" + entityType + ":" + strconv.FormatInt(fieldID, 10) + ":" + strconv.FormatInt(enumID, 10) + ":" + side.key, Label: side.label + " · " + fieldLabel, Text: text, Current: true, Source: serviceapi.SourceCustomFieldsAPI})
++				continue
++			}
++			// Bound the number of detail blocks without dropping selected labels.
++			// Each overflow label retains its side, field ID and enum ID.
++			if len(details) == 16 {
++				details = append(details, serviceapi.EventDetail{Key: "custom_field_enum:" + entityType + ":more", Label: "Дополнительные варианты полей", Current: true, Source: serviceapi.SourceCustomFieldsAPI})
++			}
++			if details[16].Text != "" {
++				details[16].Text += "; "
++			}
++			details[16].Text += side.label + " · " + fieldLabel + ": " + text
++		}
++	}
++	return details
++}
++
++func messageDetails(event serviceapi.Event) []serviceapi.EventDetail {
++	if event.Type != "incoming_chat_message" && event.Type != "outgoing_chat_message" && event.Type != "entity_direct_message" {
++		return nil
++	}
++	direction := "Направление не указано"
++	if event.Type == "incoming_chat_message" {
++		direction = "Входящее сообщение"
++	}
++	if event.Type == "outgoing_chat_message" {
++		direction = "Исходящее сообщение"
++	}
++	msg := nestedObject(event.ValueAfter, "message")
++	details := []serviceapi.EventDetail{{Key: "message_direction", Label: "Направление", Text: direction, Source: serviceapi.SourceEventPayload}}
++	for _, key := range []string{"id", "text", "source", "channel"} {
++		if raw, ok := msg[key]; ok {
++			details = append(details, serviceapi.EventDetail{Key: "message_" + key, Label: map[string]string{"id": "ID сообщения", "text": "Текст сообщения", "source": "Источник сообщения", "channel": "Канал"}[key], After: raw, Source: serviceapi.SourceEventPayload})
++		}
++	}
++	if text, ok := jsonString(msg["text"]); !ok || text == "" {
++		details = append(details, serviceapi.EventDetail{Key: "message_text_state", Label: "Текст сообщения", Text: "Текст отсутствует в данных события; загрузка текста чата по ID не поддерживается.", Source: serviceapi.SourceEventPayload})
++	}
++	if event.LinkedTalkContactID > 0 {
++		details = append(details, serviceapi.EventDetail{Key: "linked_talk_contact_id", Label: "ID контакта беседы", Text: strconv.FormatInt(event.LinkedTalkContactID, 10), Source: serviceapi.SourceEventPayload})
++	}
++	return details
++}
+--- /dev/null
++++ b/internal/services/crmevents/final_audit_integration_test.go
+@@ -0,0 +1,111 @@
++package crmevents
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
++	"testing"
++	"time"
++)
++
++func TestUpdatedEventReplacesEnrichmentLinks(t *testing.T) {
++	for _, samePage := range []bool{false, true} {
++		t.Run(fmt.Sprint(samePage), func(t *testing.T) {
++			s, p, g := setup(t)
++			accepted(t, s, p)
++			at := time.Now().Add(-time.Minute).Unix()
++			event := func(id string, note int) serviceapi.Event {
++				return serviceapi.Event{ID: id, CreatedAt: at, CreatedBy: 7, Type: "common_note_added", EntityType: "lead", EntityID: 31, ValueAfter: json.RawMessage(fmt.Sprintf(`[{"note":{"id":%d}}]`, note))}
++			}
++			pages := [][]serviceapi.Event{{event("shared", 101), event("updated", 101)}, {event("updated", 202)}, {event("updated", 202)}}
++			if samePage {
++				pages = [][]serviceapi.Event{{event("shared", 101), event("updated", 101), event("updated", 202)}, {event("updated", 202)}}
++			}
++			g.events = func(r serviceapi.EventPageRequest) (serviceapi.EventPage, error) {
++				return serviceapi.EventPage{Events: pages[r.Page-1], HasNext: true}, nil
++			}
++			runPages(t, s, len(pages))
++			got, err := s.GetEvent(context.Background(), serviceapi.EventRequest{EventID: "updated"})
++			if err != nil {
++				t.Fatal(err)
++			}
++			if intField(nestedObjects(got.ValueAfter, "note")[0], "id") != 202 {
++				t.Fatal(string(got.ValueAfter))
++			}
++			notes := 0
++			for _, o := range got.Enrichment {
++				if o.ObjectKind == "note" {
++					notes++
++					if o.ObjectKey != "202" {
++						t.Fatalf("stale note: %+v", o)
++					}
++				}
++			}
++			if notes != 1 {
++				t.Fatalf("notes=%d", notes)
++			}
++			shared, err := s.GetEvent(context.Background(), serviceapi.EventRequest{EventID: "shared"})
++			if err != nil {
++				t.Fatal(err)
++			}
++			found := false
++			for _, o := range shared.Enrichment {
++				if o.ObjectKind == "note" && o.ObjectKey == "101" {
++					found = true
++				}
++			}
++			if !found {
++				t.Fatal("shared object removed")
++			}
++			q, err := s.Query(context.Background(), serviceapi.Query{From: at - 1, To: at + 1, Limit: 100})
++			if err != nil || q.Totals.UniqueEvents != 2 {
++				t.Fatalf("totals %+v %v", q.Totals, err)
++			}
++		})
++	}
++}
++
++func TestUpdatedTaskResultReconcilesDependentNote(t *testing.T) {
++	s, p, _ := setup(t)
++	accepted(t, s, p)
++	ctx := context.Background()
++	g := &fixtureGateway{tasks: []serviceapi.Task{{ID: 41, EntityType: "leads", EntityID: 31}}, notes: []serviceapi.Note{{ID: 101, EntityType: "leads", EntityID: 31}, {ID: 202, EntityType: "leads", EntityID: 31}}}
++	s.gateway = g
++	note := 101
++	g.events = func(serviceapi.EventPageRequest) (serviceapi.EventPage, error) {
++		return serviceapi.EventPage{HasNext: true, Events: []serviceapi.Event{{ID: "task-result", Type: "task_result_added", CreatedAt: time.Now().Add(-time.Minute).Unix(), CreatedBy: 7, EntityType: "task", EntityID: 41, ValueAfter: json.RawMessage(fmt.Sprintf(`[{"note":{"id":%d}}]`, note))}}}, nil
++	}
++	runPages(t, s, 1)
++	drainEnrichment(t, s)
++	note = 202
++	runPages(t, s, 1)
++	drainEnrichment(t, s)
++	check := func() {
++		t.Helper()
++		got, err := s.GetEvent(ctx, serviceapi.EventRequest{EventID: "task-result"})
++		if err != nil {
++			t.Fatal(err)
++		}
++		notes := 0
++		for _, o := range got.Enrichment {
++			if o.ObjectKind == "note" {
++				notes++
++				if o.ObjectKey != "202" {
++					t.Fatalf("stale task note %+v", o)
++				}
++			}
++		}
++		if notes != 1 {
++			t.Fatalf("notes=%d", notes)
++		}
++	}
++	check()
++	// A subsequent task refresh must not resurrect the previous event version.
++	_, err := testStore(s).pool.Exec(ctx, `UPDATE event_enrichment_objects SET run_after=now()-interval '1 second' WHERE installation_id=$1 AND object_kind='task'`, p.principal.InstallationID)
++	if err != nil {
++		t.Fatal(err)
++	}
++	drainEnrichment(t, s)
++	check()
++}

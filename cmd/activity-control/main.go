@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
 	"os"
 	"time"
 )
 
 func main() {
+	if buildinfo.PrintVersion(os.Args, os.Stdout) {
+		return
+	}
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

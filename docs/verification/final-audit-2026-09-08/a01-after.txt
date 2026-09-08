@@ -1,0 +1,50 @@
+ Container amocrm-final-audit-test-component-tests-run-59a9a50f4c7f Creating
+ Container amocrm-final-audit-test-component-tests-run-59a9a50f4c7f Created
+=== RUN   TestEnrichSavePageEnqueuesAndGetEventSidecar
+--- PASS: TestEnrichSavePageEnqueuesAndGetEventSidecar (0.09s)
+=== RUN   TestEnrichOnceNotFoundKeepsEventQueryable
+2026/09/08 17:48:31 ERROR CRM Events background operation failed stage=enrich code=not_found
+--- PASS: TestEnrichOnceNotFoundKeepsEventQueryable (0.07s)
+=== RUN   TestEnrichCollectionSavePageWhenNotesError
+--- PASS: TestEnrichCollectionSavePageWhenNotesError (0.05s)
+=== RUN   TestEnrichRetentionCascade
+--- PASS: TestEnrichRetentionCascade (0.05s)
+=== RUN   TestEnrichmentRecoversAfterFastRetriesExhausted
+2026/09/08 17:48:31 ERROR CRM Events background operation failed stage=enrich code=unavailable
+--- PASS: TestEnrichmentRecoversAfterFastRetriesExhausted (0.05s)
+=== RUN   TestEnrichmentClaimAdmissionIsAtomic
+--- PASS: TestEnrichmentClaimAdmissionIsAtomic (2.08s)
+=== RUN   TestEnrichmentPartialBatchSavesHealthyObjects
+--- PASS: TestEnrichmentPartialBatchSavesHealthyObjects (0.09s)
+=== RUN   TestEnrichmentMigrationResumesLegacyTemporaryErrors
+--- PASS: TestEnrichmentMigrationResumesLegacyTemporaryErrors (0.05s)
+=== RUN   TestEnrichmentReauthWaitIsBoundedAndSlow
+--- PASS: TestEnrichmentReauthWaitIsBoundedAndSlow (0.00s)
+=== RUN   TestEnrichmentNegativeCacheExpires
+=== RUN   TestEnrichmentNegativeCacheExpires/permission_denied
+2026/09/08 17:48:34 ERROR CRM Events background operation failed stage=enrich code=permission_denied
+=== RUN   TestEnrichmentNegativeCacheExpires/not_found
+2026/09/08 17:48:34 ERROR CRM Events background operation failed stage=enrich code=not_found
+--- PASS: TestEnrichmentNegativeCacheExpires (0.17s)
+    --- PASS: TestEnrichmentNegativeCacheExpires/permission_denied (0.08s)
+    --- PASS: TestEnrichmentNegativeCacheExpires/not_found (0.09s)
+=== RUN   TestEnrichmentHistoricalNoteIsolation
+--- PASS: TestEnrichmentHistoricalNoteIsolation (0.05s)
+=== RUN   TestEnrichmentReadyTTLAndLargeCatalog
+--- PASS: TestEnrichmentReadyTTLAndLargeCatalog (0.23s)
+=== RUN   TestEnrichmentRefreshMigrationRepairsLegacyObjects
+--- PASS: TestEnrichmentRefreshMigrationRepairsLegacyObjects (0.08s)
+=== RUN   TestEnrichmentNoteEnvelopePreservesMaximumParams
+--- PASS: TestEnrichmentNoteEnvelopePreservesMaximumParams (0.01s)
+=== RUN   TestEnrichmentErrorMapping
+--- PASS: TestEnrichmentErrorMapping (0.00s)
+=== RUN   TestEnrichOnceDoesNotFailCollectorSource
+--- PASS: TestEnrichOnceDoesNotFailCollectorSource (0.00s)
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/false
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/true
+--- PASS: TestUpdatedEventReplacesEnrichmentLinks (0.10s)
+    --- PASS: TestUpdatedEventReplacesEnrichmentLinks/false (0.05s)
+    --- PASS: TestUpdatedEventReplacesEnrichmentLinks/true (0.05s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	4.209s

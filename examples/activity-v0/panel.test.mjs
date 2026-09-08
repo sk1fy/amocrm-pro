@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import {
   calendarDayRange, entityHref, formatDateTimeLocal, isKnownTimezone, observationLabel,
@@ -6,11 +7,11 @@ import {
 } from "./panel.mjs";
 
 test("unknown and incomplete observations never claim zero employee activity", () => {
-  assert.equal(observationLabel({ unique_events: 0 }, "unknown"), "Нет проверенных данных");
-  assert.equal(observationLabel({ unique_events: 0 }, "partial"), "Полных данных нет");
-  assert.equal(observationLabel({ unique_events: 0 }, "stale"), "Полных данных нет");
+  assert.equal(observationLabel({ unique_events: 0 }, "unknown"), "0 зарегистрировано; полнота периода не подтверждена");
+  assert.equal(observationLabel({ unique_events: 0 }, "partial"), "0 зарегистрировано; полнота периода не подтверждена");
+  assert.equal(observationLabel({ unique_events: 0 }, "stale"), "0 зарегистрировано; полнота периода не подтверждена");
   assert.equal(observationLabel({ unique_events: 0 }, "verified"), "Нет событий за выбранный период");
-  assert.equal(observationLabel({ unique_events: 0 }, "partial", "unverified_empty"), "0 зарегистрированных событий (покрытие неполное)");
+  assert.equal(observationLabel({ unique_events: 0 }, "partial", "unverified_empty"), "0 зарегистрировано; полнота периода не подтверждена");
   assert.equal(observationLabel({ unique_events: 0 }, "verified", "no_events"), "Нет событий за выбранный период");
   assert.match(observationLabel({ unique_events: 4 }, "partial"), /^4 зарегистрировано/);
 });
@@ -383,4 +384,53 @@ test("a late detail response cannot replace the refreshed card", async (t) => {
   await h.flush();h.find("Подробнее").click();await h.flush();await h.panel.refresh();
   release();await h.flush();
   assert.equal(reads,2);assert.match(h.element.textContent,/New response/);assert.doesNotMatch(h.element.textContent,/Old response/);
+});
+
+test("audit: unknown coverage retains known counts in employee rows", async () => {
+  for (const coverage of ["unknown", "partial"]) {
+    assert.match(observationLabel({ unique_events: 7 }, coverage), /^7 зарегистрировано/);
+    const { element, flush, panel } = mount(async () => ({ status: 200, body: panelBody({ coverage, summaries: [{user_id: 7, unique_events: 7}, {user_id: 9, unique_events: 0}] }) }));
+    await flush();
+    assert.match(element.querySelectorAll("tr").find(row => row.textContent.includes("Alpha")).textContent, /7 зарегистрировано/);
+    assert.match(element.querySelectorAll("tr").find(row => row.textContent.includes("Beta")).textContent, /0 зарегистрировано/);
+    panel.destroy();
+  }
+  for (const count of [undefined, null, -1, NaN, "7"]) assert.equal(observationLabel({unique_events: count}, "unknown"), "Нет проверенных данных");
+});
+
+test("audit: local time rejects DST gaps and chooses the earlier repeated hour", () => {
+  const tz = "Europe/Oslo";
+  assert.throws(() => parseDateTimeLocal("2026-03-29T02:30:00", tz));
+  assert.throws(() => parseDateTimeLocal("2026-02-30T10:00:00", tz));
+  assert.throws(() => parseDateTimeLocal("2026-09-08T10:00:00", "unknown"));
+  const ordinary = "2026-03-29T03:30:00";
+  assert.equal(formatDateTimeLocal(parseDateTimeLocal(ordinary,tz),tz),ordinary);
+  assert.equal(parseDateTimeLocal("2026-10-25T02:30:00",tz),Date.parse("2026-10-25T00:30:00Z")/1000);
+  for (const [from,to] of [["2026-03-29T02:30:00","2026-03-29T04:00:00"],["2026-03-29T01:00:00","2026-03-29T02:30:00"]]) assert.throws(()=>panelQuery(from,to,"",{timezone:tz}));
+});
+
+// When run by Activity CI these are actual public HTTP cards, collected via
+// PostgreSQL and mTLS, rather than hand-authored presenter-shaped fixtures.
+if (process.env.ACTIVITY_UI_CARDS_FIXTURE) test("audit: public HTTP cards render enum, message and removed values", async () => {
+ const cards=JSON.parse(await readFile(process.env.ACTIVITY_UI_CARDS_FIXTURE,"utf8"));
+ for (const [id,wants] of Object.entries({enum:["Новое имя (#1)","Большой (#1)","#2 (название варианта недоступно)","Текущее значение справочника"],incoming:["Входящее сообщение","msg-in","Текст отсутствует","32"],outgoing:["Исходящее сообщение","Текст из payload","test-channel"],removed:["Значение: null","Новое имя (#1)"]})) {
+  const {element,flush,find,panel}=mount(async({path})=>({status:200,body:path.includes("/events/")?cards[id]:panelBody({events:[{id,type:cards[id].type,view:{detail_state:"omitted"}}]})}));
+  await flush();find("Подробнее").click();await flush();
+  for(const want of wants)assert.ok(element.textContent.includes(want), `${id}: missing ${want}`);
+  panel.destroy();
+ }
+});
+
+test("audit: manual DST gaps on either bound never issue a panel request", async () => {
+ for(const badBound of [0,1]) {
+  let calls=0;
+  const {element,flush,find,panel}=mount(async()=>{calls++;return {status:200,body:panelBody({timezone:"Europe/Oslo"})}});
+  await flush();
+  const bounds=element.querySelectorAll("input").filter(input=>input.type==="datetime-local");
+  bounds[0].value="2026-03-29T01:30:00";bounds[1].value="2026-03-29T03:30:00";
+  bounds[badBound].value="2026-03-29T02:30:00";
+  find("Показать").click();await flush();
+  assert.equal(calls,1);assert.match(element.textContent,/время не существует/);
+  panel.destroy();
+ }
 });

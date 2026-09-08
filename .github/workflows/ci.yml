@@ -93,6 +93,8 @@ jobs:
         with:
           context: .
           target: ${{ matrix.target }}
+          build-args: |
+            BUILD_REVISION=${{ github.sha }}
           push: false
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}

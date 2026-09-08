@@ -9,6 +9,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"math/big"
 	"net/url"
 	"os"
@@ -17,6 +18,9 @@ import (
 )
 
 func main() {
+	if buildinfo.PrintVersion(os.Args, os.Stdout) {
+		return
+	}
 	if len(os.Args) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY (development only, refuses existing keys)")
 		os.Exit(2)

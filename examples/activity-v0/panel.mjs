@@ -44,9 +44,9 @@ const zeroSummary = { unique_events: 0, first_event_at: 0, last_event_at: 0, ent
 
 export function observationLabel(summary, coverage, emptyReason) {
   const count = summary?.unique_events;
-  if (coverage === "unknown" || !Number.isSafeInteger(count)) return "Нет проверенных данных";
+  if (!Number.isSafeInteger(count) || count < 0) return "Нет проверенных данных";
   if (coverage === "verified" && count === 0) return "Нет событий за выбранный период";
-  if (coverage !== "verified" && count === 0) return emptyReason === "unverified_empty" ? "0 зарегистрированных событий (покрытие неполное)" : "Полных данных нет";
+  if (coverage !== "verified") return `${count} зарегистрировано; полнота периода не подтверждена`;
   return `${count} зарегистрировано${coverage === "verified" ? "" : " (данные неполные или устарели)"}`;
 }
 export function operationLabel(receipt) {
@@ -89,11 +89,14 @@ export function parseDateTimeLocal(value, timezone) {
     const parts = zoneParts(ms, timezone);
     return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second || 0)) - ms;
   };
-  let instant = asUTC - offset(asUTC);
-  instant = asUTC - offset(instant);
-  const unix = Math.floor(instant / 1000);
-  if (!Number.isSafeInteger(unix) || unix <= 0) throw new Error(periodError);
-  return unix;
+  const wanted = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6] || "00"}`;
+  // Consider both offsets around a transition. A fold selects the earlier
+  // occurrence; a gap (or normalized invalid date) has no matching instant.
+  const offsets = new Set([-2, -1, 0, 1, 2].map(days => offset(asUTC + days * 86400000)));
+  const candidates = [...offsets].map(value => (asUTC - value) / 1000)
+    .filter(unix => Number.isSafeInteger(unix) && unix > 0 && formatDateTimeLocal(unix, timezone) === wanted);
+  if (!candidates.length) throw new Error("Указанное время не существует в часовом поясе аккаунта. Проверьте дату и время.");
+  return Math.min(...candidates);
 }
 function addUtcDays(ymd, days) {
   const [year, month, day] = ymd.split("-").map(Number);
@@ -406,7 +409,7 @@ export function mountActivityPanel(element, authorizedRequest) {
     head.append(header);
     const body = make("tbody");
     for (const user of panel.users || []) {
-      const summary = summaries.get(user.id) || zeroSummary;
+      const summary = summaries.get(user.id) || (Array.isArray(panel.data?.summaries) ? zeroSummary : {});
       const row = make("tr");
       const name = make("td");
       const pick = make("button", user.name || String(user.id));

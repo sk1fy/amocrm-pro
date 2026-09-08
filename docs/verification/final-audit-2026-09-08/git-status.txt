@@ -1,0 +1,28 @@
+ M Dockerfile
+ M Makefile
+ M cmd/activity-control/main.go
+ M cmd/activity/main.go
+ M cmd/api/main.go
+ M cmd/crm-events/main.go
+ M cmd/integrations/main.go
+ M cmd/migrate/main.go
+ M cmd/service-certs/main.go
+ M cmd/worker/main.go
+ M docker-compose.activity-tests.yml
+ M docker-compose.activity.yml
+ M docker-compose.test.yml
+ M docker-compose.yml
+ M docs/adr/0014-event-enrichment-contract.md
+ M docs/adr/0015-activity-presentation-contract.md
+ M docs/plans/2026-09-08-activity-backend-development.md
+ M docs/runbooks/activity-v0.md
+ M examples/activity-v0/panel.mjs
+ M examples/activity-v0/panel.test.mjs
+ M internal/services/activity/view.go
+ M internal/services/crmevents/postgres_enrichment.go
+?? docs/verification/final-audit-2026-09-08/
+?? internal/buildinfo/
+?? internal/servicerpc/final_audit_integration_test.go
+?? internal/services/activity/final_audit_test.go
+?? internal/services/activity/view_facts.go
+?? internal/services/crmevents/final_audit_integration_test.go

@@ -23,6 +23,7 @@ services:
       dockerfile: Dockerfile
       target: migrate
       args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
         GO_VERSION: "${GO_VERSION:-1.25}"
     environment:
       DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
@@ -42,6 +43,7 @@ services:
       dockerfile: Dockerfile
       target: integration-test
       args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
         GO_VERSION: "${GO_VERSION:-1.25}"
     environment:
       TEST_DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable

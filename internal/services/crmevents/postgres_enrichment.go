@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,8 +19,25 @@ func (s *Postgres) enqueueEnrichment(ctx context.Context, tx pgx.Tx, installatio
 		eventID string
 		object  plannedObject
 	}
-	var links []link
+	// Match writeEvents' last occurrence for every ID, including duplicates
+	// within a page. Rebuild links transactionally; shared cached objects survive.
+	latest := make(map[string]serviceapi.Event, len(events))
 	for _, event := range events {
+		if event.ID != "" {
+			latest[event.ID] = event
+		}
+	}
+	ids := make([]string, 0, len(latest))
+	for id := range latest {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	if _, err := tx.Exec(ctx, `DELETE FROM event_enrichment_links WHERE installation_id=$1 AND event_id=ANY($2::text[])`, installation, ids); err != nil {
+		return err
+	}
+	var links []link
+	for _, id := range ids {
+		event := latest[id]
 		if event.ID == "" {
 			continue
 		}
@@ -29,7 +47,11 @@ func (s *Postgres) enqueueEnrichment(ctx context.Context, tx pgx.Tx, installatio
 			}
 			links = append(links, link{eventID: event.ID, object: object})
 		}
-		for _, object := range s.notesForReadyTask(ctx, tx, installation, event) {
+		notes, err := s.notesForReadyTask(ctx, tx, installation, event)
+		if err != nil {
+			return err
+		}
+		for _, object := range notes {
 			links = append(links, link{eventID: event.ID, object: object})
 		}
 	}
@@ -49,19 +71,22 @@ func (s *Postgres) enqueueEnrichment(ctx context.Context, tx pgx.Tx, installatio
 	return tx.SendBatch(ctx, batch).Close()
 }
 
-func (s *Postgres) notesForReadyTask(ctx context.Context, tx pgx.Tx, installation uuid.UUID, event serviceapi.Event) []plannedObject {
+func (s *Postgres) notesForReadyTask(ctx context.Context, tx pgx.Tx, installation uuid.UUID, event serviceapi.Event) ([]plannedObject, error) {
 	if event.Type != "task_result_added" || event.EntityID <= 0 {
-		return nil
+		return nil, nil
 	}
 	var state, parentType string
 	var parentID int64
 	var payload json.RawMessage
 	err := tx.QueryRow(ctx, `SELECT state,parent_type,parent_id,payload FROM event_enrichment_objects WHERE installation_id=$1 AND object_kind=$2 AND object_key=$3`, installation, serviceapi.ObjectTask, numericKey(event.EntityID)).Scan(&state, &parentType, &parentID, &payload)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	if state != serviceapi.EnrichmentReady {
-		return nil
+		return nil, nil
 	}
 	if parentType == "" || parentID == 0 {
 		var task serviceapi.Task
@@ -70,9 +95,9 @@ func (s *Postgres) notesForReadyTask(ctx context.Context, tx pgx.Tx, installatio
 	}
 	object, ok := planNoteAfterTask(event, parentType, parentID)
 	if !ok {
-		return nil
+		return nil, nil
 	}
-	return []plannedObject{object}
+	return []plannedObject{object}, nil
 }
 
 // Only transient negative results expire. Unsupported/invalid results stay terminal; transient
@@ -189,7 +214,7 @@ func (s *Postgres) enqueueNotesForReadyTask(ctx context.Context, tx pgx.Tx, inst
 	if _, ok := serviceapi.CatalogEntityType(parentType); !ok || parentID <= 0 {
 		return nil
 	}
-	rows, err := tx.Query(ctx, `SELECT e.event_id,e.created_by,e.event_type,e.entity_id,e.entity_type,e.value_before,e.value_after FROM crm_events e JOIN event_enrichment_links l ON l.installation_id=e.installation_id AND l.event_id=e.event_id WHERE l.installation_id=$1 AND l.object_kind=$2 AND l.object_key=$3 AND e.event_type='task_result_added'`, installation, serviceapi.ObjectTask, result.Key)
+	rows, err := tx.Query(ctx, `SELECT e.event_id,e.created_by,e.event_type,e.entity_id,e.entity_type,e.value_before,e.value_after FROM crm_events e JOIN event_enrichment_links l ON l.installation_id=e.installation_id AND l.event_id=e.event_id WHERE l.installation_id=$1 AND l.object_kind=$2 AND l.object_key=$3 AND e.event_type='task_result_added' ORDER BY e.event_id FOR UPDATE OF e`, installation, serviceapi.ObjectTask, result.Key)
 	if err != nil {
 		return err
 	}
@@ -207,21 +232,7 @@ func (s *Postgres) enqueueNotesForReadyTask(ctx context.Context, tx pgx.Tx, inst
 	if err != nil {
 		return err
 	}
-	batch := &pgx.Batch{}
-	queued := false
-	for _, event := range events {
-		object, ok := planNoteAfterTask(event, parentType, parentID)
-		if !ok {
-			continue
-		}
-		queued = true
-		batch.Queue(`INSERT INTO event_enrichment_objects(installation_id,object_kind,object_key,parent_type,parent_id,object_id,state,reason_code,source,payload,run_after,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) ON CONFLICT DO NOTHING`, installation, object.Kind, object.Key, object.ParentType, object.ParentID, object.ObjectID, object.State, object.Reason, object.Source, jsonbOrNull(object.Payload))
-		batch.Queue(`INSERT INTO event_enrichment_links(installation_id,event_id,object_kind,object_key) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, installation, event.ID, object.Kind, object.Key)
-	}
-	if !queued {
-		return nil
-	}
-	return tx.SendBatch(ctx, batch).Close()
+	return s.enqueueEnrichment(ctx, tx, installation, events)
 }
 
 func (s *Postgres) FailEnrichment(ctx context.Context, c EnrichmentClaim, cause error) error {

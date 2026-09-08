@@ -1,0 +1,5 @@
+exit 0
+source adapter == vendor
+ZIP files == widget files
+site src == dist
+ZIP SHA256 da6072eb003afa8ee1889c9e62b75cac358810f7288f7267d5fb00da87f884b7

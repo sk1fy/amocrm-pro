@@ -1,0 +1,270 @@
+docker build --build-arg GO_VERSION=1.25 --target test .
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  4.369MB
+
+Step 1/72 : ARG GO_VERSION=1.25
+Step 2/72 : ARG ALPINE_VERSION=3.21
+Step 3/72 : FROM golang:${GO_VERSION}-alpine AS dependencies
+ ---> 56961d79ea81
+Step 4/72 : ENV CGO_ENABLED=0     GOFLAGS=-mod=readonly
+ ---> Using cache
+ ---> c129fc5c6efa
+Step 5/72 : WORKDIR /src
+ ---> Using cache
+ ---> 679185202210
+Step 6/72 : RUN apk add --no-cache ca-certificates git
+ ---> Using cache
+ ---> 130c30352b4e
+Step 7/72 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> 595575d36750
+Step 8/72 : RUN go mod download
+ ---> Using cache
+ ---> 2007f8a16ef9
+Step 9/72 : FROM dependencies AS source
+ ---> 2007f8a16ef9
+Step 10/72 : ARG BUILD_REVISION=unknown
+ ---> Using cache
+ ---> 1bd2484f3a89
+Step 11/72 : COPY . .
+ ---> e49edb28417f
+Step 12/72 : FROM source AS openapi-test
+ ---> e49edb28417f
+Step 13/72 : RUN go test -count=1 ./api
+ ---> Running in aa3a8aed84fe
+ok  	github.com/sk1fy/amocrm-pro/api	0.021s
+ ---> Removed intermediate container aa3a8aed84fe
+ ---> 0dc624014a29
+Step 14/72 : FROM dependencies AS test-base
+ ---> 2007f8a16ef9
+Step 15/72 : ENV CGO_ENABLED=1
+ ---> Using cache
+ ---> 0cb76f34cfee
+Step 16/72 : RUN apk add --no-cache build-base
+ ---> Using cache
+ ---> d78651ab4bb9
+Step 17/72 : COPY . .
+ ---> 6fa0192533ef
+Step 18/72 : FROM test-base AS integration-test
+ ---> 6fa0192533ef
+Step 19/72 : ENTRYPOINT ["go", "test"]
+ ---> Running in ec5194fb5188
+ ---> Removed intermediate container ec5194fb5188
+ ---> 0325bf2eb79d
+Step 20/72 : CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+ ---> Running in e762bbb850a5
+ ---> Removed intermediate container e762bbb850a5
+ ---> 7d846c3d25cc
+Step 21/72 : FROM alpine:${ALPINE_VERSION} AS runtime
+ ---> 48b0309ca019
+Step 22/72 : ARG BUILD_REVISION=unknown
+ ---> Running in ab223765f6b1
+ ---> Removed intermediate container ab223765f6b1
+ ---> 40450ff4cde1
+Step 23/72 : LABEL org.opencontainers.image.revision=$BUILD_REVISION
+ ---> Running in 6d4dcad754e3
+ ---> Removed intermediate container 6d4dcad754e3
+ ---> 5f1d22536ce8
+Step 24/72 : RUN apk add --no-cache ca-certificates tzdata     && addgroup -S -g 10001 app     && adduser -S -D -H -u 10001 -G app app
+ ---> Running in 7ebafe813761
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/community/aarch64/APKINDEX.tar.gz
+(1/2) Installing ca-certificates (20260413-r0)
+(2/2) Installing tzdata (2026c-r0)
+Executing busybox-1.37.0-r14.trigger
+Executing ca-certificates-20260413-r0.trigger
+OK: 8 MiB in 17 packages
+ ---> Removed intermediate container 7ebafe813761
+ ---> d70f06bd2cd3
+Step 25/72 : WORKDIR /app
+ ---> Running in 081e9e6f61bf
+ ---> Removed intermediate container 081e9e6f61bf
+ ---> ab25a82bf4ad
+Step 26/72 : USER app
+ ---> Running in 0bc0bed47fa0
+ ---> Removed intermediate container 0bc0bed47fa0
+ ---> e8a65879e07e
+Step 27/72 : FROM source AS migrate-build
+ ---> e49edb28417f
+Step 28/72 : RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-migrate ./cmd/migrate
+ ---> Running in 22b18ae41fad
+ ---> Removed intermediate container 22b18ae41fad
+ ---> 297c505e602f
+Step 29/72 : FROM runtime AS migrate
+ ---> e8a65879e07e
+Step 30/72 : COPY --from=migrate-build --chown=app:app /out/amocrm-migrate /usr/local/bin/amocrm-migrate
+ ---> b0aec82555ba
+Step 31/72 : COPY --from=migrate-build --chown=app:app /src/migrations /migrations
+ ---> ad9745fe0d7a
+Step 32/72 : ENV MIGRATIONS_DIR=/migrations
+ ---> Running in 3487884525f8
+ ---> Removed intermediate container 3487884525f8
+ ---> 30db60faa34a
+Step 33/72 : ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
+ ---> Running in a38c4df83788
+ ---> Removed intermediate container a38c4df83788
+ ---> 19e861798e13
+Step 34/72 : CMD ["up"]
+ ---> Running in acff208be5f8
+ ---> Removed intermediate container acff208be5f8
+ ---> 1c95a9394474
+Step 35/72 : FROM source AS integrations-build
+ ---> e49edb28417f
+Step 36/72 : RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-integrations ./cmd/integrations
+ ---> Running in 70434f722608
+ ---> Removed intermediate container 70434f722608
+ ---> 02e5efef577a
+Step 37/72 : FROM runtime AS integrations
+ ---> e8a65879e07e
+Step 38/72 : COPY --from=integrations-build --chown=app:app /out/amocrm-integrations /usr/local/bin/amocrm-integrations
+ ---> 5abd49d8be9a
+Step 39/72 : ENTRYPOINT ["/usr/local/bin/amocrm-integrations"]
+ ---> Running in db2877a3923d
+ ---> Removed intermediate container db2877a3923d
+ ---> 61c6e2fcb09b
+Step 40/72 : FROM source AS api-build
+ ---> e49edb28417f
+Step 41/72 : RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-api ./cmd/api
+ ---> Running in 8e783038e881
+ ---> Removed intermediate container 8e783038e881
+ ---> 14f994c7ee85
+Step 42/72 : FROM runtime AS api
+ ---> e8a65879e07e
+Step 43/72 : COPY --from=api-build --chown=app:app /out/amocrm-api /usr/local/bin/amocrm-api
+ ---> 16d630df2600
+Step 44/72 : EXPOSE 8080 8082
+ ---> Running in 0a7369e4ecda
+ ---> Removed intermediate container 0a7369e4ecda
+ ---> a10a91d7e6cf
+Step 45/72 : ENTRYPOINT ["/usr/local/bin/amocrm-api"]
+ ---> Running in e29b71c986ef
+ ---> Removed intermediate container e29b71c986ef
+ ---> 80eb50b277a5
+Step 46/72 : FROM source AS worker-build
+ ---> e49edb28417f
+Step 47/72 : RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-worker ./cmd/worker
+ ---> Running in 54e090acfdb3
+ ---> Removed intermediate container 54e090acfdb3
+ ---> 47d7a22512de
+Step 48/72 : FROM runtime AS worker
+ ---> e8a65879e07e
+Step 49/72 : COPY --from=worker-build --chown=app:app /out/amocrm-worker /usr/local/bin/amocrm-worker
+ ---> 58cbfe62257d
+Step 50/72 : EXPOSE 8081
+ ---> Running in bd73ef34ba71
+ ---> Removed intermediate container bd73ef34ba71
+ ---> 80ce2f0b8e67
+Step 51/72 : HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3     CMD wget -q -O /dev/null http://127.0.0.1:8081/live || exit 1
+ ---> Running in 606f03afc669
+ ---> Removed intermediate container 606f03afc669
+ ---> 79eae84db069
+Step 52/72 : ENTRYPOINT ["/usr/local/bin/amocrm-worker"]
+ ---> Running in 2e3c71323178
+ ---> Removed intermediate container 2e3c71323178
+ ---> defa23d1cb19
+Step 53/72 : FROM source AS component-build
+ ---> e49edb28417f
+Step 54/72 : RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/crm-events ./cmd/crm-events     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity-control ./cmd/activity-control     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/service-certs ./cmd/service-certs
+ ---> Running in bc2495f3609a
+ ---> Removed intermediate container bc2495f3609a
+ ---> 4422f926c874
+Step 55/72 : FROM runtime AS activity
+ ---> e8a65879e07e
+Step 56/72 : COPY --from=component-build --chown=app:app /out/activity /usr/local/bin/activity
+ ---> b20d95b8cecf
+Step 57/72 : EXPOSE 9091 8091
+ ---> Running in 1a3efa4fabe2
+ ---> Removed intermediate container 1a3efa4fabe2
+ ---> 622cd2d4564d
+Step 58/72 : ENTRYPOINT ["/usr/local/bin/activity"]
+ ---> Running in 87e725f50f00
+ ---> Removed intermediate container 87e725f50f00
+ ---> 1a8dd53c08a8
+Step 59/72 : FROM runtime AS crm-events
+ ---> e8a65879e07e
+Step 60/72 : COPY --from=component-build --chown=app:app /out/crm-events /usr/local/bin/crm-events
+ ---> 902fda44a1d8
+Step 61/72 : EXPOSE 9092 8092
+ ---> Running in 9c3f4993ffb2
+ ---> Removed intermediate container 9c3f4993ffb2
+ ---> d820e5d8a8ec
+Step 62/72 : ENTRYPOINT ["/usr/local/bin/crm-events"]
+ ---> Running in 01d855961356
+ ---> Removed intermediate container 01d855961356
+ ---> f575ad5b0ef0
+Step 63/72 : FROM runtime AS service-certs
+ ---> e8a65879e07e
+Step 64/72 : COPY --from=component-build --chown=app:app /out/service-certs /usr/local/bin/service-certs
+ ---> ddf08293651d
+Step 65/72 : ENTRYPOINT ["/usr/local/bin/service-certs"]
+ ---> Running in 0b467bbb9b0c
+ ---> Removed intermediate container 0b467bbb9b0c
+ ---> b5b934db6952
+Step 66/72 : FROM runtime AS activity-control
+ ---> e8a65879e07e
+Step 67/72 : COPY --from=component-build --chown=app:app /out/activity-control /usr/local/bin/activity-control
+ ---> 7b0fbb29621d
+Step 68/72 : ENTRYPOINT ["/usr/local/bin/activity-control"]
+ ---> Running in 3fdc9910ef79
+ ---> Removed intermediate container 3fdc9910ef79
+ ---> f464eb428b06
+Step 69/72 : FROM test-base AS test
+ ---> 6fa0192533ef
+Step 70/72 : RUN files="$(gofmt -l .)";     if [ -n "$files" ]; then         printf 'The following Go files need formatting:\n%s\n' "$files";         exit 1;     fi
+ ---> Running in db80aa004fc9
+ ---> Removed intermediate container db80aa004fc9
+ ---> 94c2bc1bf7c9
+Step 71/72 : RUN go vet ./...
+ ---> Running in 0d38548cdc90
+ ---> Removed intermediate container 0d38548cdc90
+ ---> 9b9008985b82
+Step 72/72 : RUN go test -race -count=1 ./...
+ ---> Running in 57b705fa3818
+ok  	github.com/sk1fy/amocrm-pro/api	1.406s
+?   	github.com/sk1fy/amocrm-pro/cmd/activity	[no test files]
+?   	github.com/sk1fy/amocrm-pro/cmd/activity-control	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/cmd/api	1.032s
+?   	github.com/sk1fy/amocrm-pro/cmd/crm-events	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/cmd/integrations	1.018s
+ok  	github.com/sk1fy/amocrm-pro/cmd/migrate	1.007s
+?   	github.com/sk1fy/amocrm-pro/cmd/service-certs	[no test files]
+?   	github.com/sk1fy/amocrm-pro/cmd/worker	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/activitybridge	1.131s
+?   	github.com/sk1fy/amocrm-pro/internal/apicontract	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/buildinfo	1.009s
+ok  	github.com/sk1fy/amocrm-pro/internal/componentruntime	1.027s
+ok  	github.com/sk1fy/amocrm-pro/internal/corepolicy	1.050s
+ok  	github.com/sk1fy/amocrm-pro/internal/gateway	1.083s
+?   	github.com/sk1fy/amocrm-pro/internal/installations	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/integration/amocrm	4.460s
+ok  	github.com/sk1fy/amocrm-pro/internal/integrations	1.010s
+ok  	github.com/sk1fy/amocrm-pro/internal/jobs	1.028s
+ok  	github.com/sk1fy/amocrm-pro/internal/maintenance	1.031s
+ok  	github.com/sk1fy/amocrm-pro/internal/oauth	1.017s
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/config	1.008s
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/cryptox	1.008s
+?   	github.com/sk1fy/amocrm-pro/internal/platform/logging	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/migrations	1.011s
+?   	github.com/sk1fy/amocrm-pro/internal/platform/postgres	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/platform/sanitize	1.006s
+ok  	github.com/sk1fy/amocrm-pro/internal/serviceapi	1.040s
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	2.341s
+?   	github.com/sk1fy/amocrm-pro/internal/servicerpc/pb	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/services	1.006s
+ok  	github.com/sk1fy/amocrm-pro/internal/services/activity	1.011s
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	1.256s
+ok  	github.com/sk1fy/amocrm-pro/internal/services/leadstatus	1.015s
+ok  	github.com/sk1fy/amocrm-pro/internal/testkit	1.023s
+?   	github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/transport/httpserver	1.017s
+ok  	github.com/sk1fy/amocrm-pro/internal/webhook	1.023s
+?   	github.com/sk1fy/amocrm-pro/internal/widgetapi	[no test files]
+ok  	github.com/sk1fy/amocrm-pro/internal/widgetauth	1.019s
+ok  	github.com/sk1fy/amocrm-pro/internal/widgetcors	1.020s
+ok  	github.com/sk1fy/amocrm-pro/internal/widgetlimit	1.027s
+ ---> Removed intermediate container 57b705fa3818
+ ---> de02272db87f
+Successfully built de02272db87f

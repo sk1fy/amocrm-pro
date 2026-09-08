@@ -1,0 +1,18 @@
+ Container amocrm-final-audit-test-component-tests-run-c8909296f96d Creating
+ Container amocrm-final-audit-test-component-tests-run-c8909296f96d Created
+=== RUN   TestFinalAuditOwnerRPCPublicCards
+=== RUN   TestFinalAuditOwnerRPCPublicCards/budget
+=== RUN   TestFinalAuditOwnerRPCPublicCards/enum
+=== RUN   TestFinalAuditOwnerRPCPublicCards/incoming
+=== RUN   TestFinalAuditOwnerRPCPublicCards/outgoing
+=== RUN   TestFinalAuditOwnerRPCPublicCards/removed
+=== RUN   TestFinalAuditOwnerRPCPublicCards/note
+--- PASS: TestFinalAuditOwnerRPCPublicCards (0.21s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/budget (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/enum (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/incoming (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/outgoing (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/removed (0.01s)
+    --- PASS: TestFinalAuditOwnerRPCPublicCards/note (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	1.229s

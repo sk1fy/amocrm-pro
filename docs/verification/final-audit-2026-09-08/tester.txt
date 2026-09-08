@@ -1,0 +1,109 @@
+
+> amocrm-pro-service-2-widget@0.5.2 activity-assets
+> node scripts/activity-assets.mjs
+
+
+> amocrm-pro-service-2-widget@0.5.2 check
+> node scripts/activity-assets.mjs --check && node scripts/validate.mjs && node --check widget/script.js && node --check widget/lib/backend-client.js && node --check widget/lib/diagnostics.js && node --check widget/lib/activity-bridge.js && node --test
+
+Widget structure is valid.
+✔ normalizeSiteUrl requires HTTPS without query or credentials (0.835833ms)
+✔ host checks origin/source, rejects a forbidden route, redacts JWT and never uses * (3.357208ms)
+✔ allowedActivityRequest accepts event detail GET and keeps existing denials (0.257917ms)
+✔ closing the child window destroys the host (0.091709ms)
+✔ vendored adapter preserves observed counts and rejects DST gaps (14.581292ms)
+✔ normalizes a strict HTTPS backend origin (2.330208ms)
+✔ validates positive IDs and zero revision (0.145125ms)
+✔ ping sends an empty POST with idempotency and fresh authorization headers (0.293125ms)
+✔ lead action serializes the exact backend command (0.179292ms)
+✔ each operation uses a fresh amoCRM token and separate request (0.110167ms)
+✔ ping then polling uses distinct tokens against replay-protected backend (0.40025ms)
+✔ token acquisition failure sends no backend request and does not expose auth response (0.167833ms)
+✔ malformed token response fails before backend request (0.084041ms)
+✔ invalid integration UUID cannot alter the same-origin token endpoint (0.7105ms)
+✔ rule configuration sends revision CAS and enabled=false without changing values (0.433459ms)
+✔ invalid job ID is rejected before acquiring a token (0.167333ms)
+✔ diagnostics exposes only HTTP metadata and preserves failure correlation (0.264625ms)
+✔ Activity panel, command replay and operation polling each use fresh authorization (0.27525ms)
+✔ Activity preserves structured policy denial and rejects unrelated routes before token acquisition (0.1355ms)
+✔ bridgeRequest allows bootstrap and Activity routes, still rejects an arbitrary proxy (0.111583ms)
+✔ Activity transport permits status reads and enforces method-route pairs (0.099583ms)
+✔ Activity transport allows event detail GET and rejects invalid event paths before the backend (0.215208ms)
+✔ bootstrap requires the current integration and positive account/user IDs (1.4285ms)
+✔ poll follows queue, processing and retry until completion (1.88975ms)
+✔ failed is rejected with the worker error and job ID (0.301791ms)
+✔ dead is rejected with the worker error and job ID (0.072541ms)
+✔ cancelled is rejected with the worker error and job ID (0.068333ms)
+✔ poll rejects unknown status or an unrelated job (0.13ms)
+✔ timeout stops polling and preserves the job ID for resuming (0.112792ms)
+✔ destroy during an in-flight request suppresses its result and further polls (0.080334ms)
+✔ ping replay uses the same key and returns one accepted job (0.111792ms)
+✔ ping replay cannot pass when the server creates duplicate jobs (0.181ms)
+✔ failed worker job leaves the real panel in error state and restores controls (16.423083ms)
+✔ smoke handler checks bootstrap, replays one key and validates pong (2.282709ms)
+✔ destroy during admission does not start polling or report success (0.953041ms)
+✔ Activity site opens a named window with opener hash, keeps the built-in panel, and destroy closes the child (0.758792ms)
+✔ Activity is explicit, keeps the backend request adapter and cleans up on reopen, render and destroy (0.6305ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111.739833
+
+> amocrm-pro-service-2-widget@0.5.2 pack
+> node scripts/pack.mjs
+
+
+> amocrm-pro-service-2-widget@0.5.2 check
+> node scripts/activity-assets.mjs --check && node scripts/validate.mjs && node --check widget/script.js && node --check widget/lib/backend-client.js && node --check widget/lib/diagnostics.js && node --check widget/lib/activity-bridge.js && node --test
+
+Widget structure is valid.
+✔ normalizeSiteUrl requires HTTPS without query or credentials (1.322625ms)
+✔ host checks origin/source, rejects a forbidden route, redacts JWT and never uses * (6.426334ms)
+✔ allowedActivityRequest accepts event detail GET and keeps existing denials (0.43075ms)
+✔ closing the child window destroys the host (0.148084ms)
+✔ vendored adapter preserves observed counts and rejects DST gaps (18.65125ms)
+✔ normalizes a strict HTTPS backend origin (0.992333ms)
+✔ validates positive IDs and zero revision (0.161333ms)
+✔ ping sends an empty POST with idempotency and fresh authorization headers (0.306958ms)
+✔ lead action serializes the exact backend command (0.178958ms)
+✔ each operation uses a fresh amoCRM token and separate request (0.145667ms)
+✔ ping then polling uses distinct tokens against replay-protected backend (0.221666ms)
+✔ token acquisition failure sends no backend request and does not expose auth response (0.140542ms)
+✔ malformed token response fails before backend request (0.872041ms)
+✔ invalid integration UUID cannot alter the same-origin token endpoint (0.166542ms)
+✔ rule configuration sends revision CAS and enabled=false without changing values (0.144208ms)
+✔ invalid job ID is rejected before acquiring a token (0.451542ms)
+✔ diagnostics exposes only HTTP metadata and preserves failure correlation (0.256459ms)
+✔ Activity panel, command replay and operation polling each use fresh authorization (0.321084ms)
+✔ Activity preserves structured policy denial and rejects unrelated routes before token acquisition (0.173417ms)
+✔ bridgeRequest allows bootstrap and Activity routes, still rejects an arbitrary proxy (0.117083ms)
+✔ Activity transport permits status reads and enforces method-route pairs (0.117458ms)
+✔ Activity transport allows event detail GET and rejects invalid event paths before the backend (1.278ms)
+✔ bootstrap requires the current integration and positive account/user IDs (0.95475ms)
+✔ poll follows queue, processing and retry until completion (0.969583ms)
+✔ failed is rejected with the worker error and job ID (0.259209ms)
+✔ dead is rejected with the worker error and job ID (0.063792ms)
+✔ cancelled is rejected with the worker error and job ID (0.06425ms)
+✔ poll rejects unknown status or an unrelated job (0.105584ms)
+✔ timeout stops polling and preserves the job ID for resuming (0.101375ms)
+✔ destroy during an in-flight request suppresses its result and further polls (0.073ms)
+✔ ping replay uses the same key and returns one accepted job (0.09975ms)
+✔ ping replay cannot pass when the server creates duplicate jobs (0.16ms)
+✔ failed worker job leaves the real panel in error state and restores controls (15.657834ms)
+✔ smoke handler checks bootstrap, replays one key and validates pong (1.962209ms)
+✔ destroy during admission does not start polling or report success (0.909292ms)
+✔ Activity site opens a named window with opener hash, keeps the built-in panel, and destroy closes the child (0.831958ms)
+✔ Activity is explicit, keeps the backend request adapter and cleans up on reopen, render and destroy (0.645584ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.506083
+Created /Users/nikpeskov/Projects/sub-projects/amocrm-pro-service-2/dist/widget.zip

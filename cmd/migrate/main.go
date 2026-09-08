@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"os"
 	"time"
 
@@ -18,6 +19,9 @@ const (
 )
 
 func main() {
+	if buildinfo.PrintVersion(os.Args, os.Stdout) {
+		return
+	}
 	command, err := migrationCommand(os.Args[1:], os.Getenv)
 	if errors.Is(err, errUsage) {
 		fmt.Fprintln(os.Stderr, "usage: migrate [up|down]")

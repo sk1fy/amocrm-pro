@@ -18,6 +18,8 @@ RUN go mod download
 
 FROM dependencies AS source
 
+ARG BUILD_REVISION=unknown
+
 COPY . .
 
 FROM source AS openapi-test
@@ -39,6 +41,9 @@ CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
+ARG BUILD_REVISION=unknown
+LABEL org.opencontainers.image.revision=$BUILD_REVISION
+
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 app \
     && adduser -S -D -H -u 10001 -G app app
@@ -49,7 +54,10 @@ USER app
 
 FROM source AS migrate-build
 
-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-migrate ./cmd/migrate
+# Declare in each build stage for classic Docker builder compatibility.
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-migrate ./cmd/migrate
 
 FROM runtime AS migrate
 
@@ -63,7 +71,10 @@ CMD ["up"]
 
 FROM source AS integrations-build
 
-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-integrations ./cmd/integrations
+# Declare in each build stage for classic Docker builder compatibility.
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-integrations ./cmd/integrations
 
 FROM runtime AS integrations
 
@@ -73,7 +84,10 @@ ENTRYPOINT ["/usr/local/bin/amocrm-integrations"]
 
 FROM source AS api-build
 
-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-api ./cmd/api
+# Declare in each build stage for classic Docker builder compatibility.
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-api ./cmd/api
 
 FROM runtime AS api
 
@@ -85,7 +99,10 @@ ENTRYPOINT ["/usr/local/bin/amocrm-api"]
 
 FROM source AS worker-build
 
-RUN go build -trimpath -ldflags="-s -w" -o /out/amocrm-worker ./cmd/worker
+# Declare in each build stage for classic Docker builder compatibility.
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-worker ./cmd/worker
 
 FROM runtime AS worker
 
@@ -100,10 +117,13 @@ ENTRYPOINT ["/usr/local/bin/amocrm-worker"]
 
 FROM source AS component-build
 
-RUN go build -trimpath -ldflags="-s -w" -o /out/activity ./cmd/activity \
-    && go build -trimpath -ldflags="-s -w" -o /out/crm-events ./cmd/crm-events \
-    && go build -trimpath -ldflags="-s -w" -o /out/activity-control ./cmd/activity-control \
-    && go build -trimpath -ldflags="-s -w" -o /out/service-certs ./cmd/service-certs
+# Declare in each build stage for classic Docker builder compatibility.
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity \
+    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/crm-events ./cmd/crm-events \
+    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity-control ./cmd/activity-control \
+    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/service-certs ./cmd/service-certs
 
 FROM runtime AS activity
 COPY --from=component-build --chown=app:app /out/activity /usr/local/bin/activity

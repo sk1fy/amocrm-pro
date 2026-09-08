@@ -1,0 +1,186 @@
+{
+  "checks": [
+    {
+      "name": "fmt",
+      "command": [
+        "make",
+        "fmt-check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.52
+    },
+    {
+      "name": "vet",
+      "command": [
+        "make",
+        "vet"
+      ],
+      "exit_code": 0,
+      "seconds": 49.4
+    },
+    {
+      "name": "openapi",
+      "command": [
+        "make",
+        "openapi-check"
+      ],
+      "exit_code": 0,
+      "seconds": 15.55
+    },
+    {
+      "name": "test",
+      "command": [
+        "make",
+        "test"
+      ],
+      "exit_code": 0,
+      "seconds": 281.62
+    },
+    {
+      "name": "integration",
+      "command": [
+        "make",
+        "COMPOSE=docker-compose",
+        "TEST_COMPOSE_PROJECT=amocrm-final-core-0908-test",
+        "integration-test"
+      ],
+      "exit_code": 0,
+      "seconds": 159.86
+    },
+    {
+      "name": "activity-ci",
+      "command": [
+        "make",
+        "COMPOSE=docker-compose",
+        "ACTIVITY_TEST_PROJECT=amocrm-final-verify-0908-test",
+        "activity-ci"
+      ],
+      "exit_code": 0,
+      "seconds": 405.8
+    },
+    {
+      "name": "tidy",
+      "command": [
+        "go",
+        "mod",
+        "tidy",
+        "-diff"
+      ],
+      "exit_code": 0,
+      "seconds": 88.25
+    },
+    {
+      "name": "build",
+      "command": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "exit_code": 0,
+      "seconds": 6.96
+    }
+  ],
+  "final_presentation": {
+    "top_level_pass": 5,
+    "top_level_fail": 0,
+    "skips": []
+  },
+  "local_activity_package": {
+    "top_level_pass": 12,
+    "top_level_fail": 0,
+    "skips": [
+      "TestPostgresSettingsReceiptSurvivesResponseLoss"
+    ]
+  },
+  "supplemental_checks": [
+    {
+      "name": "site",
+      "cwd": "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-activity-site",
+      "command": "ACTIVITY_UI_CARDS_FIXTURE=/Users/nikpeskov/Projects/amocrm-pro/tmp/activity-v0-evidence/cards.json npm run check",
+      "exit_code": 0
+    },
+    {
+      "name": "tester",
+      "cwd": "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-service-2",
+      "command": "npm run activity-assets && npm run check && npm run pack",
+      "exit_code": 0
+    },
+    {
+      "name": "version-skew",
+      "command": "docker-compose -p amocrm-final-audit-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps -e COMPONENT_PROCESS_PREVIOUS_API_BINARY=/src/tmp/activity-v0-evidence/pre-audit-api --entrypoint go component-tests test -race -count=1 -v -run ^TestComponentProcessesAndModeSwitch$ ./internal/componentruntime",
+      "exit_code": 0
+    },
+    {
+      "name": "final-presentation",
+      "command": "docker-compose -p amocrm-final-audit-test --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml run --rm --no-deps --entrypoint go component-tests test -race -p 1 -count=1 -v -run 'TestBudgetCard|TestEnumCard|TestEventCard|TestFinalAuditOwnerRPCPublicCards' ./internal/services/activity ./internal/servicerpc",
+      "exit_code": 0
+    },
+    {
+      "name": "enum-overflow-local",
+      "command": "go test -race -count=1 -v ./internal/services/activity",
+      "exit_code": 0
+    },
+    {
+      "name": "enum-overflow-vet",
+      "command": "go vet ./internal/services/activity",
+      "exit_code": 0
+    },
+    {
+      "name": "client-artifacts",
+      "command": "python3 tmp/final-audit-artifacts.py",
+      "exit_code": 0
+    }
+  ],
+  "activity_go": {
+    "top_level_pass": 187,
+    "top_level_fail": 0,
+    "skips": [
+      "TestFaultGatewayFixture",
+      "TestFaultReceiverFixture",
+      "TestProcessGatewayFixture"
+    ]
+  },
+  "core_integration": {
+    "top_level_pass": 181,
+    "top_level_fail": 0,
+    "skips": [
+      "TestFairClaimPerformance",
+      "TestWorkerPollingPerformance"
+    ]
+  },
+  "version_skew": {
+    "top_level_pass": 1,
+    "top_level_fail": 0,
+    "skips": []
+  },
+  "ui_log": [
+    "# tests 25",
+    "# suites 0",
+    "# pass 25",
+    "# fail 0",
+    "# cancelled 0",
+    "# skipped 0",
+    "# todo 0",
+    "# duration_ms 210.614577"
+  ],
+  "site": {
+    "pass": 34,
+    "fail": 0,
+    "skip": 0,
+    "exit_code": 0
+  },
+  "tester": {
+    "pass": 37,
+    "fail": 0,
+    "skip": 0,
+    "exit_code": 0
+  },
+  "image_verification_exit_code": 0,
+  "client_artifact_verification_exit_code": 0,
+  "notes": [
+    "Core integration opt-in benchmark skips: TestFairClaimPerformance and TestWorkerPollingPerformance require FAIR_CLAIM_BENCHMARK=true.",
+    "Activity helper skips are invoked in OS subprocesses by parent tests.",
+    "Default make test does not provide PostgreSQL; the separate integration/activity gates verify DB-backed behavior.",
+    "After the general gate: explicit Docker ARG declarations verified by artifact build; enum overflow grouping verified by 5 race-enabled presenter/public-path tests, package vet, and rebuilt final image."
+  ]
+}

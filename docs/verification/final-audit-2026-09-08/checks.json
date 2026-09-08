@@ -1,0 +1,81 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "make",
+      "fmt-check"
+    ],
+    "exit_code": 0,
+    "seconds": 0.52
+  },
+  {
+    "name": "vet",
+    "command": [
+      "make",
+      "vet"
+    ],
+    "exit_code": 0,
+    "seconds": 49.4
+  },
+  {
+    "name": "openapi",
+    "command": [
+      "make",
+      "openapi-check"
+    ],
+    "exit_code": 0,
+    "seconds": 15.55
+  },
+  {
+    "name": "test",
+    "command": [
+      "make",
+      "test"
+    ],
+    "exit_code": 0,
+    "seconds": 281.62
+  },
+  {
+    "name": "integration",
+    "command": [
+      "make",
+      "COMPOSE=docker-compose",
+      "TEST_COMPOSE_PROJECT=amocrm-final-core-0908-test",
+      "integration-test"
+    ],
+    "exit_code": 0,
+    "seconds": 159.86
+  },
+  {
+    "name": "activity-ci",
+    "command": [
+      "make",
+      "COMPOSE=docker-compose",
+      "ACTIVITY_TEST_PROJECT=amocrm-final-verify-0908-test",
+      "activity-ci"
+    ],
+    "exit_code": 0,
+    "seconds": 405.8
+  },
+  {
+    "name": "tidy",
+    "command": [
+      "go",
+      "mod",
+      "tidy",
+      "-diff"
+    ],
+    "exit_code": 0,
+    "seconds": 88.25
+  },
+  {
+    "name": "build",
+    "command": [
+      "go",
+      "build",
+      "./..."
+    ],
+    "exit_code": 0,
+    "seconds": 6.96
+  }
+]

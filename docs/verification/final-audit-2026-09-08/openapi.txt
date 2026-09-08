@@ -1,0 +1,42 @@
+docker build --build-arg GO_VERSION=1.25 --target openapi-test .
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  4.367MB
+
+Step 1/13 : ARG GO_VERSION=1.25
+Step 2/13 : ARG ALPINE_VERSION=3.21
+Step 3/13 : FROM golang:${GO_VERSION}-alpine AS dependencies
+ ---> 56961d79ea81
+Step 4/13 : ENV CGO_ENABLED=0     GOFLAGS=-mod=readonly
+ ---> Using cache
+ ---> c129fc5c6efa
+Step 5/13 : WORKDIR /src
+ ---> Using cache
+ ---> 679185202210
+Step 6/13 : RUN apk add --no-cache ca-certificates git
+ ---> Using cache
+ ---> 130c30352b4e
+Step 7/13 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> 595575d36750
+Step 8/13 : RUN go mod download
+ ---> Using cache
+ ---> 2007f8a16ef9
+Step 9/13 : FROM dependencies AS source
+ ---> 2007f8a16ef9
+Step 10/13 : ARG BUILD_REVISION=unknown
+ ---> Running in b23a9baa348a
+ ---> Removed intermediate container b23a9baa348a
+ ---> 1bd2484f3a89
+Step 11/13 : COPY . .
+ ---> e3fe574d380f
+Step 12/13 : FROM source AS openapi-test
+ ---> e3fe574d380f
+Step 13/13 : RUN go test -count=1 ./api
+ ---> Running in 58dc2802517c
+ok  	github.com/sk1fy/amocrm-pro/api	0.022s
+ ---> Removed intermediate container 58dc2802517c
+ ---> 1dc166d121b7
+Successfully built 1dc166d121b7

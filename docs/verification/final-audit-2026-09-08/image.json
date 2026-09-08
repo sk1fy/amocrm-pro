@@ -1,0 +1,25 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--build-arg",
+    "BUILD_REVISION=12cd6e1a947f982cbcfccb50866dc7938a54e1a6-dirty",
+    "--target",
+    "activity",
+    "-t",
+    "amocrm-final-audit-activity:local",
+    "."
+  ],
+  "exit_code": 0,
+  "tag": "amocrm-final-audit-activity:local",
+  "image_id": "sha256:ac61b6dfa38cb45d4e2b59acc437ddb35629a665d59e0e737f6b8781ee2a41b0",
+  "repo_digests": [
+    "amocrm-final-audit-activity@sha256:ac61b6dfa38cb45d4e2b59acc437ddb35629a665d59e0e737f6b8781ee2a41b0"
+  ],
+  "revision": "12cd6e1a947f982cbcfccb50866dc7938a54e1a6-dirty",
+  "version_output": "12cd6e1a947f982cbcfccb50866dc7938a54e1a6-dirty",
+  "binary": "/usr/local/bin/activity",
+  "binary_sha256": "9015e284bab06373bee6f1e462d192af9c19bce5576b4d384d0db693295684ba",
+  "architecture": "arm64",
+  "os": "linux"
+}

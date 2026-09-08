@@ -1,5 +1,10 @@
 SHELL := /bin/sh
 
+# Include staged, unstaged and untracked changes; dirty builds are never
+# advertised as exact clean commits. Direct Compose defaults to unknown.
+BUILD_REVISION := $(shell git rev-parse --verify HEAD 2>/dev/null || echo unknown)$(shell test -z "$$(git status --porcelain 2>/dev/null)" || echo -dirty)
+export BUILD_REVISION
+
 DOCKER ?= docker
 COMPOSE ?= docker-compose
 GO_VERSION ?= 1.25

@@ -26,6 +26,7 @@ services:
       dockerfile: Dockerfile
       target: migrate
       args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
         GO_VERSION: "${GO_VERSION:-1.25}"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
@@ -46,6 +47,7 @@ services:
       dockerfile: Dockerfile
       target: integrations
       args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
         GO_VERSION: "${GO_VERSION:-1.25}"
     environment:
       APP_ENV: "${APP_ENV:-development}"
@@ -70,6 +72,7 @@ services:
       dockerfile: Dockerfile
       target: api
       args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
         GO_VERSION: "${GO_VERSION:-1.25}"
     init: true
     environment:
@@ -136,6 +139,7 @@ services:
       dockerfile: Dockerfile
       target: worker
       args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
         GO_VERSION: "${GO_VERSION:-1.25}"
     init: true
     environment:

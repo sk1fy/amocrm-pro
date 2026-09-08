@@ -1,0 +1,79 @@
+ Volume amocrm-final-audit-test_component-test-cache Creating
+ Volume amocrm-final-audit-test_component-test-cache Created
+time="2026-09-08T20:46:50+03:00" level=warning msg="Docker Compose requires buildx plugin to be installed"
+ Image amocrm-final-audit-test-component-tests Building
+ Image amocrm-final-audit-test-component-tests Building
+Sending build context to Docker daemon  524.4kB
+Sending build context to Docker daemon  889.8kB
+
+Step 1/20 : ARG GO_VERSION=1.25
+Step 2/20 : ARG ALPINE_VERSION=3.21
+Step 3/20 : FROM golang:${GO_VERSION}-alpine AS dependencies
+ ---> 56961d79ea81
+Step 4/20 : ENV CGO_ENABLED=0     GOFLAGS=-mod=readonly
+ ---> Using cache
+ ---> c129fc5c6efa
+Step 5/20 : WORKDIR /src
+ ---> Using cache
+ ---> 679185202210
+Step 6/20 : RUN apk add --no-cache ca-certificates git
+ ---> Using cache
+ ---> 130c30352b4e
+Step 7/20 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> 595575d36750
+Step 8/20 : RUN go mod download
+ ---> Using cache
+ ---> 2007f8a16ef9
+Step 9/20 : FROM dependencies AS source
+ ---> 2007f8a16ef9
+Step 10/20 : COPY . .
+ ---> 010b2bae26d8
+Step 11/20 : FROM source AS openapi-test
+ ---> 010b2bae26d8
+Step 12/20 : RUN go test -count=1 ./api
+ ---> Running in 942233f1bfc7
+ok  	github.com/sk1fy/amocrm-pro/api	0.022s
+ ---> Removed intermediate container 942233f1bfc7
+ ---> 2eacadeddf28
+Step 13/20 : FROM dependencies AS test-base
+ ---> 2007f8a16ef9
+Step 14/20 : ENV CGO_ENABLED=1
+ ---> Using cache
+ ---> 0cb76f34cfee
+Step 15/20 : RUN apk add --no-cache build-base
+ ---> Using cache
+ ---> d78651ab4bb9
+Step 16/20 : COPY . .
+ ---> 5a9b7168492c
+Step 17/20 : FROM test-base AS integration-test
+ ---> 5a9b7168492c
+Step 18/20 : ENTRYPOINT ["go", "test"]
+ ---> Running in 668b0f64c50d
+ ---> Removed intermediate container 668b0f64c50d
+ ---> 0437cac11491
+Step 19/20 : CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+ ---> Running in 920ee6e1da6d
+ ---> Removed intermediate container 920ee6e1da6d
+ ---> 384bcac816b2
+Step 20/20 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in 51bf7cd25dcf
+ ---> Removed intermediate container 51bf7cd25dcf
+ ---> 61bb7d838d88
+Successfully built 61bb7d838d88
+Successfully tagged amocrm-final-audit-test-component-tests:latest
+ Image amocrm-final-audit-test-component-tests Built
+ Image amocrm-final-audit-test-component-tests Built
+ Container amocrm-final-audit-test-component-tests-run-d166f1afd0b1 Creating
+ Container amocrm-final-audit-test-component-tests-run-d166f1afd0b1 Created
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/false
+    final_audit_integration_test.go:41: stale note: {Current:false ObjectKind:note ObjectKey:101 State:pending ReasonCode:not_loaded Source: FetchedAt:0 Payload:[]}
+=== RUN   TestUpdatedEventReplacesEnrichmentLinks/true
+    final_audit_integration_test.go:41: stale note: {Current:false ObjectKind:note ObjectKey:101 State:pending ReasonCode:not_loaded Source: FetchedAt:0 Payload:[]}
+--- FAIL: TestUpdatedEventReplacesEnrichmentLinks (0.11s)
+    --- FAIL: TestUpdatedEventReplacesEnrichmentLinks/false (0.08s)
+    --- FAIL: TestUpdatedEventReplacesEnrichmentLinks/true (0.03s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/services/crmevents	0.115s
+FAIL

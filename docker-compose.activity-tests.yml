@@ -21,6 +21,7 @@ services:
       COMPONENT_PROCESS_TEST_ADMIN_URL: postgres://pilot_admin:pilot_admin_dev@postgres:5432/postgres?sslmode=disable
       COMPONENT_PROCESS_TEST_ALLOWED: "true"
       ACTIVITY_UI_OPERATION_FIXTURE: /src/tmp/activity-v0-evidence/crm-operation.json
+      ACTIVITY_UI_CARDS_FIXTURE: /src/tmp/activity-v0-evidence/cards.json
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -29,7 +30,7 @@ services:
         test "$${TEST_DATABASE_RESET_ALLOWED}" = true
         test "$${COMPONENT_PROCESS_TEST_ALLOWED}" = true
         mkdir -p /src/tmp/activity-v0-evidence
-        rm -f "$${ACTIVITY_UI_OPERATION_FIXTURE}"
+        rm -f "$${ACTIVITY_UI_OPERATION_FIXTURE}" "$${ACTIVITY_UI_CARDS_FIXTURE:?}"
         logfile=/src/tmp/activity-v0-evidence/activity-go.log
         # Packages reset their own shared test schemas: never run them concurrently.
         if ! go test -race -p 1 -count=1 -timeout=15m -v ./api ./internal/serviceapi ./internal/services ./internal/componentruntime ./internal/activitybridge ./internal/services/activity ./internal/services/crmevents ./internal/corepolicy ./internal/gateway ./internal/servicerpc ./internal/integration/amocrm >"$$logfile" 2>&1; then
@@ -44,6 +45,7 @@ services:
           grep -q "^--- PASS: $$required (" "$$logfile"
         done
         test -s "$${ACTIVITY_UI_OPERATION_FIXTURE}"
+        test -s "$${ACTIVITY_UI_CARDS_FIXTURE:?}"
     depends_on: {migrate-test-core: {condition: service_completed_successfully}}
   component-ui-tests:
     profiles: ["tests"]
@@ -54,10 +56,12 @@ services:
     working_dir: /src
     environment:
       ACTIVITY_UI_OPERATION_FIXTURE: /evidence/crm-operation.json
+      ACTIVITY_UI_CARDS_FIXTURE: /evidence/cards.json
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
         test -s "$${ACTIVITY_UI_OPERATION_FIXTURE:?}"
+        test -s "$${ACTIVITY_UI_CARDS_FIXTURE:?}"
         if ! node --test examples/activity-v0/panel.test.mjs examples/activity-v0/panel.operation.test.mjs >/evidence/activity-ui.log 2>&1; then
           cat /evidence/activity-ui.log
           exit 1
