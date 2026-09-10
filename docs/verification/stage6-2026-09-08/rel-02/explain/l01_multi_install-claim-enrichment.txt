@@ -1,0 +1,58 @@
+Limit  (cost=43.47..43.48 rows=1 width=93) (actual time=0.280..0.282 rows=1 loops=1)
+  Buffers: shared hit=25
+  ->  LockRows  (cost=43.47..43.97 rows=40 width=93) (actual time=0.280..0.281 rows=1 loops=1)
+        Buffers: shared hit=25
+        ->  Sort  (cost=43.47..43.57 rows=40 width=93) (actual time=0.278..0.280 rows=1 loops=1)
+              Sort Key: o.run_after, o.object_kind, o.object_key
+              Sort Method: quicksort  Memory: 49kB
+              Buffers: shared hit=24
+              ->  Nested Loop Anti Join  (cost=22.09..43.27 rows=40 width=93) (actual time=0.062..0.164 rows=224 loops=1)
+                    Join Filter: (j.installation_id = o.installation_id)
+                    Buffers: shared hit=24
+                    ->  Nested Loop Anti Join  (cost=22.09..40.13 rows=50 width=81) (actual time=0.057..0.135 rows=224 loops=1)
+                          Join Filter: (busy.installation_id = o.installation_id)
+                          Buffers: shared hit=23
+                          ->  Nested Loop  (cost=22.09..28.91 rows=68 width=75) (actual time=0.038..0.092 rows=224 loops=1)
+                                Join Filter: (s.installation_id = o.installation_id)
+                                Buffers: shared hit=17
+                                ->  Hash Join  (cost=21.94..25.44 rows=2 width=60) (actual time=0.032..0.034 rows=5 loops=1)
+                                      Hash Cond: (c.installation_id = s.installation_id)
+                                      Buffers: shared hit=2
+                                      ->  HashAggregate  (cost=20.80..22.73 rows=193 width=22) (actual time=0.003..0.004 rows=5 loops=1)
+                                            Group Key: c.installation_id
+                                            Batches: 1  Memory Usage: 40kB
+                                            Buffers: shared hit=1
+                                            ->  Seq Scan on event_consumers c  (cost=0.00..19.60 rows=480 width=22) (actual time=0.001..0.002 rows=5 loops=1)
+                                                  Filter: enabled
+                                                  Buffers: shared hit=1
+                                      ->  Hash  (cost=1.07..1.07 rows=5 width=38) (actual time=0.015..0.015 rows=5 loops=1)
+                                            Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                            Buffers: shared hit=1
+                                            ->  Seq Scan on event_sources s  (cost=0.00..1.07 rows=5 width=38) (actual time=0.003..0.004 rows=5 loops=1)
+                                                  Filter: (state <> ALL ('{reauth_required,disabled,paused,failed}'::text[]))
+                                                  Buffers: shared hit=1
+                                ->  Index Scan using event_enrichment_claim on event_enrichment_objects o  (cost=0.15..1.40 rows=27 width=47) (actual time=0.002..0.008 rows=45 loops=5)
+                                      Index Cond: ((installation_id = c.installation_id) AND (run_after <= now()))
+                                      Filter: (((lease_until IS NULL) OR (lease_until < now())) AND ((state = ANY ('{pending,retry}'::text[])) OR ((state = 'ready'::text) AND (source <> 'event_payload'::text)) OR ((state = 'unavailable'::text) AND (reason_code = ANY ('{not_found,permission_denied}'::text[])))))
+                                      Buffers: shared hit=15
+                          ->  Materialize  (cost=0.00..10.21 rows=1 width=22) (actual time=0.000..0.000 rows=0 loops=224)
+                                Buffers: shared hit=6
+                                ->  Seq Scan on event_enrichment_objects busy  (cost=0.00..10.20 rows=1 width=22) (actual time=0.018..0.018 rows=0 loops=1)
+                                      Filter: (lease_until > now())
+                                      Rows Removed by Filter: 280
+                                      Buffers: shared hit=6
+                    ->  Materialize  (cost=0.00..2.39 rows=1 width=28) (actual time=0.000..0.000 rows=0 loops=224)
+                          Buffers: shared hit=1
+                          ->  Nested Loop  (cost=0.00..2.39 rows=1 width=28) (actual time=0.003..0.003 rows=0 loops=1)
+                                Join Filter: (src.installation_id = j.installation_id)
+                                Buffers: shared hit=1
+                                ->  Seq Scan on event_jobs j  (cost=0.00..1.30 rows=1 width=22) (actual time=0.003..0.003 rows=0 loops=1)
+                                      Filter: ((kind = ANY ('{current,backfill}'::text[])) AND (status = 'running'::text))
+                                      Rows Removed by Filter: 20
+                                      Buffers: shared hit=1
+                                ->  Seq Scan on event_sources src  (cost=0.00..1.07 rows=1 width=22) (never executed)
+                                      Filter: (lease_until > now())
+Planning:
+  Buffers: shared hit=18
+Planning Time: 0.462 ms
+Execution Time: 0.324 ms

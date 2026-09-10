@@ -7,11 +7,18 @@ import (
 )
 
 const (
-	recordWidgetToken     = "used_widget_token"
-	recordIdempotencyKey  = "idempotency_key"
-	recordOAuthState      = "oauth_state"
-	recordInboxEvent      = "inbox_event"
-	recordWebhookDelivery = "webhook_delivery"
+	recordWidgetToken       = "used_widget_token"
+	recordIdempotencyKey    = "idempotency_key"
+	recordOAuthState        = "oauth_state"
+	recordInboxEvent        = "inbox_event"
+	recordWebhookDelivery   = "webhook_delivery"
+	recordOutboundEffect    = "outbound_effect"
+	recordWorkflowRun       = "workflow_run"
+	recordRuleConfiguration = "rule_configuration"
+	recordJob               = "job"
+	recordTombstone         = "webhook_event_tombstone"
+	recordAudit             = "audit_log"
+	recordCommandReceipt    = "activity_command_receipt"
 )
 
 type Metrics struct {
@@ -69,6 +76,13 @@ func (m *Metrics) observe(started time.Time, result Result, err error) {
 		{recordOAuthState, result.OAuthStates, result.OAuthStatesLimitReached},
 		{recordInboxEvent, result.InboxEvents, result.InboxEventsLimitReached},
 		{recordWebhookDelivery, result.WebhookDeliveries, result.DeliveriesLimitReached},
+		{recordOutboundEffect, result.OutboundEffects, result.OutboundEffectsLimitReached},
+		{recordWorkflowRun, result.WorkflowRuns, result.WorkflowRunsLimitReached},
+		{recordRuleConfiguration, result.RuleConfigurations, result.RuleConfigurationsLimitReached},
+		{recordJob, result.Jobs, result.JobsLimitReached},
+		{recordTombstone, result.Tombstones, result.TombstonesLimitReached},
+		{recordAudit, result.Audit, result.AuditLimitReached},
+		{recordCommandReceipt, result.CommandReceipts, result.CommandReceiptsLimitReached},
 	}
 	for _, observation := range observations {
 		m.deleted.WithLabelValues(observation.record).Add(float64(observation.deleted))

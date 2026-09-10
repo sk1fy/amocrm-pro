@@ -4,9 +4,12 @@ import "context"
 
 // MetricsSnapshot reads only the owner database; labels are normalized before
 // crossing the metrics port even if an operator introduced an unknown DB state.
+// Job gauges exclude completed/failed history so technical-history growth cannot
+// inflate "current" series. Processed totals come from event_sources and remain
+// cumulative after job GC. Unknown statuses still map to "other".
 func (s *Postgres) MetricsSnapshot(ctx context.Context) (Snapshot, error) {
 	result := Snapshot{States: map[string]int64{}, EnrichmentStates: map[string]int64{}}
-	rows, err := s.pool.Query(ctx, `SELECT status,count(*) FROM event_jobs GROUP BY status`)
+	rows, err := s.pool.Query(ctx, `SELECT status,count(*) FROM event_jobs WHERE status NOT IN ('completed','failed') GROUP BY status`)
 	if err != nil {
 		return result, err
 	}
@@ -25,7 +28,11 @@ func (s *Postgres) MetricsSnapshot(ctx context.Context) (Snapshot, error) {
 	if err != nil {
 		return result, err
 	}
-	err = s.pool.QueryRow(ctx, `SELECT coalesce(extract(epoch from now()-min(created_at) FILTER(WHERE status IN ('queued','running','retry','paused'))),0),coalesce(sum(processed),0),coalesce(sum(inserted),0),coalesce(sum(updated),0),coalesce(sum(deduplicated),0) FROM event_jobs`).Scan(&result.AgeSeconds, &result.Processed, &result.Inserted, &result.Updated, &result.Deduplicated)
+	err = s.pool.QueryRow(ctx, `SELECT coalesce(extract(epoch from now()-min(created_at) FILTER(WHERE status IN ('queued','running','retry','paused'))),0) FROM event_jobs`).Scan(&result.AgeSeconds)
+	if err != nil {
+		return result, err
+	}
+	err = s.pool.QueryRow(ctx, `SELECT coalesce(sum(events_processed),0),coalesce(sum(events_inserted),0),coalesce(sum(events_updated),0),coalesce(sum(events_deduplicated),0) FROM event_sources`).Scan(&result.Processed, &result.Inserted, &result.Updated, &result.Deduplicated)
 	if err != nil {
 		return result, err
 	}

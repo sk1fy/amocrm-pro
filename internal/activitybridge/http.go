@@ -286,7 +286,7 @@ func writeError(w http.ResponseWriter, err error) {
 	case serviceapi.Unauthenticated:
 		status = 401
 		w.Header().Set("WWW-Authenticate", "Bearer")
-	case serviceapi.PermissionDenied:
+	case serviceapi.PermissionDenied, serviceapi.ReauthRequired:
 		status = 403
 	case serviceapi.NotFound:
 		status = 404
@@ -300,5 +300,53 @@ func writeError(w http.ResponseWriter, err error) {
 	if status == 429 {
 		w.Header().Set("Retry-After", "1")
 	}
-	respond(w, status, map[string]any{"error": map[string]string{"code": string(code)}}, nil)
+	respond(w, status, jsonError{Error: jsonErrorFields{
+		Code: string(code), Message: safeErrorMessage(code),
+		RequestID: w.Header().Get("X-Request-ID"), Retryable: retryableError(code),
+	}}, nil)
+}
+
+type jsonError struct {
+	Error jsonErrorFields `json:"error"`
+}
+
+type jsonErrorFields struct {
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	RequestID string `json:"request_id"`
+	Retryable bool   `json:"retryable"`
+}
+
+func safeErrorMessage(code serviceapi.Code) string {
+	switch code {
+	case serviceapi.InvalidArgument:
+		return "invalid request"
+	case serviceapi.Unauthenticated:
+		return "widget authentication required"
+	case serviceapi.PermissionDenied:
+		return "permission denied"
+	case serviceapi.NotFound:
+		return "not found"
+	case serviceapi.Conflict:
+		return "conflict"
+	case serviceapi.Unavailable:
+		return "temporarily unavailable"
+	case serviceapi.DeadlineExceeded:
+		return "request deadline exceeded"
+	case serviceapi.ResourceExhausted:
+		return "capacity exhausted"
+	case serviceapi.ReauthRequired:
+		return "installation requires authorization"
+	default:
+		return "internal error"
+	}
+}
+
+func retryableError(code serviceapi.Code) bool {
+	switch code {
+	case serviceapi.Unavailable, serviceapi.ResourceExhausted, serviceapi.DeadlineExceeded:
+		return true
+	default:
+		return false
+	}
 }

@@ -17,6 +17,11 @@
 | [0013](0013-event-detail-read-contract.md) | Accepted | CRM Events detail read, filters and cursor compatibility |
 | [0014](0014-event-enrichment-contract.md) | Accepted | CRM Events enrichment owner, bounded Gateway reads and provenance |
 | [0015](0015-activity-presentation-contract.md) | Accepted | Activity presentation, categories, period coverage vs freshness |
+| [0016](0016-technical-history-retention.md) | Accepted | CRM Events technical-history GC and 7-day retry/dedup horizon |
+| [0017](0017-oauth-refresh-lease.md) | Accepted | OAuth refresh claim/lease without a SQL transaction across amoCRM HTTP |
+| [0018](0018-installation-lifecycle.md) | Accepted | Installation disable/revoke/uninstall, webhook unregister and data-retention split |
+| [0019](0019-gateway-outbound-budget.md) | Accepted | One Gateway process owns amoCRM v4 budget; inter-replica limiter only with multiple replicas |
+| [0021](0021-production-secrets.md) | Accepted, KMS deferred | Env/file keyring for current single-host; production KMS not chosen without target server |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

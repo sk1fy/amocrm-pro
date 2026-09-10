@@ -186,6 +186,68 @@ func TestWorkerReapBatchDefaultsAndBounds(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidEncryptionKeyRing(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:not-a-key")
+	if _, err := LoadAPI(); err == nil {
+		t.Fatal("expected invalid ENCRYPTION_KEYS rejection")
+	}
+}
+
+func TestAPIRejectsInvalidHTTPAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("HTTP_ADDRESS", "8080")
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "HTTP_ADDRESS") {
+		t.Fatalf("expected HTTP_ADDRESS rejection, got %v", err)
+	}
+}
+
+func TestAPIRejectsInvalidOAuthAndJWTDeadlines(t *testing.T) {
+	for _, testCase := range []struct {
+		name, variable, value, errorText string
+	}{
+		{name: "short oauth state", variable: "OAUTH_STATE_TTL", value: "30s", errorText: "at least 1m"},
+		{name: "long oauth state", variable: "OAUTH_STATE_TTL", value: "2h", errorText: "at most 1h"},
+		{name: "long jwt leeway", variable: "WIDGET_JWT_LEEWAY", value: "2m", errorText: "at most 1m"},
+		{name: "long jwt lifetime", variable: "WIDGET_JWT_MAX_LIFETIME", value: "2h", errorText: "at most 1h"},
+		{name: "zero oauth ip rate", variable: "OAUTH_IP_RATE_PER_SECOND", value: "0", errorText: "OAUTH_IP_RATE_PER_SECOND"},
+		{name: "short oauth limiter ttl", variable: "OAUTH_LIMITER_INACTIVE_TTL", value: "1ms", errorText: "OAUTH_LIMITER_INACTIVE_TTL"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+			t.Setenv("APP_ENV", "development")
+			t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+			t.Setenv(testCase.variable, testCase.value)
+			_, err := LoadAPI()
+			if err == nil || !strings.Contains(err.Error(), testCase.errorText) {
+				t.Fatalf("expected %s rejection, got %v", testCase.variable, err)
+			}
+		})
+	}
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("WIDGET_JWT_LEEWAY", "30s")
+	t.Setenv("WIDGET_JWT_MAX_LIFETIME", "10s")
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "WIDGET_JWT_MAX_LIFETIME must be at least WIDGET_JWT_LEEWAY") {
+		t.Fatalf("expected jwt lifetime vs leeway rejection, got %v", err)
+	}
+}
+
+func TestWorkerRejectsSubsecondJobTimeout(t *testing.T) {
+	setWorkerEnvironment(t)
+	t.Setenv("WORKER_JOB_TIMEOUT", "500ms")
+	_, err := LoadWorker()
+	if err == nil || !strings.Contains(err.Error(), "at least 1s") {
+		t.Fatalf("expected job timeout rejection, got %v", err)
+	}
+}
+
 func setWorkerEnvironment(t *testing.T) {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")

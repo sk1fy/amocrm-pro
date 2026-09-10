@@ -101,16 +101,15 @@ API и worker являются раздельными deployment units одно�
 
 1. Реальный installed-private-widget E2E для `X-Auth-Token` ещё не выполнен;
    автоматизированная совместимость реализована в `BUG-010` / #55.
-2. Token refresh holds a PostgreSQL transaction/row lock across an external
-   amoCRM OAuth request.
-3. `/oauth/start` has no ingress rate limit. Expired OAuth states now use bounded cleanup.
-4. Jobs, attempts, audit, tombstones, workflow runs and outbound effects have
-   no finite retention policy.
-5. Webhook duplicate/stale removal, key rotation, unregister and complete
-   uninstall/revocation lifecycle are unfinished.
-6. Widget settings and stable JSON error contracts are unfinished.
-7. Dashboards, alerts, SLO, backup/restore rehearsal, least-privilege DB roles,
-   KMS boundary and production security/capacity program remain open.
+2. Production SSH, live roles/listeners/`APP_ENV`, reverse-proxy OAuth
+   ingress and KMS boundary remain unverified (CORE-06 / BASE-01).
+3. Remote amoCRM OAuth token revocation API is not called; uninstall uses
+   a scoped OAuth provider with refresh. A lost refresh outcome requires
+   successful persistence by the original owner or reauthorization.
+4. Dashboards, alerts, SLO, backup/restore rehearsal of the target
+   environment remain open (этап 8).
+5. Widget settings UX beyond the current JSON error envelope remains a
+   product/UI remainder, not a Core contract hole.
 
 ## Invariants
 

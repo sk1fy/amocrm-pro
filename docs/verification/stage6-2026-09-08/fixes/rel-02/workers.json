@@ -1,0 +1,653 @@
+{
+  "backfill_events": 1000,
+  "budget_requests_per_second": 20,
+  "budget_wait_p95": "76.399238ms",
+  "budget_wait_p99": "78.401378ms",
+  "calls": {
+    "events": 50,
+    "refresh_requests": 5,
+    "tasks": 38
+  },
+  "completed_backfills": 5,
+  "detail_ready_p95": "2.884842661s",
+  "detail_ready_p99": "2.884845829s",
+  "elapsed": "6.827608349s",
+  "external_latency_ms": 20,
+  "installations": 5,
+  "max_collector_lag_seconds": 4.261583,
+  "new_events": 30,
+  "raw_event_p95": "2.226306903s",
+  "raw_event_p99": "2.33154732s",
+  "refresh_objects": 5,
+  "refresh_share_of_task_requests": 0.13157894736842105,
+  "series": [
+    {
+      "elapsed_ms": 3,
+      "jobs": {
+        "queued": 5
+      },
+      "oldest_job_seconds": 0.010297,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.716726,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 106,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.114755,
+      "enrichment_age_seconds": 0.076805,
+      "collector_lag_seconds": 2.819958,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 209,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.217684,
+      "enrichment_age_seconds": 0.17939,
+      "collector_lag_seconds": 2.922678,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 310,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.319311,
+      "enrichment_age_seconds": 0.281084,
+      "collector_lag_seconds": 3.024335,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 413,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.421633,
+      "enrichment_age_seconds": 0.383285,
+      "collector_lag_seconds": 3.126587,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 515,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.523544,
+      "enrichment_age_seconds": 0.485468,
+      "collector_lag_seconds": 3.228719,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 617,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.625808,
+      "enrichment_age_seconds": 0.58735,
+      "collector_lag_seconds": 3.330698,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 718,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.726887,
+      "enrichment_age_seconds": 0.588006,
+      "collector_lag_seconds": 3.431855,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 820,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.8294,
+      "enrichment_age_seconds": 0.591287,
+      "collector_lag_seconds": 3.534356,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 923,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.93148,
+      "enrichment_age_seconds": 0.693471,
+      "collector_lag_seconds": 3.636449,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1026,
+      "jobs": {
+        "queued": 9,
+        "running": 1
+      },
+      "oldest_job_seconds": 1.034798,
+      "enrichment_age_seconds": 0.696925,
+      "collector_lag_seconds": 3.739881,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1131,
+      "jobs": {
+        "queued": 8,
+        "running": 2
+      },
+      "oldest_job_seconds": 1.138516,
+      "enrichment_age_seconds": 0.801193,
+      "collector_lag_seconds": 3.844052,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1234,
+      "jobs": {
+        "queued": 8,
+        "running": 2
+      },
+      "oldest_job_seconds": 1.242786,
+      "enrichment_age_seconds": 0.905041,
+      "collector_lag_seconds": 3.947893,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1339,
+      "jobs": {
+        "queued": 8,
+        "running": 2
+      },
+      "oldest_job_seconds": 1.346735,
+      "enrichment_age_seconds": 1.009129,
+      "collector_lag_seconds": 4.051804,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1445,
+      "jobs": {
+        "queued": 6,
+        "running": 2
+      },
+      "oldest_job_seconds": 1.453106,
+      "enrichment_age_seconds": 1.115753,
+      "collector_lag_seconds": 4.15845,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1548,
+      "jobs": {
+        "queued": 4,
+        "running": 2
+      },
+      "oldest_job_seconds": 1.556438,
+      "enrichment_age_seconds": 1.218776,
+      "collector_lag_seconds": 4.261583,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1651,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 1.659485,
+      "enrichment_age_seconds": 1.321331,
+      "collector_lag_seconds": 1.364403,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1754,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 1.762605,
+      "enrichment_age_seconds": 1.325907,
+      "collector_lag_seconds": 1.467639,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1857,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 1.865415,
+      "enrichment_age_seconds": 1.428505,
+      "collector_lag_seconds": 1.570351,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 1959,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 1.967237,
+      "enrichment_age_seconds": 1.530645,
+      "collector_lag_seconds": 1.672269,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 2061,
+      "jobs": {
+        "queued": 3,
+        "running": 1
+      },
+      "oldest_job_seconds": 2.0666,
+      "enrichment_age_seconds": 1.532543,
+      "collector_lag_seconds": 1.774926,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 2163,
+      "jobs": {
+        "queued": 2,
+        "running": 1
+      },
+      "oldest_job_seconds": 2.167276,
+      "enrichment_age_seconds": 1.535875,
+      "collector_lag_seconds": 1.87709,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 2266,
+      "jobs": {
+        "queued": 1,
+        "running": 1
+      },
+      "oldest_job_seconds": 2.268006,
+      "enrichment_age_seconds": 1.638572,
+      "collector_lag_seconds": 1.979598,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 2369,
+      "jobs": {
+        "running": 1
+      },
+      "oldest_job_seconds": 2.369394,
+      "enrichment_age_seconds": 1.640499,
+      "collector_lag_seconds": 2.082644,
+      "new_details_ready": 0
+    },
+    {
+      "elapsed_ms": 2473,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 1.744793,
+      "collector_lag_seconds": 2.186266,
+      "new_details_ready": 2
+    },
+    {
+      "elapsed_ms": 2577,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 1.648277,
+      "collector_lag_seconds": 2.290924,
+      "new_details_ready": 2
+    },
+    {
+      "elapsed_ms": 2681,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 1.75065,
+      "collector_lag_seconds": 2.393331,
+      "new_details_ready": 4
+    },
+    {
+      "elapsed_ms": 2783,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 1.503875,
+      "collector_lag_seconds": 2.496705,
+      "new_details_ready": 6
+    },
+    {
+      "elapsed_ms": 2885,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.598975,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 2994,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.704216,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3101,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.812648,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3210,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.91979,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3317,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.028959,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3422,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.13342,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3526,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.239094,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3637,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.345009,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3750,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.461913,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3859,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.569639,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 3968,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.680536,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4079,
+      "jobs": {
+        "queued": 5
+      },
+      "oldest_job_seconds": 0.075805,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 3.791371,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4184,
+      "jobs": {
+        "queued": 3,
+        "running": 2
+      },
+      "oldest_job_seconds": 0.180952,
+      "enrichment_age_seconds": 0.059597,
+      "collector_lag_seconds": 3.896459,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4289,
+      "jobs": {
+        "queued": 3,
+        "running": 2
+      },
+      "oldest_job_seconds": 0.285992,
+      "enrichment_age_seconds": 0.164776,
+      "collector_lag_seconds": 4.001401,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4395,
+      "jobs": {
+        "queued": 3,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.391772,
+      "enrichment_age_seconds": 0.270606,
+      "collector_lag_seconds": 4.107188,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4501,
+      "jobs": {
+        "running": 2
+      },
+      "oldest_job_seconds": 0.497856,
+      "enrichment_age_seconds": 0.376746,
+      "collector_lag_seconds": 4.21326,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4603,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0.378284,
+      "collector_lag_seconds": 1.317075,
+      "new_details_ready": 10
+    },
+    {
+      "elapsed_ms": 4705,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0.381216,
+      "collector_lag_seconds": 1.41913,
+      "new_details_ready": 16
+    },
+    {
+      "elapsed_ms": 4809,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0.084466,
+      "collector_lag_seconds": 1.522353,
+      "new_details_ready": 22
+    },
+    {
+      "elapsed_ms": 4913,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 1.625846,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5018,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 1.730329,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5127,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 1.838687,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5235,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 1.947876,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5341,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.05295,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5449,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.160593,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5555,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.267116,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5659,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.372453,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5765,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.477569,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5871,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.58365,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 5983,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 2.694629,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 6087,
+      "jobs": {
+        "queued": 4,
+        "running": 1
+      },
+      "oldest_job_seconds": 0.084654,
+      "enrichment_age_seconds": 0.018095,
+      "collector_lag_seconds": 2.800107,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 6193,
+      "jobs": {
+        "queued": 3,
+        "running": 2
+      },
+      "oldest_job_seconds": 0.188608,
+      "enrichment_age_seconds": 0.123109,
+      "collector_lag_seconds": 2.90409,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 6299,
+      "jobs": {
+        "queued": 3,
+        "running": 2
+      },
+      "oldest_job_seconds": 0.296661,
+      "enrichment_age_seconds": 0.230065,
+      "collector_lag_seconds": 3.012022,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 6406,
+      "jobs": {
+        "queued": 1,
+        "running": 2
+      },
+      "oldest_job_seconds": 0.402946,
+      "enrichment_age_seconds": 0.33646,
+      "collector_lag_seconds": 3.118248,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 6518,
+      "jobs": {
+        "running": 1
+      },
+      "oldest_job_seconds": 0.514522,
+      "enrichment_age_seconds": 0.399498,
+      "collector_lag_seconds": 3.230296,
+      "new_details_ready": 25
+    },
+    {
+      "elapsed_ms": 6620,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0.402204,
+      "collector_lag_seconds": 1.334289,
+      "new_details_ready": 27
+    },
+    {
+      "elapsed_ms": 6724,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0.055252,
+      "collector_lag_seconds": 1.437802,
+      "new_details_ready": 29
+    },
+    {
+      "elapsed_ms": 6827,
+      "jobs": {},
+      "oldest_job_seconds": 0,
+      "enrichment_age_seconds": 0,
+      "collector_lag_seconds": 1.540454,
+      "new_details_ready": 30
+    }
+  ],
+  "task_objects": 1035,
+  "waves": 6,
+  "workers": 2
+}

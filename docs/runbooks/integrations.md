@@ -65,9 +65,10 @@ docker-compose run --rm integrations set-service \
 `update` меняет только указанные поля. `--webhook-events ''` очищает список.
 Изменения webhook events задают intent для следующих OAuth authorizations;
 существующие installations получают новый intent при повторной авторизации.
-Автоматическое удаление старых remote webhook subscriptions этим CLI не
-реализовано. У service grant сохраняется существующий config; CLI управляет
-только `enabled`. Поддерживаются только сервисы compile-time каталога.
+`webhook.reconcile` после OAuth удаляет подтверждённые прежние destinations установки и
+оставляет одну desired подписку. У service grant сохраняется существующий
+config; CLI управляет только `enabled`. Поддерживаются только сервисы
+compile-time каталога.
 
 ## Ротация client secret
 
@@ -104,9 +105,66 @@ side effect. API отвечает HTTP 403 с `service_not_enabled`; worker за
 
 Enable восстанавливает status integration, сохраняя индивидуальные service grants
 и installation statuses. Ранее отменённые/завершённые jobs автоматически не
-перезапускаются. Disable не является uninstall в amoCRM, remote token revocation
-или удалением подписок. Если credentials уже отозваны в amoCRM, потребуется новая
-OAuth авторизация.
+перезапускаются. Disable интеграции не является uninstall, disable одной
+установки, remote token revocation или удалением подписок. Если credentials уже
+отозваны в amoCRM, потребуется новая OAuth авторизация. Матрица переходов:
+[ADR-0018](../adr/0018-installation-lifecycle.md).
+
+## Установка: disable, revoke и uninstall
+
+Команды ниже требуют `--code` интеграции и `--installation-id`. Они не меняют
+status самой интеграции и не удаляют историю CRM Events/Activity.
+
+```sh
+docker-compose run --rm integrations disable-installation \
+  --actor operator@example.org --code widget-a \
+  --installation-id 11111111-1111-4111-8111-111111111111
+
+docker-compose run --rm integrations enable-installation \
+  --actor operator@example.org --code widget-a \
+  --installation-id 11111111-1111-4111-8111-111111111111
+
+docker-compose run --rm integrations revoke \
+  --actor operator@example.org --code widget-a \
+  --installation-id 11111111-1111-4111-8111-111111111111
+
+docker-compose run --rm integrations uninstall \
+  --actor operator@example.org --code widget-a \
+  --installation-id 11111111-1111-4111-8111-111111111111
+```
+
+| Команда | Status установки | Remote webhooks | Данные |
+| --- | --- | --- | --- |
+| `disable-installation` | `disabled` | Не снимаются; ingress их игнорирует | Не удаляются |
+| `enable-installation` | только из `disabled` → `active` | Ранее оставленные подписки снова принимаются | Не удаляются |
+| `revoke` | `reauth_required` | Не снимаются; после OAuth reconcile восстановит desired | `oauth_credentials` остаются; это не remote OAuth revoke |
+| `uninstall` | `uninstalled` | List+Delete только подтверждённых destinations установки; `webhook_status=unregistered` | Jobs, deliveries, credentials, receipts, CRM history не удаляются |
+
+`enable-installation` не поднимает `uninstalled` и `reauth_required`. Uninstalled
+оживляется повторным OAuth той же пары integration+account (существующий upsert).
+`revoke` нельзя применить к `disabled`/`uninstalled`. Повторный `uninstall`
+идемпотентен и снова пытается unregister.
+
+Uninstall сначала фиксирует `uninstalled` (новые OAuth token load и job admit
+этой установки закрываются существующими guards), затем вызывает amoCRM
+`DeleteWebhook`. Истёкший access обновляется общим OAuth refresh, ограниченным
+одной установкой в статусе uninstalled. Если remote
+вызов не удался, CLI завершается с ошибкой после commit статуса; в JSON есть
+`webhook_error`. Повторите ту же команду. Remote amoCRM token revoke API не
+вызывается. При `OAuth refresh outcome unknown` восстановите pending в прежнем
+процессе либо повторно авторизуйте установку, затем повторите uninstall.
+Не освобождайте истёкший OAuth lease вручную: token мог быть уже израсходован.
+
+Pause Activity consumer (`POST /sync` `kind=disable`) и `activity-control
+pilot-disable` — отдельные рычаги: они не uninstall и не снимают webhooks.
+См. [Activity runbook](activity-v0.md).
+
+Удаление истории — отдельный будущий процесс с явным подтверждением и retention
+владельца. Флага purge у `uninstall` нет.
+
+Изменения webhook events по-прежнему задают intent для следующих OAuth
+authorizations. После reauthorization worker `webhook.reconcile` регистрирует
+desired destination и удаляет подтверждённые прежние destinations установки.
 
 Env bootstrap (`BOOTSTRAP_INTEGRATION_CODE`/`AMOCRM_*`) оставлен только для первой
 инициализации: создаёт отсутствующую integration с `lead-status`, но никогда не
@@ -125,10 +183,15 @@ FROM integrations AS i
 LEFT JOIN integration_services AS s ON s.integration_id=i.id
 ORDER BY i.code, s.service_code;
 
-SELECT created_at, actor_type, actor_id, action, object_id, metadata
+SELECT created_at, actor_type, actor_id, action, object_type, object_id, metadata
 FROM audit_log
-WHERE object_type='integration'
+WHERE object_type IN ('integration', 'installation')
 ORDER BY id DESC
+LIMIT 50;
+
+SELECT id, integration_id, account_id, status, webhook_status, webhook_last_error
+FROM installations
+ORDER BY updated_at DESC
 LIMIT 50;
 ```
 

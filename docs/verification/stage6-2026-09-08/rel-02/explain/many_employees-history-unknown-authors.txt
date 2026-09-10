@@ -1,0 +1,15 @@
+Limit  (cost=0.46..17.76 rows=101 width=148) (actual time=0.011..0.049 rows=101 loops=1)
+  Buffers: shared hit=7
+  ->  Nested Loop  (cost=0.46..5459.19 rows=31872 width=148) (actual time=0.010..0.045 rows=101 loops=1)
+        Buffers: shared hit=7
+        ->  Index Scan using crm_events_time on crm_events e  (cost=0.46..4900.41 rows=31872 width=92) (actual time=0.008..0.020 rows=101 loops=1)
+              Index Cond: ((installation_id = '21e674ac-1b5b-426c-bd7d-405733765dfd'::uuid) AND (created_at >= '2026-09-01 18:00:00+00'::timestamp with time zone) AND (created_at <= '2026-09-08 18:00:00+00'::timestamp with time zone))
+              Filter: ((created_by = ANY ('{71001,71002,71003,71004,71005,71006,71007,71008,71009,71010}'::bigint[])) OR (created_by = 0) OR (created_by <> ALL ('{71001,71002,71003,71004,71005,71006,71007,71008,71009,71010}'::bigint[])))
+              Buffers: shared hit=6
+        ->  Materialize  (cost=0.00..1.02 rows=1 width=16) (actual time=0.000..0.000 rows=1 loops=101)
+              Buffers: shared hit=1
+              ->  Seq Scan on event_sources s  (cost=0.00..1.01 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=1)
+                    Filter: ((installation_id = '21e674ac-1b5b-426c-bd7d-405733765dfd'::uuid) AND (integration_id = 'a5a24737-7f51-48c5-87e9-c10f188c37b2'::uuid))
+                    Buffers: shared hit=1
+Planning Time: 0.075 ms
+Execution Time: 0.060 ms

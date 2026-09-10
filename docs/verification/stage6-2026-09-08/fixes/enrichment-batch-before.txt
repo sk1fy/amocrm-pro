@@ -1,0 +1,8 @@
+ Container amocrm-stage6-fix-test-component-tests-run-bd515db7b7b3 Creating
+ Container amocrm-stage6-fix-test-component-tests-run-bd515db7b7b3 Created
+=== RUN   TestEnrichmentClaimRespectsBatchLimitAtVolume
+    enrichment_batch_volume_integration_test.go:25: claim returned 200 objects, want bounded batch 50
+--- FAIL: TestEnrichmentClaimRespectsBatchLimitAtVolume (0.05s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/services/crmevents	0.055s
+FAIL

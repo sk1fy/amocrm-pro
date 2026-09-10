@@ -1,0 +1,16 @@
+Result  (cost=2.09..2.10 rows=1 width=1) (actual time=0.003..0.003 rows=1 loops=1)
+  Buffers: shared hit=1
+  InitPlan 1
+    ->  Nested Loop  (cost=0.00..2.09 rows=1 width=0) (actual time=0.003..0.003 rows=0 loops=1)
+          Join Filter: (s.installation_id = j.installation_id)
+          Buffers: shared hit=1
+          ->  Seq Scan on event_jobs j  (cost=0.00..1.06 rows=1 width=16) (actual time=0.003..0.003 rows=0 loops=1)
+                Filter: ((kind = 'backfill'::text) AND (status = 'running'::text))
+                Rows Removed by Filter: 4
+                Buffers: shared hit=1
+          ->  Seq Scan on event_sources s  (cost=0.00..1.01 rows=1 width=16) (never executed)
+                Filter: (lease_until > now())
+Planning:
+  Buffers: shared hit=49 read=1
+Planning Time: 0.168 ms
+Execution Time: 0.009 ms

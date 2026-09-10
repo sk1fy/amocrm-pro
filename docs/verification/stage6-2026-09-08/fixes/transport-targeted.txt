@@ -1,0 +1,16 @@
+ Container amocrm-stage6-fix-test-component-tests-run-f57751f48a6c Creating
+ Container amocrm-stage6-fix-test-component-tests-run-f57751f48a6c Created
+=== RUN   TestStage6TransportMeasure
+=== RUN   TestStage6TransportMeasure/near_bound
+=== RUN   TestStage6TransportMeasure/over_bound
+=== RUN   TestStage6TransportMeasure/full_100
+=== RUN   TestStage6TransportMeasure/compact_100
+=== RUN   TestStage6TransportMeasure/card
+--- PASS: TestStage6TransportMeasure (7.25s)
+    --- PASS: TestStage6TransportMeasure/near_bound (1.65s)
+    --- PASS: TestStage6TransportMeasure/over_bound (0.74s)
+    --- PASS: TestStage6TransportMeasure/full_100 (1.51s)
+    --- PASS: TestStage6TransportMeasure/compact_100 (0.03s)
+    --- PASS: TestStage6TransportMeasure/card (0.03s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	8.288s

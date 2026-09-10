@@ -1,0 +1,17 @@
+Sort  (cost=15.64..15.65 rows=1 width=54) (actual time=0.018..0.018 rows=1 loops=1)
+  Sort Key: o.object_kind, o.object_key
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=6
+  ->  Nested Loop  (cost=0.27..15.63 rows=1 width=54) (actual time=0.009..0.017 rows=1 loops=1)
+        Buffers: shared hit=6
+        ->  Seq Scan on event_enrichment_links l  (cost=0.00..7.20 rows=1 width=27) (actual time=0.002..0.010 rows=1 loops=1)
+              Filter: ((installation_id = '4ccba0ee-c7ce-48b2-a7fc-7df83b98169a'::uuid) AND (event_id = 'e-4ccba0ee-00000000'::text))
+              Rows Removed by Filter: 279
+              Buffers: shared hit=3
+        ->  Index Scan using event_enrichment_objects_pkey on event_enrichment_objects o  (cost=0.27..8.29 rows=1 width=70) (actual time=0.005..0.005 rows=1 loops=1)
+              Index Cond: ((installation_id = '4ccba0ee-c7ce-48b2-a7fc-7df83b98169a'::uuid) AND (object_kind = l.object_kind) AND (object_key = l.object_key))
+              Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=80
+Planning Time: 0.228 ms
+Execution Time: 0.024 ms

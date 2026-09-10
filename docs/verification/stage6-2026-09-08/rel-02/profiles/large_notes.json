@@ -1,0 +1,74 @@
+{
+  "amocrm": {
+    "Events": 0,
+    "Users": 2,
+    "Notes": 0,
+    "Tasks": 0,
+    "Pipelines": 0,
+    "Fields": 0,
+    "Entities": 0
+  },
+  "from": 1788804000,
+  "get_event": {
+    "enrichment": 0,
+    "json_bytes": 64191,
+    "max": "1.290151ms",
+    "p50": "666.788µs",
+    "p95": "983.47µs",
+    "p99": "1.290151ms",
+    "rpc_bytes": 64093
+  },
+  "installations": 1,
+  "pool": {
+    "acquire_duration": "6.831977ms",
+    "acquired": 1,
+    "empty_acquire": 2,
+    "idle": 1,
+    "max": 8
+  },
+  "profile": {
+    "ID": "large_notes",
+    "Buckets": "hour",
+    "Users": 12,
+    "Days": 1,
+    "PerUserDay": 0,
+    "LargeNotes": 200,
+    "UnknownAuthors": false,
+    "Jobs": false,
+    "Enrichment": false,
+    "Installations": 0
+  },
+  "query_compact": {
+    "events": 100,
+    "json_bytes": 27475,
+    "max": "2.252576ms",
+    "p50": "1.578495ms",
+    "p95": "2.169144ms",
+    "p99": "2.252576ms",
+    "rpc_bytes": 9496,
+    "samples": 25,
+    "summaries": 12,
+    "timeline": 25
+  },
+  "rows": 200,
+  "sizes": {
+    "amocrm": {
+      "Events": 0,
+      "Users": 2,
+      "Notes": 0,
+      "Tasks": 0,
+      "Pipelines": 0,
+      "Fields": 0,
+      "Entities": 0
+    },
+    "eventcard_latency": "1.017102ms",
+    "gateway_users": 2,
+    "http_card_bytes": 128608,
+    "http_panel_bytes": 51016,
+    "owner_json_bytes": 50114,
+    "panel_latency": "1.9246ms",
+    "rpc_card_bytes": 128356,
+    "rpc_panel_bytes": 23904
+  },
+  "to": 1788890400
+}

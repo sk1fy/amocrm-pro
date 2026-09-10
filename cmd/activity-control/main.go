@@ -3,6 +3,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
@@ -11,6 +13,8 @@ import (
 	"os"
 	"time"
 )
+
+const usage = "usage: activity-control list | inspect|retry COMMAND_UUID | pilot-enable|pilot-disable INSTALLATION_UUID"
 
 func main() {
 	if buildinfo.PrintVersion(os.Args, os.Stdout) {
@@ -21,16 +25,11 @@ func main() {
 		os.Exit(1)
 	}
 }
+
 func run(args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf("usage: activity-control pilot-enable|pilot-disable INSTALLATION_UUID | retry COMMAND_UUID")
-	}
-	if args[0] != "pilot-enable" && args[0] != "pilot-disable" && args[0] != "retry" {
-		return fmt.Errorf("unknown operator command")
-	}
-	id, err := uuid.Parse(args[1])
+	command, id, err := parseArgs(args)
 	if err != nil {
-		return fmt.Errorf("a valid UUID is required")
+		return err
 	}
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -43,14 +42,52 @@ func run(args []string) error {
 		return err
 	}
 	defer pool.Close()
-	if args[0] == "retry" {
+	switch command {
+	case "list":
+		rows, err := activitybridge.ListDeliveries(ctx, pool)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(rows)
+	case "inspect":
+		row, err := activitybridge.InspectDelivery(ctx, pool, id)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(row)
+	case "retry":
 		err = activitybridge.RetryDelivery(ctx, pool, id)
-	} else {
-		err = activitybridge.SetPilot(ctx, pool, id, args[0] == "pilot-enable")
+	default:
+		err = activitybridge.SetPilot(ctx, pool, id, command == "pilot-enable")
 	}
 	if err != nil {
 		return err
 	}
 	fmt.Println("Core operator change committed and audited")
 	return nil
+}
+
+func parseArgs(args []string) (string, uuid.UUID, error) {
+	if len(args) == 0 {
+		return "", uuid.Nil, errors.New(usage)
+	}
+	command := args[0]
+	switch command {
+	case "list":
+		if len(args) != 1 {
+			return "", uuid.Nil, errors.New(usage)
+		}
+		return command, uuid.Nil, nil
+	case "inspect", "retry", "pilot-enable", "pilot-disable":
+		if len(args) != 2 {
+			return "", uuid.Nil, errors.New(usage)
+		}
+		id, err := uuid.Parse(args[1])
+		if err != nil {
+			return "", uuid.Nil, fmt.Errorf("a valid UUID is required")
+		}
+		return command, id, nil
+	default:
+		return "", uuid.Nil, errors.New("unknown operator command")
+	}
 }

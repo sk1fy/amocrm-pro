@@ -1,0 +1,12 @@
+=== RUN   TestActivityBusinessLocalAndMTLSGRPCParity
+--- PASS: TestActivityBusinessLocalAndMTLSGRPCParity (0.01s)
+=== RUN   TestStage6ActivityPresentationLocalAndMTLSGRPCParity
+--- PASS: TestStage6ActivityPresentationLocalAndMTLSGRPCParity (0.01s)
+=== RUN   TestStage6DurableConfigureReplayAfterLostRPCAndRestart
+--- PASS: TestStage6DurableConfigureReplayAfterLostRPCAndRestart (0.01s)
+=== RUN   TestStage6ActivityUnavailableIsExplicitNotEmptyHistory
+--- PASS: TestStage6ActivityUnavailableIsExplicitNotEmptyHistory (0.00s)
+=== RUN   TestStage6OldPeerPresentationAndGetEventFailClosed
+--- PASS: TestStage6OldPeerPresentationAndGetEventFailClosed (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	0.422s

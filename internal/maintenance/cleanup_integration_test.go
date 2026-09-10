@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/platform/migrations"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
 	"github.com/sk1fy/amocrm-pro/internal/webhook"
 )
@@ -296,6 +297,87 @@ func TestCleanupHonorsBatchAndMaximumBatchBounds(t *testing.T) {
 	}
 }
 
+func TestCleanupTechnicalHistoryHonorsHorizonAndStaysBounded(t *testing.T) {
+	pool := testkit.Postgres(t)
+	if err := migrations.New(pool, "../../migrations").Up(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	testkit.Reset(t, pool)
+	integrationID, installationID := cleanupTenant(t, pool)
+	ctx := context.Background()
+	hash := sha256.Sum256([]byte("core-05"))
+	oldJob := insertFinishedJob(t, pool, installationID, "8 days")
+	youngJob := insertFinishedJob(t, pool, installationID, "1 day")
+	uncertainJob := insertFinishedJob(t, pool, installationID, "8 days")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO outbound_effects (
+			installation_id,correlation_job_id,effect_type,resource_type,resource_id,
+			desired_state,desired_hash,state,attempted_at,correlation_expires_at,created_at,updated_at
+		) VALUES ($1,$2,'lead.set_status','lead','1','{}',$3,'uncertain',now()-interval '8 days',now()-interval '7 days',now()-interval '8 days',now()-interval '8 days')`,
+		installationID, uncertainJob, hash[:]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO audit_log(installation_id,actor_type,action,created_at)
+		VALUES ($1,'operator','activity.delivery.retry',now()-interval '8 days'),
+		       ($1,'operator','activity.delivery.retry',now()-interval '1 day')`, installationID); err != nil {
+		t.Fatal(err)
+	}
+	oldCommand, youngCommand := uuid.New(), uuid.New()
+	insertCommand(t, pool, installationID, integrationID, oldCommand, "failed", "8 days")
+	insertCommand(t, pool, installationID, integrationID, youngCommand, "failed", "1 day")
+	pendingOld := uuid.New()
+	insertCommand(t, pool, installationID, integrationID, pendingOld, "pending_delivery", "8 days")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO webhook_event_tombstones(installation_id,deduplication_key,first_seen_at,last_seen_at)
+		VALUES ($1,$2,now()-interval '100 days',now()-interval '91 days')`, installationID, hash[:]); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		insertFinishedJob(t, pool, installationID, "8 days")
+	}
+
+	first, err := NewStore(pool).Cleanup(ctx, testPolicy(2, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Jobs != 2 || !first.JobsLimitReached {
+		t.Fatalf("job cleanup must stay bounded: %+v", first)
+	}
+
+	result, err := NewStore(pool).Cleanup(ctx, testPolicy(100, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var oldJobs, youngJobs, uncertainJobs, oldAudit, youngAudit, oldReceipts, youngReceipts, pending, tombstones int
+	if err := pool.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM jobs WHERE id=$1),
+		(SELECT count(*) FROM jobs WHERE id=$2),
+		(SELECT count(*) FROM jobs WHERE id=$3),
+		(SELECT count(*) FROM audit_log WHERE created_at<now()-interval '7 days'),
+		(SELECT count(*) FROM audit_log WHERE created_at>now()-interval '2 days'),
+		(SELECT count(*) FROM activity_command_receipts WHERE command_id=$4),
+		(SELECT count(*) FROM activity_command_receipts WHERE command_id=$5),
+		(SELECT count(*) FROM activity_command_receipts WHERE command_id=$6),
+		(SELECT count(*) FROM webhook_event_tombstones WHERE installation_id=$7)`,
+		oldJob, youngJob, uncertainJob, oldCommand, youngCommand, pendingOld, installationID,
+	).Scan(&oldJobs, &youngJobs, &uncertainJobs, &oldAudit, &youngAudit, &oldReceipts, &youngReceipts, &pending, &tombstones); err != nil {
+		t.Fatal(err)
+	}
+	if oldJobs != 0 || youngJobs != 1 || uncertainJobs != 1 {
+		t.Fatalf("jobs old/young/uncertain=%d/%d/%d", oldJobs, youngJobs, uncertainJobs)
+	}
+	if oldAudit != 0 || youngAudit != 1 {
+		t.Fatalf("audit old/young=%d/%d", oldAudit, youngAudit)
+	}
+	if oldReceipts != 0 || youngReceipts != 1 || pending != 0 {
+		t.Fatalf("receipts old/young/pending=%d/%d/%d result=%+v", oldReceipts, youngReceipts, pending, result)
+	}
+	if tombstones != 0 {
+		t.Fatalf("91-day tombstone retained=%d", tombstones)
+	}
+}
+
 func TestCleanupAdvisoryLockSkipsConcurrentWorker(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)
@@ -367,6 +449,36 @@ func insertToken(t *testing.T, pool *pgxpool.Pool, integrationID uuid.UUID, jti,
 			LEAST(now(), now()+$3::interval-interval '1 hour')
 		)`,
 		integrationID, jti, expiry); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func insertFinishedJob(t *testing.T, pool *pgxpool.Pool, installationID uuid.UUID, age string) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	if err := pool.QueryRow(context.Background(), `
+		INSERT INTO jobs (installation_id,type,status,payload,created_at,updated_at,finished_at)
+		VALUES ($1,'cleanup.horizon','completed','{}',now()-$2::interval,now()-$2::interval,now()-$2::interval)
+		RETURNING id`, installationID, age).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func insertCommand(t *testing.T, pool *pgxpool.Pool, installationID, integrationID, commandID uuid.UUID, status, age string) {
+	t.Helper()
+	key := sha256.Sum256([]byte(commandID.String()))
+	request := sha256.Sum256([]byte("request:" + commandID.String()))
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO activity_command_receipts(
+			command_id,installation_id,integration_id,actor_id,target,action,key_hash,request_hash,created_at
+		) VALUES ($1,$2,$3,7,'activity','settings',$4,$5,now()-$6::interval)`,
+		commandID, installationID, integrationID, key[:], request[:], age); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO activity_command_outbox(command_id,payload,status,updated_at)
+		VALUES ($1,'{}',$2,now()-$3::interval)`, commandID, status, age); err != nil {
 		t.Fatal(err)
 	}
 }

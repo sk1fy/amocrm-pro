@@ -1,0 +1,13 @@
+{
+  "compose_postgres_mem_limit": "512m",
+  "database": "events_components_test",
+  "database_bytes": 8435379,
+  "docker_arch": "aarch64",
+  "docker_mem_bytes": 4094447616,
+  "docker_ncpu": 2,
+  "effective_cache_size": "4GB",
+  "max_connections": "100",
+  "postgres_version": "PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "shared_buffers": "128MB",
+  "work_mem": "4MB"
+}

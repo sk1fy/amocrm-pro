@@ -50,6 +50,7 @@ paths:
           schema:
             type: string
             minLength: 1
+            maxLength: 128
         - name: return_url
           in: query
           required: false
@@ -57,6 +58,7 @@ paths:
           schema:
             type: string
             pattern: '^/'
+            maxLength: 1024
       responses:
         '302':
           description: Redirect to the amoCRM authorization page.
@@ -70,7 +72,9 @@ paths:
                 type: string
                 format: uri
         '400':
-          $ref: '#/components/responses/BadRequest'
+          $ref: '#/components/responses/OAuthError'
+        '429':
+          $ref: '#/components/responses/OAuthRateLimited'
   /oauth/amocrm/callback:
     get:
       tags: [OAuth]
@@ -88,12 +92,14 @@ paths:
           schema:
             type: string
             minLength: 1
+            maxLength: 256
         - name: code
           in: query
           required: false
           schema:
             type: string
             minLength: 1
+            maxLength: 2048
         - name: referer
           in: query
           required: false
@@ -101,12 +107,14 @@ paths:
           schema:
             type: string
             minLength: 1
+            maxLength: 256
         - name: error
           in: query
           required: false
           description: Authorization denial code returned by amoCRM.
           schema:
             type: string
+            maxLength: 128
       responses:
         '201':
           description: Installation and encrypted credentials were persisted.
@@ -118,9 +126,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/InstallationResult'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          $ref: '#/components/responses/OAuthError'
+        '429':
+          $ref: '#/components/responses/OAuthRateLimited'
         '502':
-          $ref: '#/components/responses/BadGateway'
+          $ref: '#/components/responses/OAuthUnavailable'
   /hooks/amocrm/v1/{webhookKey}:
     post:
       tags: [Webhook]
@@ -444,7 +454,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -607,7 +617,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -676,7 +686,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -745,7 +755,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -821,7 +831,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -904,7 +914,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -985,7 +995,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActivityError'
         '403':
-          description: Activity capability, installation pilot or current server-confirmed admin role denied.
+          description: Activity capability, installation pilot or current server-confirmed admin role denied, or installation requires reauthorization (`reauth_required`).
           content:
             application/json:
               schema:
@@ -1069,6 +1079,14 @@ components:
   schemas:
     ActivityError:
       type: object
+      description: >-
+        Activity JSON error. `code` is the stable discriminator. `message` is a
+        generic safe phrase and never copies upstream or database details.
+        `reauth_required` is HTTP 403 without WWW-Authenticate, distinct from
+        `permission_denied` (also 403) and `unauthenticated` (401 with Bearer).
+        `retryable` is true only for unavailable, resource_exhausted and
+        deadline_exceeded. Widget limiter 429 may still use `rate_limited` with
+        the smaller widget envelope.
       properties:
         error:
           type: object
@@ -1087,8 +1105,51 @@ components:
               - reauth_required
               - internal
               - rate_limited
+            message:
+              type: string
+              minLength: 1
+            request_id:
+              type: string
+            retryable:
+              type: boolean
           required:
           - code
+          - message
+          - request_id
+          - retryable
+          additionalProperties: false
+      required:
+      - error
+      additionalProperties: false
+    OAuthError:
+      type: object
+      description: >-
+        OAuth start/callback JSON error. Start failures use invalid_argument and
+        the same body for missing and other integration_code failures so account
+        existence is not revealed. Rate-limited responses are identical for
+        known and unknown codes.
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+              - invalid_argument
+              - unavailable
+              - rate_limited
+            message:
+              type: string
+              minLength: 1
+            request_id:
+              type: string
+            retryable:
+              type: boolean
+          required:
+          - code
+          - message
+          - request_id
+          - retryable
           additionalProperties: false
       required:
       - error
@@ -1744,6 +1805,44 @@ components:
                   code:
                     type: string
                     enum: [service_not_enabled]
+    OAuthError:
+      description: >-
+        OAuth start or callback rejected. Start uses HTTP 400 invalid_argument
+        for missing integration codes and other start failures so existence is
+        not revealed. Callback uses 400 invalid_argument for client/state errors.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OAuthError'
+    OAuthRateLimited:
+      description: >-
+        Process-local OAuth start/callback budget exhausted. JWT/account lookup
+        is not performed. The JSON body is identical for known and unknown
+        integration codes and does not include account details.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+        Retry-After:
+          description: Minimum suggested retry delay in seconds.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OAuthError'
+    OAuthUnavailable:
+      description: amoCRM OAuth exchange or account lookup failed.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OAuthError'
     BadRequest:
       description: Request parameters or body are invalid.
       headers:

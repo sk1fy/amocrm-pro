@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: actual CRM success scheduled check stops polling and refreshes once
+ok 1 - actual CRM success scheduled check stops polling and refreshes once
+  ---
+  duration_ms: 25.126981
+  type: 'test'
+  ...
+# Subtest: actual CRM success manual check stops polling and refreshes once
+ok 2 - actual CRM success manual check stops polling and refreshes once
+  ---
+  duration_ms: 24.046937
+  type: 'test'
+  ...
+# Subtest: unknown and incomplete observations never claim zero employee activity
+ok 3 - unknown and incomplete observations never claim zero employee activity
+  ---
+  duration_ms: 0.955252
+  type: 'test'
+  ...
+# Subtest: Core acceptance is shown as delivery pending, never completion
+ok 4 - Core acceptance is shown as delivery pending, never completion
+  ---
+  duration_ms: 0.171584
+  type: 'test'
+  ...
+# Subtest: bounded employee period filter supplies no caller identity
+ok 5 - bounded employee period filter supplies no caller identity
+  ---
+  duration_ms: 0.457502
+  type: 'test'
+  ...
+# Subtest: panel query sends group, categories, compact and never actor_id
+ok 6 - panel query sends group, categories, compact and never actor_id
+  ---
+  duration_ms: 0.157833
+  type: 'test'
+  ...
+# Subtest: today and yesterday use account timezone calendar days
+ok 7 - today and yesterday use account timezone calendar days
+  ---
+  duration_ms: 13.942577
+  type: 'test'
+  ...
+# Subtest: entityHref allows only CRM object paths
+ok 8 - entityHref allows only CRM object paths
+  ---
+  duration_ms: 0.114667
+  type: 'test'
+  ...
+# Subtest: mounted journal sends compact group categories without actor_id
+ok 9 - mounted journal sends compact group categories without actor_id
+  ---
+  duration_ms: 13.425909
+  type: 'test'
+  ...
+# Subtest: stale panel generation is ignored
+ok 10 - stale panel generation is ignored
+  ---
+  duration_ms: 1.697046
+  type: 'test'
+  ...
+# Subtest: open event is preserved across a second panel payload
+ok 11 - open event is preserved across a second panel payload
+  ---
+  duration_ms: 6.432058
+  type: 'test'
+  ...
+# Subtest: compact page fetches event detail once on expand
+ok 12 - compact page fetches event detail once on expand
+  ---
+  duration_ms: 3.639009
+  type: 'test'
+  ...
+# Subtest: unavailable detail is shown without a fetch
+ok 13 - unavailable detail is shown without a fetch
+  ---
+  duration_ms: 2.792507
+  type: 'test'
+  ...
+# Subtest: missing event detail is unavailable
+ok 14 - missing event detail is unavailable
+  ---
+  duration_ms: 1.958047
+  type: 'test'
+  ...
+# Subtest: summary keeps zero rows for directory users without events
+ok 15 - summary keeps zero rows for directory users without events
+  ---
+  duration_ms: 3.046258
+  type: 'test'
+  ...
+# Subtest: short status omits collector diagnostics
+ok 16 - short status omits collector diagnostics
+  ---
+  duration_ms: 3.645967
+  type: 'test'
+  ...
+# Subtest: calendar presets and refresh keep inclusive 23:59:50
+ok 17 - calendar presets and refresh keep inclusive 23:59:50
+  ---
+  duration_ms: 15.407997
+  type: 'test'
+  ...
+# Subtest: filtered directory preserves employees and departments through drill and back
+ok 18 - filtered directory preserves employees and departments through drill and back
+  ---
+  duration_ms: 9.881359
+  type: 'test'
+  ...
+# Subtest: transient detail failure retries on reopening without remount
+ok 19 - transient detail failure retries on reopening without remount
+  ---
+  duration_ms: 2.650257
+  type: 'test'
+  ...
+# Subtest: refresh reloads pending enrichment and preserves the open event
+ok 20 - refresh reloads pending enrichment and preserves the open event
+  ---
+  duration_ms: 4.842804
+  type: 'test'
+  ...
+# Subtest: a late detail response cannot replace the refreshed card
+ok 21 - a late detail response cannot replace the refreshed card
+  ---
+  duration_ms: 4.849929
+  type: 'test'
+  ...
+# Subtest: audit: unknown coverage retains known counts in employee rows
+ok 22 - audit: unknown coverage retains known counts in employee rows
+  ---
+  duration_ms: 4.474886
+  type: 'test'
+  ...
+# Subtest: audit: local time rejects DST gaps and chooses the earlier repeated hour
+ok 23 - audit: local time rejects DST gaps and chooses the earlier repeated hour
+  ---
+  duration_ms: 3.527592
+  type: 'test'
+  ...
+# Subtest: audit: public HTTP cards render enum, message and removed values
+ok 24 - audit: public HTTP cards render enum, message and removed values
+  ---
+  duration_ms: 10.787361
+  type: 'test'
+  ...
+# Subtest: audit: manual DST gaps on either bound never issue a panel request
+ok 25 - audit: manual DST gaps on either bound never issue a panel request
+  ---
+  duration_ms: 10.489568
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 269.546525

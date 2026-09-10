@@ -1,0 +1,68 @@
+{
+  "amocrm": {
+    "Events": 0,
+    "Users": 56,
+    "Notes": 0,
+    "Tasks": 0,
+    "Pipelines": 0,
+    "Fields": 0,
+    "Entities": 0
+  },
+  "from": 1788804000,
+  "get_event": {
+    "enrichment": 0,
+    "json_bytes": 64191,
+    "max": "932.048µs",
+    "p50": "644.491µs",
+    "p95": "854.044µs",
+    "p99": "932.048µs"
+  },
+  "installations": 1,
+  "pool": {
+    "acquire_duration": "9.274525ms",
+    "acquired": 1,
+    "empty_acquire": 2,
+    "idle": 1,
+    "max": 8
+  },
+  "profile": {
+    "ID": "large_notes",
+    "Buckets": "hour",
+    "Users": 12,
+    "Days": 1,
+    "PerUserDay": 0,
+    "LargeNotes": 200,
+    "UnknownAuthors": false,
+    "Jobs": false,
+    "Enrichment": false,
+    "Installations": 0
+  },
+  "query_compact": {
+    "events": 100,
+    "json_bytes": 27475,
+    "max": "1.86793ms",
+    "p50": "1.557747ms",
+    "p95": "1.821302ms",
+    "p99": "1.86793ms",
+    "samples": 25,
+    "summaries": 12,
+    "timeline": 25
+  },
+  "rows": 200,
+  "sizes": {
+    "event_card": {
+      "json_bytes": 128608,
+      "p95": "1.511911ms",
+      "p99": "1.520745ms",
+      "samples": 25
+    },
+    "mode": "local product plus JSON serialization",
+    "panel": {
+      "json_bytes": 51016,
+      "p95": "2.055939ms",
+      "p99": "3.509638ms",
+      "samples": 25
+    }
+  },
+  "to": 1788890400
+}

@@ -1,0 +1,26 @@
+Limit  (cost=92.97..104.27 rows=10 width=56) (actual time=0.216..0.290 rows=8 loops=1)
+  Buffers: shared hit=15
+  ->  GroupAggregate  (cost=92.97..104.27 rows=10 width=56) (actual time=0.216..0.289 rows=8 loops=1)
+        Group Key: e.created_by
+        Buffers: shared hit=15
+        ->  Sort  (cost=92.97..93.76 rows=317 width=48) (actual time=0.194..0.201 rows=307 loops=1)
+              Sort Key: e.created_by, (((e.entity_type || ':'::text) || (e.entity_id)::text))
+              Sort Method: quicksort  Memory: 49kB
+              Buffers: shared hit=15
+              ->  Nested Loop  (cost=18.76..79.80 rows=317 width=48) (actual time=0.013..0.073 rows=307 loops=1)
+                    Buffers: shared hit=15
+                    ->  Seq Scan on event_sources s  (cost=0.00..1.07 rows=1 width=16) (actual time=0.001..0.002 rows=1 loops=1)
+                          Filter: ((installation_id = '29e6e65f-1a74-48eb-99cd-1ba09bd452c8'::uuid) AND (integration_id = '28352394-7ce5-4b46-8aff-18eead8d5dd6'::uuid))
+                          Rows Removed by Filter: 4
+                          Buffers: shared hit=1
+                    ->  Bitmap Heap Scan on crm_events e  (cost=18.76..75.56 rows=317 width=64) (actual time=0.011..0.041 rows=307 loops=1)
+                          Recheck Cond: (installation_id = '29e6e65f-1a74-48eb-99cd-1ba09bd452c8'::uuid)
+                          Filter: ((created_at >= '2026-09-06 18:00:00+00'::timestamp with time zone) AND (created_at <= '2026-09-08 18:00:00+00'::timestamp with time zone) AND (created_by = ANY ('{71001,71002,71003,71004,71005,71006,71007,71008}'::bigint[])))
+                          Rows Removed by Filter: 13
+                          Heap Blocks: exact=10
+                          Buffers: shared hit=14
+                          ->  Bitmap Index Scan on crm_events_pkey  (cost=0.00..18.68 rows=320 width=0) (actual time=0.008..0.008 rows=320 loops=1)
+                                Index Cond: (installation_id = '29e6e65f-1a74-48eb-99cd-1ba09bd452c8'::uuid)
+                                Buffers: shared hit=4
+Planning Time: 0.055 ms
+Execution Time: 0.319 ms

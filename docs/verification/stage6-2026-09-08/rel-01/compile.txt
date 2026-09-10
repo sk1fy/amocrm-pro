@@ -1,0 +1,2 @@
+compile: go test -c -o /tmp/crmevents.test ./internal/services/crmevents
+exit 0 (host compile only, integration tests not executed)

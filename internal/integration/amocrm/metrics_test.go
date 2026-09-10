@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"golang.org/x/time/rate"
 )
 
 // This uses the production 7/s, burst-7 limiter. All four callers must consume
@@ -109,6 +111,120 @@ func TestSharedBudgetAcrossExistingWidgetsAndEvents(t *testing.T) {
 		t.Fatalf("admitted metric=%d", actual)
 	}
 	assertFiniteLabels(t, families)
+}
+
+// Enrichment and directory were added after the widget/events shared-budget
+// test. They must consume the same 7/s burst-7 limiter, not a second client.
+func TestEnrichmentAndDirectoryShareExistingClientBudget(t *testing.T) {
+	var mu sync.Mutex
+	var arrivals []time.Time
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		arrivals = append(arrivals, time.Now())
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/v4/events":
+			_, _ = w.Write([]byte(`{"_embedded":{"events":[]}}`))
+		case strings.HasSuffix(r.URL.Path, "/notes"):
+			_, _ = w.Write([]byte(`{"_embedded":{"notes":[]}}`))
+		case r.URL.Path == "/api/v4/tasks":
+			_, _ = w.Write([]byte(`{"_embedded":{"tasks":[]}}`))
+		case r.URL.Path == "/api/v4/leads/pipelines":
+			_, _ = w.Write([]byte(`{"_embedded":{"pipelines":[]}}`))
+		case strings.Contains(r.URL.Path, "/custom_fields"):
+			_, _ = w.Write([]byte(`{"_embedded":{"custom_fields":[]}}`))
+		case r.URL.Path == "/api/v4/leads":
+			_, _ = w.Write([]byte(`{"_embedded":{"leads":[]}}`))
+		case r.URL.Path == "/api/v4/account":
+			_, _ = w.Write([]byte(`{"_embedded":{"users_groups":[],"datetime_settings":{"timezone":"UTC"}}}`))
+		case r.URL.Path == "/api/v4/users":
+			_, _ = w.Write([]byte(`{"_embedded":{"users":[]}}`))
+		default:
+			t.Errorf("unexpected API path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client := NewClient(server.Client(), &fakeTokenProvider{baseURL: server.URL})
+	client.resolveAccount = func(raw string) (*url.URL, error) { return url.Parse(raw) }
+	registry := prometheus.NewRegistry()
+	client.SetMetrics(NewMetrics(registry))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	start := make(chan struct{})
+	errs := make(chan error, 28)
+	var wg sync.WaitGroup
+	for i := 0; i < 28; i++ {
+		wg.Add(1)
+		go func(kind int) {
+			defer wg.Done()
+			<-start
+			id := uuid.New()
+			var callErr error
+			switch kind % 6 {
+			case 0:
+				_, callErr = client.ListEvents(ctx, id, 1, 10, 1, 100)
+			case 1:
+				_, callErr = client.ListNotes(ctx, id, "leads", []int64{11})
+			case 2:
+				_, callErr = client.ListTasks(ctx, id, []int64{11})
+			case 3:
+				_, callErr = client.ListPipelines(ctx, id)
+			case 4:
+				_, callErr = client.ListCustomFields(ctx, id, "leads")
+			default:
+				_, callErr = client.ListEntities(ctx, id, "leads", []int64{11})
+			}
+			errs <- callErr
+		}(i)
+	}
+	began := time.Now()
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	mu.Lock()
+	times := append([]time.Time(nil), arrivals...)
+	mu.Unlock()
+	sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
+	if len(times) != 28 {
+		t.Fatalf("HTTP requests=%d", len(times))
+	}
+	for i, at := range times {
+		if i >= 7 {
+			minimum := time.Duration(float64(i-6) / 7 * float64(time.Second))
+			if elapsed := at.Sub(began); elapsed < minimum-40*time.Millisecond {
+				t.Fatalf("enrichment burst/rate bypass: request=%d elapsed=%s minimum=%s", i+1, elapsed, minimum)
+			}
+		}
+	}
+	families, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual := counterOutcome(families, "amocrm_requests_total", "2xx"); actual != 28 {
+		t.Fatalf("request metric=%v", actual)
+	}
+	if actual := histogramOutcome(families, "amocrm_budget_wait_seconds", "admitted"); actual != 28 {
+		t.Fatalf("admitted metric=%d", actual)
+	}
+	assertFiniteLabels(t, families)
+
+	client.limiter = newLimiter(20, 1, rate.Inf, 1000)
+	if _, err := client.ListEvents(context.Background(), uuid.New(), 1, 10, 1, 100); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	if _, err := client.GetDirectory(context.Background(), uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(started) < 30*time.Millisecond {
+		t.Fatal("directory bypassed shared integration budget")
+	}
 }
 
 func TestBudgetCancellationAnd429MetricsDoNotAddUnboundedLabels(t *testing.T) {

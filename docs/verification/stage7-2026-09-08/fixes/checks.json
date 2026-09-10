@@ -1,0 +1,35 @@
+{
+  "targeted.txt": {
+    "PASS": 86,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "final-targeted.txt": {
+    "PASS": 5,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "integration-test.txt": {
+    "PASS": 220,
+    "FAIL": 0,
+    "SKIP": 2
+  },
+  "activity-go.txt": {
+    "PASS": 215,
+    "FAIL": 0,
+    "SKIP": 3
+  },
+  "ui": {
+    "PASS": 25,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "make_test": {
+    "exit": 0,
+    "gofmt": true,
+    "vet": true,
+    "race": true
+  },
+  "source_manifest_matches": true,
+  "runtime_changed": false
+}

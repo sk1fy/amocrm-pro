@@ -6,19 +6,24 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/integrations"
+	"github.com/sk1fy/amocrm-pro/internal/oauth"
 	"github.com/sk1fy/amocrm-pro/internal/platform/config"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
+	"github.com/sk1fy/amocrm-pro/internal/webhook"
 )
 
-const usage = "usage: integrations <create|update|disable|enable|rotate-secret|set-service> --actor ID --code CODE [--client-id UUID --redirect-uri HTTPS_URL --webhook-events CSV --services CSV|none --secret-stdin --service CODE --enabled true|false]"
+const usage = "usage: integrations <create|update|disable|enable|rotate-secret|set-service|disable-installation|enable-installation|uninstall|revoke> --actor ID --code CODE [--installation-id UUID --client-id UUID --redirect-uri HTTPS_URL --webhook-events CSV --services CSV|none --secret-stdin --service CODE --enabled true|false]"
 
 func main() {
 	if buildinfo.PrintVersion(os.Args, os.Stdout) {
@@ -44,7 +49,11 @@ func run(args []string, input io.Reader, output io.Writer) error {
 	if err != nil {
 		return errors.New("invalid encryption keyring")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	timeout := 30 * time.Second
+	if command.Action == "uninstall" {
+		timeout = 45 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	pool, err := postgres.Open(ctx, cfg.DatabaseURL, cfg.ServiceName, 1)
 	if err != nil {
@@ -54,6 +63,22 @@ func run(args []string, input io.Reader, output io.Writer) error {
 	result, err := integrations.NewStore(pool, keys).Apply(ctx, command)
 	if err != nil {
 		return err
+	}
+	if command.Action == "uninstall" {
+		httpClient := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		tokens, err := oauth.NewUninstallTokenProvider(pool, keys, oauth.NewGateway(amocrm.NewOAuthClient(httpClient)), command.InstallationID)
+		if err != nil {
+			return err
+		}
+		client := amocrm.NewClient(httpClient, tokens)
+		if uerr := webhook.Unregister(ctx, webhook.NewReconcileStore(pool, keys), client, command.InstallationID); uerr != nil {
+			result.WebhookError = "remote webhook unregister failed; rerun uninstall to retry"
+			if errors.Is(uerr, oauth.ErrRefreshOutcomeUnknown) {
+				result.WebhookError = "OAuth refresh outcome unknown; recover the pending refresh or reauthorize before retrying uninstall"
+			}
+			_ = json.NewEncoder(output).Encode(result)
+			return errors.New(result.WebhookError)
+		}
 	}
 	return json.NewEncoder(output).Encode(result)
 }
@@ -75,11 +100,19 @@ func parseCommand(args []string, input io.Reader) (integrations.Command, error) 
 	flags.StringVar(&c.Service, "service", "", "")
 	enabled := flags.String("enabled", "", "")
 	secret := flags.Bool("secret-stdin", false, "")
+	installationID := flags.String("installation-id", "", "")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 {
 		return c, errors.New(usage)
 	}
 	seen := map[string]bool{}
 	flags.Visit(func(f *flag.Flag) { seen[f.Name] = true })
+	if seen["installation-id"] {
+		id, err := uuid.Parse(*installationID)
+		if err != nil || id == uuid.Nil {
+			return c, errors.New("installation id must be a nonzero UUID")
+		}
+		c.InstallationID = id
+	}
 	if seen["redirect-uri"] {
 		c.RedirectURI = redirect
 	}

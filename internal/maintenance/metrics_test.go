@@ -15,6 +15,7 @@ func TestCleanupMetricsObserveOutcomesAndBoundedPressure(t *testing.T) {
 	metrics.observe(time.Now(), Result{
 		LockAcquired: true, InboxEvents: 3, WebhookDeliveries: 2,
 		InboxEventsLimitReached: true, OAuthStates: 4, OAuthStatesLimitReached: true,
+		Jobs: 5, JobsLimitReached: true, CommandReceipts: 1,
 	}, nil)
 	metrics.observe(time.Now(), Result{}, nil)
 	metrics.observe(time.Now(), Result{}, errors.New("database unavailable"))
@@ -42,5 +43,11 @@ func TestCleanupMetricsObserveOutcomesAndBoundedPressure(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(metrics.batchLimit.WithLabelValues(recordOAuthState)); got != 1 {
 		t.Fatalf("OAuth state batch limit = %v", got)
+	}
+	if got := testutil.ToFloat64(metrics.deleted.WithLabelValues(recordJob)); got != 5 {
+		t.Fatalf("deleted jobs = %v", got)
+	}
+	if got := testutil.ToFloat64(metrics.batchLimit.WithLabelValues(recordJob)); got != 1 {
+		t.Fatalf("job batch limit = %v", got)
 	}
 }

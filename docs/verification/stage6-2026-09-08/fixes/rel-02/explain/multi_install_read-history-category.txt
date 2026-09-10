@@ -1,0 +1,23 @@
+Limit  (cost=90.99..91.00 rows=2 width=148) (actual time=0.111..0.113 rows=29 loops=1)
+  Buffers: shared hit=15
+  ->  Sort  (cost=90.99..91.00 rows=2 width=148) (actual time=0.110..0.111 rows=29 loops=1)
+        Sort Key: e.created_at, e.event_id
+        Sort Method: quicksort  Memory: 28kB
+        Buffers: shared hit=15
+        ->  Nested Loop  (cost=18.68..90.98 rows=2 width=148) (actual time=0.017..0.107 rows=29 loops=1)
+              Buffers: shared hit=15
+              ->  Seq Scan on event_sources s  (cost=0.00..1.07 rows=1 width=16) (actual time=0.001..0.002 rows=1 loops=1)
+                    Filter: ((installation_id = '4ccba0ee-c7ce-48b2-a7fc-7df83b98169a'::uuid) AND (integration_id = 'bf027a70-f648-4522-93c6-a712e232ee46'::uuid))
+                    Rows Removed by Filter: 4
+                    Buffers: shared hit=1
+              ->  Bitmap Heap Scan on crm_events e  (cost=18.68..89.88 rows=2 width=92) (actual time=0.015..0.101 rows=29 loops=1)
+                    Recheck Cond: (installation_id = '4ccba0ee-c7ce-48b2-a7fc-7df83b98169a'::uuid)
+                    Filter: ((created_at >= '2026-09-06 18:00:00+00'::timestamp with time zone) AND (created_at <= '2026-09-08 18:00:00+00'::timestamp with time zone) AND (created_by = ANY ('{71001,71002,71003,71004,71005,71006,71007,71008}'::bigint[])) AND (CASE WHEN (event_type = ANY ('{task_added,task_completed,task_deleted,task_text_changed,task_deadline_changed,task_type_changed,task_result_added}'::text[])) THEN 'tasks'::text WHEN (event_type = ANY ('{incoming_call,outgoing_call,call_in,call_out}'::text[])) THEN 'calls'::text WHEN (event_type = ANY ('{common_note_added,common_note_deleted,service_note_added}'::text[])) THEN 'notes'::text WHEN (event_type = ANY ('{incoming_chat_message,outgoing_chat_message,entity_direct_message,outgoing_sms,incoming_sms}'::text[])) THEN 'messages'::text WHEN (event_type = 'lead_status_changed'::text) THEN 'status'::text WHEN (event_type = 'sale_field_changed'::text) THEN 'budget'::text WHEN (event_type = 'entity_responsible_changed'::text) THEN 'responsible'::text WHEN (event_type = 'custom_field_value_changed'::text) THEN 'custom_fields'::text WHEN (event_type = 'attachment_note_added'::text) THEN 'attachments'::text WHEN (event_type ~~ 'custom_field\_%\_value_changed'::text) THEN 'custom_fields'::text WHEN ((event_type ~~ '%\_linked'::text) OR (event_type ~~ '%\_unlinked'::text)) THEN 'relations'::text ELSE 'other'::text END = ANY ('{tasks}'::text[])))
+                    Rows Removed by Filter: 291
+                    Heap Blocks: exact=10
+                    Buffers: shared hit=14
+                    ->  Bitmap Index Scan on crm_events_pkey  (cost=0.00..18.68 rows=320 width=0) (actual time=0.008..0.008 rows=320 loops=1)
+                          Index Cond: (installation_id = '4ccba0ee-c7ce-48b2-a7fc-7df83b98169a'::uuid)
+                          Buffers: shared hit=4
+Planning Time: 0.096 ms
+Execution Time: 0.133 ms

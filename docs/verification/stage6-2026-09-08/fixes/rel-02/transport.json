@@ -1,0 +1,46 @@
+{
+  "card": {
+    "activity_rpc_bytes": 128356,
+    "http_bytes": 128609,
+    "http_status": 200,
+    "owner_rpc_bytes": 64093,
+    "p95": "2.185033ms",
+    "p99": "2.378877ms"
+  },
+  "compact_100": {
+    "activity_rpc_bytes": 22288,
+    "http_bytes": 46452,
+    "http_status": 200,
+    "owner_rpc_bytes": 7997,
+    "p95": "1.873766ms",
+    "p99": "2.359001ms"
+  },
+  "first_http_rejected_limit": 49,
+  "full_100": {
+    "activity_rpc_error": "resource_exhausted",
+    "http_bytes": 40,
+    "http_status": 429,
+    "owner_rpc_error": "resource_exhausted",
+    "p95": "46.06315ms",
+    "p99": "52.87944ms"
+  },
+  "last_http_ok_limit": 48,
+  "near_bound": {
+    "activity_rpc_bytes": 3085728,
+    "http_bytes": 3098539,
+    "http_status": 200,
+    "owner_rpc_bytes": 3078680,
+    "p95": "69.471695ms",
+    "p99": "118.492648ms"
+  },
+  "over_bound": {
+    "activity_rpc_error": "resource_exhausted",
+    "http_bytes": 40,
+    "http_status": 429,
+    "owner_rpc_error": "resource_exhausted",
+    "p95": "29.024414ms",
+    "p99": "31.649593ms"
+  },
+  "samples": 25,
+  "transport": "HTTP -\u003e Activity mTLS -\u003e CRM Events mTLS -\u003e PostgreSQL"
+}

@@ -1,0 +1,45 @@
+Limit  (cost=24.92..24.93 rows=1 width=62) (actual time=0.043..0.043 rows=1 loops=1)
+  Buffers: shared hit=18
+  ->  LockRows  (cost=24.92..24.93 rows=1 width=62) (actual time=0.042..0.043 rows=1 loops=1)
+        Buffers: shared hit=18
+        ->  Sort  (cost=24.92..24.92 rows=1 width=62) (actual time=0.039..0.040 rows=1 loops=1)
+              Sort Key: ((SubPlan 1)), s.updated_at
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=17
+              ->  Nested Loop  (cost=3.21..24.91 rows=1 width=62) (actual time=0.026..0.037 rows=5 loops=1)
+                    Join Filter: (c.installation_id = j.installation_id)
+                    Rows Removed by Join Filter: 20
+                    Buffers: shared hit=17
+                    ->  HashAggregate  (cost=1.43..1.48 rows=5 width=22) (actual time=0.007..0.008 rows=5 loops=1)
+                          Group Key: j.installation_id
+                          Batches: 1  Memory Usage: 24kB
+                          Buffers: shared hit=1
+                          ->  Seq Scan on event_jobs j  (cost=0.00..1.38 rows=20 width=22) (actual time=0.002..0.004 rows=20 loops=1)
+                                Filter: ((status = ANY ('{queued,retry,running}'::text[])) AND (run_after <= now()))
+                                Buffers: shared hit=1
+                    ->  Materialize  (cost=1.79..21.84 rows=2 width=68) (actual time=0.002..0.003 rows=5 loops=5)
+                          Buffers: shared hit=11
+                          ->  Nested Loop Semi Join  (cost=1.79..21.83 rows=2 width=68) (actual time=0.007..0.012 rows=5 loops=1)
+                                Buffers: shared hit=11
+                                ->  Seq Scan on event_sources s  (cost=0.00..1.10 rows=5 width=46) (actual time=0.003..0.004 rows=5 loops=1)
+                                      Filter: ((state <> ALL ('{reauth_required,disabled,paused,failed}'::text[])) AND ((lease_until IS NULL) OR (lease_until < now())))
+                                      Buffers: shared hit=1
+                                ->  Bitmap Heap Scan on event_consumers c  (cost=1.79..7.17 rows=2 width=22) (actual time=0.001..0.001 rows=1 loops=5)
+                                      Recheck Cond: (s.installation_id = installation_id)
+                                      Filter: enabled
+                                      Heap Blocks: exact=5
+                                      Buffers: shared hit=10
+                                      ->  Bitmap Index Scan on event_consumers_pkey  (cost=0.00..1.79 rows=5 width=0) (actual time=0.000..0.000 rows=1 loops=5)
+                                            Index Cond: (installation_id = s.installation_id)
+                                            Buffers: shared hit=5
+                    SubPlan 1
+                      ->  Aggregate  (cost=1.44..1.45 rows=1 width=4) (actual time=0.002..0.002 rows=1 loops=5)
+                            Buffers: shared hit=5
+                            ->  Seq Scan on event_jobs j_1  (cost=0.00..1.43 rows=4 width=4) (actual time=0.001..0.001 rows=4 loops=5)
+                                  Filter: ((installation_id = s.installation_id) AND (status = ANY ('{queued,retry,running}'::text[])) AND (run_after <= now()))
+                                  Rows Removed by Filter: 16
+                                  Buffers: shared hit=5
+Planning:
+  Buffers: shared hit=20
+Planning Time: 0.190 ms
+Execution Time: 0.074 ms

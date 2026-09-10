@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS lead_status_rule_configurations_cleanup_idx;
+DROP TABLE IF EXISTS installation_webhook_destinations;

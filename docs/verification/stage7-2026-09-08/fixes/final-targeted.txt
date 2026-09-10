@@ -1,0 +1,16 @@
+ Container amocrm-stage7-fix-test-integration-test-run-f46b3810491b Creating
+ Container amocrm-stage7-fix-test-integration-test-run-f46b3810491b Created
+=== RUN   TestWebhookOwnershipIntentSurvivesLostRegistrationResponse
+--- PASS: TestWebhookOwnershipIntentSurvivesLostRegistrationResponse (0.08s)
+=== RUN   TestUninstallCanRecoverExpiredAccessToken
+--- PASS: TestUninstallCanRecoverExpiredAccessToken (0.05s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/webhook	1.143s
+=== RUN   TestParseCommandSecretUsesStdinAndIsNotEchoed
+--- PASS: TestParseCommandSecretUsesStdinAndIsNotEchoed (0.00s)
+=== RUN   TestParseCommandLimitsSecretAndRequiresExplicitServices
+--- PASS: TestParseCommandLimitsSecretAndRequiresExplicitServices (0.00s)
+=== RUN   TestParseCommandInstallationLifecycle
+--- PASS: TestParseCommandInstallationLifecycle (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/cmd/integrations	1.020s

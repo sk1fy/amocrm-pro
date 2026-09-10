@@ -18,6 +18,7 @@ import (
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	oauthflow "github.com/sk1fy/amocrm-pro/internal/oauth"
+	"github.com/sk1fy/amocrm-pro/internal/oauthlimit"
 	"github.com/sk1fy/amocrm-pro/internal/platform/config"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/platform/logging"
@@ -148,6 +149,18 @@ func run() error {
 		oauthStore, keyRing, oauthGateway, cfg.OAuthStateTTL, cfg.ExternalRequestTimeout,
 	)
 	oauthHandler := oauthflow.NewHandler(oauthService, logger)
+	oauthLimiter, err := oauthlimit.New(oauthlimit.Config{
+		IPRate: cfg.OAuthIPRate, IPBurst: cfg.OAuthIPBurst,
+		IdentityRate: cfg.OAuthIdentityRate, IdentityBurst: cfg.OAuthIdentityBurst,
+		InactiveTTL: cfg.OAuthLimiterInactiveTTL, MaxEntries: cfg.OAuthLimiterMaxEntries,
+	}, registry)
+	if err != nil {
+		return err
+	}
+	oauthLimitContext, stopOAuthLimiter := context.WithCancel(ctx)
+	oauthLimitDone := make(chan struct{})
+	go func() { defer close(oauthLimitDone); oauthLimiter.Run(oauthLimitContext) }()
+	defer func() { stopOAuthLimiter(); <-oauthLimitDone }()
 
 	widgetAuthenticator, err := widgetauth.NewAuthenticator(
 		widgetauth.NewStore(pool), keyRing,
@@ -180,8 +193,8 @@ func run() error {
 	router.Use(httpmiddleware.Recover(logger))
 	router.Use(httpmiddleware.AccessLog(logger))
 	httpserver.RegisterPublicSystemRoutes(router)
-	router.Method(apicontract.OAuthStart.Method, apicontract.OAuthStart.Path, http.HandlerFunc(oauthHandler.Start))
-	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, http.HandlerFunc(oauthHandler.Callback))
+	router.Method(apicontract.OAuthStart.Method, apicontract.OAuthStart.Path, oauthLimiter.Middleware(http.HandlerFunc(oauthHandler.Start)))
+	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, oauthLimiter.Middleware(http.HandlerFunc(oauthHandler.Callback)))
 	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))
 	widgetCORSMiddleware := widgetcors.Middleware(widgetcors.NewPostgresAuthorizer(pool))
 	widgetRoute := func(consume bool, handler http.Handler) http.Handler {

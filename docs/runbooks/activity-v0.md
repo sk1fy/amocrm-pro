@@ -33,8 +33,10 @@ Fresh-cluster bootstrap создаёт `amocrm_core`, `amocrm_activity`, `amocrm
 не сохраняется. Только Gateway/policy volume содержит Ed25519 delegation private
 key. Каждый standalone получает только свой identity volume и свой DSN.
 При истечении dev-сертификатов остановите этот dev-стек, удалите только четыре
-identity volumes и повторите создание; PostgreSQL volume не удаляйте. Production
-ротация выполняется средствами CA с периодом совместимости сертификатов.
+identity volumes и повторите создание; PostgreSQL volume не удаляйте. Не
+используйте `service-certs` и его 30-дневные localhost-сертификаты в
+production. Ротация keyring, integration secrets, webhook keys и production
+mTLS — в [secrets-rotation.md](secrets-rotation.md).
 
 | Процесс | DB pool | Рабочие слоты | Зависимости |
 | --- | ---: | ---: | --- |
@@ -156,16 +158,36 @@ last success, last event, lag и reauth. `unknown`, `partial` и `stale` нел�
 retries/pagination ошибки исправьте причину и отправьте `sync`. Удалять jobs,
 inbox, source state или создавать новый operation ID для старой команды не нужно.
 
-Outbox: максимум 20 попыток с backoff 2–256 секунд, без очистки receipt/inbox v0.
-Permanent denial и исчерпание попыток видны как final failure. После исправления:
+Outbox: максимум 20 попыток с backoff 2–256 секунд **и** календарный горизонт
+7 суток от `activity_command_receipts.created_at`
+([ADR-0016](../adr/0016-technical-history-retention.md)). Попытки, простой
+исполнителя и операторский retry этот срок не продлевают: старше 7 суток
+команда становится `expired` и не доставляется. Срок хранения completed/failed
+jobs — не менее 7 суток после `updated_at`. Paused jobs не удаляются.
+Terminal `event_inbox`/`event_operations` старше того же горизонта собираются;
+поздний replay того же ID не Apply (tombstone/conflict), новые command ID
+принимаются. Webhook payloads не сокращаются относительно ADR-0006.
+
+Смена `retention_days` не обещает вернуть уже удалённые строки и не сокращает
+7-дневный срок хранения завершённых jobs.
+
+Permanent denial и исчерпание попыток видны как final failure. Список и
+карточка failed/expired:
+
+```sh
+docker-compose -f docker-compose.activity.yml run --rm activity-control list
+docker-compose -f docker-compose.activity.yml run --rm activity-control inspect COMMAND_UUID
+```
+
+После исправления причины, пока команда моложе 7 суток:
 
 ```sh
 docker-compose -f docker-compose.activity.yml run --rm activity-control retry COMMAND_UUID
 ```
 
-Повтор оператором аудируется, сохраняет identity и payload команды и снова
-проверяет актуальные права. Receipt/inbox/job history пока не очищаются: срок
-очистки должен покрывать согласованный retry/dedup horizon всех владельцев.
+Повтор оператором аудируется, сохраняет identity и payload, снова проверяет
+права и отклоняется typed `conflict`, если команда старше горизонта. Второго
+retry API нет; `cmd/integrations` по-прежнему не повторяет внешние мутации.
 
 ## Отключение и возврат
 
@@ -223,7 +245,9 @@ Registry проверяет зависимости, режимы, интерфе
 после сборки граф закрыт для новых регистраций. `contract_version=v1` — версия
 межсервисного контракта; `product_version=v0` — объём Activity/CRM Events.
 
-`/live`, `/ready`, `/metrics` размещены на management listeners. Core `/ready`
+`/live`, `/ready`, `/metrics` размещены на management listeners. Compose
+публикует API management на `127.0.0.1`; на целевом хосте bind/firewall
+management ещё не подтверждались. Core `/ready`
 проверяет сам Core; доступность необязательного графа Activity показана отдельно
 на `/components/activity/ready`, чтобы отказ продукта не убирал другие виджеты
 из ingress. Core grpc clients подключаются без блокирования старта, с bounded

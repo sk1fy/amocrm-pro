@@ -1,5 +1,9 @@
 // service-certs generates ephemeral development identities for the local pilot.
-// Production deployments supply identities from their own CA and secret store.
+// Certificates last 30 days and include localhost DNS names. Production
+// deployments MUST NOT use this binary or its output; supply identities from
+// the environment CA and secret store, keep TLS client verification enabled,
+// and overlap old/new certificates during rotation.
+// See docs/runbooks/secrets-rotation.md.
 package main
 
 import (
@@ -22,7 +26,7 @@ func main() {
 		return
 	}
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY (development only, refuses existing keys)")
+		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY (development only; 30-day localhost certs; refuses existing keys; not for production)")
 		os.Exit(2)
 	}
 	if err := generate(os.Args[1]); err != nil {
@@ -110,5 +114,9 @@ func generate(dir string) error {
 	}
 	// Only the Gateway/policy process issues delegation. The CA private key is
 	// deliberately not persisted or mounted in any runtime container.
-	return writeExclusive(filepath.Join(dir, "gateway", "delegation.key"), "PRIVATE KEY", der)
+	if err := writeExclusive(filepath.Join(dir, "gateway", "delegation.key"), "PRIVATE KEY", der); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "service-certs: wrote development identities (30-day localhost). Do not use these certificates in production.")
+	return nil
 }

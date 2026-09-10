@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
 )
@@ -135,4 +136,181 @@ func TestOperatorMutationRollsBackWhenAuditFails(t *testing.T) {
 	if count != 0 {
 		t.Fatal("unaudited integration persisted")
 	}
+}
+
+func TestDisableIntegrationIsNotUninstall(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	ctx := context.Background()
+	store, integrationID := newLifecycleStore(t, pool)
+	installationID := insertLifecycleInstallation(t, pool, integrationID)
+	if _, err := store.Apply(ctx, Command{Action: "disable", Actor: "test-operator", Code: "widget-a"}); err != nil {
+		t.Fatal(err)
+	}
+	var integrationStatus, installationStatus string
+	if err := pool.QueryRow(ctx, `SELECT status FROM integrations WHERE id=$1`, integrationID).Scan(&integrationStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status FROM installations WHERE id=$1`, installationID).Scan(&installationStatus); err != nil {
+		t.Fatal(err)
+	}
+	if integrationStatus != "disabled" || installationStatus != "active" {
+		t.Fatalf("disable integration changed installation: integration=%s installation=%s", integrationStatus, installationStatus)
+	}
+	if _, err := store.Apply(ctx, Command{Action: "enable", Actor: "test-operator", Code: "widget-a"}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := store.Apply(ctx, Command{Action: "uninstall", Actor: "test-operator", Code: "widget-a", InstallationID: installationID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "uninstalled" || result.Action != "installation.uninstall" {
+		t.Fatalf("unexpected uninstall result: %#v", result)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status FROM integrations WHERE id=$1`, integrationID).Scan(&integrationStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status FROM installations WHERE id=$1`, installationID).Scan(&installationStatus); err != nil {
+		t.Fatal(err)
+	}
+	if integrationStatus != "active" || installationStatus != "uninstalled" {
+		t.Fatalf("uninstall changed integration: integration=%s installation=%s", integrationStatus, installationStatus)
+	}
+}
+
+func TestUninstallPreservesOwnerDataAndIsDeniedByExistingGuards(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	ctx := context.Background()
+	store, integrationID := newLifecycleStore(t, pool)
+	installationID := insertLifecycleInstallation(t, pool, integrationID)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO oauth_credentials (
+			installation_id, access_token_ciphertext, refresh_token_ciphertext,
+			expires_at, token_version, key_version
+		) VALUES ($1, decode('00','hex'), decode('00','hex'), now() + interval '1 hour', 1, 1)`,
+		installationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO jobs (installation_id, type, payload) VALUES ($1, 'widget.ping', '{}'::jsonb)`, installationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO webhook_deliveries (installation_id, content_type, raw_body, body_sha256, parse_status)
+		VALUES ($1, 'application/json', '{}', decode(repeat('aa', 32), 'hex'), 'parsed')`,
+		installationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Apply(ctx, Command{Action: "uninstall", Actor: "test-operator", Code: "widget-a", InstallationID: installationID}); err != nil {
+		t.Fatal(err)
+	}
+	var credentials, jobs, deliveries int
+	if err := pool.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM oauth_credentials WHERE installation_id=$1),
+		(SELECT count(*) FROM jobs WHERE installation_id=$1),
+		(SELECT count(*) FROM webhook_deliveries WHERE installation_id=$1)`,
+		installationID).Scan(&credentials, &jobs, &deliveries); err != nil {
+		t.Fatal(err)
+	}
+	if credentials != 1 || jobs != 1 || deliveries != 1 {
+		t.Fatalf("uninstall deleted owner data: credentials=%d jobs=%d deliveries=%d", credentials, jobs, deliveries)
+	}
+	var tokenLoad, jobAdmit, liveActive bool
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			EXISTS(
+				SELECT 1 FROM oauth_credentials credentials
+				JOIN installations installation ON installation.id = credentials.installation_id
+				JOIN integrations integration ON integration.id = installation.integration_id
+				WHERE credentials.installation_id = $1
+				  AND installation.status IN ('active', 'authorizing')
+				  AND integration.status = 'active'
+			),
+			EXISTS(
+				SELECT 1 FROM installations AS installation
+				JOIN integrations AS integration ON integration.id=installation.integration_id
+				JOIN integration_services AS capability ON capability.integration_id=integration.id
+				WHERE installation.id=$1 AND capability.service_code='lead-status'
+				  AND installation.status='active' AND integration.status='active' AND capability.enabled
+			),
+			EXISTS(
+				SELECT 1 FROM installations i
+				JOIN integrations n ON n.id=i.integration_id
+				WHERE i.id=$1 AND i.status='active' AND n.status='active'
+			)`, installationID).Scan(&tokenLoad, &jobAdmit, &liveActive); err != nil {
+		t.Fatal(err)
+	}
+	if tokenLoad || jobAdmit || liveActive {
+		t.Fatalf("existing guards still admitted uninstalled installation: token=%v job=%v live=%v", tokenLoad, jobAdmit, liveActive)
+	}
+	if _, err := store.Apply(ctx, Command{Action: "disable-installation", Actor: "test-operator", Code: "widget-a", InstallationID: installationID}); err == nil {
+		t.Fatal("disable after uninstall accepted")
+	}
+	if _, err := store.Apply(ctx, Command{Action: "enable-installation", Actor: "test-operator", Code: "widget-a", InstallationID: installationID}); err == nil {
+		t.Fatal("enable after uninstall accepted")
+	}
+}
+
+func TestInstallationDisableRevokeAndEnable(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	ctx := context.Background()
+	store, integrationID := newLifecycleStore(t, pool)
+	installationID := insertLifecycleInstallation(t, pool, integrationID)
+	disabled, err := store.Apply(ctx, Command{Action: "disable-installation", Actor: "test-operator", Code: "widget-a", InstallationID: installationID})
+	if err != nil || disabled.Status != "disabled" {
+		t.Fatalf("disable-installation: %#v %v", disabled, err)
+	}
+	if _, err := store.Apply(ctx, Command{Action: "revoke", Actor: "test-operator", Code: "widget-a", InstallationID: installationID}); err == nil {
+		t.Fatal("revoke of disabled installation accepted")
+	}
+	enabled, err := store.Apply(ctx, Command{Action: "enable-installation", Actor: "test-operator", Code: "widget-a", InstallationID: installationID})
+	if err != nil || enabled.Status != "active" {
+		t.Fatalf("enable-installation: %#v %v", enabled, err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO oauth_credentials (
+			installation_id, access_token_ciphertext, refresh_token_ciphertext,
+			expires_at, token_version, key_version
+		) VALUES ($1, decode('00','hex'), decode('00','hex'), now() + interval '1 hour', 1, 1)`,
+		installationID); err != nil {
+		t.Fatal(err)
+	}
+	revoked, err := store.Apply(ctx, Command{Action: "revoke", Actor: "test-operator", Code: "widget-a", InstallationID: installationID})
+	if err != nil || revoked.Status != "reauth_required" {
+		t.Fatalf("revoke: %#v %v", revoked, err)
+	}
+	var credentials int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM oauth_credentials WHERE installation_id=$1`, installationID).Scan(&credentials); err != nil {
+		t.Fatal(err)
+	}
+	if credentials != 1 {
+		t.Fatal("revoke deleted stored credentials")
+	}
+}
+
+func newLifecycleStore(t *testing.T, pool *pgxpool.Pool) (*Store, uuid.UUID) {
+	t.Helper()
+	keys, err := cryptox.NewKeyRing(map[int][]byte{1: []byte("0123456789abcdef0123456789abcdef")}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(pool, keys)
+	uri := "https://example.test/oauth"
+	created, err := store.Apply(context.Background(), Command{Action: "create", Actor: "test-operator", Code: "widget-a", ClientID: uuid.NewString(), Secret: []byte("synthetic-secret"), RedirectURI: &uri, Services: []string{"lead-status"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store, created.ID
+}
+
+func insertLifecycleInstallation(t *testing.T, pool *pgxpool.Pool, integrationID uuid.UUID) uuid.UUID {
+	t.Helper()
+	installationID := uuid.New()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO installations (id, integration_id, account_id, account_domain, status)
+		VALUES ($1, $2, 42, 'tenant.amocrm.ru', 'active')`, installationID, integrationID); err != nil {
+		t.Fatal(err)
+	}
+	return installationID
 }

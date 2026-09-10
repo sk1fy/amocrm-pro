@@ -286,6 +286,8 @@ func (s *Store) SaveInstallation(
 		return InstallationResult{}, errors.New("active encryption key changed during credential encryption")
 	}
 	expiresAt := tokenExpiry(token)
+	// Reauthorization must drop an in-flight refresh lease so a late finalize
+	// cannot persist the previous one-time rotation over the new tokens.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO oauth_credentials (
 			installation_id, access_token_ciphertext, refresh_token_ciphertext,
@@ -297,6 +299,8 @@ func (s *Store) SaveInstallation(
 			expires_at = EXCLUDED.expires_at,
 			token_version = oauth_credentials.token_version + 1,
 			key_version = EXCLUDED.key_version,
+			lease_token = NULL,
+			lease_until = NULL,
 			refreshed_at = now(), updated_at = now()`,
 		installationID, accessCiphertext, refreshCiphertext, expiresAt, keyVersion,
 	); err != nil {

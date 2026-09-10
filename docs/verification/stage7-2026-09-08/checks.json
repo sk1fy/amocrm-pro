@@ -1,0 +1,16 @@
+{
+  "gate_activity_ci": "make ACTIVITY_TEST_PROJECT=amocrm-stage7-test activity-ci",
+  "activity_ci_exit": 0,
+  "activity_ci_go_pass": 215,
+  "activity_ci_go_fail": 0,
+  "activity_ci_go_skip": 3,
+  "activity_ci_ui_pass": 25,
+  "activity_ci_ui_fail": 0,
+  "activity_ci_ui_skip": 0,
+  "activity_ci_race": true,
+  "activity_ci_compose_project": "amocrm-stage7-test",
+  "gate_integration_test": "make TEST_COMPOSE_PROJECT=amocrm-stage7-integration-test integration-test",
+  "integration_test_exit": 0,
+  "openapi_check_exit": 0,
+  "core_migrations": 13
+}

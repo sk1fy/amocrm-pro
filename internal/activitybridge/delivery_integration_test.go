@@ -282,6 +282,83 @@ func TestDurableAcceptanceLostResponseAndActorIsolation(t *testing.T) {
 	}
 }
 
+func TestWorkerDoesNotDeliverPastRedeliveryHorizon(t *testing.T) {
+	pool, p := bridgeDatabase(t)
+	ctx := context.Background()
+	receiver := &acceptingActivity{}
+	b := New(pool, &admissionPolicy{}, receiver, nil)
+	if err := SetPilot(ctx, pool, p.InstallationID, true); err != nil {
+		t.Fatal(err)
+	}
+	first, err := b.Configure(ctx, p, "aged", serviceapi.DefaultSettings())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE activity_command_receipts SET created_at=now()-interval '8 days' WHERE command_id=$1`, first.CommandID); err != nil {
+		t.Fatal(err)
+	}
+	if worked, err := b.DeliverOne(ctx); err != nil || worked || receiver.calls != 0 {
+		t.Fatalf("aged delivery=%v err=%v calls=%d", worked, err, receiver.calls)
+	}
+	var state, code string
+	var attempts int
+	if err := pool.QueryRow(ctx, `SELECT status,error_code,attempts FROM activity_command_outbox WHERE command_id=$1`, first.CommandID).Scan(&state, &code, &attempts); err != nil || state != "expired" || code != ErrorDeliveryExpired {
+		t.Fatalf("aged state=%s code=%s attempts=%d err=%v", state, code, attempts, err)
+	}
+	if err := RetryDelivery(ctx, pool, uuid.MustParse(first.CommandID)); !IsDeliveryExpired(err) {
+		t.Fatalf("operator retry of expired command=%v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status,attempts FROM activity_command_outbox WHERE command_id=$1`, first.CommandID).Scan(&state, &attempts); err != nil || state != "expired" || attempts != 0 {
+		t.Fatalf("expired retry mutated row state=%s attempts=%d err=%v", state, attempts, err)
+	}
+	status, err := b.Operation(ctx, p, first.CommandID)
+	if err != nil || status.State != "failed" || status.ErrorCode != ErrorDeliveryExpired {
+		t.Fatalf("widget expired status=%+v %v", status, err)
+	}
+}
+
+func TestOperatorRetryRejectsAgedFailedCommand(t *testing.T) {
+	pool, p := bridgeDatabase(t)
+	ctx := context.Background()
+	policy := &admissionPolicy{}
+	receiver := &acceptingActivity{}
+	b := New(pool, policy, receiver, nil)
+	if err := SetPilot(ctx, pool, p.InstallationID, true); err != nil {
+		t.Fatal(err)
+	}
+	first, err := b.Configure(ctx, p, "aged-failed", serviceapi.DefaultSettings())
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.deny = true
+	if _, err := b.DeliverOne(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE activity_command_receipts SET created_at=now()-interval '8 days' WHERE command_id=$1`, first.CommandID); err != nil {
+		t.Fatal(err)
+	}
+	var attemptsBefore int
+	if err := pool.QueryRow(ctx, `SELECT attempts FROM activity_command_outbox WHERE command_id=$1`, first.CommandID).Scan(&attemptsBefore); err != nil {
+		t.Fatal(err)
+	}
+	if err := RetryDelivery(ctx, pool, uuid.MustParse(first.CommandID)); !IsDeliveryExpired(err) {
+		t.Fatalf("aged failed retry=%v", err)
+	}
+	var state string
+	var attempts int
+	if err := pool.QueryRow(ctx, `SELECT status,attempts FROM activity_command_outbox WHERE command_id=$1`, first.CommandID).Scan(&state, &attempts); err != nil || state != "failed" || attempts != attemptsBefore {
+		t.Fatalf("aged failed retry mutated state=%s attempts=%d want %d err=%v", state, attempts, attemptsBefore, err)
+	}
+	listed, err := ListDeliveries(ctx, pool)
+	if err != nil || len(listed) != 1 || listed[0].CommandID.String() != first.CommandID || listed[0].Status != "failed" {
+		t.Fatalf("list=%+v err=%v", listed, err)
+	}
+	inspected, err := InspectDelivery(ctx, pool, uuid.MustParse(first.CommandID))
+	if err != nil || inspected.Status != "failed" || inspected.Attempts != attemptsBefore {
+		t.Fatalf("inspect=%+v err=%v", inspected, err)
+	}
+}
+
 func TestDeliveryRevocationAndAuditedRetry(t *testing.T) {
 	pool, p := bridgeDatabase(t)
 	ctx := context.Background()

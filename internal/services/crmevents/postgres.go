@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
@@ -49,6 +50,8 @@ func (s *Postgres) Apply(ctx context.Context, cmd serviceapi.Command, p servicea
 	hash := commandHash(cmd, p)
 	var previous []byte
 	var operationID uuid.UUID
+	// In-horizon replay returns the original operation. After receipt GC a
+	// tombstone rejects the same command_id so it cannot become a new accept.
 	err = tx.QueryRow(ctx, `SELECT payload_hash,operation_id FROM event_inbox WHERE installation_id=$1 AND command_id=$2`, p.InstallationID, cmd.CommandID).Scan(&previous, &operationID)
 	if err == nil {
 		if string(previous) != string(hash) {
@@ -77,6 +80,10 @@ func (s *Postgres) Apply(ctx context.Context, cmd serviceapi.Command, p servicea
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO event_inbox(installation_id,command_id,payload_hash,operation_id) VALUES($1,$2,$3,$4)`, p.InstallationID, cmd.CommandID, hash, operationID)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return serviceapi.Operation{}, serviceapi.Fail(serviceapi.Conflict, "command id already used or expired")
+		}
 		return serviceapi.Operation{}, err
 	}
 	enabled := cmd.Kind != "disable"

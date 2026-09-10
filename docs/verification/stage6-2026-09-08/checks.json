@@ -1,0 +1,12 @@
+{
+  "gate": "make ACTIVITY_TEST_PROJECT=amocrm-stage6-test activity-ci",
+  "exit": 0,
+  "go_pass": 205,
+  "go_fail": 0,
+  "go_skip": 3,
+  "ui_pass": 25,
+  "ui_fail": 0,
+  "ui_skip": 0,
+  "race": true,
+  "compose_project": "amocrm-stage6-test"
+}

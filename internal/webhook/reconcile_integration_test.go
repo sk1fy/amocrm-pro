@@ -130,7 +130,7 @@ func TestReconcileJobHandlerIntegration(t *testing.T) {
 		if len(requests) != 2 || requests[0].Method != http.MethodGet || requests[1].Method != http.MethodPost {
 			t.Fatalf("expected GET followed by POST, got %#v", requests)
 		}
-		if requests[0].Path != "/api/v4/webhooks" || !strings.Contains(requests[0].Query, "filter%5Bdestination%5D=") {
+		if requests[0].Path != "/api/v4/webhooks" || requests[0].Query != "" {
 			t.Fatalf("unexpected list request: %#v", requests[0])
 		}
 		var spec amocrm.WebhookSpec
@@ -212,6 +212,110 @@ func TestReconcileJobHandlerIntegration(t *testing.T) {
 		}
 		if !strings.Contains(message, "upstream") {
 			t.Fatalf("persisted error lost useful context: %q", message)
+		}
+	})
+
+	t.Run("reauth deletes stale duplicate destinations and keeps the desired one", func(t *testing.T) {
+		fixture := newReconcileFixture(t, pool)
+		desired := fixture.destination()
+		stale := reconcilePublicBaseURL + "/hooks/amocrm/v1/stale-duplicate-key"
+		if err := fixture.store.rememberDestination(context.Background(), fixture.installationID, stale); err != nil {
+			t.Fatal(err)
+		}
+		var requests []reconcileRequest
+		handler := fixture.handler(t, func(request *http.Request) (*http.Response, error) {
+			var body []byte
+			if request.Body != nil {
+				var err error
+				body, err = io.ReadAll(request.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			requests = append(requests, reconcileRequest{Method: request.Method, Path: request.URL.Path, Query: request.URL.RawQuery, Body: body})
+			switch request.Method {
+			case http.MethodGet:
+				return reconcileResponse(http.StatusOK, `{"_embedded":{"webhooks":[{"id":1,"destination":"`+desired+`","disabled":false,"settings":["add_lead","update_lead"]},{"id":2,"destination":"`+stale+`","disabled":false,"settings":["add_lead"]}]}}`, nil), nil
+			case http.MethodDelete:
+				return reconcileResponse(http.StatusNoContent, "", nil), nil
+			default:
+				t.Fatalf("unexpected method: %s", request.Method)
+				return nil, nil
+			}
+		})
+		if _, err := handler(context.Background(), fixture.job(fixture.installationID)); err != nil {
+			t.Fatal(err)
+		}
+		if len(requests) != 2 || requests[0].Method != http.MethodGet || requests[1].Method != http.MethodDelete {
+			t.Fatalf("expected GET then DELETE of stale destination, got %#v", requests)
+		}
+		var spec map[string]string
+		if err := json.Unmarshal(requests[1].Body, &spec); err != nil {
+			t.Fatalf("decode delete request: %v", err)
+		}
+		if spec["destination"] != stale {
+			t.Fatalf("deleted %q, want stale destination", spec["destination"])
+		}
+		fixture.assertWebhookState(t, "active", "")
+	})
+
+	t.Run("uninstall unregisters even when installation is no longer active", func(t *testing.T) {
+		fixture := newReconcileFixture(t, pool)
+		if _, err := pool.Exec(context.Background(), `
+			INSERT INTO oauth_credentials (
+				installation_id, access_token_ciphertext, refresh_token_ciphertext,
+				expires_at, token_version, key_version
+			) VALUES ($1, decode('00','hex'), decode('00','hex'), now() + interval '1 hour', 1, 1)`,
+			fixture.installationID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(context.Background(), `UPDATE installations SET status='uninstalled' WHERE id=$1`, fixture.installationID); err != nil {
+			t.Fatal(err)
+		}
+		desired := fixture.destination()
+		var requests []reconcileRequest
+		client := amocrm.NewClient(&http.Client{Transport: reconcileRoundTripper(func(request *http.Request) (*http.Response, error) {
+			var body []byte
+			if request.Body != nil {
+				var err error
+				body, err = io.ReadAll(request.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			requests = append(requests, reconcileRequest{Method: request.Method, Path: request.URL.Path, Body: body})
+			switch request.Method {
+			case http.MethodGet:
+				return reconcileResponse(http.StatusOK, `{"_embedded":{"webhooks":[{"id":9,"destination":"`+desired+`","disabled":false,"settings":["add_lead"]}]}}`, nil), nil
+			case http.MethodDelete:
+				return reconcileResponse(http.StatusNoContent, "", nil), nil
+			default:
+				t.Fatalf("unexpected method: %s", request.Method)
+				return nil, nil
+			}
+		}), Timeout: 2 * time.Second}, reconcileTokenProvider{integrationID: fixture.integrationID})
+		if err := Unregister(context.Background(), fixture.store, client, fixture.installationID); err != nil {
+			t.Fatal(err)
+		}
+		if len(requests) != 2 || requests[0].Method != http.MethodGet || requests[1].Method != http.MethodDelete {
+			t.Fatalf("expected list then delete, got %#v", requests)
+		}
+		var spec map[string]string
+		if err := json.Unmarshal(requests[1].Body, &spec); err != nil {
+			t.Fatalf("decode delete request: %v", err)
+		}
+		if spec["destination"] != desired {
+			t.Fatalf("deleted %q, want current destination", spec["destination"])
+		}
+		fixture.assertWebhookState(t, "unregistered", "")
+		handler := fixture.handler(t, func(*http.Request) (*http.Response, error) {
+			t.Fatal("inactive reconcile must not call amoCRM")
+			return nil, nil
+		})
+		_, err := handler(context.Background(), fixture.job(fixture.installationID))
+		var jobError *jobs.Error
+		if !errors.As(err, &jobError) || jobError.Retryable || jobError.Code != "installation_not_active" {
+			t.Fatalf("inactive reconcile classification: %#v", err)
 		}
 	})
 }

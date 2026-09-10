@@ -1,0 +1,36 @@
+{
+  "amocrm": {
+    "Events": 0,
+    "Users": 56,
+    "Notes": 0,
+    "Tasks": 0,
+    "Pipelines": 0,
+    "Fields": 0,
+    "Entities": 0
+  },
+  "claimable": 224,
+  "collector_lag_seconds": 2100.345626,
+  "enrichment": {
+    "pending": 56,
+    "ready": 112,
+    "retry": 56,
+    "unavailable": 56
+  },
+  "enrichment_age_seconds": 5880.42703,
+  "event_payload_objects": 56,
+  "installations": 5,
+  "job_age_seconds": 2040.340476,
+  "jobs": {
+    "queued": 20
+  },
+  "pending_or_retry": 112,
+  "refresh_share_of_claimable": 0.25,
+  "refreshable_ready": 56,
+  "status_lag_seconds": [
+    420,
+    840,
+    1260,
+    1680,
+    2100
+  ]
+}

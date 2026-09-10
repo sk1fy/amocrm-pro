@@ -1,0 +1,33 @@
+Limit  (cost=11.41..11.43 rows=1 width=62) (actual time=0.019..0.019 rows=1 loops=1)
+  Buffers: shared hit=6
+  ->  LockRows  (cost=11.41..11.43 rows=1 width=62) (actual time=0.018..0.019 rows=1 loops=1)
+        Buffers: shared hit=6
+        ->  Sort  (cost=11.41..11.42 rows=1 width=62) (actual time=0.014..0.015 rows=1 loops=1)
+              Sort Key: ((SubPlan 1)), s.updated_at
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=5
+              ->  Nested Loop Semi Join  (cost=0.15..11.40 rows=1 width=62) (actual time=0.011..0.012 rows=1 loops=1)
+                    Buffers: shared hit=5
+                    ->  Nested Loop Semi Join  (cost=0.00..2.11 rows=1 width=68) (actual time=0.004..0.005 rows=1 loops=1)
+                          Join Filter: (s.installation_id = j.installation_id)
+                          Buffers: shared hit=2
+                          ->  Seq Scan on event_sources s  (cost=0.00..1.02 rows=1 width=46) (actual time=0.002..0.002 rows=1 loops=1)
+                                Filter: ((state <> ALL ('{reauth_required,disabled,paused,failed}'::text[])) AND ((lease_until IS NULL) OR (lease_until < now())))
+                                Buffers: shared hit=1
+                          ->  Seq Scan on event_jobs j  (cost=0.00..1.07 rows=4 width=22) (actual time=0.002..0.002 rows=1 loops=1)
+                                Filter: ((status = ANY ('{queued,retry,running}'::text[])) AND (run_after <= now()))
+                                Buffers: shared hit=1
+                    ->  Index Scan using event_consumers_pkey on event_consumers c  (cost=0.15..8.17 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=1)
+                          Index Cond: (installation_id = s.installation_id)
+                          Filter: enabled
+                          Buffers: shared hit=2
+                    SubPlan 1
+                      ->  Aggregate  (cost=1.09..1.10 rows=1 width=4) (actual time=0.003..0.003 rows=1 loops=1)
+                            Buffers: shared hit=1
+                            ->  Seq Scan on event_jobs j_1  (cost=0.00..1.08 rows=4 width=4) (actual time=0.001..0.001 rows=4 loops=1)
+                                  Filter: ((installation_id = s.installation_id) AND (status = ANY ('{queued,retry,running}'::text[])) AND (run_after <= now()))
+                                  Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=24
+Planning Time: 0.207 ms
+Execution Time: 0.047 ms

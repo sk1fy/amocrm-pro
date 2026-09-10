@@ -288,6 +288,10 @@ func (s *Postgres) SavePage(ctx context.Context, c Slice, page serviceapi.EventP
 	if err != nil {
 		return err
 	}
+	_, err = tx.Exec(ctx, `UPDATE event_sources SET events_processed=events_processed+$2,events_inserted=events_inserted+$3,events_updated=events_updated+$4,events_deduplicated=events_deduplicated+$5 WHERE installation_id=$1`, c.InstallationID, processed, inserted, updated, dedup)
+	if err != nil {
+		return err
+	}
 	_, err = tx.Exec(ctx, `UPDATE event_operations SET status=$2,error_code=$3,processed=processed+$4,inserted=inserted+$5,updated=updated+$6,deduplicated=deduplicated+$7,updated_at=now() WHERE id IN(SELECT operation_id FROM event_operation_jobs WHERE job_id=$1)`, c.ID, operationState, errorCode, processed, inserted, updated, dedup)
 	if err != nil {
 		return err
@@ -343,8 +347,21 @@ func (s *Postgres) cover(ctx context.Context, tx pgx.Tx, c Slice) error {
 // retained_from is a conservative guaranteed-history frontier, not a claim that
 // every older row has physically disappeared. Partial batches advance only past
 // their deleted prefix, including a whole timestamp tie; no event-presence query
-// is used to infer that an interval was verified.
+// is used to infer that an interval was verified. Product retention_days stay
+// 2..30 and are never clamped here. One tick also runs one bounded technical-
+// history batch; ingest faster than cleanup may lag and is not drained in a loop.
 func (s *Postgres) Retain(ctx context.Context) (int64, error) {
+	removed, err := s.retainEvents(ctx)
+	if err != nil {
+		return removed, err
+	}
+	if _, err = s.retainTechnicalHistory(ctx); err != nil {
+		return removed, err
+	}
+	return removed, nil
+}
+
+func (s *Postgres) retainEvents(ctx context.Context) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, err
@@ -376,6 +393,109 @@ func (s *Postgres) Retain(ctx context.Context) (int64, error) {
 	if err = s.deleteOrphanEnrichment(ctx, tx, installation); err != nil {
 		return 0, err
 	}
+	if err = tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return removed, nil
+}
+
+const technicalHistoryLockID int64 = 39081476393
+
+// retainTechnicalHistory deletes one bounded batch of owner technical history.
+// Horizon is independent of retention_days and is never shorter than
+// TechnicalHistoryHorizon. Paused work remains resumable. Terminal inbox and
+// operations older than the same calendar horizon as Core redelivery are
+// collected; a tombstone rejects late Apply of that command_id.
+func (s *Postgres) retainTechnicalHistory(ctx context.Context) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	var locked bool
+	if err = tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, technicalHistoryLockID).Scan(&locked); err != nil {
+		return 0, err
+	}
+	if !locked {
+		return 0, tx.Commit(ctx)
+	}
+	horizon, batch := s.cfg.HistoryHorizon.Milliseconds(), int64(s.cfg.HistoryBatch)
+	var removed int64
+	var n int64
+	if err = tx.QueryRow(ctx, `WITH doomed AS (
+		SELECT j.id FROM event_jobs j
+		WHERE j.status IN ('completed','failed')
+		  AND j.updated_at < now()-($1*interval '1 millisecond')
+		  AND NOT EXISTS (
+			SELECT 1 FROM event_sources s
+			WHERE s.installation_id=j.installation_id AND s.lease_until>now() AND s.lease_token=j.lease_token
+		  )
+		ORDER BY j.updated_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT $2
+	), unlinked AS (DELETE FROM event_operation_jobs oj USING doomed d WHERE oj.job_id=d.id RETURNING oj.job_id),
+	deleted AS (DELETE FROM event_jobs j USING doomed d WHERE j.id=d.id RETURNING j.id)
+	SELECT (SELECT count(*) FROM deleted)+0*(SELECT count(*) FROM unlinked)`, horizon, batch).Scan(&n); err != nil {
+		return 0, err
+	}
+	removed += n
+	// Catalog objects stay while linked; this pass only bounds orphans that
+	// outlived deleted events and were not drained by the per-source Retain turn.
+	if err = tx.QueryRow(ctx, `WITH doomed AS (
+		SELECT o.ctid FROM event_enrichment_objects o
+		WHERE NOT EXISTS (
+			SELECT 1 FROM event_enrichment_links l
+			WHERE l.installation_id=o.installation_id AND l.object_kind=o.object_kind AND l.object_key=o.object_key
+		) AND (o.lease_until IS NULL OR o.lease_until<now())
+		ORDER BY o.updated_at,o.ctid FOR UPDATE OF o SKIP LOCKED LIMIT $1
+	), deleted AS (DELETE FROM event_enrichment_objects o USING doomed d WHERE o.ctid=d.ctid RETURNING o.ctid)
+	SELECT count(*) FROM deleted`, batch).Scan(&n); err != nil {
+		return 0, err
+	}
+	removed += n
+	if err = tx.QueryRow(ctx, `WITH doomed AS (
+		SELECT c.ctid FROM event_coverage c
+		JOIN event_sources s ON s.installation_id=c.installation_id
+		WHERE s.retained_from IS NOT NULL AND c.window_to<=s.retained_from
+		ORDER BY c.window_to,c.ctid FOR UPDATE OF c SKIP LOCKED LIMIT $1
+	), deleted AS (DELETE FROM event_coverage c USING doomed d WHERE c.ctid=d.ctid RETURNING c.ctid)
+	SELECT count(*) FROM deleted`, batch).Scan(&n); err != nil {
+		return 0, err
+	}
+	removed += n
+	if err = tx.QueryRow(ctx, `WITH doomed AS (
+		SELECT i.installation_id,i.command_id,i.payload_hash,i.created_at,i.operation_id
+		FROM event_inbox i
+		JOIN event_operations o ON o.id=i.operation_id
+		WHERE o.status IN ('completed','failed')
+		  AND i.created_at < now()-($1*interval '1 millisecond')
+		  AND o.updated_at < now()-($1*interval '1 millisecond')
+		  AND NOT EXISTS (SELECT 1 FROM event_jobs j WHERE j.operation_id=o.id)
+		  AND NOT EXISTS (SELECT 1 FROM event_operation_jobs oj WHERE oj.operation_id=o.id)
+		ORDER BY i.created_at,i.command_id FOR UPDATE OF i,o SKIP LOCKED LIMIT $2
+	), marked AS (
+		INSERT INTO event_command_tombstones(installation_id,command_id,payload_hash,command_created_at)
+		SELECT installation_id,command_id,payload_hash,created_at FROM doomed
+		ON CONFLICT DO NOTHING RETURNING command_id
+	), deleted_inbox AS (
+		DELETE FROM event_inbox i USING doomed d
+		WHERE i.installation_id=d.installation_id AND i.command_id=d.command_id
+		RETURNING i.command_id
+	), deleted_ops AS (
+		DELETE FROM event_operations o USING doomed d WHERE o.id=d.operation_id
+		RETURNING o.id
+	)
+	SELECT (SELECT count(*) FROM deleted_inbox)+0*(SELECT count(*) FROM marked)+0*(SELECT count(*) FROM deleted_ops)`, horizon, batch).Scan(&n); err != nil {
+		return 0, err
+	}
+	removed += n
+	if err = tx.QueryRow(ctx, `WITH doomed AS (
+		SELECT t.ctid FROM event_command_tombstones t
+		WHERE t.tombstoned_at < now()-($1*interval '1 millisecond')
+		ORDER BY t.tombstoned_at,t.ctid FOR UPDATE OF t SKIP LOCKED LIMIT $2
+	), deleted AS (DELETE FROM event_command_tombstones t USING doomed d WHERE t.ctid=d.ctid RETURNING t.ctid)
+	SELECT count(*) FROM deleted`, horizon, batch).Scan(&n); err != nil {
+		return 0, err
+	}
+	removed += n
 	if err = tx.Commit(ctx); err != nil {
 		return 0, err
 	}

@@ -108,6 +108,21 @@ func TestSchedulerConfigurationValidation(t *testing.T) {
 	}
 }
 
+func TestEffectiveHorizonCannotShortenBelowSevenDays(t *testing.T) {
+	if got := effectiveHorizon(Policy{}); got != RedeliveryHorizon {
+		t.Fatalf("zero horizon=%s", got)
+	}
+	if got := effectiveHorizon(Policy{RedeliveryHorizon: time.Hour}); got != RedeliveryHorizon {
+		t.Fatalf("short horizon=%s", got)
+	}
+	if got := effectiveHorizon(Policy{RedeliveryHorizon: 14 * 24 * time.Hour}); got != 14*24*time.Hour {
+		t.Fatalf("longer horizon=%s", got)
+	}
+	if got := effectiveTombstoneRetention(Policy{WebhookInboxRetention: time.Millisecond}); got != TombstoneRetention {
+		t.Fatalf("tombstone retention shortened to payload window: %s", got)
+	}
+}
+
 func testPolicy(batchSize, maxBatches int) Policy {
 	return Policy{
 		WebhookInboxRetention: time.Hour, WebhookDeliveryRetention: time.Hour,

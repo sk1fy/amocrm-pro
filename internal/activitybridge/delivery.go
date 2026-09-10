@@ -13,6 +13,32 @@ import (
 	"time"
 )
 
+// RedeliveryHorizon is the maximum calendar age of a Core command, measured
+// from activity_command_receipts.created_at. Attempt count, backoff, operator
+// retry, and executor downtime cannot extend delivery past this floor. It is
+// the same 7-day HistoryHorizon as CRM Events technical-history GC (ADR-0016).
+const RedeliveryHorizon = 7 * 24 * time.Hour
+
+const (
+	deliveryStatusExpired = "expired"
+	ErrorDeliveryExpired  = "delivery_expired"
+)
+
+// ErrDeliveryExpired is returned when an operator retries a command older than
+// RedeliveryHorizon. Attempts are left unchanged.
+func ErrDeliveryExpired() error {
+	return serviceapi.Fail(serviceapi.Conflict, "delivery is older than the redelivery horizon")
+}
+
+func IsDeliveryExpired(err error) bool {
+	var e *serviceapi.Error
+	return errors.As(err, &e) && e.Code == serviceapi.Conflict && e.Message == "delivery is older than the redelivery horizon"
+}
+
+func pastRedeliveryHorizon(createdAt, now time.Time) bool {
+	return createdAt.Before(now.Add(-RedeliveryHorizon))
+}
+
 // RunDelivery owns one bounded Core delivery slot, independent of Core product
 // job slots and CRM Events' scheduler. Expired leases are reclaimable by another
 // process; an old sender cannot finalize the new attempt.
@@ -55,28 +81,55 @@ func (b *Bridge) DeliverOne(ctx context.Context) (bool, error) {
  FROM exhausted WHERE outbox.command_id=exhausted.command_id`); err != nil {
 		return false, err
 	}
+	// Calendar age is independent of attempts: a command accepted more than
+	// RedeliveryHorizon ago is never sent, including after executor downtime.
+	if _, err := b.pool.Exec(ctx, `WITH expired AS (
+ SELECT outbox.command_id FROM activity_command_outbox outbox
+ JOIN activity_command_receipts receipt USING(command_id)
+ WHERE receipt.created_at < now()-($1*interval '1 millisecond')
+   AND (outbox.status='pending_delivery' OR (outbox.status='delivering' AND outbox.leased_until<now()))
+ ORDER BY receipt.created_at,outbox.command_id FOR UPDATE OF outbox SKIP LOCKED LIMIT 100
+) UPDATE activity_command_outbox outbox SET status='expired',error_code='delivery_expired',lease_token=NULL,leased_until=NULL,updated_at=now()
+ FROM expired WHERE outbox.command_id=expired.command_id`, RedeliveryHorizon.Milliseconds()); err != nil {
+		return false, err
+	}
 	var id, lease uuid.UUID
 	var scope serviceapi.Scope
 	var actor int64
 	var target string
 	var payload []byte
 	var attempts, maxAttempts int
+	var created time.Time
 	lease = uuid.New()
 	err := b.pool.QueryRow(ctx, `WITH candidate AS (
- SELECT command_id FROM activity_command_outbox
- WHERE (status='pending_delivery' AND run_after<=now()) OR (status='delivering' AND leased_until<now())
- ORDER BY run_after,command_id FOR UPDATE SKIP LOCKED LIMIT 1
+ SELECT outbox.command_id FROM activity_command_outbox outbox
+ JOIN activity_command_receipts receipt USING(command_id)
+ WHERE receipt.created_at >= now()-($2*interval '1 millisecond')
+   AND ((outbox.status='pending_delivery' AND outbox.run_after<=now()) OR (outbox.status='delivering' AND outbox.leased_until<now()))
+ ORDER BY outbox.run_after,outbox.command_id FOR UPDATE OF outbox SKIP LOCKED LIMIT 1
 ), claimed AS (
  UPDATE activity_command_outbox outbox SET status='delivering',attempts=attempts+1,lease_token=$1,leased_until=now()+interval '30 seconds',updated_at=now()
  FROM candidate WHERE outbox.command_id=candidate.command_id
  RETURNING outbox.*
-) SELECT claimed.command_id,receipt.installation_id,receipt.integration_id,receipt.actor_id,receipt.target,claimed.payload,claimed.attempts,claimed.max_attempts
- FROM claimed JOIN activity_command_receipts receipt USING(command_id)`, lease).Scan(&id, &scope.InstallationID, &scope.IntegrationID, &actor, &target, &payload, &attempts, &maxAttempts)
+) SELECT claimed.command_id,receipt.installation_id,receipt.integration_id,receipt.actor_id,receipt.target,claimed.payload,claimed.attempts,claimed.max_attempts,receipt.created_at
+ FROM claimed JOIN activity_command_receipts receipt USING(command_id)`, lease, RedeliveryHorizon.Milliseconds()).Scan(&id, &scope.InstallationID, &scope.IntegrationID, &actor, &target, &payload, &attempts, &maxAttempts, &created)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
+	}
+	if pastRedeliveryHorizon(created, time.Now().UTC()) {
+		finishCtx, finishCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer finishCancel()
+		tag, err := b.pool.Exec(finishCtx, `UPDATE activity_command_outbox SET status='expired',error_code='delivery_expired',lease_token=NULL,leased_until=NULL,updated_at=now() WHERE command_id=$1 AND lease_token=$2 AND status='delivering' AND leased_until>now()`, id, lease)
+		if err != nil {
+			return true, err
+		}
+		if tag.RowsAffected() != 1 {
+			return true, serviceapi.Fail(serviceapi.Conflict, "delivery lease lost")
+		}
+		return true, nil
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	action := serviceapi.ActionSettings
@@ -165,6 +218,13 @@ func (b *Bridge) Operation(ctx context.Context, p widgetauth.Principal, id strin
 	if state == "delivering" {
 		state = "pending_delivery"
 	}
+	if state == deliveryStatusExpired {
+		state = "failed"
+		if code == nil {
+			expired := ErrorDeliveryExpired
+			code = &expired
+		}
+	}
 	result := Receipt{CommandID: id, OperationID: id, State: state, DeliveryState: state}
 	if code != nil {
 		result.ErrorCode = *code
@@ -212,6 +272,7 @@ func SetPilot(ctx context.Context, pool *pgxpool.Pool, installationID uuid.UUID,
 
 // RetryDelivery keeps the same command ID and payload, including when the
 // previous receiver response was lost. It never resets receiver idempotency.
+// Commands older than RedeliveryHorizon are rejected and attempts are not reset.
 func RetryDelivery(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -219,15 +280,75 @@ func RetryDelivery(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID) error 
 	}
 	defer rollback(tx)
 	var installation uuid.UUID
-	err = tx.QueryRow(ctx, `UPDATE activity_command_outbox outbox SET status='pending_delivery',attempts=0,run_after=now(),error_code=NULL,updated_at=now() FROM activity_command_receipts receipt WHERE outbox.command_id=$1 AND receipt.command_id=outbox.command_id AND outbox.status='failed' RETURNING receipt.installation_id`, id).Scan(&installation)
+	var created time.Time
+	var status string
+	err = tx.QueryRow(ctx, `SELECT receipt.installation_id,receipt.created_at,outbox.status FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id) WHERE outbox.command_id=$1 FOR UPDATE OF outbox,receipt`, id).Scan(&installation, &created, &status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return serviceapi.Fail(serviceapi.NotFound, "failed delivery not found")
 	}
 	if err != nil {
 		return err
 	}
+	if pastRedeliveryHorizon(created, time.Now().UTC()) {
+		return ErrDeliveryExpired()
+	}
+	if status != "failed" {
+		return serviceapi.Fail(serviceapi.NotFound, "failed delivery not found")
+	}
+	tag, err := tx.Exec(ctx, `UPDATE activity_command_outbox SET status='pending_delivery',attempts=0,run_after=now(),error_code=NULL,updated_at=now() WHERE command_id=$1 AND status='failed'`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return serviceapi.Fail(serviceapi.NotFound, "failed delivery not found")
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id) VALUES($1,'operator','activity-cli','activity.delivery.retry','command',$2)`, installation, id.String()); err != nil {
 		return fmt.Errorf("audit delivery retry: %w", err)
 	}
 	return tx.Commit(ctx)
+}
+
+// Delivery is the operator-visible Core outbox row. Widget Operation() is a
+// different, actor-scoped contract and is not a second retry API.
+type Delivery struct {
+	CommandID      uuid.UUID `json:"command_id"`
+	InstallationID uuid.UUID `json:"installation_id"`
+	Target         string    `json:"target"`
+	Status         string    `json:"status"`
+	ErrorCode      string    `json:"error_code,omitempty"`
+	Attempts       int       `json:"attempts"`
+	MaxAttempts    int       `json:"max_attempts"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+func ListDeliveries(ctx context.Context, pool *pgxpool.Pool) ([]Delivery, error) {
+	rows, err := pool.Query(ctx, `SELECT receipt.command_id,receipt.installation_id,receipt.target,outbox.status,coalesce(outbox.error_code,''),outbox.attempts,outbox.max_attempts,receipt.created_at,outbox.updated_at
+ FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id)
+ WHERE outbox.status IN ('failed','expired')
+ ORDER BY receipt.created_at,receipt.command_id LIMIT 100`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := make([]Delivery, 0)
+	for rows.Next() {
+		var item Delivery
+		if err := rows.Scan(&item.CommandID, &item.InstallationID, &item.Target, &item.Status, &item.ErrorCode, &item.Attempts, &item.MaxAttempts, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, item)
+	}
+	return list, rows.Err()
+}
+
+func InspectDelivery(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID) (Delivery, error) {
+	var item Delivery
+	err := pool.QueryRow(ctx, `SELECT receipt.command_id,receipt.installation_id,receipt.target,outbox.status,coalesce(outbox.error_code,''),outbox.attempts,outbox.max_attempts,receipt.created_at,outbox.updated_at
+ FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id)
+ WHERE outbox.command_id=$1`, id).Scan(&item.CommandID, &item.InstallationID, &item.Target, &item.Status, &item.ErrorCode, &item.Attempts, &item.MaxAttempts, &item.CreatedAt, &item.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Delivery{}, serviceapi.Fail(serviceapi.NotFound, "delivery not found")
+	}
+	return item, err
 }

@@ -1,0 +1,218 @@
+ Container amocrm-stage7-fix-test-integration-test-run-ba91163a608e Creating
+ Container amocrm-stage7-fix-test-integration-test-run-ba91163a608e Created
+=== RUN   TestOAuthAccountReaderUsesConsumedStateAndNoLocalFallback
+--- PASS: TestOAuthAccountReaderUsesConsumedStateAndNoLocalFallback (0.07s)
+=== RUN   TestBootstrapPreservesOperatorChangesAndDisabledIntegration
+--- PASS: TestBootstrapPreservesOperatorChangesAndDisabledIntegration (0.05s)
+=== RUN   TestSaveInstallationRejectsIntegrationDisabledAfterStateConsumption
+--- PASS: TestSaveInstallationRejectsIntegrationDisabledAfterStateConsumption (0.06s)
+=== RUN   TestStartKeepsUnknownIntegrationIndistinguishable
+--- PASS: TestStartKeepsUnknownIntegrationIndistinguishable (0.00s)
+=== RUN   TestStartRedirectsWhenAuthorizationBegins
+--- PASS: TestStartRedirectsWhenAuthorizationBegins (0.00s)
+=== RUN   TestStartRejectsOversizedQueryWithoutCallingFlow
+--- PASS: TestStartRejectsOversizedQueryWithoutCallingFlow (0.00s)
+=== RUN   TestCallbackCreatesInstallationAndMapsErrors
+--- PASS: TestCallbackCreatesInstallationAndMapsErrors (0.00s)
+=== RUN   TestCallbackDeniedConsumesStateAndUsesGenericEnvelope
+--- PASS: TestCallbackDeniedConsumesStateAndUsesGenericEnvelope (0.00s)
+=== RUN   TestCallbackRejectsOversizedStateWithoutConsume
+--- PASS: TestCallbackRejectsOversizedStateWithoutConsume (0.00s)
+=== RUN   TestLimiterHidesIntegrationExistenceOnStartAndCallback
+--- PASS: TestLimiterHidesIntegrationExistenceOnStartAndCallback (0.00s)
+=== RUN   TestSaveInstallationReauthorizationRefreshesWebhookIntent
+--- PASS: TestSaveInstallationReauthorizationRefreshesWebhookIntent (0.05s)
+=== RUN   TestOAuthIsolatesIntegrationsInSameAccount
+--- PASS: TestOAuthIsolatesIntegrationsInSameAccount (0.09s)
+=== RUN   TestExpiredLeaseDoesNotInvalidateSuccessfulRotation
+--- PASS: TestExpiredLeaseDoesNotInvalidateSuccessfulRotation (0.09s)
+=== RUN   TestUncertainRefreshSurvivesProviderRestartAndReauthorization
+--- PASS: TestUncertainRefreshSurvivesProviderRestartAndReauthorization (0.05s)
+=== RUN   TestRotatedTokenFinalizationRequiresItsLease
+--- PASS: TestRotatedTokenFinalizationRequiresItsLease (0.05s)
+=== RUN   TestServiceCallbackConsumesStateOnceConcurrently
+--- PASS: TestServiceCallbackConsumesStateOnceConcurrently (0.06s)
+=== RUN   TestServiceCallbackAtomicallyPersistsAuthorization
+--- PASS: TestServiceCallbackAtomicallyPersistsAuthorization (0.05s)
+=== RUN   TestStoreConsumesOAuthStateOnceConcurrently
+--- PASS: TestStoreConsumesOAuthStateOnceConcurrently (0.06s)
+=== RUN   TestStoreSavesInstallationCredentialsJobAndAuditAtomically
+--- PASS: TestStoreSavesInstallationCredentialsJobAndAuditAtomically (0.06s)
+=== RUN   TestStoreRollsBackAuthorizationWhenReconcileEnqueueFails
+--- PASS: TestStoreRollsBackAuthorizationWhenReconcileEnqueueFails (0.06s)
+=== RUN   TestTokenProviderCoordinatesConcurrentRefresh
+--- PASS: TestTokenProviderCoordinatesConcurrentRefresh (0.14s)
+=== RUN   TestClientStaggered401RefreshesObservedVersionOnce
+--- PASS: TestClientStaggered401RefreshesObservedVersionOnce (0.06s)
+=== RUN   TestTokenProviderPersistsRotationAfterCallerCancellation
+--- PASS: TestTokenProviderPersistsRotationAfterCallerCancellation (0.05s)
+=== RUN   TestMarkReauthRequiredIsVersionFenced
+--- PASS: TestMarkReauthRequiredIsVersionFenced (0.05s)
+=== RUN   TestUnauthorizedRefreshDoesNotDeadlockReauthorization
+--- PASS: TestUnauthorizedRefreshDoesNotDeadlockReauthorization (0.05s)
+=== RUN   TestSuccessfulRefreshWinsConcurrentReauthMark
+--- PASS: TestSuccessfulRefreshWinsConcurrentReauthMark (0.05s)
+=== RUN   TestTokenProviderRefreshFailureState
+=== RUN   TestTokenProviderRefreshFailureState/unauthorized_requires_reauthorization
+=== RUN   TestTokenProviderRefreshFailureState/transient_failure_preserves_active_installation
+--- PASS: TestTokenProviderRefreshFailureState (0.10s)
+    --- PASS: TestTokenProviderRefreshFailureState/unauthorized_requires_reauthorization (0.05s)
+    --- PASS: TestTokenProviderRefreshFailureState/transient_failure_preserves_active_installation (0.05s)
+=== RUN   TestTokenProviderCoordinatesConcurrentRefreshAcrossProviders
+--- PASS: TestTokenProviderCoordinatesConcurrentRefreshAcrossProviders (0.15s)
+=== RUN   TestTokenProviderDoesNotReuseExpiredRefreshLease
+--- PASS: TestTokenProviderDoesNotReuseExpiredRefreshLease (0.18s)
+=== RUN   TestTokenProviderForcedRefreshUsesObservedVersion
+--- PASS: TestTokenProviderForcedRefreshUsesObservedVersion (0.06s)
+=== RUN   TestMarkReauthRequiredSkipsLiveRefreshLease
+--- PASS: TestMarkReauthRequiredSkipsLiveRefreshLease (0.05s)
+=== RUN   TestTokenProviderPersistsPendingRotationWithoutSecondRefresh
+--- PASS: TestTokenProviderPersistsPendingRotationWithoutSecondRefresh (0.05s)
+=== RUN   TestTokenProviderRetriesPersistAfterEncryptionKeyChange
+--- PASS: TestTokenProviderRetriesPersistAfterEncryptionKeyChange (0.05s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/oauth	2.867s
+=== RUN   TestCleanupWebhookPayloadRetentionPreservesDurableHistoryAndReplaySuppression
+--- PASS: TestCleanupWebhookPayloadRetentionPreservesDurableHistoryAndReplaySuppression (0.07s)
+=== RUN   TestCleanupStrictExpirySafetyMarginAndJobRetention
+--- PASS: TestCleanupStrictExpirySafetyMarginAndJobRetention (0.05s)
+=== RUN   TestCleanupWebhookInboxDeletesOnlyTerminalStatuses
+--- PASS: TestCleanupWebhookInboxDeletesOnlyTerminalStatuses (0.05s)
+=== RUN   TestCleanupHonorsBatchAndMaximumBatchBounds
+--- PASS: TestCleanupHonorsBatchAndMaximumBatchBounds (0.06s)
+=== RUN   TestCleanupTechnicalHistoryHonorsHorizonAndStaysBounded
+--- PASS: TestCleanupTechnicalHistoryHonorsHorizonAndStaysBounded (0.07s)
+=== RUN   TestCleanupAdvisoryLockSkipsConcurrentWorker
+--- PASS: TestCleanupAdvisoryLockSkipsConcurrentWorker (0.37s)
+=== RUN   TestSchedulerRunsAtStartupAndPeriodically
+--- PASS: TestSchedulerRunsAtStartupAndPeriodically (0.01s)
+=== RUN   TestSchedulerContinuesAfterCleanupError
+--- PASS: TestSchedulerContinuesAfterCleanupError (0.01s)
+=== RUN   TestSchedulerConfigurationValidation
+--- PASS: TestSchedulerConfigurationValidation (0.00s)
+=== RUN   TestEffectiveHorizonCannotShortenBelowSevenDays
+--- PASS: TestEffectiveHorizonCannotShortenBelowSevenDays (0.00s)
+=== RUN   TestCleanupMetricsObserveOutcomesAndBoundedPressure
+--- PASS: TestCleanupMetricsObserveOutcomesAndBoundedPressure (0.00s)
+=== RUN   TestCleanupOAuthStatesExpiryMarginAndBounds
+--- PASS: TestCleanupOAuthStatesExpiryMarginAndBounds (0.07s)
+=== RUN   TestCleanupSurvivesRuleConfigurationReceipt
+--- PASS: TestCleanupSurvivesRuleConfigurationReceipt (0.06s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/maintenance	1.833s
+=== RUN   TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration
+--- PASS: TestLeadStatusWebhookCapabilityControlsRoutingPerIntegration (0.06s)
+=== RUN   TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect
+=== RUN   TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_worker
+=== RUN   TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_patch
+--- PASS: TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect (0.13s)
+    --- PASS: TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_worker (0.06s)
+    --- PASS: TestLeadStatusWebhookCapabilityRecheckedBeforeSideEffect/before_patch (0.07s)
+=== RUN   TestWebhookIngressInstallationLimitIsIsolatedAndObservable
+--- PASS: TestWebhookIngressInstallationLimitIsIsolatedAndObservable (0.05s)
+=== RUN   TestWebhookIngressGlobalLimitRejectsBeforeDurableSideEffects
+--- PASS: TestWebhookIngressGlobalLimitRejectsBeforeDurableSideEffects (0.04s)
+=== RUN   TestWebhookIngressUnknownKeyConsumesGlobalCapacityBeforeLookup
+--- PASS: TestWebhookIngressUnknownKeyConsumesGlobalCapacityBeforeLookup (0.04s)
+=== RUN   TestIngressLimiterValidatesConfiguration
+--- PASS: TestIngressLimiterValidatesConfiguration (0.00s)
+=== RUN   TestIngressLimiterEvictsOnlyIdleInstallationsAndRecreatesBucket
+--- PASS: TestIngressLimiterEvictsOnlyIdleInstallationsAndRecreatesBucket (0.00s)
+=== RUN   TestIngressLimiterRefreshAndActualEvictionRaceUsesOneBucket
+--- PASS: TestIngressLimiterRefreshAndActualEvictionRaceUsesOneBucket (0.00s)
+=== RUN   TestIngressLimiterLastSeenNeverMovesBackward
+--- PASS: TestIngressLimiterLastSeenNeverMovesBackward (0.00s)
+=== RUN   TestIngressLimiterMetricsUseOnlyBoundedLabels
+--- PASS: TestIngressLimiterMetricsUseOnlyBoundedLabels (0.00s)
+=== RUN   TestWorkflowRouteMetricsUseBoundedLabels
+--- PASS: TestWorkflowRouteMetricsUseBoundedLabels (0.00s)
+=== RUN   TestReconcilePreservesForeignWebhooks
+=== RUN   TestReconcilePreservesForeignWebhooks/reconcile
+=== RUN   TestReconcilePreservesForeignWebhooks/uninstall
+--- PASS: TestReconcilePreservesForeignWebhooks (0.00s)
+    --- PASS: TestReconcilePreservesForeignWebhooks/reconcile (0.00s)
+    --- PASS: TestReconcilePreservesForeignWebhooks/uninstall (0.00s)
+=== RUN   TestOwnershipRegistrySurvivesKeyRotationAndPreservesSameHostNeighbor
+--- PASS: TestOwnershipRegistrySurvivesKeyRotationAndPreservesSameHostNeighbor (0.05s)
+=== RUN   TestLegacyWebhookOwnershipRequiresExactSecretPath
+--- PASS: TestLegacyWebhookOwnershipRequiresExactSecretPath (0.00s)
+=== RUN   TestUninstallCanRecoverExpiredAccessToken
+--- PASS: TestUninstallCanRecoverExpiredAccessToken (0.06s)
+=== RUN   TestParseMultipleEvents
+--- PASS: TestParseMultipleEvents (0.00s)
+=== RUN   TestDeduplicationKeyIsStable
+--- PASS: TestDeduplicationKeyIsStable (0.00s)
+=== RUN   TestAccountID
+--- PASS: TestAccountID (0.00s)
+=== RUN   TestParseIgnoresUnsupportedEvents
+--- PASS: TestParseIgnoresUnsupportedEvents (0.00s)
+=== RUN   TestReconcileJobHandlerIntegration
+=== RUN   TestReconcileJobHandlerIntegration/already_converged_is_a_no-op
+=== RUN   TestReconcileJobHandlerIntegration/missing_registration_is_created
+=== RUN   TestReconcileJobHandlerIntegration/rate_limit_is_retryable_and_persisted
+=== RUN   TestReconcileJobHandlerIntegration/validation_failure_is_permanent_and_persisted
+=== RUN   TestReconcileJobHandlerIntegration/tenant_payload_mismatch_is_rejected_before_IO
+=== RUN   TestReconcileJobHandlerIntegration/persisted_transport_error_is_sanitized
+=== RUN   TestReconcileJobHandlerIntegration/reauth_deletes_stale_duplicate_destinations_and_keeps_the_desired_one
+=== RUN   TestReconcileJobHandlerIntegration/uninstall_unregisters_even_when_installation_is_no_longer_active
+--- PASS: TestReconcileJobHandlerIntegration (0.22s)
+    --- PASS: TestReconcileJobHandlerIntegration/already_converged_is_a_no-op (0.04s)
+    --- PASS: TestReconcileJobHandlerIntegration/missing_registration_is_created (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/rate_limit_is_retryable_and_persisted (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/validation_failure_is_permanent_and_persisted (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/tenant_payload_mismatch_is_rejected_before_IO (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/persisted_transport_error_is_sanitized (0.02s)
+    --- PASS: TestReconcileJobHandlerIntegration/reauth_deletes_stale_duplicate_destinations_and_keeps_the_desired_one (0.04s)
+    --- PASS: TestReconcileJobHandlerIntegration/uninstall_unregisters_even_when_installation_is_no_longer_active (0.03s)
+=== RUN   TestPlanManagedWebhooksDeletesStaleDuplicatesAndKeepsDesired
+--- PASS: TestPlanManagedWebhooksDeletesStaleDuplicatesAndKeepsDesired (0.00s)
+=== RUN   TestPlanManagedWebhooksRotatesDuplicateDesiredDestination
+--- PASS: TestPlanManagedWebhooksRotatesDuplicateDesiredDestination (0.00s)
+=== RUN   TestPlanManagedWebhooksUnregisterDeletesOnlyOwnedDestinations
+--- PASS: TestPlanManagedWebhooksUnregisterDeletesOnlyOwnedDestinations (0.00s)
+=== RUN   TestApplyWebhookPlanUnregisterCallsDeleteWithoutRegister
+--- PASS: TestApplyWebhookPlanUnregisterCallsDeleteWithoutRegister (0.00s)
+=== RUN   TestDeleteWebhookTreatsNotFoundAsAlreadyRemoved
+--- PASS: TestDeleteWebhookTreatsNotFoundAsAlreadyRemoved (0.00s)
+=== RUN   TestApplyWebhookPlanStopsOnRemoteError
+--- PASS: TestApplyWebhookPlanStopsOnRemoteError (0.00s)
+=== RUN   TestDeliverySnapshotsSettingsAllowsRepeatedRequestIDAndRetainsDedup
+--- PASS: TestDeliverySnapshotsSettingsAllowsRepeatedRequestIDAndRetainsDedup (0.05s)
+=== RUN   TestLeadStatusWebhookDispatchIsDurablyDeduplicated
+--- PASS: TestLeadStatusWebhookDispatchIsDurablyDeduplicated (0.05s)
+=== RUN   TestLeadStatusWebhookRuleEnabledFlagControlsRouting
+--- PASS: TestLeadStatusWebhookRuleEnabledFlagControlsRouting (0.06s)
+=== RUN   TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect
+--- PASS: TestLeadStatusWebhookWorkflowConvergesAndCorrelatesItsEffect (0.07s)
+=== RUN   TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState
+--- PASS: TestLeadStatusWorkflowDoesNotOverwriteChangedSourceState (0.06s)
+=== RUN   TestLeadStatusWorkflowSourceChangedRechecksLeaseBeforeCompletion
+--- PASS: TestLeadStatusWorkflowSourceChangedRechecksLeaseBeforeCompletion (0.06s)
+=== RUN   TestLeadStatusWorkflowCompletedReceiptSurvivesJobCompletionCrash
+--- PASS: TestLeadStatusWorkflowCompletedReceiptSurvivesJobCompletionCrash (0.07s)
+=== RUN   TestLeadStatusWorkflowAlreadyAtTargetDoesNotCreateEffect
+--- PASS: TestLeadStatusWorkflowAlreadyAtTargetDoesNotCreateEffect (0.07s)
+=== RUN   TestLeadStatusWorkflowUncertainAppliedEffectIsNotPatchedAgain
+--- PASS: TestLeadStatusWorkflowUncertainAppliedEffectIsNotPatchedAgain (0.07s)
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_source
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/malformed_source
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_target
+=== RUN   TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/zero_target
+--- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState (0.19s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_source (0.05s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/malformed_source (0.05s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/missing_target (0.05s)
+    --- PASS: TestLeadStatusWorkflowRejectsIncompleteOrMalformedState/zero_target (0.05s)
+=== RUN   TestWidgetLeadStatusEffectCorrelatesOnlyAfterAttempt
+--- PASS: TestWidgetLeadStatusEffectCorrelatesOnlyAfterAttempt (0.07s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/webhook	2.502s
+=== RUN   TestParseCommandSecretUsesStdinAndIsNotEchoed
+--- PASS: TestParseCommandSecretUsesStdinAndIsNotEchoed (0.00s)
+=== RUN   TestParseCommandLimitsSecretAndRequiresExplicitServices
+--- PASS: TestParseCommandLimitsSecretAndRequiresExplicitServices (0.00s)
+=== RUN   TestParseCommandInstallationLifecycle
+--- PASS: TestParseCommandInstallationLifecycle (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/cmd/integrations	1.010s

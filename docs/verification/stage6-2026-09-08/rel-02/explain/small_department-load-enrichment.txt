@@ -1,0 +1,13 @@
+Sort  (cost=0.03..0.04 rows=1 width=54) (actual time=0.003..0.003 rows=0 loops=1)
+  Sort Key: o.object_kind, o.object_key
+  Sort Method: quicksort  Memory: 25kB
+  ->  Nested Loop  (cost=0.00..0.02 rows=1 width=54) (actual time=0.001..0.001 rows=0 loops=1)
+        Join Filter: ((l.object_kind = o.object_kind) AND (l.object_key = o.object_key))
+        ->  Seq Scan on event_enrichment_links l  (cost=0.00..0.00 rows=1 width=27) (actual time=0.001..0.001 rows=0 loops=1)
+              Filter: ((installation_id = '6856c945-192e-4e34-a6c6-14371175cb25'::uuid) AND (event_id = 'e-6856c945-00000000'::text))
+        ->  Seq Scan on event_enrichment_objects o  (cost=0.00..0.00 rows=1 width=70) (never executed)
+              Filter: (installation_id = '6856c945-192e-4e34-a6c6-14371175cb25'::uuid)
+Planning:
+  Buffers: shared hit=56 read=4
+Planning Time: 0.218 ms
+Execution Time: 0.009 ms

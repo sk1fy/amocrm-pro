@@ -1,0 +1,9 @@
+ Container amocrm-stage6-fix-test-component-tests-run-aa5e5d50870a Creating
+ Container amocrm-stage6-fix-test-component-tests-run-aa5e5d50870a Created
+=== RUN   TestEnrichmentClaimRespectsBatchLimitAtVolume
+--- PASS: TestEnrichmentClaimRespectsBatchLimitAtVolume (0.03s)
+=== RUN   TestStage6WorkersUnderSharedBudget
+    stage6_worker_measure_integration_test.go:183: live workers: events=50 tasks=38 refresh_requests=5 details=30 p95=2.943681517s p99=3.05769549s lag_max=3.879s elapsed=6.952318263s
+--- PASS: TestStage6WorkersUnderSharedBudget (6.98s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/crmevents	7.017s

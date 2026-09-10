@@ -135,7 +135,19 @@ func (s *Postgres) ClaimEnrichment(ctx context.Context) (EnrichmentClaim, error)
 	if busy {
 		return c, ErrNoWork
 	}
-	rows, err := tx.Query(ctx, `UPDATE event_enrichment_objects o SET attempts=CASE WHEN o.state='retry' THEN o.attempts ELSE 0 END,lease_token=lease_token+1,lease_until=now()+$4*interval '1 millisecond',updated_at=now() FROM (SELECT o.object_key FROM event_enrichment_objects o WHERE o.installation_id=$1 AND o.object_kind=$2 AND o.parent_type=$3 AND `+enrichmentClaimable+` AND o.run_after<=now() AND (o.lease_until IS NULL OR o.lease_until<now()) ORDER BY o.run_after,o.object_key FOR UPDATE OF o SKIP LOCKED LIMIT $5) picked WHERE o.installation_id=$1 AND o.object_kind=$2 AND o.object_key=picked.object_key RETURNING o.object_key,o.parent_type,o.parent_id,o.object_id,o.lease_token,o.attempts`, c.InstallationID, c.Kind, c.ParentType, s.cfg.Lease.Milliseconds(), serviceapi.EnrichmentBatchLimit)
+	// Materialize the bounded selection once: a rescanned locking subquery
+	// can pick another batch after UPDATE changes lease_until, exceeding LIMIT.
+	rows, err := tx.Query(ctx, `WITH picked AS MATERIALIZED (
+		SELECT o.object_key FROM event_enrichment_objects o
+		WHERE o.installation_id=$1 AND o.object_kind=$2 AND o.parent_type=$3
+		  AND `+enrichmentClaimable+` AND o.run_after<=now()
+		  AND (o.lease_until IS NULL OR o.lease_until<now())
+		ORDER BY o.run_after,o.object_key FOR UPDATE OF o SKIP LOCKED LIMIT $5
+	) UPDATE event_enrichment_objects o
+	SET attempts=CASE WHEN o.state='retry' THEN o.attempts ELSE 0 END,
+		lease_token=lease_token+1,lease_until=now()+$4*interval '1 millisecond',updated_at=now()
+	FROM picked WHERE o.installation_id=$1 AND o.object_kind=$2 AND o.object_key=picked.object_key
+	RETURNING o.object_key,o.parent_type,o.parent_id,o.object_id,o.lease_token,o.attempts`, c.InstallationID, c.Kind, c.ParentType, s.cfg.Lease.Milliseconds(), serviceapi.EnrichmentBatchLimit)
 	if err != nil {
 		return c, err
 	}

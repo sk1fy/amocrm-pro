@@ -1,0 +1,35 @@
+ Container amocrm-stage6-fix-test-component-tests-run-9f02684f792b Creating
+ Container amocrm-stage6-fix-test-component-tests-run-9f02684f792b Created
+=== RUN   TestStage6ReadMeasure
+=== RUN   TestStage6ReadMeasure/small_department
+=== RUN   TestStage6ReadMeasure/many_employees
+=== RUN   TestStage6ReadMeasure/dense_day
+=== RUN   TestStage6ReadMeasure/large_notes
+=== RUN   TestStage6ReadMeasure/long_backfill
+=== RUN   TestStage6ReadMeasure/multi_install_read
+--- PASS: TestStage6ReadMeasure (23.07s)
+    --- PASS: TestStage6ReadMeasure/small_department (0.80s)
+    --- PASS: TestStage6ReadMeasure/many_employees (11.52s)
+    --- PASS: TestStage6ReadMeasure/dense_day (5.37s)
+    --- PASS: TestStage6ReadMeasure/large_notes (0.21s)
+    --- PASS: TestStage6ReadMeasure/long_backfill (4.69s)
+    --- PASS: TestStage6ReadMeasure/multi_install_read (0.44s)
+=== RUN   TestStage6TransportMeasure
+=== RUN   TestStage6TransportMeasure/near_bound
+=== RUN   TestStage6TransportMeasure/over_bound
+=== RUN   TestStage6TransportMeasure/full_100
+=== RUN   TestStage6TransportMeasure/compact_100
+=== RUN   TestStage6TransportMeasure/card
+--- PASS: TestStage6TransportMeasure (4.41s)
+    --- PASS: TestStage6TransportMeasure/near_bound (1.89s)
+    --- PASS: TestStage6TransportMeasure/over_bound (0.71s)
+    --- PASS: TestStage6TransportMeasure/full_100 (1.31s)
+    --- PASS: TestStage6TransportMeasure/compact_100 (0.05s)
+    --- PASS: TestStage6TransportMeasure/card (0.06s)
+=== RUN   TestStage6WorkersUnderSharedBudget
+    stage6_worker_measure_integration_test.go:173: fixture did not exercise all paths: map[events:51 refresh_requests:4 tasks:19] refresh=4
+    stage6_worker_measure_integration_test.go:180: live workers: events=51 tasks=19 refresh_requests=4 details=30 p95=2.223843078s p99=2.27727343s lag_max=4.796s elapsed=6.328615032s
+--- FAIL: TestStage6WorkersUnderSharedBudget (6.36s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/services/crmevents	33.850s
+FAIL

@@ -1,0 +1,25 @@
+{
+  "amocrm": {
+    "Events": 0,
+    "Users": 1,
+    "Notes": 0,
+    "Tasks": 0,
+    "Pipelines": 0,
+    "Fields": 0,
+    "Entities": 0
+  },
+  "card_json_bytes": 64191,
+  "card_rpc_bytes": 64093,
+  "compact_json_bytes": 25072,
+  "compact_rpc_bytes": 8618,
+  "first_fail_limit": 49,
+  "full_100_error": "resource_exhausted",
+  "full_100_latency": "46.789878ms",
+  "http_compact_panel_bytes": 48338,
+  "last_ok_json_bytes": 3088807,
+  "last_ok_limit": 48,
+  "last_ok_rpc_bytes": 3079303,
+  "max_response_bytes": 3145728,
+  "max_rpc_bytes": 4194304,
+  "rpc_compact_panel_bytes": 22910
+}

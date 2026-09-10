@@ -1,0 +1,6 @@
+ Container amocrm-stage6-fix-test-component-tests-run-f1cdf44e4eb8 Creating
+ Container amocrm-stage6-fix-test-component-tests-run-f1cdf44e4eb8 Created
+# github.com/sk1fy/amocrm-pro/internal/services/crmevents [github.com/sk1fy/amocrm-pro/internal/services/crmevents.test]
+internal/services/crmevents/stage6_read_measure_integration_test.go:912:43: undefined: servicerpc
+FAIL	github.com/sk1fy/amocrm-pro/internal/services/crmevents [build failed]
+FAIL

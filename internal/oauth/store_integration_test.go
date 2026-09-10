@@ -420,14 +420,13 @@ func TestUnauthorizedRefreshDoesNotDeadlockReauthorization(t *testing.T) {
 		})
 		reauthorizationError <- saveErr
 	}()
-	waitForDatabaseLock(t, pool, "INSERT INTO oauth_credentials")
+	if err := <-reauthorizationError; err != nil {
+		t.Fatalf("reauthorization blocked by in-flight refresh: %v", err)
+	}
 	releaseRefreshOnce.Do(func() { close(releaseRefresh) })
 
 	if err := <-refreshError; err == nil {
 		t.Fatal("expected unauthorized refresh error")
-	}
-	if err := <-reauthorizationError; err != nil {
-		t.Fatalf("reauthorization failed: %v", err)
 	}
 	assertOAuthInstallationStatus(t, pool, initial.ID, "active")
 	var tokenVersion int64
@@ -469,14 +468,13 @@ func TestSuccessfulRefreshWinsConcurrentReauthMark(t *testing.T) {
 	go func() {
 		markError <- provider.MarkReauthRequired(testContext, installationID, 1)
 	}()
-	waitForDatabaseLock(t, pool, "SELECT token_version FROM oauth_credentials")
+	if err := <-markError; err != nil {
+		t.Fatalf("version-fenced mark failed: %v", err)
+	}
 	releaseRefreshOnce.Do(func() { close(releaseRefresh) })
 
 	if err := <-refreshError; err != nil {
 		t.Fatalf("refresh failed: %v", err)
-	}
-	if err := <-markError; err != nil {
-		t.Fatalf("version-fenced mark failed: %v", err)
 	}
 	assertOAuthInstallationStatus(t, pool, installationID, "active")
 }

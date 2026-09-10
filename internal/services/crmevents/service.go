@@ -13,6 +13,12 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
+// TechnicalHistoryHorizon is the minimum retention for completed/failed jobs
+// and the calendar floor for terminal inbox/operations. Paused and non-terminal
+// rows stay. Core will not redeliver a command older than this age.
+// Product retention_days never shortens this job horizon.
+const TechnicalHistoryHorizon = 7 * 24 * time.Hour
+
 type Config struct {
 	Workers           int
 	PollInterval      time.Duration
@@ -26,12 +32,14 @@ type Config struct {
 	MaxPasses         int
 	MaxPages          int
 	RetentionBatch    int
+	HistoryHorizon    time.Duration
+	HistoryBatch      int
 	DisableEnrichment bool
 	Now               func() time.Time
 }
 
 func DefaultConfig() Config {
-	return Config{Workers: 2, PollInterval: 5 * time.Minute, Window: time.Hour, Overlap: time.Minute, Lease: 30 * time.Second, CallTimeout: 10 * time.Second, PersistTimeout: 5 * time.Second, Logger: slog.Default(), MaxAttempts: 5, MaxPasses: 3, MaxPages: 1000, RetentionBatch: 1000, Now: time.Now}
+	return Config{Workers: 2, PollInterval: 5 * time.Minute, Window: time.Hour, Overlap: time.Minute, Lease: 30 * time.Second, CallTimeout: 10 * time.Second, PersistTimeout: 5 * time.Second, Logger: slog.Default(), MaxAttempts: 5, MaxPasses: 3, MaxPages: 1000, RetentionBatch: 1000, HistoryHorizon: TechnicalHistoryHorizon, HistoryBatch: 1000, Now: time.Now}
 }
 func normalizeConfig(c Config) Config {
 	d := DefaultConfig()
@@ -70,6 +78,12 @@ func normalizeConfig(c Config) Config {
 	}
 	if c.RetentionBatch > 0 {
 		d.RetentionBatch = min(c.RetentionBatch, 10000)
+	}
+	if c.HistoryHorizon >= TechnicalHistoryHorizon {
+		d.HistoryHorizon = c.HistoryHorizon
+	}
+	if c.HistoryBatch > 0 {
+		d.HistoryBatch = min(c.HistoryBatch, 10000)
 	}
 	if c.Now != nil {
 		d.Now = c.Now

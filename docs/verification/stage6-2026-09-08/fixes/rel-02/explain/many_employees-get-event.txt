@@ -1,0 +1,12 @@
+Nested Loop  (cost=0.41..9.46 rows=1 width=142) (actual time=0.014..0.014 rows=1 loops=1)
+  Buffers: shared hit=5
+  ->  Index Scan using crm_events_pkey on crm_events e  (cost=0.41..8.43 rows=1 width=158) (actual time=0.010..0.010 rows=1 loops=1)
+        Index Cond: ((installation_id = '3466959d-ac87-450c-b062-6929d09dc6ae'::uuid) AND (event_id = 'e-3466959d-00000000'::text))
+        Buffers: shared hit=4
+  ->  Seq Scan on event_sources s  (cost=0.00..1.01 rows=1 width=16) (actual time=0.002..0.003 rows=1 loops=1)
+        Filter: ((installation_id = '3466959d-ac87-450c-b062-6929d09dc6ae'::uuid) AND (integration_id = '95fa335f-1f4b-4edc-a8d0-2ed3c8a718a0'::uuid))
+        Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.085 ms
+Execution Time: 0.024 ms

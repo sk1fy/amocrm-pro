@@ -1,0 +1,21 @@
+Sort  (cost=8.97..8.98 rows=1 width=55) (actual time=0.045..0.045 rows=1 loops=1)
+  Sort Key: o.object_kind, o.object_key
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=5
+  ->  Hash Join  (cost=3.81..8.96 rows=1 width=55) (actual time=0.029..0.042 rows=1 loops=1)
+        Hash Cond: ((o.object_kind = l.object_kind) AND (o.object_key = l.object_key))
+        Buffers: shared hit=5
+        ->  Seq Scan on event_enrichment_objects o  (cost=0.00..4.50 rows=120 width=71) (actual time=0.002..0.008 rows=120 loops=1)
+              Filter: (installation_id = '3466959d-ac87-450c-b062-6929d09dc6ae'::uuid)
+              Buffers: shared hit=3
+        ->  Hash  (cost=3.80..3.80 rows=1 width=28) (actual time=0.013..0.013 rows=1 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=2
+              ->  Seq Scan on event_enrichment_links l  (cost=0.00..3.80 rows=1 width=28) (actual time=0.002..0.007 rows=1 loops=1)
+                    Filter: ((installation_id = '3466959d-ac87-450c-b062-6929d09dc6ae'::uuid) AND (event_id = 'e-3466959d-00000000'::text))
+                    Rows Removed by Filter: 119
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=78
+Planning Time: 0.240 ms
+Execution Time: 0.053 ms

@@ -1,0 +1,17 @@
+Limit  (cost=194.17..194.20 rows=11 width=148) (actual time=0.282..0.288 rows=101 loops=1)
+  Buffers: shared hit=121
+  ->  Sort  (cost=194.17..194.20 rows=11 width=148) (actual time=0.281..0.284 rows=101 loops=1)
+        Sort Key: e.created_at, e.event_id
+        Sort Method: top-N heapsort  Memory: 38kB
+        Buffers: shared hit=121
+        ->  Nested Loop  (cost=0.00..193.98 rows=11 width=148) (actual time=0.009..0.251 rows=203 loops=1)
+              Buffers: shared hit=121
+              ->  Seq Scan on event_sources s  (cost=0.00..1.01 rows=1 width=16) (actual time=0.002..0.002 rows=1 loops=1)
+                    Filter: ((installation_id = '5eb5382a-52e2-478b-89d8-b8c9017258cb'::uuid) AND (integration_id = '8f0a0efb-ea51-41d0-8e71-0972e358fd6c'::uuid))
+                    Buffers: shared hit=1
+              ->  Seq Scan on crm_events e  (cost=0.00..192.80 rows=11 width=92) (actual time=0.007..0.224 rows=203 loops=1)
+                    Filter: ((created_at >= '2026-09-01 18:00:00+00'::timestamp with time zone) AND (created_at <= '2026-09-08 18:00:00+00'::timestamp with time zone) AND (installation_id = '5eb5382a-52e2-478b-89d8-b8c9017258cb'::uuid) AND ((event_type = ANY (NULL::text[])) OR ("left"(event_type, 13) = 'custom_field_'::text)) AND (created_by = ANY ('{71001,71002,71003,71004,71005,71006,71007,71008}'::bigint[])))
+                    Rows Removed by Filter: 2037
+                    Buffers: shared hit=120
+Planning Time: 0.043 ms
+Execution Time: 0.305 ms

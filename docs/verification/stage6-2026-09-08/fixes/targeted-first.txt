@@ -1,0 +1,50 @@
+ Volume amocrm-stage6-fix-test_component-test-cache Creating
+ Volume amocrm-stage6-fix-test_component-test-cache Created
+ Container amocrm-stage6-fix-test-component-tests-run-4fbd52fef61f Creating
+ Container amocrm-stage6-fix-test-component-tests-run-4fbd52fef61f Created
+=== RUN   TestTechnicalHistoryReplayAfterGCDoesNotRollbackNewerSettings
+=== RUN   TestTechnicalHistoryReplayAfterGCDoesNotRollbackNewerSettings/without_gc
+=== RUN   TestTechnicalHistoryReplayAfterGCDoesNotRollbackNewerSettings/with_gc
+--- PASS: TestTechnicalHistoryReplayAfterGCDoesNotRollbackNewerSettings (0.11s)
+    --- PASS: TestTechnicalHistoryReplayAfterGCDoesNotRollbackNewerSettings/without_gc (0.07s)
+    --- PASS: TestTechnicalHistoryReplayAfterGCDoesNotRollbackNewerSettings/with_gc (0.04s)
+=== RUN   TestTechnicalHistoryRetainsPausedBackfillCheckpoint
+=== RUN   TestTechnicalHistoryRetainsPausedBackfillCheckpoint/without_gc
+=== RUN   TestTechnicalHistoryRetainsPausedBackfillCheckpoint/with_gc
+--- PASS: TestTechnicalHistoryRetainsPausedBackfillCheckpoint (0.08s)
+    --- PASS: TestTechnicalHistoryRetainsPausedBackfillCheckpoint/without_gc (0.04s)
+    --- PASS: TestTechnicalHistoryRetainsPausedBackfillCheckpoint/with_gc (0.04s)
+=== RUN   TestTechnicalHistoryReplayWithinHorizonAndAfterGC
+--- PASS: TestTechnicalHistoryReplayWithinHorizonAndAfterGC (0.04s)
+=== RUN   TestTechnicalHistoryCleanupIsBoundedAndMayLag
+--- PASS: TestTechnicalHistoryCleanupIsBoundedAndMayLag (0.03s)
+=== RUN   TestTechnicalHistoryKeepsLiveLeaseAndNonTerminalReceipt
+--- PASS: TestTechnicalHistoryKeepsLiveLeaseAndNonTerminalReceipt (0.04s)
+=== RUN   TestTechnicalHistoryDoesNotFollowShorterRetentionDays
+--- PASS: TestTechnicalHistoryDoesNotFollowShorterRetentionDays (0.05s)
+=== RUN   TestTechnicalHistoryMetricsStayFiniteAfterCompletedJobs
+--- PASS: TestTechnicalHistoryMetricsStayFiniteAfterCompletedJobs (0.04s)
+=== RUN   TestTechnicalHistoryCoverageAndEnrichmentBounds
+--- PASS: TestTechnicalHistoryCoverageAndEnrichmentBounds (0.03s)
+=== RUN   TestTechnicalHistoryNormalizeRejectsShorterHorizon
+--- PASS: TestTechnicalHistoryNormalizeRejectsShorterHorizon (0.00s)
+=== RUN   TestStage6TransportMeasure
+=== RUN   TestStage6TransportMeasure/near_bound
+=== RUN   TestStage6TransportMeasure/over_bound
+    stage6_transport_measure_integration_test.go:151: RPC boundary error: resource_exhausted: response exceeds size limit; choose a smaller page or employee batch
+=== RUN   TestStage6TransportMeasure/full_100
+    stage6_transport_measure_integration_test.go:151: RPC boundary error: resource_exhausted: response exceeds size limit; choose a smaller page or employee batch
+=== RUN   TestStage6TransportMeasure/compact_100
+=== RUN   TestStage6TransportMeasure/card
+--- FAIL: TestStage6TransportMeasure (6.14s)
+    --- PASS: TestStage6TransportMeasure/near_bound (1.51s)
+    --- FAIL: TestStage6TransportMeasure/over_bound (0.50s)
+    --- FAIL: TestStage6TransportMeasure/full_100 (0.94s)
+    --- PASS: TestStage6TransportMeasure/compact_100 (0.03s)
+    --- PASS: TestStage6TransportMeasure/card (0.03s)
+=== RUN   TestStage6WorkersUnderSharedBudget
+    stage6_worker_measure_integration_test.go:180: live workers: events=20 tasks=13 refresh_requests=5 details=10 p95=2.841477852s p99=2.841477852s lag_max=4.945s elapsed=2.84550623s
+--- PASS: TestStage6WorkersUnderSharedBudget (2.89s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/services/crmevents	9.495s
+FAIL

@@ -1,0 +1,59 @@
+Limit  (cost=72.70..72.71 rows=1 width=93) (actual time=0.281..0.283 rows=1 loops=1)
+  Buffers: shared hit=16
+  ->  LockRows  (cost=72.70..73.70 rows=80 width=93) (actual time=0.281..0.282 rows=1 loops=1)
+        Buffers: shared hit=16
+        ->  Sort  (cost=72.70..72.90 rows=80 width=93) (actual time=0.280..0.281 rows=1 loops=1)
+              Sort Key: o.run_after, o.object_kind, o.object_key
+              Sort Method: quicksort  Memory: 49kB
+              Buffers: shared hit=15
+              ->  Hash Semi Join  (cost=53.22..72.30 rows=80 width=93) (actual time=0.051..0.155 rows=224 loops=1)
+                    Hash Cond: (s.installation_id = c.installation_id)
+                    Buffers: shared hit=15
+                    ->  Hash Join  (cost=13.75..31.72 rows=80 width=103) (actual time=0.042..0.128 rows=224 loops=1)
+                          Hash Cond: (o.installation_id = s.installation_id)
+                          Buffers: shared hit=14
+                          ->  Hash Anti Join  (cost=12.61..30.19 rows=80 width=65) (actual time=0.031..0.098 rows=224 loops=1)
+                                Hash Cond: (o.installation_id = j.installation_id)
+                                Buffers: shared hit=13
+                                ->  Hash Anti Join  (cost=10.21..26.71 rows=100 width=53) (actual time=0.023..0.075 rows=224 loops=1)
+                                      Hash Cond: (o.installation_id = busy.installation_id)
+                                      Buffers: shared hit=12
+                                      ->  Seq Scan on event_enrichment_objects o  (cost=0.00..15.10 rows=136 width=47) (actual time=0.003..0.039 rows=224 loops=1)
+                                            Filter: ((run_after <= now()) AND ((lease_until IS NULL) OR (lease_until < now())) AND ((state = ANY ('{pending,retry}'::text[])) OR ((state = 'ready'::text) AND (source <> 'event_payload'::text)) OR ((state = 'unavailable'::text) AND (reason_code = ANY ('{not_found,permission_denied}'::text[])))))
+                                            Rows Removed by Filter: 56
+                                            Buffers: shared hit=6
+                                      ->  Hash  (cost=10.20..10.20 rows=1 width=22) (actual time=0.017..0.018 rows=0 loops=1)
+                                            Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                                            Buffers: shared hit=6
+                                            ->  Seq Scan on event_enrichment_objects busy  (cost=0.00..10.20 rows=1 width=22) (actual time=0.017..0.017 rows=0 loops=1)
+                                                  Filter: (lease_until > now())
+                                                  Rows Removed by Filter: 280
+                                                  Buffers: shared hit=6
+                                ->  Hash  (cost=2.39..2.39 rows=1 width=28) (actual time=0.003..0.003 rows=0 loops=1)
+                                      Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                                      Buffers: shared hit=1
+                                      ->  Nested Loop  (cost=0.00..2.39 rows=1 width=28) (actual time=0.003..0.003 rows=0 loops=1)
+                                            Join Filter: (src.installation_id = j.installation_id)
+                                            Buffers: shared hit=1
+                                            ->  Seq Scan on event_jobs j  (cost=0.00..1.30 rows=1 width=22) (actual time=0.003..0.003 rows=0 loops=1)
+                                                  Filter: ((kind = ANY ('{current,backfill}'::text[])) AND (status = 'running'::text))
+                                                  Rows Removed by Filter: 20
+                                                  Buffers: shared hit=1
+                                            ->  Seq Scan on event_sources src  (cost=0.00..1.07 rows=1 width=22) (never executed)
+                                                  Filter: (lease_until > now())
+                          ->  Hash  (cost=1.07..1.07 rows=5 width=38) (actual time=0.007..0.007 rows=5 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                Buffers: shared hit=1
+                                ->  Seq Scan on event_sources s  (cost=0.00..1.07 rows=5 width=38) (actual time=0.002..0.003 rows=5 loops=1)
+                                      Filter: (state <> ALL ('{reauth_required,disabled,paused,failed}'::text[]))
+                                      Buffers: shared hit=1
+                    ->  Hash  (cost=23.10..23.10 rows=1310 width=22) (actual time=0.004..0.004 rows=5 loops=1)
+                          Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                          Buffers: shared hit=1
+                          ->  Seq Scan on event_consumers c  (cost=0.00..23.10 rows=1310 width=22) (actual time=0.001..0.002 rows=5 loops=1)
+                                Filter: enabled
+                                Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=30
+Planning Time: 0.450 ms
+Execution Time: 0.320 ms

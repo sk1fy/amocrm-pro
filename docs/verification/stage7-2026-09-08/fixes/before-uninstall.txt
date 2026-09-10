@@ -1,0 +1,8 @@
+ Container amocrm-stage7-review-test-integration-test-run-a704287df032 Creating
+ Container amocrm-stage7-review-test-integration-test-run-a704287df032 Created
+=== RUN   TestReviewStage7UninstallCanRecoverExpiredAccessToken
+    stage7_review_test.go:51: retry cannot unregister with expired access and valid refresh: requests=4 deletes=0 err=amoCRM API returned HTTP 401 (unauthorized)
+--- FAIL: TestReviewStage7UninstallCanRecoverExpiredAccessToken (0.14s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/webhook	0.162s
+FAIL

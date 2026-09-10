@@ -1,0 +1,23 @@
+ Container amocrm-stage7-review-test-integration-test-run-5ae3f22a8f60 Creating
+ Container amocrm-stage7-review-test-integration-test-run-5ae3f22a8f60 Created
+=== RUN   TestReviewStage7ExpiredLeaseDoesNotInvalidateSuccessfulRotation
+    stage7_review_test.go:46: successful rotation left installation reauth_required with credential version=2 after 2 refresh calls
+--- FAIL: TestReviewStage7ExpiredLeaseDoesNotInvalidateSuccessfulRotation (0.08s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/oauth	0.088s
+=== RUN   TestReviewStage7CleanupSurvivesRuleConfigurationReceipt
+    stage7_review_test.go:19: normal completed rule job aborts entire maintenance transaction: delete retained jobs: ERROR: update or delete on table "jobs" violates foreign key constraint "lead_status_rule_configurations_job_installation_fkey" on table "lead_status_workflow_rule_configurations" (SQLSTATE 23503)
+--- FAIL: TestReviewStage7CleanupSurvivesRuleConfigurationReceipt (0.05s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/maintenance	0.061s
+=== RUN   TestReviewStage7ReconcilePreservesForeignWebhooks
+=== RUN   TestReviewStage7ReconcilePreservesForeignWebhooks/reconcile
+    stage7_review_test.go:19: reconcile deleted another integration's webhook: https://other-crm-connector.example.test/events
+=== RUN   TestReviewStage7ReconcilePreservesForeignWebhooks/uninstall
+    stage7_review_test.go:19: uninstall deleted another integration's webhook: https://other-crm-connector.example.test/events
+--- FAIL: TestReviewStage7ReconcilePreservesForeignWebhooks (0.00s)
+    --- FAIL: TestReviewStage7ReconcilePreservesForeignWebhooks/reconcile (0.00s)
+    --- FAIL: TestReviewStage7ReconcilePreservesForeignWebhooks/uninstall (0.00s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/webhook	0.009s
+FAIL

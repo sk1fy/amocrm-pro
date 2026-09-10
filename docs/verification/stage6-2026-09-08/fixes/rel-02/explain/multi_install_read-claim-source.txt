@@ -1,0 +1,41 @@
+Limit  (cost=29.01..29.02 rows=1 width=62) (actual time=0.044..0.045 rows=1 loops=1)
+  Buffers: shared hit=18
+  ->  LockRows  (cost=29.01..29.02 rows=1 width=62) (actual time=0.044..0.045 rows=1 loops=1)
+        Buffers: shared hit=18
+        ->  Sort  (cost=29.01..29.01 rows=1 width=62) (actual time=0.042..0.043 rows=1 loops=1)
+              Sort Key: ((SubPlan 1)), s.updated_at
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=17
+              ->  Hash Join  (cost=1.69..29.00 rows=1 width=62) (actual time=0.027..0.040 rows=5 loops=1)
+                    Hash Cond: (c.installation_id = j.installation_id)
+                    Buffers: shared hit=17
+                    ->  Nested Loop Semi Join  (cost=0.15..26.00 rows=5 width=68) (actual time=0.006..0.010 rows=5 loops=1)
+                          Buffers: shared hit=11
+                          ->  Seq Scan on event_sources s  (cost=0.00..1.10 rows=5 width=46) (actual time=0.002..0.003 rows=5 loops=1)
+                                Filter: ((state <> ALL ('{reauth_required,disabled,paused,failed}'::text[])) AND ((lease_until IS NULL) OR (lease_until < now())))
+                                Buffers: shared hit=1
+                          ->  Index Scan using event_consumers_pkey on event_consumers c  (cost=0.15..4.97 rows=1 width=22) (actual time=0.001..0.001 rows=1 loops=5)
+                                Index Cond: (installation_id = s.installation_id)
+                                Filter: enabled
+                                Buffers: shared hit=10
+                    ->  Hash  (cost=1.48..1.48 rows=5 width=22) (actual time=0.009..0.009 rows=5 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=1
+                          ->  HashAggregate  (cost=1.43..1.48 rows=5 width=22) (actual time=0.006..0.007 rows=5 loops=1)
+                                Group Key: j.installation_id
+                                Batches: 1  Memory Usage: 24kB
+                                Buffers: shared hit=1
+                                ->  Seq Scan on event_jobs j  (cost=0.00..1.38 rows=20 width=22) (actual time=0.001..0.004 rows=20 loops=1)
+                                      Filter: ((status = ANY ('{queued,retry,running}'::text[])) AND (run_after <= now()))
+                                      Buffers: shared hit=1
+                    SubPlan 1
+                      ->  Aggregate  (cost=1.44..1.45 rows=1 width=4) (actual time=0.002..0.002 rows=1 loops=5)
+                            Buffers: shared hit=5
+                            ->  Seq Scan on event_jobs j_1  (cost=0.00..1.43 rows=4 width=4) (actual time=0.001..0.002 rows=4 loops=5)
+                                  Filter: ((installation_id = s.installation_id) AND (status = ANY ('{queued,retry,running}'::text[])) AND (run_after <= now()))
+                                  Rows Removed by Filter: 16
+                                  Buffers: shared hit=5
+Planning:
+  Buffers: shared hit=32
+Planning Time: 0.221 ms
+Execution Time: 0.076 ms

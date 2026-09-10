@@ -13,26 +13,52 @@ import (
 
 const cleanupAdvisoryLockID int64 = 6_584_483_612_447_211_903
 
+// RedeliveryHorizon is the Core calendar floor for command identity, terminal
+// jobs, and aligned technical history. It matches ADR-0016 HistoryHorizon.
+const RedeliveryHorizon = 7 * 24 * time.Hour
+
+// TombstoneRetention is the default last_seen_at TTL for webhook replay
+// identity. It is longer than raw payload retention so a collected delivery
+// cannot become actionable again. Non-commutative future workflows must not
+// assume this window is eternal.
+const TombstoneRetention = 90 * 24 * time.Hour
+
 type Policy struct {
 	SafetyMargin             time.Duration
 	WebhookInboxRetention    time.Duration
 	WebhookDeliveryRetention time.Duration
+	RedeliveryHorizon        time.Duration
+	TombstoneRetention       time.Duration
 	BatchSize                int
 	MaxBatches               int
 }
 
 type Result struct {
-	LockAcquired             bool
-	WidgetTokens             int64
-	IdempotencyKeys          int64
-	OAuthStates              int64
-	InboxEvents              int64
-	WebhookDeliveries        int64
-	WidgetTokensLimitReached bool
-	IdempotencyLimitReached  bool
-	OAuthStatesLimitReached  bool
-	InboxEventsLimitReached  bool
-	DeliveriesLimitReached   bool
+	LockAcquired                   bool
+	WidgetTokens                   int64
+	IdempotencyKeys                int64
+	OAuthStates                    int64
+	InboxEvents                    int64
+	WebhookDeliveries              int64
+	OutboundEffects                int64
+	WorkflowRuns                   int64
+	RuleConfigurations             int64
+	Jobs                           int64
+	Tombstones                     int64
+	Audit                          int64
+	CommandReceipts                int64
+	WidgetTokensLimitReached       bool
+	IdempotencyLimitReached        bool
+	OAuthStatesLimitReached        bool
+	InboxEventsLimitReached        bool
+	DeliveriesLimitReached         bool
+	OutboundEffectsLimitReached    bool
+	WorkflowRunsLimitReached       bool
+	RuleConfigurationsLimitReached bool
+	JobsLimitReached               bool
+	TombstonesLimitReached         bool
+	AuditLimitReached              bool
+	CommandReceiptsLimitReached    bool
 }
 
 type Cleaner interface {
@@ -47,9 +73,11 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 
-// Cleanup removes replay rows past expiry+safety-margin and terminal webhook
-// payload rows past their retention windows. One transaction-level advisory
-// lock serializes a bounded cleanup pass across worker replicas.
+// Cleanup removes replay rows past expiry+safety-margin, terminal webhook
+// payload rows past their retention windows, and Core technical history past
+// the calendar redelivery horizon. One transaction-level advisory lock
+// serializes a bounded cleanup pass across worker replicas. prepared/applied/
+// uncertain outbound effects are kept.
 func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 	if s == nil || s.pool == nil {
 		return Result{}, errors.New("cleanup store is not configured")
@@ -139,10 +167,192 @@ func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	horizon := effectiveHorizon(policy)
+	if err := expireAgedDeliveries(ctx, tx, horizon, policy); err != nil {
+		return Result{}, err
+	}
+	// Observed/no_effect/failed/expired effects have a known outcome. prepared,
+	// applied, and uncertain rows stay: the remote mutation may still be in
+	// flight or unknown (CORE-02 reconcile).
+	result.OutboundEffects, result.OutboundEffectsLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT effect.ctid
+				FROM outbound_effects AS effect
+				WHERE effect.state IN ('observed', 'no_effect', 'failed', 'expired')
+				  AND effect.updated_at < now() - ($1 * interval '1 millisecond')
+				ORDER BY effect.updated_at, effect.ctid
+				FOR UPDATE OF effect SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM outbound_effects AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"outbound_effects", horizon, policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	result.WorkflowRuns, result.WorkflowRunsLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT run.ctid
+				FROM workflow_runs AS run
+				WHERE run.status IN ('completed', 'failed', 'dead')
+				  AND run.finished_at IS NOT NULL
+				  AND run.finished_at < now() - ($1 * interval '1 millisecond')
+				  AND NOT EXISTS (
+					SELECT 1 FROM outbound_effects AS effect
+					WHERE effect.workflow_run_id = run.id
+				  )
+				ORDER BY run.finished_at, run.ctid
+				FOR UPDATE OF run SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM workflow_runs AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"workflow_runs", horizon, policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	// Configuration results belong to their completed job. Preserve them while
+	// any idempotency receipt or unknown effect still needs the original result.
+	result.RuleConfigurations, result.RuleConfigurationsLimitReached, err = deleteRetained(ctx, tx, `
+		WITH victims AS (
+			SELECT config.job_id FROM lead_status_workflow_rule_configurations config
+			JOIN jobs job ON job.id=config.job_id
+			WHERE config.configured_at < now()-($1*interval '1 millisecond')
+			  AND job.status IN ('completed','failed','dead','cancelled')
+			  AND job.finished_at < now()-($1*interval '1 millisecond')
+			  AND NOT EXISTS (SELECT 1 FROM idempotency_keys k WHERE k.job_id=job.id)
+			  AND NOT EXISTS (SELECT 1 FROM outbound_effects e WHERE e.correlation_job_id=job.id)
+			ORDER BY config.configured_at,config.job_id
+			FOR UPDATE OF config,job SKIP LOCKED LIMIT $2
+		) DELETE FROM lead_status_workflow_rule_configurations config USING victims
+		WHERE config.job_id=victims.job_id`, "rule_configurations", horizon, policy)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Jobs, result.JobsLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT job.ctid
+				FROM jobs AS job
+				WHERE job.status IN ('completed', 'failed', 'dead', 'cancelled')
+				  AND job.finished_at IS NOT NULL
+				  AND job.finished_at < now() - ($1 * interval '1 millisecond')
+				  AND NOT EXISTS (
+					SELECT 1 FROM outbound_effects AS effect
+					WHERE effect.correlation_job_id = job.id
+				  )
+				  AND NOT EXISTS (SELECT 1 FROM idempotency_keys k WHERE k.job_id=job.id)
+				  AND NOT EXISTS (SELECT 1 FROM lead_status_workflow_rule_configurations c WHERE c.job_id=job.id)
+				ORDER BY job.finished_at, job.ctid
+				FOR UPDATE OF job SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM jobs AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"jobs", horizon, policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Tombstones, result.TombstonesLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT tombstone.ctid
+				FROM webhook_event_tombstones AS tombstone
+				WHERE tombstone.last_seen_at < now() - ($1 * interval '1 millisecond')
+				ORDER BY tombstone.last_seen_at, tombstone.ctid
+				FOR UPDATE OF tombstone SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM webhook_event_tombstones AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"webhook_event_tombstones", effectiveTombstoneRetention(policy), policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Audit, result.AuditLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT entry.ctid
+				FROM audit_log AS entry
+				WHERE entry.created_at < now() - ($1 * interval '1 millisecond')
+				ORDER BY entry.created_at, entry.ctid
+				FOR UPDATE OF entry SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM audit_log AS expired
+			USING victims
+			WHERE expired.ctid = victims.ctid`,
+		"audit_log", horizon, policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	result.CommandReceipts, result.CommandReceiptsLimitReached, err = deleteRetained(
+		ctx, tx, `
+			WITH victims AS (
+				SELECT receipt.command_id
+				FROM activity_command_receipts AS receipt
+				JOIN activity_command_outbox AS outbox USING (command_id)
+				WHERE outbox.status IN ('accepted', 'failed', 'expired')
+				  AND receipt.created_at < now() - ($1 * interval '1 millisecond')
+				ORDER BY receipt.created_at, receipt.command_id
+				FOR UPDATE OF receipt, outbox SKIP LOCKED
+				LIMIT $2
+			)
+			DELETE FROM activity_command_receipts AS expired
+			USING victims
+			WHERE expired.command_id = victims.command_id`,
+		"activity_command_receipts", horizon, policy,
+	)
+	if err != nil {
+		return Result{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Result{}, fmt.Errorf("commit cleanup: %w", err)
 	}
 	return result, nil
+}
+
+func expireAgedDeliveries(ctx context.Context, tx pgx.Tx, horizon time.Duration, policy Policy) error {
+	query := `
+		WITH expired AS (
+			SELECT outbox.ctid
+			FROM activity_command_outbox AS outbox
+			JOIN activity_command_receipts AS receipt USING (command_id)
+			WHERE receipt.created_at < now() - ($1 * interval '1 millisecond')
+			  AND (
+				outbox.status = 'pending_delivery'
+				OR (outbox.status = 'delivering' AND outbox.leased_until < now())
+			  )
+			ORDER BY receipt.created_at, outbox.ctid
+			FOR UPDATE OF outbox SKIP LOCKED
+			LIMIT $2
+		)
+		UPDATE activity_command_outbox AS outbox
+		SET status = 'expired', error_code = 'delivery_expired',
+			lease_token = NULL, leased_until = NULL, updated_at = now()
+		FROM expired
+		WHERE outbox.ctid = expired.ctid`
+	for batch := 0; batch < policy.MaxBatches; batch++ {
+		tag, err := tx.Exec(ctx, query, horizon.Milliseconds(), policy.BatchSize)
+		if err != nil {
+			return fmt.Errorf("expire aged deliveries: %w", err)
+		}
+		if tag.RowsAffected() < int64(policy.BatchSize) {
+			return nil
+		}
+	}
+	return nil
 }
 
 func deleteExpired(ctx context.Context, tx pgx.Tx, table string, policy Policy) (int64, bool, error) {
@@ -201,7 +411,34 @@ func validatePolicy(policy Policy) error {
 	if policy.WebhookDeliveryRetention <= 0 {
 		return errors.New("webhook delivery retention must be positive")
 	}
+	if policy.RedeliveryHorizon < 0 {
+		return errors.New("redelivery horizon must not be negative")
+	}
+	if policy.TombstoneRetention < 0 {
+		return errors.New("tombstone retention must not be negative")
+	}
 	return nil
+}
+
+func effectiveHorizon(policy Policy) time.Duration {
+	if policy.RedeliveryHorizon >= RedeliveryHorizon {
+		return policy.RedeliveryHorizon
+	}
+	return RedeliveryHorizon
+}
+
+func effectiveTombstoneRetention(policy Policy) time.Duration {
+	retention := policy.TombstoneRetention
+	if retention <= 0 {
+		retention = TombstoneRetention
+	}
+	if retention < policy.WebhookInboxRetention {
+		retention = policy.WebhookInboxRetention
+	}
+	if retention < RedeliveryHorizon {
+		retention = RedeliveryHorizon
+	}
+	return retention
 }
 
 type SchedulerConfig struct {
@@ -285,5 +522,7 @@ func (s *Scheduler) runOnce(parent context.Context) {
 		"used_widget_tokens", result.WidgetTokens,
 		"idempotency_keys", result.IdempotencyKeys,
 		"oauth_states", result.OAuthStates,
+		"jobs", result.Jobs,
+		"command_receipts", result.CommandReceipts,
 	)
 }

@@ -1,0 +1,255 @@
+{
+  "amocrm": {
+    "Events": 0,
+    "Users": 56,
+    "Notes": 0,
+    "Tasks": 0,
+    "Pipelines": 0,
+    "Fields": 0,
+    "Entities": 0
+  },
+  "explain": {
+    "category-counts": {
+      "name": "category-counts",
+      "execution": 7278000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 7.278
+    },
+    "get-event": {
+      "name": "get-event",
+      "execution": 17000,
+      "shared_hit": 4,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources"
+      ],
+      "indexes": [
+        "crm_events_pkey"
+      ],
+      "execution_ms": 0.017
+    },
+    "history-authors": {
+      "name": "history-authors",
+      "execution": 86000,
+      "shared_hit": 18,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources"
+      ],
+      "indexes": [
+        "crm_events_time"
+      ],
+      "execution_ms": 0.086
+    },
+    "history-category": {
+      "name": "history-category",
+      "execution": 4790000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 4.79
+    },
+    "history-compact": {
+      "name": "history-compact",
+      "execution": 64000,
+      "shared_hit": 6,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources"
+      ],
+      "indexes": [
+        "crm_events_time"
+      ],
+      "execution_ms": 0.064
+    },
+    "history-entity": {
+      "name": "history-entity",
+      "execution": 1103000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 1.103
+    },
+    "history-prefix": {
+      "name": "history-prefix",
+      "execution": 2231000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 2.231
+    },
+    "history-types": {
+      "name": "history-types",
+      "execution": 138000,
+      "shared_hit": 45,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources"
+      ],
+      "indexes": [
+        "crm_events_time"
+      ],
+      "execution_ms": 0.138
+    },
+    "history-unknown-authors": {
+      "name": "history-unknown-authors",
+      "execution": 63000,
+      "shared_hit": 6,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources"
+      ],
+      "indexes": [
+        "crm_events_time"
+      ],
+      "execution_ms": 0.063
+    },
+    "load-enrichment": {
+      "name": "load-enrichment",
+      "execution": 9000,
+      "shared_hit": 38,
+      "shared_read": 4,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_enrichment_links",
+        "event_enrichment_objects"
+      ],
+      "indexes": null,
+      "execution_ms": 0.009
+    },
+    "summary": {
+      "name": "summary",
+      "execution": 10922000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 10.922
+    },
+    "timeline": {
+      "name": "timeline",
+      "execution": 4427000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 4.427
+    },
+    "totals": {
+      "name": "totals",
+      "execution": 9999000,
+      "shared_hit": 505,
+      "shared_read": 0,
+      "heap_fetches": 0,
+      "seq_scans": [
+        "event_sources",
+        "crm_events"
+      ],
+      "indexes": null,
+      "execution_ms": 9.999
+    }
+  },
+  "from": 1788804000,
+  "get_event": {
+    "enrichment": 0,
+    "json_bytes": 185,
+    "max": "132.84µs",
+    "p50": "110.964µs",
+    "p95": "128.298µs",
+    "p99": "132.84µs"
+  },
+  "installations": 1,
+  "pool": {
+    "acquire_duration": "9.259061ms",
+    "acquired": 1,
+    "empty_acquire": 2,
+    "idle": 1,
+    "max": 8
+  },
+  "profile": {
+    "ID": "dense_day",
+    "Buckets": "hour",
+    "Users": 40,
+    "Days": 1,
+    "PerUserDay": 400,
+    "LargeNotes": 0,
+    "UnknownAuthors": false,
+    "Jobs": false,
+    "Enrichment": false,
+    "Installations": 0
+  },
+  "query_compact": {
+    "events": 100,
+    "json_bytes": 43595,
+    "max": "85.472055ms",
+    "p50": "58.124677ms",
+    "p95": "69.160092ms",
+    "p99": "85.472055ms",
+    "samples": 25,
+    "summaries": 40,
+    "timeline": 25
+  },
+  "query_full": {
+    "events": 100,
+    "json_bytes": 44771,
+    "max": "62.761884ms",
+    "p50": "56.306695ms",
+    "p95": "61.066729ms",
+    "p99": "62.761884ms",
+    "samples": 25,
+    "summaries": 40,
+    "timeline": 25
+  },
+  "rows": 16000,
+  "sizes": {
+    "event_card": {
+      "json_bytes": 596,
+      "p95": "154.133µs",
+      "p99": "191.635µs",
+      "samples": 25
+    },
+    "mode": "local product plus JSON serialization",
+    "panel": {
+      "json_bytes": 68949,
+      "p95": "64.622007ms",
+      "p99": "66.149195ms",
+      "samples": 25
+    }
+  },
+  "to": 1788890400
+}

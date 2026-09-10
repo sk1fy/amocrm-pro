@@ -1,0 +1,34 @@
+Limit  (cost=13.69..13.71 rows=1 width=94) (actual time=0.003..0.004 rows=0 loops=1)
+  ->  LockRows  (cost=13.69..13.71 rows=1 width=94) (actual time=0.003..0.003 rows=0 loops=1)
+        ->  Sort  (cost=13.69..13.70 rows=1 width=94) (actual time=0.003..0.003 rows=0 loops=1)
+              Sort Key: o.run_after, o.object_kind, o.object_key
+              Sort Method: quicksort  Memory: 25kB
+              ->  Nested Loop Anti Join  (cost=4.31..13.68 rows=1 width=94) (actual time=0.001..0.002 rows=0 loops=1)
+                    Join Filter: (busy.installation_id = o.installation_id)
+                    ->  Nested Loop  (cost=4.31..13.67 rows=1 width=88) (actual time=0.001..0.002 rows=0 loops=1)
+                          Join Filter: (s.installation_id = o.installation_id)
+                          ->  Nested Loop Semi Join  (cost=4.19..13.45 rows=1 width=82) (actual time=0.001..0.001 rows=0 loops=1)
+                                ->  Nested Loop Anti Join  (cost=0.00..2.10 rows=1 width=60) (actual time=0.001..0.001 rows=0 loops=1)
+                                      Join Filter: (j.installation_id = o.installation_id)
+                                      ->  Seq Scan on event_enrichment_objects o  (cost=0.00..0.00 rows=1 width=48) (actual time=0.001..0.001 rows=0 loops=1)
+                                            Filter: ((run_after <= now()) AND ((lease_until IS NULL) OR (lease_until < now())) AND ((state = ANY ('{pending,retry}'::text[])) OR ((state = 'ready'::text) AND (source <> 'event_payload'::text)) OR ((state = 'unavailable'::text) AND (reason_code = ANY ('{not_found,permission_denied}'::text[])))))
+                                      ->  Nested Loop  (cost=0.00..2.09 rows=1 width=28) (never executed)
+                                            Join Filter: (src.installation_id = j.installation_id)
+                                            ->  Seq Scan on event_jobs j  (cost=0.00..1.06 rows=1 width=22) (never executed)
+                                                  Filter: ((kind = ANY ('{current,backfill}'::text[])) AND (status = 'running'::text))
+                                            ->  Seq Scan on event_sources src  (cost=0.00..1.01 rows=1 width=22) (never executed)
+                                                  Filter: (lease_until > now())
+                                ->  Bitmap Heap Scan on event_consumers c  (cost=4.19..12.66 rows=2 width=22) (never executed)
+                                      Recheck Cond: (o.installation_id = installation_id)
+                                      Filter: enabled
+                                      ->  Bitmap Index Scan on event_consumers_pkey  (cost=0.00..4.19 rows=5 width=0) (never executed)
+                                            Index Cond: (installation_id = o.installation_id)
+                          ->  Index Scan using event_sources_retention_turn on event_sources s  (cost=0.12..0.21 rows=1 width=38) (never executed)
+                                Index Cond: (installation_id = c.installation_id)
+                                Filter: (state <> ALL ('{reauth_required,disabled,paused,failed}'::text[]))
+                    ->  Seq Scan on event_enrichment_objects busy  (cost=0.00..0.00 rows=1 width=22) (never executed)
+                          Filter: (lease_until > now())
+Planning:
+  Buffers: shared hit=5
+Planning Time: 0.315 ms
+Execution Time: 0.041 ms

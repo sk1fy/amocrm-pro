@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 )
 
 const developmentEncryptionKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -46,6 +48,12 @@ type API struct {
 	WidgetJWTLeeway           time.Duration
 	WidgetJWTMaxLifetime      time.Duration
 	BootstrapIntegration      *BootstrapIntegration
+	OAuthIPRate               float64
+	OAuthIPBurst              int
+	OAuthIdentityRate         float64
+	OAuthIdentityBurst        int
+	OAuthLimiterInactiveTTL   time.Duration
+	OAuthLimiterMaxEntries    int
 }
 
 type BootstrapIntegration struct {
@@ -166,17 +174,59 @@ func LoadAPI() (API, error) {
 	if err != nil {
 		return API{}, err
 	}
+	if oauthStateTTL < time.Minute {
+		return API{}, errors.New("OAUTH_STATE_TTL must be at least 1m")
+	}
+	if oauthStateTTL > time.Hour {
+		return API{}, errors.New("OAUTH_STATE_TTL must be at most 1h")
+	}
 	widgetJWTLeeway, err := duration("WIDGET_JWT_LEEWAY", 5*time.Second)
 	if err != nil {
 		return API{}, err
+	}
+	if widgetJWTLeeway > time.Minute {
+		return API{}, errors.New("WIDGET_JWT_LEEWAY must be at most 1m")
 	}
 	widgetJWTMaxLifetime, err := duration("WIDGET_JWT_MAX_LIFETIME", 15*time.Minute)
 	if err != nil {
 		return API{}, err
 	}
+	if widgetJWTMaxLifetime > time.Hour {
+		return API{}, errors.New("WIDGET_JWT_MAX_LIFETIME must be at most 1h")
+	}
+	if widgetJWTMaxLifetime < widgetJWTLeeway {
+		return API{}, errors.New("WIDGET_JWT_MAX_LIFETIME must be at least WIDGET_JWT_LEEWAY")
+	}
 	bootstrap, err := loadBootstrapIntegration()
 	if err != nil {
 		return API{}, err
+	}
+	oauthIPRate, err := positiveFloat("OAUTH_IP_RATE_PER_SECOND", 5, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	oauthIPBurst, err := integer("OAUTH_IP_BURST", 20, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	oauthIdentityRate, err := positiveFloat("OAUTH_IDENTITY_RATE_PER_SECOND", 2, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	oauthIdentityBurst, err := integer("OAUTH_IDENTITY_BURST", 8, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	oauthLimiterInactiveTTL, err := duration("OAUTH_LIMITER_INACTIVE_TTL", 10*time.Minute)
+	if err != nil {
+		return API{}, err
+	}
+	oauthLimiterMaxEntries, err := integer("OAUTH_LIMITER_MAX_ENTRIES", 10_000, 1, 100_000)
+	if err != nil {
+		return API{}, err
+	}
+	if oauthLimiterInactiveTTL < time.Second || oauthLimiterInactiveTTL.Seconds() < float64(oauthIPBurst)/oauthIPRate || oauthLimiterInactiveTTL.Seconds() < float64(oauthIdentityBurst)/oauthIdentityRate {
+		return API{}, errors.New("OAUTH_LIMITER_INACTIVE_TTL must cover a full burst refill and be at least 1s")
 	}
 
 	return API{
@@ -192,6 +242,9 @@ func LoadAPI() (API, error) {
 		WidgetInstallationRate: widgetInstallationRate, WidgetInstallationBurst: widgetInstallationBurst,
 		WidgetLimiterInactiveTTL: widgetLimiterInactiveTTL, WidgetLimiterMaxEntries: widgetLimiterMaxEntries,
 		BootstrapIntegration: bootstrap,
+		OAuthIPRate:          oauthIPRate, OAuthIPBurst: oauthIPBurst,
+		OAuthIdentityRate: oauthIdentityRate, OAuthIdentityBurst: oauthIdentityBurst,
+		OAuthLimiterInactiveTTL: oauthLimiterInactiveTTL, OAuthLimiterMaxEntries: oauthLimiterMaxEntries,
 	}, nil
 }
 
@@ -272,6 +325,9 @@ func LoadWorker() (Worker, error) {
 	jobTimeout, err := duration("WORKER_JOB_TIMEOUT", 45*time.Second)
 	if err != nil {
 		return Worker{}, err
+	}
+	if jobTimeout < time.Second {
+		return Worker{}, errors.New("WORKER_JOB_TIMEOUT must be at least 1s")
 	}
 	batchSize, err := integer("WORKER_BATCH_SIZE", 10, 1, 100)
 	if err != nil {
@@ -403,17 +459,23 @@ func loadCommon(serviceName, defaultAddress string) (Common, error) {
 		return Common{}, err
 	}
 
-	address := strings.TrimSpace(os.Getenv("HTTP_ADDRESS"))
-	if address == "" {
-		address = defaultAddress
-	}
-
 	environment := strings.TrimSpace(os.Getenv("APP_ENV"))
 	if environment == "" {
 		environment = "development"
 	}
 	if environment != "development" && strings.Contains(encryptionKeys, developmentEncryptionKey) {
 		return Common{}, errors.New("the public development encryption key is forbidden outside APP_ENV=development")
+	}
+	if _, err := cryptox.ParseKeyRing(encryptionKeys, encryptionKeyVersion); err != nil {
+		return Common{}, err
+	}
+
+	address := strings.TrimSpace(os.Getenv("HTTP_ADDRESS"))
+	if address == "" {
+		address = defaultAddress
+	}
+	if err := validateListenAddress(address); err != nil {
+		return Common{}, fmt.Errorf("HTTP_ADDRESS: %w", err)
 	}
 
 	logLevel := strings.ToLower(strings.TrimSpace(os.Getenv("LOG_LEVEL")))

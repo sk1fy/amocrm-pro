@@ -491,6 +491,10 @@ Backend Tester 2 уже содержит техническую панель и 
 
 ## Этап 6. Надёжность, объём данных и совместимость
 
+**Статус на 10.09.2026 после аудита: частично завершён.** Исправлены поздний replay и удаление paused backfill; L-01 дополнен работающими workers, L-03 — HTTP/mTLS-цепочкой. REL-03 сохраняет открытый остаток CORE-05: максимальный календарный срок redelivery и безопасная очистка inbox/operations. Пока квитанции сохраняются. Семь суток относятся только к completed/failed jobs. Новая owner-миграция — `000007_technical_history`; на runtime/production она не применялась. Стенд: 2 CPU / ~4 GiB.
+
+**Результат:** [отчёт](../verification/stage6-2026-09-08/README.md), [исправления аудита и актуальные проверки](../verification/stage6-2026-09-08/fixes/README.md), [ADR-0016](../adr/0016-technical-history-retention.md). После исправлений: 210 Go PASS с `-race`, 3 служебных helper SKIP, UI 25 PASS; `make test` PASS. Полный L-01/L-02/L-03 профиль PASS отдельно от gate. Исходные результаты сохранены.
+
 **Цель:** Проверить новые функции на существующих гарантиях и устранить измеренные ограничения.
 
 **Приоритет:** P0 перед масштабированием. **Зависимости:** Этапы 2–4; для GC согласовать CORE-05.
@@ -507,52 +511,57 @@ REL-03 реализует owner cleanup по общей политике CORE-05
 
 #### REL-01. Проверить сбор после расширения модели
 
+**Результат:** выполнено. Новые сценарии в `stage6_collector_integration_test.go`; коллектор не переписывался. См. [rel-01.md](../verification/stage6-2026-09-08/rel-01.md).
+
 **Тип и граница задачи:** Проверка после изменений. Перечисленные гарантии исходного сборщика уже реализованы и имеют тесты; добавить сценарии enrichment.
 
 **Что сделать:**
 
-- [ ] Повторить целевые сценарии restart, crash после записи, fencing, повтор страницы, позднее событие и нестабильная пагинация.
-- [ ] Проверить исходный сбор и обогащение при 429, 5xx, timeout, потере прав и reauth_required.
-- [ ] Убедиться, что ошибка обогащения не блокирует исходное окно и не продвигает его ошибочно.
-- [ ] Проверить приоритет текущего сбора над backfill и обогащением для нескольких аккаунтов.
-- [ ] Проверить применение настроек к queued/running операциям; описать revision/snapshot-семантику вместо неожиданного отката старой командой.
+- [x] Повторить целевые сценарии restart, crash после записи, fencing, повтор страницы, позднее событие и нестабильная пагинация.
+- [x] Проверить исходный сбор и обогащение при 429, 5xx, timeout, потере прав и reauth_required.
+- [x] Убедиться, что ошибка обогащения не блокирует исходное окно и не продвигает его ошибочно.
+- [x] Проверить приоритет текущего сбора над backfill и обогащением для нескольких аккаунтов.
+- [x] Проверить применение настроек к queued/running операциям; описать revision/snapshot-семантику вместо неожиданного отката старой командой.
 
 **Файлы для расширения:** [internal/services/crmevents/store_integration_test.go](../../internal/services/crmevents/store_integration_test.go), [internal/services/crmevents/recovery_integration_test.go](../../internal/services/crmevents/recovery_integration_test.go), [internal/services/crmevents/audit_integration_test.go](../../internal/services/crmevents/audit_integration_test.go).
 
 #### REL-02. Оптимизировать чтение на измерениях
 
-**Открытый остаток итогового аудита:** L-01 (доля refresh, возраст очереди,
+**Объём повторной проверки итогового аудита:** L-01 (доля refresh, возраст очереди,
 задержка деталей и отставание collector при нескольких установках), L-02
 (EXPLAIN ANALYZE BUFFERS истории/сводки/timeline/claim на реалистичном объёме),
 L-03 (размер и задержки owner → RPC → Activity → HTTP до/сверх 3 MiB).
 Локальные функциональные тесты не подтверждают нагрузочную готовность.
-Профиль стенда и критерии измерений согласовать/записать до прогона.
+Профиль и [дополнительные критерии](../verification/stage6-2026-09-08/fixes/criteria.md) записаны до повторного прогона.
 
+**Результат:** выполнено локально. L-01–L-03 измерены на синтетике (стенд 2 CPU / ~4 GiB). Индексы чтения, кеш и агрегатные таблицы не добавлялись — «изменение не требуется». Это не production load readiness. См. [rel-02.md](../verification/stage6-2026-09-08/rel-02.md).
 
 **Тип и граница задачи:** Измерение и условная оптимизация. Новые индексы, кеши и агрегатные таблицы вводятся только по результатам.
 
 **Что сделать:**
 
-- [ ] Подготовить синтетические профили: небольшой отдел, много сотрудников, плотный день, большие примечания, длительный backfill.
-- [ ] Измерить P95/P99 страницы, карточки и сводки, SQL/pool wait, RPC/HTTP размер и amoCRM request volume.
-- [ ] Через EXPLAIN проверить индексы по installation, времени, автору, типу и сущности; добавлять только нужные запросам.
-- [ ] При необходимости добавить пересчитываемые агрегаты через owner API; определить инвалидацию при late/update/retention и версии классификации.
-- [ ] Не вводить Redis или физическое разбиение БД без измеренной причины и отдельного решения.
+- [x] Подготовить синтетические профили: небольшой отдел, много сотрудников, плотный день, большие примечания, длительный backfill.
+- [x] Измерить P95/P99 страницы, карточки и сводки, SQL/pool wait, RPC/HTTP размер и amoCRM request volume.
+- [x] Через EXPLAIN проверить индексы по installation, времени, автору, типу и сущности; добавлять только нужные запросам.
+- [x] При необходимости добавить пересчитываемые агрегаты через owner API; определить инвалидацию при late/update/retention и версии классификации.
+- [x] Не вводить Redis или физическое разбиение БД без измеренной причины и отдельного решения.
 
 **Файлы для расширения:** [migrations/crmevents/000001_crm_events.up.sql](../../migrations/crmevents/000001_crm_events.up.sql), [internal/services/crmevents/postgres_read.go](../../internal/services/crmevents/postgres_read.go), [internal/componentruntime/process_integration_test.go](../../internal/componentruntime/process_integration_test.go).
 
 #### REL-03. Завершить политику хранения
 
+**Результат:** безопасная owner-очистка реализована частично. Completed/failed jobs хранятся не менее 7 суток; paused jobs и inbox/operations сохраняются. CORE-05 должен ограничить максимальный календарный срок redelivery во всех путях до включения GC квитанций. См. [rel-03.md](../verification/stage6-2026-09-08/rel-03.md).
+
 **Тип и граница задачи:** Расширение retention на техническую историю и enrichment. Retention CRM-событий уже реализован и исправлен аудитом.
 
 **Что сделать:**
 
-- [ ] Раздельно определить сроки событий, обогащения, jobs/attempts, inbox, operations и command receipts.
-- [ ] Согласовать окно повторной доставки и дедупликации с Core outbox до очистки квитанций CRM Events.
-- [ ] Расширить bounded cleanup только на новые классы хранения: техническую историю после согласования retry horizon и обогащение. Существующий retention CRM-событий с чередованием источников и метриками сохранить.
-- [ ] Проверить долгую работу при скорости поступления выше очистки; документировать пропускную способность maintenance.
-- [ ] Изменение срока истории не должно молча обещать восстановление уже удалённого или автоматически сокращать согласованный срок.
-- [ ] Сделать метрики устойчивыми к росту технической истории.
+- [x] Раздельно определить сроки событий, обогащения, jobs/attempts, inbox, operations и command receipts.
+- [ ] Согласовать и реализовать максимальный срок повторной доставки во всех путях Core, включая простой и операторский retry, до очистки квитанций CRM Events. Текущий GC квитанций отключён.
+- [x] Расширить bounded cleanup только на новые классы хранения: техническую историю после согласования retry horizon и обогащение. Существующий retention CRM-событий с чередованием источников и метриками сохранить.
+- [x] Проверить долгую работу при скорости поступления выше очистки; документировать пропускную способность maintenance.
+- [x] Изменение срока истории не должно молча обещать восстановление уже удалённого или автоматически сокращать согласованный срок.
+- [x] Сделать метрики устойчивыми к росту технической истории.
 
 **Критерий готовности:** длительная эксплуатация имеет конечный бюджет хранения, а очистка не ломает повтор команды и восстановление после сбоя.
 
@@ -560,14 +569,16 @@ L-03 (размер и задержки owner → RPC → Activity → HTTP до/
 
 #### MOD-02. Проверять одинаковое поведение при разном размещении
 
+**Результат:** выполнено расширением parity-тестов. Process ping/lead-status при недоступном Activity уже закрыт `TestComponentProcessesAndModeSwitch` (прогнан в gate этапа 6). Публичный `GET /events/{id}` сохраняет существующий fallback на owner-конверт. См. [mod-02.md](../verification/stage6-2026-09-08/mod-02.md).
+
 **Тип и граница задачи:** расширение существующих parity/process tests на новые операции и будущие модули.
 
 **Что сделать:**
 
-- [ ] Для подробных Activity/Events endpoints прогнать одинаковые fixtures через embedded и RPC: данные, фильтры, порядок, ошибки, ограничения и policy должны совпадать по смыслу.
-- [ ] Проверить durable команды при потере RPC-ответа, рестарте удалённого модуля и недоступности получателя; повтор не создаёт вторую операцию или эффект.
-- [ ] Проверить отключение нагруженного/недоступного Activity: собственный Core readiness, ping и lead-status продолжают работать; зависимые Activity endpoints возвращают явную недоступность.
-- [ ] Проверить совместимость old/new версий там, где предусмотрено раздельное обновление; различия latency между embedded и сетью не выдавать за различия бизнес-семантики.
+- [x] Для подробных Activity/Events endpoints прогнать одинаковые fixtures через embedded и RPC: данные, фильтры, порядок, ошибки, ограничения и policy должны совпадать по смыслу.
+- [x] Проверить durable команды при потере RPC-ответа, рестарте удалённого модуля и недоступности получателя; повтор не создаёт вторую операцию или эффект.
+- [x] Проверить отключение нагруженного/недоступного Activity: собственный Core readiness, ping и lead-status продолжают работать; зависимые Activity endpoints возвращают явную недоступность.
+- [x] Проверить совместимость old/new версий там, где предусмотрено раздельное обновление; различия latency между embedded и сетью не выдавать за различия бизнес-семантики.
 
 **Критерий готовности:** перенос требует изменения deployment/config, а новый вариант исполнения проходит те же продуктовые сценарии без отдельной реализации логики.
 
@@ -575,11 +586,19 @@ L-03 (размер и задержки owner → RPC → Activity → HTTP до/
 
 ### Критерий завершения этапа
 
-Новые payload и enrichment сохраняют гарантии сборщика. Ресурсные пределы измерены, embedded/RPC поведение совпадает, а очистка не ломает идентичность команд и восстановление.
+Новые payload и enrichment должны сохранять гарантии сборщика; ресурсные пределы измеряются, embedded/RPC поведение совпадает. Исправления сохраняют идентичность команд и paused checkpoint. Полностью закрывать этап нельзя до согласованного с CORE-05 ограничения хранения inbox/operations.
 
 <a id="stage-7"></a>
 
 ## Этап 7. Общий backend: оставшиеся доработки
+
+**Исправления аудита 10.09:** реестр владения webhook destinations, зависимый GC
+rule-configurations/jobs, запрет повторного refresh при неизвестном исходе и
+operator recovery истёкшего access token при uninstall. Повторные проверки:
+Core integration 220 PASS, Activity 215 Go PASS / UI 25 PASS, `make test` PASS.
+[Итоговый отчёт](../verification/stage7-2026-09-08/fixes/README.md).
+
+**Статус на 10.09.2026: выполнен локально.** CORE-01–05 и CORE-07 закрыты; CORE-04 — «изменение не требуется» для межрепличного лимитера (один Gateway). CORE-06 локально: роли/валидация/runbook ротации; целевой сервер и KMS открыты (BASE-01). Gate: `activity-ci` 215 Go PASS / 3 helper SKIP / UI 25 PASS; `integration-test` PASS; `openapi-check` PASS. Новые Core-миграции — `000012_oauth_refresh_lease`, `000014_core_redelivery_horizon`, `000015_webhook_ownership` (`000013` свободен); CRM Events — `000008_command_identity_horizon`. На runtime/production не применялись. См. [отчёт](../verification/stage7-2026-09-08/README.md).
 
 **Цель:** Завершить конкретные платформенные пробелы без повторного создания готовых механизмов.
 
@@ -610,15 +629,17 @@ DeleteWebhook уже есть: нужен завершённый lifecycle. Ст
 
 #### CORE-01. OAuth refresh без длительной транзакции — P0 перед масштабированием
 
+**Результат после аудита:** короткий claim/lease → HTTP без SQL-транзакции → финализация по `token_version` и `lease_token`. Истёкший lease сохраняет неизвестный исход и не разрешает повтор одноразового refresh. Поздний ответ своего claim сохраняется; потеря pending требует reauthorization, если прежний владелец не может закончить persist. ADR-0017, миграция `000012`. См. [core-01.md](../verification/stage7-2026-09-08/core-01.md).
+
 **Тип и граница задачи:** Изменение существующего refresh: внешний вызов всё ещё находится внутри транзакции. Требуется отдельное решение по сохранению гарантий.
 
 **Что сделать:**
 
-- [ ] Подтвердить удержание текущей транзакции/row lock во время внешнего refresh и измерить влияние.
-- [ ] Спроектировать claim/lease и version fencing: короткий захват → внешний вызов → короткая финализация.
-- [ ] Сохранить защиту от повторной ротации, конкуренции с reauthorization и устаревшего `401`.
-- [ ] Отдельно определить восстановление при remote success и local failure: одноразовый refresh нельзя бездумно повторять.
-- [ ] Проверить crash, timeout, cancellation, несколько workers и смену ключа шифрования.
+- [x] Подтвердить удержание текущей транзакции/row lock во время внешнего refresh и измерить влияние.
+- [x] Спроектировать claim/lease и version fencing: короткий захват → внешний вызов → короткая финализация.
+- [x] Сохранить защиту от повторной ротации, конкуренции с reauthorization и устаревшего `401`.
+- [x] Отдельно определить восстановление при remote success и local failure: одноразовый refresh нельзя бездумно повторять.
+- [x] Проверить crash, timeout, cancellation, несколько workers и смену ключа шифрования.
 
 **Критерий готовности:** новая схема исключает длительную SQL-транзакцию и не ослабляет существующие гарантии credentials. Внедрять отдельным PR с ADR, без смешивания с UI.
 
@@ -626,84 +647,96 @@ DeleteWebhook уже есть: нужен завершённый lifecycle. Ст
 
 #### CORE-02. Installation lifecycle — P0 перед широким запуском
 
+**Результат после аудита:** lifecycle CLI сохранён. Reconcile/uninstall удаляют только подтверждённые destinations установки из зашифрованного реестра (`000015_webhook_ownership`) или точного legacy-пути с её текущим секретным ключом. Uninstall обновляет истёкший access token по capability одного UUID в статусе uninstalled; продуктовый доступ не открывается. Purge и remote OAuth revoke не добавлялись. ADR-0018; [проверки](../verification/stage7-2026-09-08/fixes/README.md).
+
 **Тип и граница задачи:** Расширение lifecycle. Enable/disable интеграций, pilot control и pause consumer уже есть; остаток — полный revoke/uninstall и недостающие переходы.
 
 **Что сделать:**
 
-- [ ] Зафиксировать различия disable integration, disable installation, pause Activity consumer, revoke OAuth и uninstall.
-- [ ] Для каждого перехода определить доступ к истории, остановку новых jobs, судьбу выполняющегося запроса и сохранённых receipts.
-- [ ] Завершить удаление/ротацию webhook-подписок, устранение устаревших дублей и reconciliation после reauthorization.
-- [ ] Для новых lifecycle-переходов определить, нужна ли продукту собственная реакция/очистка. Если нужна — доставлять её durable-командой с повтором через явный контракт. Для простого запрета доступа переиспользовать существующий live policy, не дублировать его event bus и локальными копиями прав.
-- [ ] Разделить отключение доступа и удаление данных; удаление выполняется отдельным явным процессом по политике хранения.
+- [x] Зафиксировать различия disable integration, disable installation, pause Activity consumer, revoke OAuth и uninstall.
+- [x] Для каждого перехода определить доступ к истории, остановку новых jobs, судьбу выполняющегося запроса и сохранённых receipts.
+- [x] Завершить удаление/ротацию webhook-подписок, устранение устаревших дублей и reconciliation после reauthorization.
+- [x] Для новых lifecycle-переходов определить, нужна ли продукту собственная реакция/очистка. Если нужна — доставлять её durable-командой с повтором через явный контракт. Для простого запрета доступа переиспользовать существующий live policy, не дублировать его event bus и локальными копиями прав.
+- [x] Разделить отключение доступа и удаление данных; удаление выполняется отдельным явным процессом по политике хранения.
 
 **Файлы для расширения:** [internal/integrations/store.go](../../internal/integrations/store.go), [internal/activitybridge/delivery.go](../../internal/activitybridge/delivery.go), [internal/webhook/reconcile.go](../../internal/webhook/reconcile.go), [internal/integration/amocrm/webhooks.go](../../internal/integration/amocrm/webhooks.go).
 
 #### CORE-03. HTTP-контракты и admission — P1
 
+**Результат:** выполнено. Инвентаризация ошибок; Activity envelope `code`/`message`/`request_id`/`retryable`; `reauth_required` → 403. OAuth start/callback: process-local limiter без раскрытия integration. Существующие Activity bounds сохранены. OpenAPI обновлён. Reverse proxy целевого сервера не проверялся. См. [core-03.md](../verification/stage7-2026-09-08/core-03.md).
+
 **Тип и граница задачи:** Проверка и расширение. В Activity уже есть typed errors и bounds; общий Core требует инвентаризации, новые endpoints — подключения к существующим механизмам.
 
 **Что сделать:**
 
-- [ ] Провести инвентаризацию JSON ошибок и согласовать code, safe message, request ID и retryability.
-- [ ] Сохранить различие unauthenticated, denied, unavailable, rate_limited, incomplete и reauth_required.
-- [ ] Проверить лимиты OAuth start/callback и добавить недостающий ingress budget без раскрытия сведений об аккаунте.
-- [ ] Ограничить размеры body, списков фильтров, курсоров, времени ожидания и числа concurrent reads.
-- [ ] Обновить OpenAPI вместе с реализацией; не ломать существующие lead-status URL, jobs и idempotency outcomes.
+- [x] Провести инвентаризацию JSON ошибок и согласовать code, safe message, request ID и retryability.
+- [x] Сохранить различие unauthenticated, denied, unavailable, rate_limited, incomplete и reauth_required.
+- [x] Проверить лимиты OAuth start/callback и добавить недостающий ingress budget без раскрытия сведений об аккаунте.
+- [x] Ограничить размеры body, списков фильтров, курсоров, времени ожидания и числа concurrent reads.
+- [x] Обновить OpenAPI вместе с реализацией; не ломать существующие lead-status URL, jobs и idempotency outcomes.
 
 **Файлы для расширения:** [cmd/api/main.go](../../cmd/api/main.go), [internal/activitybridge/http.go](../../internal/activitybridge/http.go), [internal/widgetlimit/limiter.go](../../internal/widgetlimit/limiter.go), [api/openapi.yaml](../../api/openapi.yaml).
 
 #### CORE-04. Общий исходящий бюджет — P0 перед несколькими Gateway replicas
 
+**Результат:** выполнено как «изменение не требуется» для межрепличного лимитера. Все продуктовые v4 пути, включая enrichment, уже в process-local бюджете 7/50. REL-02 не показал вытеснения сборщика. Будущий механизм при второй реплике — PostgreSQL token-bucket в Core, не Redis. OAuth token endpoint вне v4. ADR-0019. См. [core-04.md](../verification/stage7-2026-09-08/core-04.md).
+
 **Тип и граница задачи:** Проверка бюджета; новый общий межрепличный механизм нужен только при переходе к нескольким Gateway replicas.
 
 **Что сделать:**
 
-- [ ] Зафиксировать текущую модель единственного владельца бюджета и учесть проверки прав, directory, Events, enrichment, bootstrap и lead-status.
-- [ ] Измерить, не вытесняют ли подробные чтения пользовательские действия и текущий сбор.
-- [ ] Настроить ограниченные очереди/приоритеты и поведение при переполнении, 429 и недоступности amoCRM.
-- [ ] До горизонтального масштабирования Gateway выбрать механизм общего лимита; process-local limiter не считать общим между replicas.
-- [ ] Отдельно описать трафик OAuth token endpoint и внешних интеграций, который не контролируется текущим бюджетом.
+- [x] Зафиксировать текущую модель единственного владельца бюджета и учесть проверки прав, directory, Events, enrichment, bootstrap и lead-status.
+- [x] Измерить, не вытесняют ли подробные чтения пользовательские действия и текущий сбор.
+- [x] Настроить ограниченные очереди/приоритеты и поведение при переполнении, 429 и недоступности amoCRM.
+- [x] До горизонтального масштабирования Gateway выбрать механизм общего лимита; process-local limiter не считать общим между replicas.
+- [x] Отдельно описать трафик OAuth token endpoint и внешних интеграций, который не контролируется текущим бюджетом.
 
 **Файлы для расширения:** [internal/integration/amocrm/client.go](../../internal/integration/amocrm/client.go), [internal/gateway/bootstrap.go](../../internal/gateway/bootstrap.go), [internal/jobs/fair_claim.go](../../internal/jobs/fair_claim.go), [internal/corepolicy/authorization_budget_integration_test.go](../../internal/corepolicy/authorization_budget_integration_test.go).
 
 #### CORE-05. Очереди, outbox и техническая история — P0 для длительной эксплуатации
 
+**Результат:** выполнено. Календарный горизонт 7 суток от `created_at` на worker, downtime и операторский retry. Maintenance GC jobs/audit/workflow/terminal effects/receipts; uncertain effects сохранены. CRM Events GC terminal inbox/operations + tombstones (`000008`). `activity-control list`/`inspect`. ADR-0016 дополнен. См. [core-05.md](../verification/stage7-2026-09-08/core-05.md).
+
 **Тип и граница задачи:** Расширение для неочищаемых классов и отсутствующих операторских операций; очереди, bounded maintenance и Activity audited retry уже есть.
 
 **Что сделать:**
 
-- [ ] Определить конечные сроки jobs, attempts, audit, tombstones, workflow runs, outbound effects и outbox receipts.
-- [ ] Согласовать их с retry, replay protection, неопределённым результатом внешней мутации и ручным восстановлением.
-- [ ] Составить матрицу существующих `cmd/activity-control` и integration CLI команд; добавить только недостающие list/inspect/retry для классов операций вне текущего audited outbox retry. Не повторять необратимый эффект без reconciliation.
-- [ ] Сохранить fair claiming, общий лимит leases, heartbeat/fencing и bounded reaping при новых job types.
-- [ ] Проверить позднюю доставку команды после cleanup и восстановление Core при недоступных Activity/CRM Events.
+- [x] Определить конечные сроки jobs, attempts, audit, tombstones, workflow runs, outbound effects и outbox receipts.
+- [x] Согласовать их с retry, replay protection, неопределённым результатом внешней мутации и ручным восстановлением.
+- [x] Составить матрицу существующих `cmd/activity-control` и integration CLI команд; добавить только недостающие list/inspect/retry для классов операций вне текущего audited outbox retry. Не повторять необратимый эффект без reconciliation.
+- [x] Сохранить fair claiming, общий лимит leases, heartbeat/fencing и bounded reaping при новых job types.
+- [x] Проверить позднюю доставку команды после cleanup и восстановление Core при недоступных Activity/CRM Events.
 
 **Файлы для расширения:** [internal/maintenance/cleanup.go](../../internal/maintenance/cleanup.go), [internal/activitybridge/delivery.go](../../internal/activitybridge/delivery.go), [cmd/activity-control/main.go](../../cmd/activity-control/main.go), [internal/jobs/store.go](../../internal/jobs/store.go).
 
 #### CORE-06. Конфигурация, роли и секреты — P0 для production
+
+**Результат:** частично выполнено локально. Роли `init-db.sh`, foreign-DSN ban и fail-fast config проверены в коде; добавлена валидация HTTP/OAuth/JWT/job timeout и limiter. Runbook ротации: [secrets-rotation.md](../runbooks/secrets-rotation.md). KMS не выбран — нет доступа к целевому серверу (ADR-0021). Проверка live PostgreSQL/listeners/`APP_ENV` на целевом сервере остаётся открытой. См. [core-06.md](../verification/stage7-2026-09-08/core-06.md).
 
 **Тип и граница задачи:** Проверка production-конфигурации и недостающих процедур; runtime/migration роли, ключи и mTLS уже реализованы.
 
 **Что сделать:**
 
 - [ ] Проверить runtime/migration роли, запрет чужих owner DB, отсутствие DDL у runtime и ограничение management listeners в целевом развёртывании.
-- [ ] Валидировать связанные настройки при старте: pool/worker quotas, deadlines/leases, retention/initial depth и response/frame limits.
-- [ ] Описать ротацию encryption keys, integration secrets, webhook keys и mTLS identities без потери decryptability/доступности.
-- [ ] Проверить логи, tracing, audit и ошибки на отсутствие JWT, OAuth-токенов, текстов примечаний и закрытых ссылок записей.
+- [x] Валидировать связанные настройки при старте: pool/worker quotas, deadlines/leases, retention/initial depth и response/frame limits.
+- [x] Описать ротацию encryption keys, integration secrets, webhook keys и mTLS identities без потери decryptability/доступности.
+- [x] Проверить логи, tracing, audit и ошибки на отсутствие JWT, OAuth-токенов, текстов примечаний и закрытых ссылок записей.
 - [ ] Выбрать production-хранение секретов и границу KMS исходя из инфраструктуры; не считать development env окончательной схемой.
 
 **Файлы для расширения:** [internal/platform/cryptox/keyring.go](../../internal/platform/cryptox/keyring.go), [internal/platform/config/config.go](../../internal/platform/config/config.go), [deploy/activity/init-db.sh](../../deploy/activity/init-db.sh), [cmd/service-certs/main.go](../../cmd/service-certs/main.go).
 
 #### CORE-07. Регрессии существующих продуктов — P0 на каждом затрагивающем выпуске
 
+**Результат:** выполнено существующими tests, без копий сценариев. `activity-ci` (parity/process/Activity/CRM Events) и `integration-test` (lead-status, webhook, widget routes, OAuth, uninstall). См. [README](../verification/stage7-2026-09-08/README.md).
+
 **Тип и граница задачи:** Только регрессия затронутых существующих продуктов; не новая реализация lead-status/webhooks/auth.
 
 **Что сделать:**
 
-- [ ] Проверить lead-status: admission → durable job → worker → подтверждённый результат, включая replay и source-state fence.
-- [ ] Проверить webhook durable ingress и прежние правила workflow.
-- [ ] Проверить widget bootstrap/ping, JWT/CORS, cross-installation/integration isolation и operator capability changes.
-- [ ] При изменении общего транспорта проверить embedded/gRPC parity и совместимость durable work после обновления.
+- [x] Проверить lead-status: admission → durable job → worker → подтверждённый результат, включая replay и source-state fence.
+- [x] Проверить webhook durable ingress и прежние правила workflow.
+- [x] Проверить widget bootstrap/ping, JWT/CORS, cross-installation/integration isolation и operator capability changes.
+- [x] При изменении общего транспорта проверить embedded/gRPC parity и совместимость durable work после обновления.
 
 **Файлы для расширения:** [internal/services/leadstatus/module_integration_test.go](../../internal/services/leadstatus/module_integration_test.go), [internal/services/leadstatus/lead_status_workflow_integration_test.go](../../internal/services/leadstatus/lead_status_workflow_integration_test.go), [cmd/api/widget_routes_integration_test.go](../../cmd/api/widget_routes_integration_test.go), [internal/webhook/workflow_integration_test.go](../../internal/webhook/workflow_integration_test.go).
 
@@ -1258,4 +1291,4 @@ DeleteWebhook уже есть: нужен завершённый lifecycle. Ст
 PostgreSQL/RPC/HTTP и реальные функции рендера. Тестер пересобран в 0.5.2;
 сайт синхронизирован локально. Исторические результаты этапов выше сохранены.
 Актуальные команды и результаты: [итоговая verification-сводка](../verification/final-audit-2026-09-08/README.md).
-BASE-01, REL-02/L-01–L-03 и живая приёмка этапа 8 остаются открытыми.
+На дату аудита 08.09 BASE-01, REL-02/L-01–L-03 и живая приёмка этапа 8 оставались открытыми. Актуальное состояние REL-02 и остаток REL-03/CORE-05 после 10.09 приведены в этапе 6 и отчёте его исправлений.

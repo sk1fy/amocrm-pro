@@ -47,3 +47,31 @@ func TestParseCommandLimitsSecretAndRequiresExplicitServices(t *testing.T) {
 		t.Fatal("oversized secret accepted")
 	}
 }
+
+func TestParseCommandInstallationLifecycle(t *testing.T) {
+	installationID := "11111111-1111-4111-8111-111111111111"
+	command, err := parseCommand([]string{"uninstall", "--actor", "deploy", "--code", "widget-a", "--installation-id", installationID}, strings.NewReader(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if command.Action != "uninstall" || command.InstallationID.String() != installationID {
+		t.Fatalf("unexpected command: %#v", command)
+	}
+	for _, action := range []string{"disable-installation", "enable-installation", "revoke"} {
+		parsed, err := parseCommand([]string{action, "--actor", "deploy", "--code", "widget-a", "--installation-id", installationID}, strings.NewReader(""))
+		if err != nil || parsed.Action != action {
+			t.Fatalf("%s parse: %#v %v", action, parsed, err)
+		}
+	}
+	for _, bad := range [][]string{
+		{"uninstall", "--actor", "deploy", "--code", "widget-a"},
+		{"uninstall", "--actor", "deploy", "--code", "widget-a", "--installation-id", "not-a-uuid"},
+		{"uninstall", "--actor", "deploy", "--code", "widget-a", "--installation-id", installationID, "--secret-stdin"},
+		{"disable", "--actor", "deploy", "--code", "widget-a", "--installation-id", installationID},
+		{"disable-installation", "--actor", "deploy", "--code", "widget-a", "--enabled", "true", "--installation-id", installationID},
+	} {
+		if _, err := parseCommand(bad, strings.NewReader("secret")); err == nil {
+			t.Fatalf("invalid command accepted: %v", bad)
+		}
+	}
+}

@@ -1,0 +1,32 @@
+{
+  "activity_ci": {
+    "command": "make ACTIVITY_TEST_PROJECT=amocrm-stage6-fix-test activity-ci",
+    "exit": 0,
+    "go_pass": 210,
+    "go_skip": 3,
+    "go_fail": 0,
+    "race": true,
+    "ui_pass": 25,
+    "ui_fail": 0,
+    "ui_skip": 0
+  },
+  "make_test": {
+    "command": "make test",
+    "exit": 0,
+    "format": true,
+    "vet": true,
+    "race": true
+  },
+  "full_measurement": {
+    "exit": 0,
+    "tests": [
+      "TestStage6ReadMeasure",
+      "TestStage6TransportMeasure",
+      "TestStage6WorkersUnderSharedBudget"
+    ],
+    "race": false,
+    "elapsed_seconds": 33.547
+  },
+  "runtime_changed": false,
+  "remaining": "REL-03/CORE-05: enforce a maximum Core redelivery age before inbox/operations GC"
+}

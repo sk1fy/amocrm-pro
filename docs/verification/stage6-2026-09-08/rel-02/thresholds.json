@@ -1,0 +1,14 @@
+{
+  "card_p95": "200ms",
+  "card_p99": "500ms",
+  "claim_p95": "100ms",
+  "claim_p99": "300ms",
+  "eventcard_p95": "300ms",
+  "explain_aggregate": "400ms",
+  "explain_history": "200ms",
+  "max_response_bytes": "3145728",
+  "max_rpc_bytes": "4194304",
+  "panel_p95": "1.2s",
+  "query_p95": "1s",
+  "query_p99": "2s"
+}
