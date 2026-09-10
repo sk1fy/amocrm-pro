@@ -64,11 +64,11 @@ Mostly text/plain (`unauthorized`, `invalid idempotency key`, `idempotency confl
 
 ### Activity widget routes
 
-After JWT/CORS/widget limiter, `writeError` now emits the Activity JSON envelope. Middleware failures in front of the handler remain text/plain 401/403/429-without-message. That split already existed and is noted in OpenAPI (`Existing widget JWT/CORS/ingress limits apply; middleware errors may use the existing text/plain authentication contract`).
+After JWT/CORS/widget limiter, `writeError` now emits the Activity JSON envelope. Authentication/CORS failures in front of the handler remain text/plain 401/403; limiter 429 remains JSON with only error.code. That split already existed and is noted in OpenAPI (`Existing widget JWT/CORS/ingress limits apply; middleware errors may use the existing text/plain authentication contract`).
 
-## Remaining mismatches (not changed)
+## Preserved envelope differences and limits
 
-- Widget limiter 429 still `{code:rate_limited}` without message/request_id/retryable.
+- Widget limiter 429 still `{error:{code:rate_limited}}` without message/request_id/retryable. The follow-up audit fixes its schema: Activity 429 explicitly uses `ActivityRateLimitError`, a `oneOf` between `WidgetRateLimitError` and the full `ActivityError`. Incomplete downstream errors remain invalid. All seven routes are tested through actual JWT/CORS/limiter middleware against their OpenAPI response schemas.
 - Webhook and lead-status still text/plain except `service_not_enabled`.
 - Recover/method-not-allowed/internal auth storage failures remain text/plain 500/405.
 - Activity 429 from the handler is `resource_exhausted`; 429 from widget limiter is `rate_limited`. Clients must read `code`, not only HTTP status.

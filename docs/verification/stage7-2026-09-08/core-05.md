@@ -15,7 +15,7 @@ entire maintenance transaction. [Verification](fixes/README.md).
 
 | Path | Behavior |
 | --- | --- |
-| Worker `DeliverOne` | Expire pending/dead-lease rows with `created_at` older than 7d; never claim/send them |
+| Worker `DeliverOne` | Expire pending/dead-lease rows with `created_at` older than 7d; never claim/send them. Atomic claim also requires attempts < max_attempts, even when exhausted rows exceed the 100-row cleanup batch |
 | Recovery after downtime | Same SQL age filter after restart; no unbounded catch-up |
 | `activity-control retry` | Typed `conflict` (`ErrDeliveryExpired`); attempts not reset |
 | CRM Events `Retain` | After that floor, GC terminal inbox/operations; tombstone rejects late Apply |
@@ -39,6 +39,7 @@ existing audited command with the age guard. Integrations CLI unchanged.
 
 ## Tests (compile here; PostgreSQL suites need DSN)
 
+- `TestDeliverySkipsExhaustedBeyondCleanupBatch` (101 exhausted rows plus one eligible command, both pending and expired delivering states)
 - `TestPastRedeliveryHorizonUsesCreatedAtNotAttempts`
 - `TestWorkerDoesNotDeliverPastRedeliveryHorizon`
 - `TestOperatorRetryRejectsAgedFailedCommand`

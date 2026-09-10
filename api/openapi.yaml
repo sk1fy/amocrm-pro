@@ -476,7 +476,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -639,7 +639,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -708,7 +708,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -777,7 +777,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -853,7 +853,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -936,7 +936,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -1017,7 +1017,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityError'
+                $ref: '#/components/schemas/ActivityRateLimitError'
         '503':
           description: Policy, Gateway or owner unavailable; no false success.
           content:
@@ -1077,6 +1077,25 @@ components:
         type: string
         format: uuid
   schemas:
+    ActivityRateLimitError:
+      description: Either the widget admission limiter or downstream capacity exhaustion.
+      oneOf:
+      - $ref: '#/components/schemas/WidgetRateLimitError'
+      - $ref: '#/components/schemas/ActivityError'
+    WidgetRateLimitError:
+      type: object
+      description: Existing widget admission envelope; retry delay is in Retry-After.
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum: [rate_limited]
+          required: [code]
+          additionalProperties: false
+      required: [error]
+      additionalProperties: false
     ActivityError:
       type: object
       description: >-
@@ -1085,8 +1104,8 @@ components:
         `reauth_required` is HTTP 403 without WWW-Authenticate, distinct from
         `permission_denied` (also 403) and `unauthenticated` (401 with Bearer).
         `retryable` is true only for unavailable, resource_exhausted and
-        deadline_exceeded. Widget limiter 429 may still use `rate_limited` with
-        the smaller widget envelope.
+        deadline_exceeded. Ingress limiter errors use the separate
+        WidgetRateLimitError variant of ActivityRateLimitError.
       properties:
         error:
           type: object
@@ -1104,7 +1123,6 @@ components:
               - resource_exhausted
               - reauth_required
               - internal
-              - rate_limited
             message:
               type: string
               minLength: 1

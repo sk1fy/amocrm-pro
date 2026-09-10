@@ -2,17 +2,23 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/oauth"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
@@ -132,6 +138,42 @@ func TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations(t *testing.T) 
 		w.Header().Get("Access-Control-Allow-Origin") != "https://shared.amocrm.ru" ||
 		w.Header().Get("Access-Control-Expose-Headers") != "X-Request-ID, Idempotency-Replayed, Retry-After" {
 		t.Fatalf("rate response=%d headers=%v body=%s", w.Code, w.Header(), w.Body.String())
+	}
+	// Register the production Activity routes with the same authentication,
+	// CORS, shared limiter and consumption chain. Exhaustion must stop every
+	// route before the bridge is invoked, using a fresh valid JWT each time.
+	document, err := openapi3.NewLoader().LoadFromFile("../../api/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
+	bridge := activitybridge.New(pool, nil, nil, nil)
+	bridge.RegisterHTTP(router, func(h http.Handler) http.Handler {
+		return protectWidgetRoute(auth, limiter, cors, true, h)
+	}, func(h http.Handler) http.Handler {
+		return protectWidgetRoute(auth, limiter, cors, false, h)
+	})
+	for _, route := range activitybridge.Routes() {
+		t.Run(route.Method+" "+route.Path, func(t *testing.T) {
+			path := strings.NewReplacer("{eventID}", "event-1", "{operationID}", uuid.NewString()).Replace(route.Path)
+			r := httptest.NewRequest(route.Method, path, nil)
+			r.Header.Set("Origin", "https://shared.amocrm.ru")
+			r.Header.Set("X-Auth-Token", sign(tenants[0], uuid.NewString()))
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, r)
+			if response.Code != 429 || response.Header().Get("Retry-After") == "" || response.Header().Get("X-Request-ID") == "" {
+				t.Fatalf("Activity limit response=%d %v %s", response.Code, response.Header(), response.Body.String())
+			}
+			var body any
+			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			schema := document.Paths.Find(route.Path).GetOperation(route.Method).Responses.Status(429).Value.Content["application/json"].Schema.Value
+			if err := schema.VisitJSON(body); err != nil {
+				t.Fatalf("actual middleware response violates OpenAPI: %v", err)
+			}
+		})
 	}
 	var tokens, keysCount, jobsCount int
 	if err := pool.QueryRow(ctx, `SELECT

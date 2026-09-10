@@ -116,6 +116,57 @@ func TestExpiredFinalDeliveryAttemptDoesNotSendAgain(t *testing.T) {
 	}
 }
 
+func TestDeliverySkipsExhaustedBeyondCleanupBatch(t *testing.T) {
+	for _, state := range []string{"pending_delivery", "delivering"} {
+		t.Run(state, func(t *testing.T) {
+			pool, p := bridgeDatabase(t)
+			ctx := context.Background()
+			receiver := &acceptingActivity{}
+			b := New(pool, &admissionPolicy{}, receiver, nil)
+			if err := SetPilot(ctx, pool, p.InstallationID, true); err != nil {
+				t.Fatal(err)
+			}
+			for range 101 {
+				p.TokenID = uuid.NewString()
+				if _, err := b.Configure(ctx, p, uuid.NewString(), serviceapi.DefaultSettings()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := pool.Exec(ctx, `UPDATE activity_command_outbox SET
+ status=$1, attempts=max_attempts, run_after=now()-interval '1 hour',
+ lease_token=CASE WHEN $1='delivering' THEN gen_random_uuid() ELSE NULL END,
+ leased_until=CASE WHEN $1='delivering' THEN now()-interval '1 minute' ELSE NULL END`, state); err != nil {
+				t.Fatal(err)
+			}
+			p.TokenID = uuid.NewString()
+			valid, err := b.Configure(ctx, p, "eligible", serviceapi.DefaultSettings())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if worked, err := b.DeliverOne(ctx); err != nil || !worked {
+				t.Fatalf("delivery worked=%v err=%v", worked, err)
+			}
+			if receiver.calls != 1 || receiver.operations[valid.CommandID].CommandID != valid.CommandID {
+				t.Fatalf("only eligible command must reach receiver: calls=%d operations=%v", receiver.calls, receiver.operations)
+			}
+			// A later sweep terminalizes the remaining exhausted row, without
+			// changing its attempt count or invoking the receiver again.
+			if worked, err := b.DeliverOne(ctx); err != nil || worked {
+				t.Fatalf("cleanup worked=%v err=%v", worked, err)
+			}
+			var failed, exceeded int
+			if err := pool.QueryRow(ctx, `SELECT
+ count(*) FILTER (WHERE status='failed' AND error_code='delivery_attempts_exhausted'),
+ count(*) FILTER (WHERE attempts>max_attempts) FROM activity_command_outbox`).Scan(&failed, &exceeded); err != nil {
+				t.Fatal(err)
+			}
+			if failed != 101 || exceeded != 0 || receiver.calls != 1 {
+				t.Fatalf("failed=%d exceeded=%d calls=%d", failed, exceeded, receiver.calls)
+			}
+		})
+	}
+}
+
 func TestDeliveryCollectorReportsPendingWithFiniteLabels(t *testing.T) {
 	pool, p := bridgeDatabase(t)
 	ctx := context.Background()

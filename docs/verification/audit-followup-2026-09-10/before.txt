@@ -1,0 +1,346 @@
+ Container amocrm-audit-followup-test-integration-test-run-598cc3c4afaa Creating
+ Container amocrm-audit-followup-test-integration-test-run-598cc3c4afaa Created
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/events/{eventID}
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/panel
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/status
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/settings
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/POST_/api/v1/widget/activity/settings
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/POST_/api/v1/widget/activity/sync
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+=== RUN   TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/operations/{operationID}
+    widget_routes_integration_test.go:174: actual middleware response violates OpenAPI: Error at "/error/message": property "message" is missing
+        Schema:
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_argument",
+                  "unauthenticated",
+                  "permission_denied",
+                  "not_found",
+                  "conflict",
+                  "unavailable",
+                  "deadline_exceeded",
+                  "resource_exhausted",
+                  "reauth_required",
+                  "internal",
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable"
+            ],
+            "type": "object"
+          }
+
+        Value:
+          {
+            "code": "rate_limited"
+          }
+--- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations (0.18s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/events/{eventID} (0.00s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/panel (0.01s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/status (0.00s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/settings (0.00s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/POST_/api/v1/widget/activity/settings (0.00s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/POST_/api/v1/widget/activity/sync (0.00s)
+    --- FAIL: TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations/GET_/api/v1/widget/activity/operations/{operationID} (0.00s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/cmd/api	0.208s
+=== RUN   TestDeliverySkipsExhaustedBeyondCleanupBatch
+=== RUN   TestDeliverySkipsExhaustedBeyondCleanupBatch/pending_delivery
+    delivery_integration_test.go:150: only eligible command must reach receiver: calls=1 operations=map[d74ccff5-afef-4e72-ad7c-0e003a9294ec:{d74ccff5-afef-4e72-ad7c-0e003a9294ec d74ccff5-afef-4e72-ad7c-0e003a9294ec succeeded  0 0 0 0}]
+=== RUN   TestDeliverySkipsExhaustedBeyondCleanupBatch/delivering
+    delivery_integration_test.go:150: only eligible command must reach receiver: calls=1 operations=map[d56d0c35-bc65-4619-96cb-e48010c2ef69:{d56d0c35-bc65-4619-96cb-e48010c2ef69 d56d0c35-bc65-4619-96cb-e48010c2ef69 succeeded  0 0 0 0}]
+--- FAIL: TestDeliverySkipsExhaustedBeyondCleanupBatch (0.24s)
+    --- FAIL: TestDeliverySkipsExhaustedBeyondCleanupBatch/pending_delivery (0.12s)
+    --- FAIL: TestDeliverySkipsExhaustedBeyondCleanupBatch/delivering (0.11s)
+FAIL
+FAIL	github.com/sk1fy/amocrm-pro/internal/activitybridge	0.247s
+FAIL

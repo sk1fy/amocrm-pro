@@ -1,0 +1,26 @@
+{
+  "before.txt": {
+    "PASS": 0,
+    "FAIL": 2,
+    "SKIP": 0
+  },
+  "targeted.txt": {
+    "PASS": 30,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "contract.txt": {
+    "PASS": 3,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "integration-test.txt": {
+    "PASS": 221,
+    "FAIL": 0,
+    "SKIP": 2
+  },
+  "make_test_exit": 0,
+  "integration_test_exit": 0,
+  "source_manifest_matches": true,
+  "runtime_changed": false
+}

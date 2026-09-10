@@ -1,0 +1,7 @@
+{
+  "api/openapi.yaml": "92def719c38ee1c26881ce6841bf9a30593aac0ba7794d98c2a15236cadc1ad2",
+  "api/activity_errors_test.go": "7088ab5f1009a982bcebd6d8cf067b20cb199bb80faebb2ce10ce3ace7d7767f",
+  "cmd/api/widget_routes_integration_test.go": "30e88ccfe5be328fa461bf5b05152d8f550895b6cc2c533e8164edd121376472",
+  "internal/activitybridge/delivery.go": "dae9d354d4dc4b4372911ce4c00a6884f3562fc8943069500ff3f2a572433a1b",
+  "internal/activitybridge/delivery_integration_test.go": "7a73e91518f9f06217d79054332703e74f041991d979f1914153f35b7bba6603"
+}

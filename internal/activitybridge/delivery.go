@@ -105,6 +105,7 @@ func (b *Bridge) DeliverOne(ctx context.Context) (bool, error) {
  SELECT outbox.command_id FROM activity_command_outbox outbox
  JOIN activity_command_receipts receipt USING(command_id)
  WHERE receipt.created_at >= now()-($2*interval '1 millisecond')
+   AND outbox.attempts < outbox.max_attempts
    AND ((outbox.status='pending_delivery' AND outbox.run_after<=now()) OR (outbox.status='delivering' AND outbox.leased_until<now()))
  ORDER BY outbox.run_after,outbox.command_id FOR UPDATE OF outbox SKIP LOCKED LIMIT 1
 ), claimed AS (

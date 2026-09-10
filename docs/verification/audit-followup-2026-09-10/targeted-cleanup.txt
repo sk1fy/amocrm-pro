@@ -1,0 +1,9 @@
+ Container amocrm-audit-followup-test-postgres-1 Stopping
+ Container amocrm-audit-followup-test-postgres-1 Stopped
+ Container amocrm-audit-followup-test-postgres-1 Removing
+ Container amocrm-audit-followup-test-postgres-1 Removed
+ Network amocrm-audit-followup-test_integration-test Removing
+ Volume amocrm-audit-followup-test_postgres-test-data Removing
+ Volume amocrm-audit-followup-test_postgres-test-data Removed
+ Network amocrm-audit-followup-test_integration-test Removed
+amocrm-audit-followup-go-cache
