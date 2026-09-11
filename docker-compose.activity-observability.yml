@@ -1,0 +1,44 @@
+# Optional overlay. Does not change docker-compose.activity.yml when unused.
+# Adds only Prometheus; scrape uses Docker DNS (worker:8081, activity:8091,
+# crm-events:8092, api:8082). Do not publish extra host ports on worker /
+# activity / crm-events: that recreates the running amocrm-activity collector.
+# This is not a production Grafana/Alertmanager deployment.
+#
+#   docker-compose -f docker-compose.activity.yml \
+#     -f docker-compose.activity-observability.yml up -d prometheus
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    init: true
+    read_only: true
+    tmpfs:
+      - /prometheus:size=256m,mode=1777
+      - /tmp:size=16m,mode=1777
+    security_opt: ["no-new-privileges:true"]
+    user: "65534:65534"
+    mem_limit: 384m
+    cpus: 0.5
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=6h
+      - --web.listen-address=:9090
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "127.0.0.1:${ACTIVITY_PROMETHEUS_PORT:-19090}:9090"
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+      activity:
+        condition: service_healthy
+      crm-events:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 12

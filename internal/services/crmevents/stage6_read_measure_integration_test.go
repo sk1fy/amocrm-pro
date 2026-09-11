@@ -886,6 +886,24 @@ func (rel02Store) Configure(context.Context, serviceapi.Principal, serviceapi.Se
 func (rel02Store) Operation(context.Context, serviceapi.Principal, string) (serviceapi.Operation, error) {
 	return serviceapi.Operation{}, nil
 }
+func (rel02Store) ResolveShare(context.Context, []byte) (serviceapi.ShareLookup, error) {
+	return serviceapi.ShareLookup{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
+func (rel02Store) CreatePanel(context.Context, serviceapi.Principal, serviceapi.PanelCommand, serviceapi.ManagedPanel, []byte) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Unavailable, "panels unavailable")
+}
+func (rel02Store) ListPanels(context.Context, serviceapi.Scope) ([]serviceapi.ManagedPanel, error) {
+	return nil, serviceapi.Fail(serviceapi.Unavailable, "panels unavailable")
+}
+func (rel02Store) GetPanel(context.Context, serviceapi.Scope, uuid.UUID) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
+func (rel02Store) PatchPanel(context.Context, serviceapi.Principal, serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
+func (rel02Store) RotateShareLink(context.Context, serviceapi.Principal, serviceapi.PanelCommand, []byte, string) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
 
 type rel02Report struct {
 	Thresholds map[string]string `json:"thresholds"`

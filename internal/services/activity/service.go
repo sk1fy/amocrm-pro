@@ -4,6 +4,9 @@ package activity
 
 import (
 	"context"
+	"strings"
+
+	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
@@ -11,17 +14,29 @@ type Repository interface {
 	Settings(context.Context, serviceapi.Scope) (serviceapi.Settings, error)
 	Configure(context.Context, serviceapi.Principal, serviceapi.SettingsCommand) (serviceapi.Operation, error)
 	Operation(context.Context, serviceapi.Principal, string) (serviceapi.Operation, error)
+	ResolveShare(context.Context, []byte) (serviceapi.ShareLookup, error)
+	CreatePanel(context.Context, serviceapi.Principal, serviceapi.PanelCommand, serviceapi.ManagedPanel, []byte) (serviceapi.ManagedPanel, error)
+	ListPanels(context.Context, serviceapi.Scope) ([]serviceapi.ManagedPanel, error)
+	GetPanel(context.Context, serviceapi.Scope, uuid.UUID) (serviceapi.ManagedPanel, error)
+	PatchPanel(context.Context, serviceapi.Principal, serviceapi.PanelCommand) (serviceapi.ManagedPanel, error)
+	RotateShareLink(context.Context, serviceapi.Principal, serviceapi.PanelCommand, []byte, string) (serviceapi.ManagedPanel, error)
 }
 
 type Service struct {
-	store   Repository
-	policy  serviceapi.Policy
-	events  serviceapi.CRMEvents
-	gateway serviceapi.Gateway
+	store       Repository
+	policy      serviceapi.Policy
+	events      serviceapi.CRMEvents
+	gateway     serviceapi.Gateway
+	shareOrigin string
 }
 
 func New(store Repository, policy serviceapi.Policy, events serviceapi.CRMEvents, gateway serviceapi.Gateway) *Service {
 	return &Service{store: store, policy: policy, events: events, gateway: gateway}
+}
+
+func (s *Service) WithShareOrigin(origin string) *Service {
+	s.shareOrigin = strings.TrimRight(strings.TrimSpace(origin), "/")
+	return s
 }
 
 var _ serviceapi.Activity = (*Service)(nil)

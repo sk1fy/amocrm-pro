@@ -8,8 +8,11 @@ import (
 )
 
 type fakePolicy struct {
-	deny  bool
-	calls int
+	deny           bool
+	calls          int
+	kind           string
+	panelID        uuid.UUID
+	viewKeyVersion int
 }
 
 func (p *fakePolicy) Issue(context.Context, serviceapi.IssueRequest) (serviceapi.Auth, error) {
@@ -20,7 +23,8 @@ func (p *fakePolicy) Validate(_ context.Context, a serviceapi.Auth, _, _ string)
 	if p.deny || a.Token != "verified" {
 		return serviceapi.Principal{}, serviceapi.Fail(serviceapi.PermissionDenied, "denied")
 	}
-	return serviceapi.Principal{Scope: serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}, ActorID: 7}, nil
+	principal := serviceapi.Principal{Scope: serviceapi.Scope{IntegrationID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), InstallationID: uuid.MustParse("22222222-2222-2222-2222-222222222222")}, ActorID: 7, Kind: p.kind, PanelID: p.panelID, ViewKeyVersion: p.viewKeyVersion}
+	return principal, nil
 }
 
 type memorySettings struct{ calls int }
@@ -36,6 +40,24 @@ func (m *memorySettings) Configure(context.Context, serviceapi.Principal, servic
 func (m *memorySettings) Operation(context.Context, serviceapi.Principal, string) (serviceapi.Operation, error) {
 	m.calls++
 	return serviceapi.Operation{}, nil
+}
+func (m *memorySettings) ResolveShare(context.Context, []byte) (serviceapi.ShareLookup, error) {
+	return serviceapi.ShareLookup{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
+func (m *memorySettings) CreatePanel(context.Context, serviceapi.Principal, serviceapi.PanelCommand, serviceapi.ManagedPanel, []byte) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Unavailable, "panels unavailable")
+}
+func (m *memorySettings) ListPanels(context.Context, serviceapi.Scope) ([]serviceapi.ManagedPanel, error) {
+	return nil, serviceapi.Fail(serviceapi.Unavailable, "panels unavailable")
+}
+func (m *memorySettings) GetPanel(context.Context, serviceapi.Scope, uuid.UUID) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
+func (m *memorySettings) PatchPanel(context.Context, serviceapi.Principal, serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+}
+func (m *memorySettings) RotateShareLink(context.Context, serviceapi.Principal, serviceapi.PanelCommand, []byte, string) (serviceapi.ManagedPanel, error) {
+	return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
 }
 
 type fakeEvents struct {
@@ -123,6 +145,14 @@ func TestRevocationStopsLocalAdapterBeforeDataAccess(t *testing.T) {
 	s := New(store, policy, events, gateway)
 	auth := serviceapi.Auth{Token: "verified"}
 	_, err := s.Panel(context.Background(), serviceapi.Query{Auth: auth, From: 1, To: 2})
+	if serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatal(err)
+	}
+	_, err = s.Panel(context.Background(), serviceapi.Query{Auth: auth, From: 1, To: 2, Compact: true})
+	if serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatal(err)
+	}
+	_, err = s.EventCard(context.Background(), serviceapi.EventRequest{Auth: auth, EventID: "card"})
 	if serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 		t.Fatal(err)
 	}

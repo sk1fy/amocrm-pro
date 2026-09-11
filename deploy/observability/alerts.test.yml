@@ -1,0 +1,129 @@
+# Behaviour tests load the actual rules, not copies of their expressions.
+rule_files:
+- alerts.yml
+evaluation_interval: 1m
+tests:
+- name: real scrape labels, for duration, target isolation and recovery
+  interval: 1m
+  input_series:
+  - series: crm_events_metrics_up{job="crm-events",instance="events:8092",component="crm-events"}
+    values: 1+0x45
+  - series: crm_events_oldest_job_age_seconds{job="crm-events",instance="events:8092",component="crm-events"}
+    values: 1000+0x30 0+0x14
+  - series: crm_events_jobs{job="crm-events",instance="events:8092",component="crm-events",state="queued"}
+    values: 1+0x30 0+0x14
+  - series: activity_delivery_metrics_up{job="activity-api",instance="api:8082",component="api"}
+    values: 1+0x45
+  - series: activity_delivery_oldest_pending_seconds{job="activity-api",instance="api:8082",component="api"}
+    values: 1000+0x30 0+0x14
+  - series: activity_delivery_commands{job="activity-api",instance="api:8082",component="api",state="pending_delivery"}
+    values: 1+0x30 0+0x14
+  - series: activity_delivery_errors{job="activity-api",instance="api:8082",component="api",code="reauth_required"}
+    values: 1+0x30 0+0x14
+  - series: activity_delivery_errors{job="activity-api",instance="api:8082",component="api",code="unavailable"}
+    values: 1+0x30 0+0x14
+  - series: up{job="activity-worker",instance="worker:8081",component="worker"}
+    values: 0+0x30 1+0x14
+  - series: crm_events_metrics_up{job="crm-events",instance="idle-events:8092",component="crm-events"}
+    values: 1+0x45
+  - series: crm_events_oldest_job_age_seconds{job="crm-events",instance="idle-events:8092",component="crm-events"}
+    values: 1000+0x45
+  - series: activity_delivery_metrics_up{job="activity-api",instance="idle-api:8082",component="api"}
+    values: 1+0x45
+  - series: activity_delivery_oldest_pending_seconds{job="activity-api",instance="idle-api:8082",component="api"}
+    values: 1000+0x45
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="CRMEventsStuckCollection",alertstate="firing"}) or vector(0)
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="CRMEventsStuckCollection",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="CRMEventsStuckCollection",alertstate="firing"}) or vector(0)
+    eval_time: 40m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityOutboxGrowing",alertstate="firing"}) or vector(0)
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityOutboxGrowing",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ActivityOutboxGrowing",alertstate="firing"}) or vector(0)
+    eval_time: 40m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityLongReauth",alertstate="firing"}) or vector(0)
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityLongReauth",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ActivityLongReauth",alertstate="firing"}) or vector(0)
+    eval_time: 40m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityDeliveryUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityDeliveryUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ActivityDeliveryUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 40m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="GatewayScrapeUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="GatewayScrapeUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="GatewayScrapeUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 40m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="CRMEventsStuckCollection",alertstate="firing",instance="idle-events:8092"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ActivityOutboxGrowing",alertstate="firing",instance="idle-api:8082"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: missing Gateway scrape target
+  interval: 1m
+  input_series: []
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="GatewayScrapeUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 10m
+    exp_samples:
+    - labels: '{}'
+      value: 1

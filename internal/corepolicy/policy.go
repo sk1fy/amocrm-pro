@@ -69,12 +69,15 @@ func NewWithChecker(checker LiveChecker, key ed25519.PrivateKey) (*Service, erro
 
 type claims struct {
 	jwt.RegisteredClaims
-	Scope     serviceapi.Scope   `json:"scope"`
-	ActorID   int64              `json:"actor_id"`
-	System    bool               `json:"system"`
-	Consumer  string             `json:"consumer"`
-	RequestID string             `json:"request_id"`
-	Grants    []serviceapi.Grant `json:"grants"`
+	Scope          serviceapi.Scope   `json:"scope"`
+	ActorID        int64              `json:"actor_id"`
+	System         bool               `json:"system"`
+	Kind           string             `json:"kind,omitempty"`
+	PanelID        uuid.UUID          `json:"panel_id,omitempty"`
+	ViewKeyVersion int                `json:"view_key_version,omitempty"`
+	Consumer       string             `json:"consumer"`
+	RequestID      string             `json:"request_id"`
+	Grants         []serviceapi.Grant `json:"grants"`
 }
 
 func (s *Service) Issue(ctx context.Context, r serviceapi.IssueRequest) (serviceapi.Auth, error) {
@@ -82,7 +85,29 @@ func (s *Service) Issue(ctx context.Context, r serviceapi.IssueRequest) (service
 	if caller != serviceapi.CoreService && caller != serviceapi.EventsService {
 		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.PermissionDenied, "issuer identity is not authorized")
 	}
-	if r.IntegrationID == uuid.Nil || r.InstallationID == uuid.Nil || len(r.RequestID) == 0 || len(r.RequestID) > 128 || r.Consumer != serviceapi.ActivityService || len(r.Grants) == 0 || len(r.Grants) > 12 || (!r.System && r.ActorID <= 0) || (r.System && r.ActorID != 0) {
+	if r.IntegrationID == uuid.Nil || r.InstallationID == uuid.Nil || len(r.RequestID) == 0 || len(r.RequestID) > 128 || r.Consumer != serviceapi.ActivityService || len(r.Grants) == 0 || len(r.Grants) > 12 || (r.System && r.ActorID != 0) {
+		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
+	}
+	switch r.Kind {
+	case serviceapi.PrincipalKindUser:
+		if !r.System && r.ActorID <= 0 || r.PanelID != uuid.Nil || r.ViewKeyVersion != 0 {
+			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
+		}
+	case serviceapi.PrincipalKindViewer:
+		if r.System || r.ActorID != 0 || r.PanelID == uuid.Nil || r.ViewKeyVersion < 1 {
+			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
+		}
+		if caller != serviceapi.CoreService {
+			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.PermissionDenied, "viewer identity is not authorized")
+		}
+	case serviceapi.PrincipalKindOperator:
+		if r.System || r.ActorID != 0 || r.PanelID != uuid.Nil || r.ViewKeyVersion != 0 {
+			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
+		}
+		if caller != serviceapi.CoreService {
+			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.PermissionDenied, "operator identity is not authorized")
+		}
+	default:
 		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
 	}
 	if caller == serviceapi.EventsService && !r.System {
@@ -92,24 +117,35 @@ func (s *Service) Issue(ctx context.Context, r serviceapi.IssueRequest) (service
 		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.PermissionDenied, "Core ingress must preserve the original actor")
 	}
 	for _, g := range r.Grants {
-		if !allowedGrant(g, r.System) {
+		if !allowedGrant(g, r.System, r.Kind) {
 			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.PermissionDenied, "delegation grant is not authorized")
 		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, ValidationTimeout)
 	defer cancel()
-	if err := s.checker.Check(ctx, r.Scope, r.ActorID, r.System); err != nil {
+	if err := s.admitIssue(ctx, r); err != nil {
 		return serviceapi.Auth{}, err
 	}
 	now := s.now()
-	c := claims{RegisteredClaims: jwt.RegisteredClaims{Issuer: "amocrm-pro-core", Audience: jwt.ClaimStrings{"amocrm-pro-services-v1"}, IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(TokenLifetime)), ID: uuid.NewString()}, Scope: r.Scope, ActorID: r.ActorID, System: r.System, Consumer: r.Consumer, RequestID: r.RequestID, Grants: r.Grants}
+	c := claims{RegisteredClaims: jwt.RegisteredClaims{Issuer: "amocrm-pro-core", Audience: jwt.ClaimStrings{"amocrm-pro-services-v1"}, IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(TokenLifetime)), ID: uuid.NewString()}, Scope: r.Scope, ActorID: r.ActorID, System: r.System, Kind: r.Kind, PanelID: r.PanelID, ViewKeyVersion: r.ViewKeyVersion, Consumer: r.Consumer, RequestID: r.RequestID, Grants: r.Grants}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodEdDSA, c).SignedString(s.key)
 	if err != nil {
 		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.Internal, "sign delegation")
 	}
 	return serviceapi.Auth{Token: token}, nil
 }
-func allowedGrant(g serviceapi.Grant, system bool) bool {
+
+func (s *Service) admitIssue(ctx context.Context, r serviceapi.IssueRequest) error {
+	if r.Kind == serviceapi.PrincipalKindViewer || r.Kind == serviceapi.PrincipalKindOperator {
+		if checker, ok := s.checker.(DelegationChecker); ok {
+			return checker.CheckDelegation(ctx, r.Scope)
+		}
+		return s.checker.Check(ctx, r.Scope, 0, true)
+	}
+	return s.checker.Check(ctx, r.Scope, r.ActorID, r.System)
+}
+
+func allowedGrant(g serviceapi.Grant, system bool, kind string) bool {
 	if system {
 		if g.Audience == serviceapi.EventsService && (g.Action == serviceapi.ActionSync || g.Action == serviceapi.ActionStatus) {
 			return true
@@ -120,6 +156,26 @@ func allowedGrant(g serviceapi.Grant, system bool) bool {
 		switch g.Action {
 		case serviceapi.ActionEvents, serviceapi.ActionNotes, serviceapi.ActionTasks, serviceapi.ActionPipelines, serviceapi.ActionCustomFields, serviceapi.ActionEntities:
 			return true
+		}
+		return false
+	}
+	switch kind {
+	case serviceapi.PrincipalKindViewer:
+		switch g.Audience {
+		case serviceapi.ActivityService:
+			return g.Action == serviceapi.ActionView
+		case serviceapi.EventsService:
+			return g.Action == serviceapi.ActionRead
+		case serviceapi.GatewayService:
+			return g.Action == serviceapi.ActionUsers
+		}
+		return false
+	case serviceapi.PrincipalKindOperator:
+		switch g.Audience {
+		case serviceapi.ActivityService:
+			return g.Action == serviceapi.ActionPanels
+		case serviceapi.GatewayService:
+			return g.Action == serviceapi.ActionUsers
 		}
 		return false
 	}
@@ -147,7 +203,7 @@ func (s *Service) Validate(ctx context.Context, a serviceapi.Auth, audience, act
 	}
 	ok := false
 	for _, g := range c.Grants {
-		if g.Audience == audience && g.Action == action && allowedGrant(g, c.System) {
+		if g.Audience == audience && g.Action == action && allowedGrant(g, c.System, c.Kind) {
 			ok = true
 		}
 	}
@@ -165,7 +221,7 @@ func (s *Service) Validate(ctx context.Context, a serviceapi.Auth, audience, act
 	if policyErr != nil {
 		return serviceapi.Principal{}, policyErr
 	}
-	return serviceapi.Principal{Scope: c.Scope, ActorID: c.ActorID, System: c.System, Consumer: c.Consumer, RequestID: c.RequestID, ExpiresAt: c.ExpiresAt.Time}, nil
+	return serviceapi.Principal{Scope: c.Scope, ActorID: c.ActorID, System: c.System, Kind: c.Kind, PanelID: c.PanelID, ViewKeyVersion: c.ViewKeyVersion, Consumer: c.Consumer, RequestID: c.RequestID, ExpiresAt: c.ExpiresAt.Time}, nil
 }
 
 type authorizationReader interface {

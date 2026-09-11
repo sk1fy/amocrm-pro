@@ -1,0 +1,142 @@
+# Pilot alert rules for a local Prometheus. They are not installed on the
+# target server and do not require Alertmanager.
+groups:
+  - name: activity-pilot.recording
+    interval: 15s
+    rules:
+      - record: component_db_size_bytes:growth_per_hour
+        expr: deriv(component_db_size_bytes[1h]) * 3600
+
+  - name: activity-pilot.alerts
+    rules:
+      - alert: CRMEventsStuckCollection
+        expr: |
+          crm_events_metrics_up == 1
+          and crm_events_oldest_job_age_seconds > 900
+          and sum without (state) (crm_events_jobs{state=~"queued|running|retry|paused"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: CRM Events collection job is stuck
+          description: >
+            Oldest unfinished job is older than 15m while queued/running/retry/paused
+            work remains. Measured healthy job age on the REL-02 worker fixture was
+            seconds, not minutes; 15m is the operator stall bound, not the 15s lag SLO.
+
+      - alert: ActivityLongReauth
+        expr: activity_delivery_metrics_up == 1 and ignoring (code) activity_delivery_errors{code="reauth_required"} > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Activity delivery is blocked on reauth
+          description: >
+            Core outbox still has reauth_required errors after 15m. Per-account
+            detail belongs in protected diagnostics, not Prometheus labels.
+
+      - alert: AmoCRMUnauthorizedRate
+        expr: sum(rate(amocrm_requests_total{outcome="401"}[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: amoCRM Go API v4 is returning 401
+          description: Sustained 401 from the shared Gateway client usually means expired or revoked credentials.
+
+      - alert: GatewayRPCUnavailable
+        expr: sum(rate(service_rpc_requests_total{code="Unavailable"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Internal Gateway or product RPC is unavailable
+          description: gRPC code Unavailable on the finite method label. This is not a per-account series.
+
+      # A dead Gateway cannot increment its server-side RPC error counter.
+      - alert: GatewayScrapeUnavailable
+        expr: up{job="activity-worker"} == 0 or absent(up{job="activity-worker"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Gateway management endpoint is unreachable or missing
+          description: Check the Core worker process, network and scrape configuration; RPC server error counters cannot detect a stopped Gateway.
+
+      - alert: ActivityDeliveryUnavailable
+        expr: activity_delivery_metrics_up == 1 and ignoring (code) activity_delivery_errors{code="unavailable"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Activity outbox is failing with unavailable
+          description: Delivery cannot reach the product owner. Check Activity/CRM Events readiness, not tenant labels.
+
+      - alert: ActivityOutboxGrowing
+        expr: |
+          activity_delivery_metrics_up == 1
+          and activity_delivery_oldest_pending_seconds > 900
+          and sum without (state) (activity_delivery_commands{state=~"pending_delivery|delivering"}) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Core Activity outbox is not draining
+          description: Oldest pending/delivering command is older than 15m. Receipt/outbox IDs stay in diagnostics.
+
+      - alert: CleanupStall
+        expr: |
+          sum(increase(amocrm_cleanup_batch_limit_total[1h])) > 0
+          and sum(increase(amocrm_cleanup_rows_deleted_total[1h])) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cleanup is hitting batch limits without deleting rows
+          description: >
+            Worker cleanup default interval is 15m. Batch-limit pressure without
+            deleted rows means the pass cannot advance technical history.
+
+      - alert: CleanupSilent
+        expr: increase(amocrm_cleanup_passes_total{outcome="completed"}[2h]) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cleanup completed passes have stopped
+          description: No completed cleanup pass in two hours (four default intervals). Worker may be down or skipping the lock.
+
+      - alert: OwnerDatabaseSizeUnreadable
+        expr: component_db_size_up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Owner database size scrape failed
+          description: pg_database_size for a bounded service label failed. Size is not published as zero on error.
+
+      - alert: OwnerDatabaseSizeGrowingFast
+        expr: component_db_size_bytes:growth_per_hour > 256 * 1024 * 1024
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Owner database size is growing quickly
+          description: >
+            Growth uses pg_database_size of the owner DB, not tenant labels.
+            256 MiB/h is a local storage-pressure placeholder, not a measured
+            production disk SLO. Host disk still requires node_exporter.
+
+      - alert: HostDiskLow
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Host filesystem is below 10% free
+          description: >
+            Requires node_exporter filesystem metrics. The optional Activity
+            scrape overlay does not include node_exporter; this rule stays
+            silent until those series exist.

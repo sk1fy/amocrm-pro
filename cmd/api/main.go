@@ -201,7 +201,9 @@ func run() error {
 		return protectWidgetRoute(widgetAuthenticator, widgetLimiter, widgetCORSMiddleware, consume, handler)
 	}
 	if components.Bridge != nil {
+		components.Bridge.ConfigureShare(cfg.ActivityAppOrigins, cfg.ActivityManagementToken)
 		components.Bridge.RegisterHTTP(router, func(handler http.Handler) http.Handler { return widgetRoute(true, handler) }, func(handler http.Handler) http.Handler { return widgetRoute(false, handler) })
+		components.Bridge.RegisterShareHTTP(router)
 	}
 	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path,
 		widgetRoute(true, http.HandlerFunc(widgetHandler.Bootstrap)))

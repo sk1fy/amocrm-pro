@@ -1,0 +1,19 @@
+  FAILED:
+    expr: "count(ALERTS{alertname=\"CRMEventsStuckCollection\",alertstate=\"firing\"}) or vector(0)", time: 30m,
+        exp: {} 1E+00
+        got: {} 0E+00
+    expr: "count(ALERTS{alertname=\"ActivityOutboxGrowing\",alertstate=\"firing\"}) or vector(0)", time: 30m,
+        exp: {} 1E+00
+        got: {} 0E+00
+    expr: "count(ALERTS{alertname=\"ActivityLongReauth\",alertstate=\"firing\"}) or vector(0)", time: 30m,
+        exp: {} 1E+00
+        got: {} 0E+00
+    expr: "count(ALERTS{alertname=\"ActivityDeliveryUnavailable\",alertstate=\"firing\"}) or vector(0)", time: 30m,
+        exp: {} 1E+00
+        got: {} 0E+00
+    expr: "count(ALERTS{alertname=\"GatewayScrapeUnavailable\",alertstate=\"firing\"}) or vector(0)", time: 30m,
+        exp: {} 1E+00
+        got: {} 0E+00
+    expr: "count(ALERTS{alertname=\"GatewayScrapeUnavailable\",alertstate=\"firing\"}) or vector(0)", time: 10m,
+        exp: {} 1E+00
+        got: {} 0E+00

@@ -26,6 +26,16 @@ var (
 	ActivityConfigure             = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/settings"}
 	ActivitySync                  = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/sync"}
 	ActivityOperation             = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/operations/{operationID}"}
+	ActivityViewPanel             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/panel"}
+	ActivityViewTimeline          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/timeline"}
+	ActivityViewEmployee          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}"}
+	ActivityViewEvent             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/events/{eventId}"}
+	ActivityManagedPanels         = Route{Method: http.MethodGet, Path: "/api/v1/activity/panels"}
+	ActivityManagedPanelCreate    = Route{Method: http.MethodPost, Path: "/api/v1/activity/panels"}
+	ActivityManagedPanel          = Route{Method: http.MethodGet, Path: "/api/v1/activity/panels/{panelId}"}
+	ActivityManagedPanelPatch     = Route{Method: http.MethodPatch, Path: "/api/v1/activity/panels/{panelId}"}
+	ActivityManagedShareLink      = Route{Method: http.MethodPost, Path: "/api/v1/activity/panels/{panelId}/share-link"}
+	ActivityManagedEmployees      = Route{Method: http.MethodGet, Path: "/api/v1/activity/employees"}
 
 	Routes = []Route{
 		Live,
@@ -44,6 +54,16 @@ var (
 		ActivityConfigure,
 		ActivitySync,
 		ActivityOperation,
+		ActivityViewPanel,
+		ActivityViewTimeline,
+		ActivityViewEmployee,
+		ActivityViewEvent,
+		ActivityManagedPanels,
+		ActivityManagedPanelCreate,
+		ActivityManagedPanel,
+		ActivityManagedPanelPatch,
+		ActivityManagedShareLink,
+		ActivityManagedEmployees,
 	}
 
 	ManagementRoutes = []Route{

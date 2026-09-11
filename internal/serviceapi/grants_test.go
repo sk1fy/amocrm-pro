@@ -11,6 +11,8 @@ func TestUserGrantsForLeastPrivilege(t *testing.T) {
 		want             []Grant
 	}{
 		{ActivityService, ActionPanel, []Grant{{ActivityService, ActionPanel}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}},
+		{ActivityService, ActionView, []Grant{{ActivityService, ActionView}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}},
+		{ActivityService, ActionPanels, []Grant{{ActivityService, ActionPanels}, {GatewayService, ActionUsers}}},
 		{ActivityService, ActionSettings, []Grant{{ActivityService, ActionSettings}}},
 		{ActivityService, ActionOperation, []Grant{{ActivityService, ActionOperation}}},
 		{EventsService, ActionRead, []Grant{{EventsService, ActionRead}}},

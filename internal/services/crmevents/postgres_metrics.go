@@ -1,6 +1,9 @@
 package crmevents
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // MetricsSnapshot reads only the owner database; labels are normalized before
 // crossing the metrics port even if an operator introduced an unknown DB state.
@@ -8,7 +11,7 @@ import "context"
 // inflate "current" series. Processed totals come from event_sources and remain
 // cumulative after job GC. Unknown statuses still map to "other".
 func (s *Postgres) MetricsSnapshot(ctx context.Context) (Snapshot, error) {
-	result := Snapshot{States: map[string]int64{}, EnrichmentStates: map[string]int64{}}
+	result := Snapshot{States: map[string]int64{}, EnrichmentStates: map[string]int64{}, CoverageStates: map[string]int64{}}
 	rows, err := s.pool.Query(ctx, `SELECT status,count(*) FROM event_jobs WHERE status NOT IN ('completed','failed') GROUP BY status`)
 	if err != nil {
 		return result, err
@@ -59,5 +62,33 @@ func (s *Postgres) MetricsSnapshot(ctx context.Context) (Snapshot, error) {
 		return result, err
 	}
 	err = s.pool.QueryRow(ctx, `SELECT coalesce(extract(epoch from now()-min(updated_at) FILTER(WHERE state IN ('pending','retry'))),0) FROM event_enrichment_objects`).Scan(&result.EnrichmentAgeSeconds)
+	if err != nil {
+		return result, err
+	}
+	rows, err = s.pool.Query(ctx, `SELECT continuous_from,continuous_to,retained_from,
+extract(epoch from now()-continuous_to)
+FROM event_sources s
+WHERE EXISTS (SELECT 1 FROM event_consumers e WHERE e.installation_id=s.installation_id AND e.enabled)`)
+	if err != nil {
+		return result, err
+	}
+	for rows.Next() {
+		var continuousFrom, continuousTo, retainedFrom *time.Time
+		var gap *float64
+		if err = rows.Scan(&continuousFrom, &continuousTo, &retainedFrom, &gap); err != nil {
+			break
+		}
+		result.CoverageStates[coverageMetricState(sourceCoverageClass(continuousFrom, continuousTo, retainedFrom))]++
+		if continuousTo != nil && gap != nil {
+			result.CoverageGapValid = true
+			if *gap > result.CoverageGapSeconds {
+				result.CoverageGapSeconds = *gap
+			}
+		}
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	rows.Close()
 	return result, err
 }

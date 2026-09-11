@@ -32,6 +32,8 @@ services:
     build: {<<: *build, target: activity-control}
     environment:
       DATABASE_URL: postgres://core_runtime:core_runtime_dev@postgres:5432/amocrm_core?sslmode=disable
+      API_BASE_URL: http://api:8080
+      ACTIVITY_MANAGEMENT_TOKEN: "${ACTIVITY_MANAGEMENT_TOKEN:-activity-dev-management-token}"
     depends_on: {migrate-core: {condition: service_completed_successfully}}
   integrations:
     profiles: ["tools"]
@@ -148,6 +150,7 @@ services:
       ACTIVITY_DB_MAX_CONNS: "3"
       GATEWAY_ADDRESS: worker:9090
       CRM_EVENTS_ADDRESS: crm-events:9092
+      ACTIVITY_APP_PUBLIC_ORIGIN: "${ACTIVITY_APP_PUBLIC_ORIGIN:-http://127.0.0.1:4173}"
     volumes: ["activity-identity:/identity:ro"]
     depends_on:
       crm-events: {condition: service_healthy}
@@ -167,6 +170,9 @@ services:
       MANAGEMENT_HTTP_ADDRESS: ":8082"
       ACTIVITY_ADDRESS: activity:9091
       CRM_EVENTS_ADDRESS: crm-events:9092
+      ACTIVITY_APP_ORIGINS: "${ACTIVITY_APP_ORIGINS:-http://127.0.0.1:4173}"
+      ACTIVITY_APP_PUBLIC_ORIGIN: "${ACTIVITY_APP_PUBLIC_ORIGIN:-http://127.0.0.1:4173}"
+      ACTIVITY_MANAGEMENT_TOKEN: "${ACTIVITY_MANAGEMENT_TOKEN:-activity-dev-management-token}"
     volumes: ["core-identity:/identity:ro"]
     ports: ["127.0.0.1:${ACTIVITY_API_PORT:-18080}:8080", "127.0.0.1:${ACTIVITY_MANAGEMENT_PORT:-18082}:8082"]
     depends_on:

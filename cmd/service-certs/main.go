@@ -1,9 +1,10 @@
 // service-certs generates ephemeral development identities for the local pilot.
-// Certificates last 30 days and include localhost DNS names. Production
-// deployments MUST NOT use this binary or its output; supply identities from
-// the environment CA and secret store, keep TLS client verification enabled,
-// and overlap old/new certificates during rotation.
-// See docs/runbooks/secrets-rotation.md.
+// Certificates last 30 days and include only service/localhost DNS names plus
+// the api/worker aliases used by the development Compose stack. It is not a
+// production CA: do not add production DNS/IP SANs, extend TTL, reuse the
+// output on a new host, or disable TLS verification to make a placement work.
+// Production identities come from the environment CA with the static RPC
+// hostname in SAN; rotation is docs/runbooks/secrets-rotation.md.
 package main
 
 import (
@@ -26,7 +27,10 @@ func main() {
 		return
 	}
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY (development only; 30-day localhost certs; refuses existing keys; not for production)")
+		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY")
+		fmt.Fprintln(os.Stderr, "development only: 30-day certs for service/localhost DNS (api/worker aliases); refuses an existing output directory")
+		fmt.Fprintln(os.Stderr, "not a production CA; do not extend TTL or disable TLS verification for a new placement")
+		fmt.Fprintln(os.Stderr, "production identities: environment CA + docs/runbooks/secrets-rotation.md")
 		os.Exit(2)
 	}
 	if err := generate(os.Args[1]); err != nil {
@@ -117,6 +121,6 @@ func generate(dir string) error {
 	if err := writeExclusive(filepath.Join(dir, "gateway", "delegation.key"), "PRIVATE KEY", der); err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "service-certs: wrote development identities (30-day localhost). Do not use these certificates in production.")
+	fmt.Fprintln(os.Stderr, "service-certs: wrote development identities (30-day localhost). Not a production CA; do not use these certificates after a host/DNS change.")
 	return nil
 }

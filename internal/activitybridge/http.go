@@ -38,7 +38,7 @@ func (b *Bridge) RegisterHTTP(router chi.Router, readMiddleware, commandMiddlewa
 		if entry.write {
 			mw = commandMiddleware
 		}
-		router.Method(entry.route.Method, entry.route.Path, mw(entry.handler))
+		router.Method(entry.route.Method, entry.route.Path, mw(b.observeSize(entry.route, entry.handler)))
 	}
 	seen := map[string]bool{}
 	for _, route := range Routes() {
@@ -153,6 +153,59 @@ func (b *Bridge) OperationHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	result, err := b.Operation(ctx, p, chi.URLParam(r, "operationID"))
 	respond(w, http.StatusOK, result, err)
+}
+
+func (b *Bridge) observeSize(route apicontract.Route, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		counter := &countingWriter{ResponseWriter: w}
+		next.ServeHTTP(counter, r)
+		if b.responseSize != nil {
+			b.responseSize.WithLabelValues(httpRouteClass(route.Path)).Observe(float64(counter.bytes))
+		}
+	})
+}
+
+func httpRouteClass(path string) string {
+	switch path {
+	case apicontract.ActivityPanel.Path:
+		return "panel"
+	case apicontract.ActivityEvent.Path:
+		return "event"
+	default:
+		return "other"
+	}
+}
+
+type countingWriter struct {
+	http.ResponseWriter
+	bytes int
+}
+
+func (w *countingWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *countingWriter) Flush() {
+	inner := w.ResponseWriter
+	for inner != nil {
+		if flusher, ok := inner.(http.Flusher); ok {
+			flusher.Flush()
+			return
+		}
+		unwrapper, ok := inner.(interface{ Unwrap() http.ResponseWriter })
+		if !ok {
+			return
+		}
+		next := unwrapper.Unwrap()
+		if next == inner {
+			return
+		}
+		inner = next
+	}
+}
+
+func (w *countingWriter) Write(body []byte) (int, error) {
+	written, err := w.ResponseWriter.Write(body)
+	w.bytes += written
+	return written, err
 }
 
 func principal(w http.ResponseWriter, r *http.Request) (widgetauth.Principal, bool) {

@@ -748,6 +748,17 @@ const (
 	Activity_GetSettings_FullMethodName     = "/amocrm.services.v1.Activity/GetSettings"
 	Activity_Configure_FullMethodName       = "/amocrm.services.v1.Activity/Configure"
 	Activity_OperationStatus_FullMethodName = "/amocrm.services.v1.Activity/OperationStatus"
+	Activity_ResolveShare_FullMethodName    = "/amocrm.services.v1.Activity/ResolveShare"
+	Activity_CreatePanel_FullMethodName     = "/amocrm.services.v1.Activity/CreatePanel"
+	Activity_ListPanels_FullMethodName      = "/amocrm.services.v1.Activity/ListPanels"
+	Activity_GetManagedPanel_FullMethodName = "/amocrm.services.v1.Activity/GetManagedPanel"
+	Activity_PatchPanel_FullMethodName      = "/amocrm.services.v1.Activity/PatchPanel"
+	Activity_RotateShareLink_FullMethodName = "/amocrm.services.v1.Activity/RotateShareLink"
+	Activity_ListEmployees_FullMethodName   = "/amocrm.services.v1.Activity/ListEmployees"
+	Activity_ViewPanel_FullMethodName       = "/amocrm.services.v1.Activity/ViewPanel"
+	Activity_ViewTimeline_FullMethodName    = "/amocrm.services.v1.Activity/ViewTimeline"
+	Activity_ViewEmployee_FullMethodName    = "/amocrm.services.v1.Activity/ViewEmployee"
+	Activity_ViewEvent_FullMethodName       = "/amocrm.services.v1.Activity/ViewEvent"
 )
 
 // ActivityClient is the client API for Activity service.
@@ -759,6 +770,17 @@ type ActivityClient interface {
 	GetSettings(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*Settings, error)
 	Configure(ctx context.Context, in *SettingsCommand, opts ...grpc.CallOption) (*Operation, error)
 	OperationStatus(ctx context.Context, in *OperationRequest, opts ...grpc.CallOption) (*Operation, error)
+	ResolveShare(ctx context.Context, in *ShareLookupRequest, opts ...grpc.CallOption) (*ShareLookup, error)
+	CreatePanel(ctx context.Context, in *PanelCommand, opts ...grpc.CallOption) (*ManagedPanel, error)
+	ListPanels(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*ManagedPanelPage, error)
+	GetManagedPanel(ctx context.Context, in *PanelRef, opts ...grpc.CallOption) (*ManagedPanel, error)
+	PatchPanel(ctx context.Context, in *PanelCommand, opts ...grpc.CallOption) (*ManagedPanel, error)
+	RotateShareLink(ctx context.Context, in *PanelCommand, opts ...grpc.CallOption) (*ManagedPanel, error)
+	ListEmployees(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*Directory, error)
+	ViewPanel(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*ViewerPanel, error)
+	ViewTimeline(ctx context.Context, in *Query, opts ...grpc.CallOption) (*ViewerTimeline, error)
+	ViewEmployee(ctx context.Context, in *Query, opts ...grpc.CallOption) (*ViewerEmployee, error)
+	ViewEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error)
 }
 
 type activityClient struct {
@@ -819,6 +841,116 @@ func (c *activityClient) OperationStatus(ctx context.Context, in *OperationReque
 	return out, nil
 }
 
+func (c *activityClient) ResolveShare(ctx context.Context, in *ShareLookupRequest, opts ...grpc.CallOption) (*ShareLookup, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShareLookup)
+	err := c.cc.Invoke(ctx, Activity_ResolveShare_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) CreatePanel(ctx context.Context, in *PanelCommand, opts ...grpc.CallOption) (*ManagedPanel, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ManagedPanel)
+	err := c.cc.Invoke(ctx, Activity_CreatePanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ListPanels(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*ManagedPanelPage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ManagedPanelPage)
+	err := c.cc.Invoke(ctx, Activity_ListPanels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) GetManagedPanel(ctx context.Context, in *PanelRef, opts ...grpc.CallOption) (*ManagedPanel, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ManagedPanel)
+	err := c.cc.Invoke(ctx, Activity_GetManagedPanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) PatchPanel(ctx context.Context, in *PanelCommand, opts ...grpc.CallOption) (*ManagedPanel, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ManagedPanel)
+	err := c.cc.Invoke(ctx, Activity_PatchPanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) RotateShareLink(ctx context.Context, in *PanelCommand, opts ...grpc.CallOption) (*ManagedPanel, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ManagedPanel)
+	err := c.cc.Invoke(ctx, Activity_RotateShareLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ListEmployees(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*Directory, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Directory)
+	err := c.cc.Invoke(ctx, Activity_ListEmployees_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewPanel(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*ViewerPanel, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ViewerPanel)
+	err := c.cc.Invoke(ctx, Activity_ViewPanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewTimeline(ctx context.Context, in *Query, opts ...grpc.CallOption) (*ViewerTimeline, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ViewerTimeline)
+	err := c.cc.Invoke(ctx, Activity_ViewTimeline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewEmployee(ctx context.Context, in *Query, opts ...grpc.CallOption) (*ViewerEmployee, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ViewerEmployee)
+	err := c.cc.Invoke(ctx, Activity_ViewEmployee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Event)
+	err := c.cc.Invoke(ctx, Activity_ViewEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ActivityServer is the server API for Activity service.
 // All implementations must embed UnimplementedActivityServer
 // for forward compatibility.
@@ -828,6 +960,17 @@ type ActivityServer interface {
 	GetSettings(context.Context, *Auth) (*Settings, error)
 	Configure(context.Context, *SettingsCommand) (*Operation, error)
 	OperationStatus(context.Context, *OperationRequest) (*Operation, error)
+	ResolveShare(context.Context, *ShareLookupRequest) (*ShareLookup, error)
+	CreatePanel(context.Context, *PanelCommand) (*ManagedPanel, error)
+	ListPanels(context.Context, *Auth) (*ManagedPanelPage, error)
+	GetManagedPanel(context.Context, *PanelRef) (*ManagedPanel, error)
+	PatchPanel(context.Context, *PanelCommand) (*ManagedPanel, error)
+	RotateShareLink(context.Context, *PanelCommand) (*ManagedPanel, error)
+	ListEmployees(context.Context, *Auth) (*Directory, error)
+	ViewPanel(context.Context, *Auth) (*ViewerPanel, error)
+	ViewTimeline(context.Context, *Query) (*ViewerTimeline, error)
+	ViewEmployee(context.Context, *Query) (*ViewerEmployee, error)
+	ViewEvent(context.Context, *EventRequest) (*Event, error)
 	mustEmbedUnimplementedActivityServer()
 }
 
@@ -852,6 +995,39 @@ func (UnimplementedActivityServer) Configure(context.Context, *SettingsCommand) 
 }
 func (UnimplementedActivityServer) OperationStatus(context.Context, *OperationRequest) (*Operation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OperationStatus not implemented")
+}
+func (UnimplementedActivityServer) ResolveShare(context.Context, *ShareLookupRequest) (*ShareLookup, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveShare not implemented")
+}
+func (UnimplementedActivityServer) CreatePanel(context.Context, *PanelCommand) (*ManagedPanel, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreatePanel not implemented")
+}
+func (UnimplementedActivityServer) ListPanels(context.Context, *Auth) (*ManagedPanelPage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPanels not implemented")
+}
+func (UnimplementedActivityServer) GetManagedPanel(context.Context, *PanelRef) (*ManagedPanel, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetManagedPanel not implemented")
+}
+func (UnimplementedActivityServer) PatchPanel(context.Context, *PanelCommand) (*ManagedPanel, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PatchPanel not implemented")
+}
+func (UnimplementedActivityServer) RotateShareLink(context.Context, *PanelCommand) (*ManagedPanel, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RotateShareLink not implemented")
+}
+func (UnimplementedActivityServer) ListEmployees(context.Context, *Auth) (*Directory, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListEmployees not implemented")
+}
+func (UnimplementedActivityServer) ViewPanel(context.Context, *Auth) (*ViewerPanel, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewPanel not implemented")
+}
+func (UnimplementedActivityServer) ViewTimeline(context.Context, *Query) (*ViewerTimeline, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewTimeline not implemented")
+}
+func (UnimplementedActivityServer) ViewEmployee(context.Context, *Query) (*ViewerEmployee, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewEmployee not implemented")
+}
+func (UnimplementedActivityServer) ViewEvent(context.Context, *EventRequest) (*Event, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewEvent not implemented")
 }
 func (UnimplementedActivityServer) mustEmbedUnimplementedActivityServer() {}
 func (UnimplementedActivityServer) testEmbeddedByValue()                  {}
@@ -964,6 +1140,204 @@ func _Activity_OperationStatus_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Activity_ResolveShare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShareLookupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ResolveShare(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ResolveShare_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ResolveShare(ctx, req.(*ShareLookupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_CreatePanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PanelCommand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).CreatePanel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_CreatePanel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).CreatePanel(ctx, req.(*PanelCommand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ListPanels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Auth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ListPanels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ListPanels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ListPanels(ctx, req.(*Auth))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_GetManagedPanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PanelRef)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).GetManagedPanel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_GetManagedPanel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).GetManagedPanel(ctx, req.(*PanelRef))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_PatchPanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PanelCommand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).PatchPanel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_PatchPanel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).PatchPanel(ctx, req.(*PanelCommand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_RotateShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PanelCommand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).RotateShareLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_RotateShareLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).RotateShareLink(ctx, req.(*PanelCommand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ListEmployees_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Auth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ListEmployees(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ListEmployees_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ListEmployees(ctx, req.(*Auth))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewPanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Auth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewPanel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewPanel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewPanel(ctx, req.(*Auth))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewTimeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Query)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewTimeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewTimeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewTimeline(ctx, req.(*Query))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewEmployee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Query)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewEmployee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewEmployee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewEmployee(ctx, req.(*Query))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewEvent(ctx, req.(*EventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Activity_ServiceDesc is the grpc.ServiceDesc for Activity service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -990,6 +1364,50 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OperationStatus",
 			Handler:    _Activity_OperationStatus_Handler,
+		},
+		{
+			MethodName: "ResolveShare",
+			Handler:    _Activity_ResolveShare_Handler,
+		},
+		{
+			MethodName: "CreatePanel",
+			Handler:    _Activity_CreatePanel_Handler,
+		},
+		{
+			MethodName: "ListPanels",
+			Handler:    _Activity_ListPanels_Handler,
+		},
+		{
+			MethodName: "GetManagedPanel",
+			Handler:    _Activity_GetManagedPanel_Handler,
+		},
+		{
+			MethodName: "PatchPanel",
+			Handler:    _Activity_PatchPanel_Handler,
+		},
+		{
+			MethodName: "RotateShareLink",
+			Handler:    _Activity_RotateShareLink_Handler,
+		},
+		{
+			MethodName: "ListEmployees",
+			Handler:    _Activity_ListEmployees_Handler,
+		},
+		{
+			MethodName: "ViewPanel",
+			Handler:    _Activity_ViewPanel_Handler,
+		},
+		{
+			MethodName: "ViewTimeline",
+			Handler:    _Activity_ViewTimeline_Handler,
+		},
+		{
+			MethodName: "ViewEmployee",
+			Handler:    _Activity_ViewEmployee_Handler,
+		},
+		{
+			MethodName: "ViewEvent",
+			Handler:    _Activity_ViewEvent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

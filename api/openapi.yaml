@@ -16,6 +16,8 @@ tags:
   - name: OAuth
   - name: Webhook
   - name: Widget
+  - name: ActivityViewer
+  - name: ActivityManagement
 paths:
   /live:
     get:
@@ -1030,6 +1032,292 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ActivityError'
+  /api/v1/activity/view/panel:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivitySharePanel
+      summary: Read display settings for the panel identified by the view key.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Viewer panel without management secrets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityViewerPanel'
+              example:
+                name: Смена А
+                timezone: Europe/Moscow
+                display_window: {from: '09:00', to: '18:00'}
+                employees: [{id: 7, name: Иванов, group_id: 1, group_name: Отдел}]
+                interpretation_version: 1
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/view/timeline:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivityShareTimeline
+      summary: Read totals, summaries and buckets for the shared panel period.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityShareFrom'
+        - $ref: '#/components/parameters/ActivityShareTo'
+        - $ref: '#/components/parameters/ActivityShareLimit'
+        - $ref: '#/components/parameters/ActivityShareCursor'
+        - $ref: '#/components/parameters/ActivityShareBuckets'
+        - $ref: '#/components/parameters/ActivityShareCategories'
+      responses:
+        '200':
+          description: Timeline computed on the backend for the full requested period.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityViewerTimeline'
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/view/employees/{employeeId}:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivityShareEmployee
+      summary: Read one panel employee's journal. Employees outside the panel return 404.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: employeeId
+          in: path
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+        - $ref: '#/components/parameters/ActivityShareFrom'
+        - $ref: '#/components/parameters/ActivityShareTo'
+        - $ref: '#/components/parameters/ActivityShareLimit'
+        - $ref: '#/components/parameters/ActivityShareCursor'
+        - $ref: '#/components/parameters/ActivityShareBuckets'
+        - $ref: '#/components/parameters/ActivityShareCategories'
+      responses:
+        '200':
+          description: Compact employee journal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityViewerEmployee'
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/view/events/{eventId}:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivityShareEvent
+      summary: Read one event card scoped to the shared panel.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: eventId
+          in: path
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_.:-]+$'}
+      responses:
+        '200':
+          description: Event card.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityEvent'
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/panels:
+    get:
+      tags: [ActivityManagement]
+      operationId: listActivityPanels
+      summary: List managed panels for one installation. Keys are never returned.
+      security: [{managementToken: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+      responses:
+        '200':
+          description: Managed panels without view keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityManagedPanelPage'
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+    post:
+      tags: [ActivityManagement]
+      operationId: createActivityPanel
+      summary: Create a panel and return the view key once.
+      security: [{managementToken: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityPanelCreate'
+            example:
+              name: Смена А
+              employee_ids: [7, 9]
+              display_window: {from: '09:00', to: '18:00'}
+      responses:
+        '201':
+          description: Panel created with a one-time view key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityManagedPanel'
+              example:
+                id: 11111111-1111-1111-1111-111111111111
+                name: Смена А
+                employee_ids: [7, 9]
+                display_window: {from: '09:00', to: '18:00'}
+                timezone: Europe/Moscow
+                enabled: true
+                revision: 1
+                updated_at: '2026-09-11T12:00:00Z'
+                share_url_issued: true
+                view_key: synthetic_view_key_not_real
+                share_url: 'https://activity.example.invalid/#/p/synthetic_view_key_not_real'
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '409': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/panels/{panelId}:
+    get:
+      tags: [ActivityManagement]
+      operationId: getActivityManagedPanel
+      summary: Read one managed panel without the view key.
+      security: [{managementToken: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityPanelID'
+      responses:
+        '200':
+          description: Managed panel.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityManagedPanel'
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+    patch:
+      tags: [ActivityManagement]
+      operationId: patchActivityManagedPanel
+      summary: Patch one panel with revision CAS.
+      security: [{managementToken: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityPanelID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityPanelPatch'
+      responses:
+        '200':
+          description: Updated panel without a view key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityManagedPanel'
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '409': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/panels/{panelId}/share-link:
+    post:
+      tags: [ActivityManagement]
+      operationId: rotateActivityShareLink
+      summary: Rotate the view key. The previous link is invalid on the next read.
+      security: [{managementToken: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityPanelID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: New view key returned once.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityManagedPanel'
+              example:
+                id: 11111111-1111-1111-1111-111111111111
+                name: Смена А
+                employee_ids: [7, 9]
+                display_window: {from: '09:00', to: '18:00'}
+                timezone: Europe/Moscow
+                enabled: true
+                revision: 2
+                updated_at: '2026-09-11T12:00:00Z'
+                share_url_issued: true
+                view_key: synthetic_view_key_not_real
+                share_url: 'https://activity.example.invalid/#/p/synthetic_view_key_not_real'
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '409': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/employees:
+    get:
+      tags: [ActivityManagement]
+      operationId: listActivityEmployees
+      summary: Installation directory used when choosing panel employees.
+      security: [{managementToken: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+      responses:
+        '200':
+          description: Bounded directory.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDirectory'
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
 components:
   securitySchemes:
     widgetToken:
@@ -1049,6 +1337,18 @@ components:
         one fresh, disposable JWT as a Bearer credential. Do not combine this
         scheme with widgetToken; requests containing both token headers are
         rejected. Both alternatives use atomic `jti` replay protection.
+    viewKey:
+      type: http
+      scheme: bearer
+      description: >-
+        Share-link view key. Unknown, rotated and disabled keys return the same
+        not_found response. This is not a widget JWT.
+    managementToken:
+      type: http
+      scheme: bearer
+      description: >-
+        ACTIVITY_MANAGEMENT_TOKEN for CLI and future TeamOS backend calls.
+        Never send this token from the viewer browser.
   parameters:
     RequestID:
       name: X-Request-ID
@@ -1064,11 +1364,52 @@ components:
       required: true
       description: >-
         Opaque 1-128 character key. The raw value is never persisted; retries
-        use a fresh JWT and the same key.
+        use a fresh JWT and the same key. Panel create and share-link require a UUID.
       schema:
         type: string
         minLength: 1
         maxLength: 128
+    ActivityInstallation:
+      name: X-Activity-Installation-Id
+      in: header
+      required: true
+      schema: {type: string, format: uuid}
+    ActivityIntegration:
+      name: X-Activity-Integration-Id
+      in: header
+      required: true
+      schema: {type: string, format: uuid}
+    ActivityPanelID:
+      name: panelId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    ActivityShareFrom:
+      name: from
+      in: query
+      required: true
+      schema: {type: integer, format: int64, minimum: 0}
+    ActivityShareTo:
+      name: to
+      in: query
+      required: true
+      schema: {type: integer, format: int64, minimum: 1}
+    ActivityShareLimit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+    ActivityShareCursor:
+      name: cursor
+      in: query
+      schema: {type: string, maxLength: 512}
+    ActivityShareBuckets:
+      name: buckets
+      in: query
+      schema: {type: string, enum: [hour, day, auto]}
+    ActivityShareCategories:
+      name: categories
+      in: query
+      schema: {type: string}
   headers:
     RequestID:
       description: UUID correlation ID accepted or generated by the API.
@@ -1095,6 +1436,116 @@ components:
           required: [code]
           additionalProperties: false
       required: [error]
+      additionalProperties: false
+    ActivityDisplayWindow:
+      type: object
+      properties:
+        from: {type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'}
+        to: {type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'}
+      required: [from, to]
+      additionalProperties: false
+    ActivityPanelCreate:
+      type: object
+      properties:
+        name: {type: string, minLength: 1, maxLength: 120}
+        employee_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: integer, format: int64, minimum: 1}
+        display_window:
+          $ref: '#/components/schemas/ActivityDisplayWindow'
+        enabled: {type: boolean}
+      required: [name, employee_ids, display_window]
+      additionalProperties: false
+    ActivityPanelPatch:
+      type: object
+      properties:
+        revision: {type: integer, format: int64, minimum: 1}
+        name: {type: string, minLength: 1, maxLength: 120}
+        employee_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: integer, format: int64, minimum: 1}
+        display_window:
+          $ref: '#/components/schemas/ActivityDisplayWindow'
+        enabled: {type: boolean}
+      required: [revision]
+      additionalProperties: false
+    ActivityManagedPanel:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        employee_ids:
+          type: array
+          items: {type: integer, format: int64}
+        display_window:
+          $ref: '#/components/schemas/ActivityDisplayWindow'
+        timezone: {type: string}
+        enabled: {type: boolean}
+        revision: {type: integer, format: int64}
+        updated_at: {type: string, format: date-time}
+        share_url_issued: {type: boolean}
+        view_key: {type: string}
+        share_url: {type: string}
+      required: [id, name, employee_ids, display_window, timezone, enabled, revision, updated_at, share_url_issued]
+      additionalProperties: false
+    ActivityManagedPanelPage:
+      type: object
+      properties:
+        panels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityManagedPanel'
+      required: [panels]
+      additionalProperties: false
+    ActivityViewerPanel:
+      type: object
+      properties:
+        name: {type: string}
+        timezone: {type: string}
+        display_window:
+          $ref: '#/components/schemas/ActivityDisplayWindow'
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityUser'
+        interpretation_version: {type: integer, minimum: 1}
+      required: [name, timezone, display_window, employees]
+      additionalProperties: false
+    ActivityViewerTimeline:
+      type: object
+      properties:
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityUser'
+        timezone: {type: string}
+        data:
+          $ref: '#/components/schemas/ActivityData'
+        coverage: {type: string}
+        freshness: {type: string}
+        empty_reason: {type: string}
+        interpretation_version: {type: integer, minimum: 1}
+      required: [employees, timezone, data]
+      additionalProperties: false
+    ActivityViewerEmployee:
+      type: object
+      properties:
+        employee:
+          $ref: '#/components/schemas/ActivityUser'
+        timezone: {type: string}
+        data:
+          $ref: '#/components/schemas/ActivityData'
+        coverage: {type: string}
+        freshness: {type: string}
+        empty_reason: {type: string}
+        interpretation_version: {type: integer, minimum: 1}
+      required: [employee, timezone, data]
       additionalProperties: false
     ActivityError:
       type: object
@@ -1441,6 +1892,17 @@ components:
       - summaries
       - status
       additionalProperties: false
+    ActivityDirectory:
+      type: object
+      properties:
+        users:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ActivityUser'
+        timezone: {type: string}
+      required: [users, timezone]
+      additionalProperties: false
     ActivityUser:
       type: object
       properties:
@@ -1783,6 +2245,12 @@ components:
           additionalProperties: false
       additionalProperties: false
   responses:
+    ActivityShareError:
+      description: Share/management JSON error using the Activity envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ActivityError'
     WidgetRateLimited:
       description: >-
         The verified integration or installation exhausted its per-process request

@@ -6,6 +6,10 @@
 [отчёт проверки](../verification/activity-v0-results.md) и
 [дополнение после первого аудита](../verification/activity-v0-audit-followup.md) и
 [исправления второго аудита](../verification/activity-v0-hardening.md).
+Эксплуатация этапа 8: [наблюдаемость/SLO](activity-observability.md),
+[backup/restore](activity-backup-restore.md),
+[перенос модуля](activity-module-transfer.md);
+локальные доказательства — [stage8](../verification/stage8-2026-09-08/README.md).
 
 ## Топологии и подготовка
 

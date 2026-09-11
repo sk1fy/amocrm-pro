@@ -1,0 +1,36 @@
+=== RUN   TestShareHTTPRejectsCrossCredentialAndUnknownKey
+--- PASS: TestShareHTTPRejectsCrossCredentialAndUnknownKey (0.00s)
+=== RUN   TestShareHTTPFailClosedWithoutOrigins
+--- PASS: TestShareHTTPFailClosedWithoutOrigins (0.00s)
+=== RUN   TestViewerLimiterBoundsDistinctCredentialsAndReclaimsIdleKeys
+--- PASS: TestViewerLimiterBoundsDistinctCredentialsAndReclaimsIdleKeys (0.04s)
+=== RUN   TestViewerLimiterHardCapDoesNotResetActiveBudgets
+--- PASS: TestViewerLimiterHardCapDoesNotResetActiveBudgets (0.07s)
+=== RUN   TestViewerHTTPBudgetRejectsUnknownKeysBeforeLookup
+--- PASS: TestViewerHTTPBudgetRejectsUnknownKeysBeforeLookup (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/activitybridge	1.172s
+=== RUN   TestViewerAndOperatorIssueSkipRoleLookup
+--- PASS: TestViewerAndOperatorIssueSkipRoleLookup (0.02s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/corepolicy	1.059s
+=== RUN   TestRotationRevokesIssuedViewerDelegation
+--- PASS: TestRotationRevokesIssuedViewerDelegation (0.02s)
+=== RUN   TestViewerPanelOmitsSecretsAndRejectsOutsiders
+--- PASS: TestViewerPanelOmitsSecretsAndRejectsOutsiders (0.00s)
+=== RUN   TestTwoPanelsShareHistoryWithoutDuplicatingEvents
+--- PASS: TestTwoPanelsShareHistoryWithoutDuplicatingEvents (0.00s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/services/activity	1.054s
+=== RUN   TestCreatePanelAndViewTimelineLocalAndMTLSParity
+--- PASS: TestCreatePanelAndViewTimelineLocalAndMTLSParity (0.07s)
+=== RUN   TestPanelPatchValidationLocalAndMTLS
+=== RUN   TestPanelPatchValidationLocalAndMTLS/empty_name
+=== RUN   TestPanelPatchValidationLocalAndMTLS/empty_employees
+=== RUN   TestPanelPatchValidationLocalAndMTLS/empty_window
+--- PASS: TestPanelPatchValidationLocalAndMTLS (0.06s)
+    --- PASS: TestPanelPatchValidationLocalAndMTLS/empty_name (0.01s)
+    --- PASS: TestPanelPatchValidationLocalAndMTLS/empty_employees (0.01s)
+    --- PASS: TestPanelPatchValidationLocalAndMTLS/empty_window (0.01s)
+PASS
+ok  	github.com/sk1fy/amocrm-pro/internal/servicerpc	1.170s

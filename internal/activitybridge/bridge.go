@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"log/slog"
@@ -22,15 +23,31 @@ import (
 )
 
 type Bridge struct {
-	pool     *pgxpool.Pool
-	policy   serviceapi.Policy
-	activity serviceapi.Activity
-	events   serviceapi.CRMEvents
-	logger   *slog.Logger
+	pool            *pgxpool.Pool
+	policy          serviceapi.Policy
+	activity        serviceapi.Activity
+	events          serviceapi.CRMEvents
+	logger          *slog.Logger
+	responseSize    *prometheus.HistogramVec
+	appOrigins      map[string]struct{}
+	managementToken string
+	viewerLimiter   *viewKeyLimiter
 }
 
 func New(pool *pgxpool.Pool, policy serviceapi.Policy, product serviceapi.Activity, events serviceapi.CRMEvents) *Bridge {
-	return &Bridge{pool: pool, policy: policy, activity: product, events: events, logger: slog.Default()}
+	return &Bridge{pool: pool, policy: policy, activity: product, events: events, logger: slog.Default(), responseSize: newHTTPResponseSize(), viewerLimiter: newViewKeyLimiter()}
+}
+
+func (b *Bridge) ConfigureShare(origins []string, managementToken string) {
+	allowed := make(map[string]struct{}, len(origins))
+	for _, origin := range origins {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			allowed[origin] = struct{}{}
+		}
+	}
+	b.appOrigins = allowed
+	b.managementToken = managementToken
 }
 
 type Receipt struct {

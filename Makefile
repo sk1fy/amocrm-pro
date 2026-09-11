@@ -31,7 +31,10 @@ DOCKER_GO := $(DOCKER) run --rm \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test activity-ci
+.PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test activity-ci activity-backup-verify activity-transfer-verify
+
+.PHONY: activity-observability-test
+PROMETHEUS_IMAGE ?= prom/prometheus:v2.55.1
 
 ACTIVITY_COMPOSE := $(COMPOSE) -p amocrm-activity -f docker-compose.activity.yml
 ACTIVITY_TEST_PROJECT ?= amocrm-pro-activity-test
@@ -55,7 +58,17 @@ activity-test: ## Run owner DB, mTLS, process and UI checks in a separate test p
 	$(ACTIVITY_TEST_COMPOSE) run --rm --no-deps component-tests
 	$(ACTIVITY_TEST_COMPOSE) run --rm --no-deps component-ui-tests
 
-activity-ci: ## Run Activity verification with disposable PostgreSQL and automatic cleanup
+activity-backup-verify: ## Synthetic dump/restore of Core, Activity and CRM Events owner DBs
+	sh deploy/activity/verify-backup-owners.sh --isolated
+
+activity-transfer-verify: ## Overlay config plus Events restore onto a second PostgreSQL
+	sh deploy/activity/verify-transfer.sh
+
+activity-observability-test: ## Validate Prometheus config and exercise pilot alert rules
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) check config /config/prometheus.yml
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) test rules /config/alerts.test.yml
+
+activity-ci: activity-observability-test activity-backup-verify ## Run Activity verification with disposable PostgreSQL and automatic cleanup
 	@set -eu; \
 	case "$(ACTIVITY_TEST_PROJECT)" in *-test) ;; *) echo "Refusing non-test project: use a dedicated name ending in -test" >&2; exit 1;; esac; \
 	mkdir -p tmp/activity-v0-evidence; \

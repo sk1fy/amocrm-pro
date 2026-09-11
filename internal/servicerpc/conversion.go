@@ -58,6 +58,9 @@ func toIssueRequest(src serviceapi.IssueRequest) *pb.IssueRequest {
 	for _, item := range src.Grants {
 		out.Grants = append(out.Grants, toGrant(item))
 	}
+	out.Kind = src.Kind
+	out.PanelId = src.PanelID.String()
+	out.ViewKeyVersion = boundedInt32(src.ViewKeyVersion)
 	return out
 }
 func fromIssueRequest(src *pb.IssueRequest) serviceapi.IssueRequest {
@@ -74,6 +77,9 @@ func fromIssueRequest(src *pb.IssueRequest) serviceapi.IssueRequest {
 	for _, item := range src.Grants {
 		out.Grants = append(out.Grants, fromGrant(item))
 	}
+	out.Kind = src.Kind
+	out.PanelID = parseUUID(src.PanelId)
+	out.ViewKeyVersion = int(src.ViewKeyVersion)
 	return out
 }
 func toPrincipal(src serviceapi.Principal) *pb.Principal {
@@ -85,6 +91,9 @@ func toPrincipal(src serviceapi.Principal) *pb.Principal {
 	out.Consumer = src.Consumer
 	out.RequestId = src.RequestID
 	out.ExpiresAt = src.ExpiresAt.Format(time.RFC3339Nano)
+	out.Kind = src.Kind
+	out.PanelId = src.PanelID.String()
+	out.ViewKeyVersion = boundedInt32(src.ViewKeyVersion)
 	return out
 }
 func fromPrincipal(src *pb.Principal) serviceapi.Principal {
@@ -99,6 +108,9 @@ func fromPrincipal(src *pb.Principal) serviceapi.Principal {
 	out.Consumer = src.Consumer
 	out.RequestID = src.RequestId
 	out.ExpiresAt = parseTime(src.ExpiresAt)
+	out.Kind = src.Kind
+	out.PanelID = parseUUID(src.PanelId)
+	out.ViewKeyVersion = int(src.ViewKeyVersion)
 	return out
 }
 func toEvent(src serviceapi.Event) *pb.Event {
@@ -1027,6 +1039,236 @@ func fromPanel(src *pb.Panel) serviceapi.Panel {
 	out.Timezone = src.Timezone
 	out.Data = fromQueryResult(src.Data)
 	out.Settings = fromSettings(src.Settings)
+	out.Coverage = src.Coverage
+	out.Freshness = src.Freshness
+	out.EmptyReason = src.EmptyReason
+	out.InterpretationVersion = int(src.InterpretationVersion)
+	return out
+}
+func toDisplayWindow(src serviceapi.DisplayWindow) *pb.DisplayWindow {
+	out := new(pb.DisplayWindow)
+	out.From = src.From
+	out.To = src.To
+	return out
+}
+func fromDisplayWindow(src *pb.DisplayWindow) serviceapi.DisplayWindow {
+	var out serviceapi.DisplayWindow
+	if src == nil {
+		return out
+	}
+	out.From = src.From
+	out.To = src.To
+	return out
+}
+func toShareLookupRequest(src serviceapi.ShareLookupRequest) *pb.ShareLookupRequest {
+	out := new(pb.ShareLookupRequest)
+	out.ViewKey = src.ViewKey
+	return out
+}
+func fromShareLookupRequest(src *pb.ShareLookupRequest) serviceapi.ShareLookupRequest {
+	var out serviceapi.ShareLookupRequest
+	if src == nil {
+		return out
+	}
+	out.ViewKey = src.ViewKey
+	return out
+}
+func toShareLookup(src serviceapi.ShareLookup) *pb.ShareLookup {
+	out := new(pb.ShareLookup)
+	out.IntegrationId = src.IntegrationID.String()
+	out.InstallationId = src.InstallationID.String()
+	out.PanelId = src.PanelID.String()
+	out.Enabled = src.Enabled
+	out.ViewKeyVersion = boundedInt32(src.ViewKeyVersion)
+	out.EmployeeIds = append(out.EmployeeIds, src.EmployeeIDs...)
+	return out
+}
+func fromShareLookup(src *pb.ShareLookup) serviceapi.ShareLookup {
+	var out serviceapi.ShareLookup
+	if src == nil {
+		return out
+	}
+	out.IntegrationID = parseUUID(src.IntegrationId)
+	out.InstallationID = parseUUID(src.InstallationId)
+	out.PanelID = parseUUID(src.PanelId)
+	out.Enabled = src.Enabled
+	out.ViewKeyVersion = int(src.ViewKeyVersion)
+	out.EmployeeIDs = append(out.EmployeeIDs, src.EmployeeIds...)
+	return out
+}
+func toPanelRef(src serviceapi.PanelRef) *pb.PanelRef {
+	out := new(pb.PanelRef)
+	out.Auth = toAuth(src.Auth)
+	out.PanelId = src.PanelID.String()
+	return out
+}
+func fromPanelRef(src *pb.PanelRef) serviceapi.PanelRef {
+	var out serviceapi.PanelRef
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.PanelID = parseUUID(src.PanelId)
+	return out
+}
+func toPanelCommand(src serviceapi.PanelCommand) *pb.PanelCommand {
+	out := new(pb.PanelCommand)
+	out.Auth = toAuth(src.Auth)
+	out.CommandId = src.CommandID
+	out.PanelId = src.PanelID.String()
+	out.Name = src.Name
+	out.EmployeeIds = append(out.EmployeeIds, src.EmployeeIDs...)
+	out.DisplayWindow = toDisplayWindow(src.DisplayWindow)
+	out.Enabled = src.Enabled
+	out.Revision = src.Revision
+	out.HasName = src.HasName
+	out.HasEmployees = src.HasEmployees
+	out.HasWindow = src.HasWindow
+	return out
+}
+func fromPanelCommand(src *pb.PanelCommand) serviceapi.PanelCommand {
+	var out serviceapi.PanelCommand
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.CommandID = src.CommandId
+	out.PanelID = parseUUID(src.PanelId)
+	out.Name = src.Name
+	out.EmployeeIDs = append(out.EmployeeIDs, src.EmployeeIds...)
+	out.DisplayWindow = fromDisplayWindow(src.DisplayWindow)
+	out.Enabled = src.Enabled
+	out.Revision = src.Revision
+	out.HasName = src.HasName
+	out.HasEmployees = src.HasEmployees
+	out.HasWindow = src.HasWindow
+	return out
+}
+func toManagedPanel(src serviceapi.ManagedPanel) *pb.ManagedPanel {
+	out := new(pb.ManagedPanel)
+	out.Id = src.ID.String()
+	out.Name = src.Name
+	out.EmployeeIds = append(out.EmployeeIds, src.EmployeeIDs...)
+	out.DisplayWindow = toDisplayWindow(src.DisplayWindow)
+	out.Timezone = src.Timezone
+	out.Enabled = src.Enabled
+	out.Revision = src.Revision
+	out.UpdatedAt = src.UpdatedAt.Format(time.RFC3339Nano)
+	out.ShareUrlIssued = src.ShareUrlIssued
+	out.ViewKey = src.ViewKey
+	out.ShareUrl = src.ShareUrl
+	out.ViewKeyVersion = boundedInt32(src.ViewKeyVersion)
+	return out
+}
+func fromManagedPanel(src *pb.ManagedPanel) serviceapi.ManagedPanel {
+	var out serviceapi.ManagedPanel
+	if src == nil {
+		return out
+	}
+	out.ID = parseUUID(src.Id)
+	out.Name = src.Name
+	out.EmployeeIDs = append(out.EmployeeIDs, src.EmployeeIds...)
+	out.DisplayWindow = fromDisplayWindow(src.DisplayWindow)
+	out.Timezone = src.Timezone
+	out.Enabled = src.Enabled
+	out.Revision = src.Revision
+	out.UpdatedAt = parseTime(src.UpdatedAt)
+	out.ShareUrlIssued = src.ShareUrlIssued
+	out.ViewKey = src.ViewKey
+	out.ShareUrl = src.ShareUrl
+	out.ViewKeyVersion = int(src.ViewKeyVersion)
+	return out
+}
+func toManagedPanelPage(src serviceapi.ManagedPanelPage) *pb.ManagedPanelPage {
+	out := new(pb.ManagedPanelPage)
+	for _, item := range src.Panels {
+		out.Panels = append(out.Panels, toManagedPanel(item))
+	}
+	return out
+}
+func fromManagedPanelPage(src *pb.ManagedPanelPage) serviceapi.ManagedPanelPage {
+	var out serviceapi.ManagedPanelPage
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Panels {
+		out.Panels = append(out.Panels, fromManagedPanel(item))
+	}
+	return out
+}
+func toViewerPanel(src serviceapi.ViewerPanel) *pb.ViewerPanel {
+	out := new(pb.ViewerPanel)
+	out.Name = src.Name
+	out.Timezone = src.Timezone
+	out.DisplayWindow = toDisplayWindow(src.DisplayWindow)
+	for _, item := range src.Employees {
+		out.Employees = append(out.Employees, toUser(item))
+	}
+	out.InterpretationVersion = boundedInt32(src.InterpretationVersion)
+	return out
+}
+func fromViewerPanel(src *pb.ViewerPanel) serviceapi.ViewerPanel {
+	var out serviceapi.ViewerPanel
+	if src == nil {
+		return out
+	}
+	out.Name = src.Name
+	out.Timezone = src.Timezone
+	out.DisplayWindow = fromDisplayWindow(src.DisplayWindow)
+	for _, item := range src.Employees {
+		out.Employees = append(out.Employees, fromUser(item))
+	}
+	out.InterpretationVersion = int(src.InterpretationVersion)
+	return out
+}
+func toViewerTimeline(src serviceapi.ViewerTimeline) *pb.ViewerTimeline {
+	out := new(pb.ViewerTimeline)
+	for _, item := range src.Employees {
+		out.Employees = append(out.Employees, toUser(item))
+	}
+	out.Timezone = src.Timezone
+	out.Data = toQueryResult(src.Data)
+	out.Coverage = src.Coverage
+	out.Freshness = src.Freshness
+	out.EmptyReason = src.EmptyReason
+	out.InterpretationVersion = boundedInt32(src.InterpretationVersion)
+	return out
+}
+func fromViewerTimeline(src *pb.ViewerTimeline) serviceapi.ViewerTimeline {
+	var out serviceapi.ViewerTimeline
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Employees {
+		out.Employees = append(out.Employees, fromUser(item))
+	}
+	out.Timezone = src.Timezone
+	out.Data = fromQueryResult(src.Data)
+	out.Coverage = src.Coverage
+	out.Freshness = src.Freshness
+	out.EmptyReason = src.EmptyReason
+	out.InterpretationVersion = int(src.InterpretationVersion)
+	return out
+}
+func toViewerEmployee(src serviceapi.ViewerEmployee) *pb.ViewerEmployee {
+	out := new(pb.ViewerEmployee)
+	out.Employee = toUser(src.Employee)
+	out.Timezone = src.Timezone
+	out.Data = toQueryResult(src.Data)
+	out.Coverage = src.Coverage
+	out.Freshness = src.Freshness
+	out.EmptyReason = src.EmptyReason
+	out.InterpretationVersion = boundedInt32(src.InterpretationVersion)
+	return out
+}
+func fromViewerEmployee(src *pb.ViewerEmployee) serviceapi.ViewerEmployee {
+	var out serviceapi.ViewerEmployee
+	if src == nil {
+		return out
+	}
+	out.Employee = fromUser(src.Employee)
+	out.Timezone = src.Timezone
+	out.Data = fromQueryResult(src.Data)
 	out.Coverage = src.Coverage
 	out.Freshness = src.Freshness
 	out.EmptyReason = src.EmptyReason

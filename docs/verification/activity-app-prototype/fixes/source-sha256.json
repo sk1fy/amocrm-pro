@@ -1,0 +1,20 @@
+{
+  "internal/activitybridge/share_limit.go": "abbd594f8f698f36f8a00ccf665abe700aa5cae628f496b00e6c35b23b8a5275",
+  "internal/activitybridge/share_limit_test.go": "b7c8d04a15f8a37d216e6a3896025ef712aa9b81704688e85bff1a5a263b6f1e",
+  "internal/activitybridge/share_http.go": "3e62427c349e7b3b321d20532b36e5a07d7fdc3e6becc433dd2cb1169b826163",
+  "internal/corepolicy/policy.go": "d33893eba6f3b4a676d9b5a21a10d288383c9c3f7c2f2b1e75a81523cdc35a39",
+  "internal/serviceapi/contracts.go": "759fd8f1f8d158cf83d215ca8b42074df31d0a30ce6d7bcbda34323eed228c17",
+  "internal/serviceapi/panels.go": "4efc35f2dd173a6f54473157c44a8b84225c58784b4dfd7a924d397095035e9b",
+  "internal/servicerpc/adapters.go": "8cc5823a8651e11bcee7f7fff198e61d9754076ed66012ed7416aeaad629e223",
+  "internal/servicerpc/conversion.go": "e0d718fd528cb2aee591e469e58ddffc0a0fb11ddf231728cf8396f441043edf",
+  "internal/servicerpc/panels_regression_test.go": "35a811f8a47c920bf4e46a21e0dfddc79f3a81958b1920195813037a2b950291",
+  "internal/services/activity/panels.go": "3f672964a633270b1c135a250fd50f41ca61d9e8ef011c88db2dd8780a5b115e",
+  "internal/services/activity/postgres_panels.go": "55a0e459194bbc23ab0ada28552e5363d5465aa49079ada967e2f4f7fde009fb",
+  "internal/services/activity/panels_integration_test.go": "e5030cbc1131c80b1a42b456775ec7ad0dc76ea2870bff9f4d4fc6de9d22d9e4",
+  "internal/services/activity/panels_regression_test.go": "7bc678b3b914a7b4cb36525549716945d83ba01b6ad1b732ee3159bb99edd706",
+  "api/proto/services.proto": "264e940a2c823075bd351d968f7c3ad6353c9bee6419abe8e17784b97d4fe523",
+  "api/proto/generate-adapters.py": "6727aac9f7630bbd382ff1eb1d87cf27e628f24c3759da67f32b5581264df51a",
+  "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-activity-site/src/viewer-api.mjs": "8717a531c43273b08fb3eb15664754b5de90503bda5274c6975bf52609503a55",
+  "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-activity-site/src/app.mjs": "1f8511342a71c795a28765a8b2d8001d1f1609aa0b0cafdf4c2859cff93dcb0b",
+  "/Users/nikpeskov/Projects/sub-projects/amocrm-pro-activity-site/test/viewer-api.test.mjs": "a7529b6e27c34aa6016c9c1eb428dc408142d7dd46527d7682a2a8dc89a8789b"
+}

@@ -11,7 +11,10 @@ import (
 type Snapshot struct {
 	States                                       map[string]int64
 	EnrichmentStates                             map[string]int64
+	CoverageStates                               map[string]int64
 	AgeSeconds, LagSeconds, EnrichmentAgeSeconds float64
+	CoverageGapSeconds                           float64
+	CoverageGapValid                             bool
 	Processed, Inserted, Updated, Deduplicated   int64
 }
 
@@ -33,10 +36,36 @@ func enrichmentMetricState(state string) string {
 	}
 }
 
-// Collector exports bounded service-level labels, never installation/user IDs.
-func (s *Service) Collector() prometheus.Collector { return &collector{s: s} }
+func coverageMetricState(state string) string {
+	switch state {
+	case serviceapi.CoverageUnknown, serviceapi.CoveragePartial, serviceapi.CoverageVerified:
+		return state
+	default:
+		return "other"
+	}
+}
 
-type collector struct{ s *Service }
+// sourceCoverageClass is the source-level analogue of periodState for the
+// retained window: unknown without a continuous range; partial when retained
+// history starts before verified continuous_from; otherwise verified.
+func sourceCoverageClass(continuousFrom, continuousTo, retainedFrom *time.Time) string {
+	if continuousFrom == nil || continuousTo == nil {
+		return serviceapi.CoverageUnknown
+	}
+	if retainedFrom != nil && retainedFrom.Before(*continuousFrom) {
+		return serviceapi.CoveragePartial
+	}
+	return serviceapi.CoverageVerified
+}
+
+// Collector exports bounded service-level labels, never installation/user IDs.
+func (s *Service) Collector() prometheus.Collector {
+	return &collector{snapshot: s.repository.MetricsSnapshot}
+}
+
+type collector struct {
+	snapshot func(context.Context) (Snapshot, error)
+}
 
 var (
 	queueDesc         = prometheus.NewDesc("crm_events_jobs", "CRM Events owner jobs by state", []string{"state"}, nil)
@@ -45,18 +74,20 @@ var (
 	counterDesc       = prometheus.NewDesc("crm_events_events_total", "Persisted page event counters including replay passes", []string{"outcome"}, nil)
 	enrichmentDesc    = prometheus.NewDesc("crm_events_enrichment", "CRM Events enrichment objects by state", []string{"state"}, nil)
 	enrichmentAgeDesc = prometheus.NewDesc("crm_events_enrichment_oldest_age_seconds", "Oldest unfinished enrichment object", nil, nil)
+	coverageDesc      = prometheus.NewDesc("crm_events_coverage", "Enabled CRM Events sources by retained-window coverage class", []string{"state"}, nil)
+	coverageGapDesc   = prometheus.NewDesc("crm_events_coverage_gap_seconds", "Largest age since the newest coverage window of an enabled source", nil, nil)
 	upDesc            = prometheus.NewDesc("crm_events_metrics_up", "Whether the owner metrics snapshot succeeded", nil, nil)
 )
 
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range []*prometheus.Desc{queueDesc, ageDesc, lagDesc, counterDesc, enrichmentDesc, enrichmentAgeDesc, upDesc} {
+	for _, d := range []*prometheus.Desc{queueDesc, ageDesc, lagDesc, counterDesc, enrichmentDesc, enrichmentAgeDesc, coverageDesc, coverageGapDesc, upDesc} {
 		ch <- d
 	}
 }
 func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	snapshot, err := c.s.repository.MetricsSnapshot(ctx)
+	snapshot, err := c.snapshot(ctx)
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(upDesc, prometheus.GaugeValue, 0)
 		return
@@ -82,4 +113,14 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(enrichmentDesc, prometheus.GaugeValue, float64(n), state)
 	}
 	ch <- prometheus.MustNewConstMetric(enrichmentAgeDesc, prometheus.GaugeValue, max(0, snapshot.EnrichmentAgeSeconds))
+	coverage := map[string]int64{serviceapi.CoverageUnknown: 0, serviceapi.CoveragePartial: 0, serviceapi.CoverageVerified: 0, "other": 0}
+	for state, n := range snapshot.CoverageStates {
+		coverage[coverageMetricState(state)] += n
+	}
+	for state, n := range coverage {
+		ch <- prometheus.MustNewConstMetric(coverageDesc, prometheus.GaugeValue, float64(n), state)
+	}
+	if snapshot.CoverageGapValid {
+		ch <- prometheus.MustNewConstMetric(coverageGapDesc, prometheus.GaugeValue, max(0, snapshot.CoverageGapSeconds))
+	}
 }

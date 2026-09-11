@@ -27,6 +27,14 @@ func TestParseArgsAcceptsListInspectAndExistingCommands(t *testing.T) {
 	}
 }
 
+func TestPanelCommandsRequireHTTPConfig(t *testing.T) {
+	t.Setenv("API_BASE_URL", "")
+	t.Setenv("ACTIVITY_MANAGEMENT_TOKEN", "")
+	if err := run([]string{"panel-list", "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111112"}); err == nil {
+		t.Fatal("panel-list accepted missing HTTP config")
+	}
+}
+
 func TestParseArgsRejectsUnknownAndMalformed(t *testing.T) {
 	for _, args := range [][]string{
 		{},

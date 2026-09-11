@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"time"
 )
 
@@ -14,12 +15,41 @@ var (
 	deliveryErrors = prometheus.NewDesc("activity_delivery_errors", "Core commands carrying a last delivery error by finite category.", []string{"code"}, nil)
 )
 
+func newHTTPResponseSize() *prometheus.HistogramVec {
+	return prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "activity_http_response_bytes",
+		Help: "Widget Activity HTTP response body size by bounded route class.",
+		// Include the 3 MiB JSON cap and the 4 MiB gRPC frame as explicit buckets.
+		Buckets: []float64{1024, 4096, 16384, 65536, 262144, 1 << 20, 2 << 20, serviceapi.MaxResponseBytes, 4 << 20},
+	}, []string{"route"})
+}
+
 type deliveryCollector struct{ pool *pgxpool.Pool }
 
-// Collector reports only Core-owned delivery state. An unreachable Core DB
-// yields up=0 without publishing misleading zero backlog. No tenant labels or
-// payload/actor metadata are emitted, and gathering has a two-second deadline.
-func (b *Bridge) Collector() prometheus.Collector { return &deliveryCollector{pool: b.pool} }
+type metricsCollector struct {
+	delivery *deliveryCollector
+	sizes    *prometheus.HistogramVec
+}
+
+// Collector reports only Core-owned delivery state plus bounded widget HTTP
+// sizes. An unreachable Core DB yields up=0 without publishing misleading zero
+// backlog. No tenant labels or payload/actor metadata are emitted, and gathering
+// has a two-second deadline.
+func (b *Bridge) Collector() prometheus.Collector {
+	return &metricsCollector{delivery: &deliveryCollector{pool: b.pool}, sizes: b.responseSize}
+}
+func (c *metricsCollector) Describe(ch chan<- *prometheus.Desc) {
+	c.delivery.Describe(ch)
+	if c.sizes != nil {
+		c.sizes.Describe(ch)
+	}
+}
+func (c *metricsCollector) Collect(ch chan<- prometheus.Metric) {
+	c.delivery.Collect(ch)
+	if c.sizes != nil {
+		c.sizes.Collect(ch)
+	}
+}
 func (c *deliveryCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- deliveryUp
 	ch <- deliveryCount

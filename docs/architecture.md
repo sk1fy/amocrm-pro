@@ -29,7 +29,10 @@ Browser widget                 amoCRM
 
 Сервисы собираются из одного Go-модуля, но запускаются независимо:
 
-- `amocrm-api` принимает OAuth callback, widget requests и webhooks;
+- `amocrm-api` принимает OAuth callback, widget requests, webhooks и
+  публичный HTTP панелей Activity (`/api/v1/activity/view/*` по ключу
+  ссылки, `/api/v1/activity/panels*` по management token); виджет JWT
+  для просмотра по ссылке не используется ([ADR-0024](adr/0024-activity-share-panels.md));
 - `amocrm-worker` выполняет jobs, amoCRM API calls, workflow и cleanup;
 - `amocrm-migrate` является короткоживущей deployment utility;
 - PostgreSQL 17 — единственное durable runtime-хранилище.
@@ -148,4 +151,6 @@ process-local quota scope, bounded metrics and reproducible capacity evidence.
 - finite retention for jobs/audit/tombstones/workflow/effects;
 - complete webhook rotate/unregister and uninstall/revocation lifecycle;
 - widget settings endpoint and stable JSON errors;
-- dashboards, alerts, SLO, backup/restore and production security hardening.
+- production Grafana/Alertmanager, target-server backup/restore, live widget
+  pilot and KMS; local SLO/dashboard/alert artifacts and synthetic multi-owner
+  restore exist (stage 8 verification), they do not replace the target environment.

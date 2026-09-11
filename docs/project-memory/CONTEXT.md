@@ -106,8 +106,14 @@ API и worker являются раздельными deployment units одно�
 3. Remote amoCRM OAuth token revocation API is not called; uninstall uses
    a scoped OAuth provider with refresh. A lost refresh outcome requires
    successful persistence by the original owner or reauthorization.
-4. Dashboards, alerts, SLO, backup/restore rehearsal of the target
-   environment remain open (этап 8).
+4. Target-environment Grafana/Alertmanager, production backup roles/keys and
+   live widget pilot remain open. Local SLO contract, importable dashboard,
+   alert rules and synthetic multi-owner restore are in
+   `docs/verification/stage8-2026-09-08/` (этап 8, 11.09.2026).
+   Follow-up fixes add behavioural Prometheus rule tests and restore preflight
+   to `activity-ci`. Full restore requires a coordinated, quiesced backup set;
+   accepted commands are not automatically replayed. Events cutover updates
+   both Core API and Activity clients. See stage8 `fixes/README.md`.
 5. Widget settings UX beyond the current JSON error envelope remains a
    product/UI remainder, not a Core contract hole.
 

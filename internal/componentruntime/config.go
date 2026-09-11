@@ -28,6 +28,7 @@ type Config struct {
 	EventsWorkers       int
 	DisableEnrichment   bool
 	PollInterval        time.Duration
+	ShareOrigin         string
 }
 
 func Load(role string) (Config, error) {
@@ -36,7 +37,7 @@ func Load(role string) (Config, error) {
 		GatewayAddress:      env("GATEWAY_ADDRESS", "worker:9090"), ActivityAddress: env("ACTIVITY_ADDRESS", "activity:9091"),
 		EventsAddress: env("CRM_EVENTS_ADDRESS", "crm-events:9092"), RPCAddress: os.Getenv("SERVICE_RPC_ADDRESS"),
 		HealthAddress: os.Getenv("SERVICE_HEALTH_ADDRESS"), ActivityDSN: os.Getenv("ACTIVITY_DATABASE_URL"),
-		EventsDSN: os.Getenv("CRM_EVENTS_DATABASE_URL")}
+		EventsDSN: os.Getenv("CRM_EVENTS_DATABASE_URL"), ShareOrigin: strings.TrimRight(strings.TrimSpace(os.Getenv("ACTIVITY_APP_PUBLIC_ORIGIN")), "/")}
 	if role == "api" || role == "worker" {
 		if c.Mode == "" || c.Mode == "off" {
 			c.Mode = "off"

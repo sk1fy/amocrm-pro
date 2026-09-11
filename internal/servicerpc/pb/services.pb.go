@@ -129,6 +129,9 @@ type IssueRequest struct {
 	Consumer       string                 `protobuf:"bytes,5,opt,name=consumer,proto3" json:"consumer,omitempty"`
 	RequestId      string                 `protobuf:"bytes,6,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	Grants         []*Grant               `protobuf:"bytes,7,rep,name=grants,proto3" json:"grants,omitempty"`
+	Kind           string                 `protobuf:"bytes,8,opt,name=kind,proto3" json:"kind,omitempty"`
+	PanelId        string                 `protobuf:"bytes,9,opt,name=panel_id,json=panelId,proto3" json:"panel_id,omitempty"`
+	ViewKeyVersion int32                  `protobuf:"varint,10,opt,name=view_key_version,json=viewKeyVersion,proto3" json:"view_key_version,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -212,6 +215,27 @@ func (x *IssueRequest) GetGrants() []*Grant {
 	return nil
 }
 
+func (x *IssueRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *IssueRequest) GetPanelId() string {
+	if x != nil {
+		return x.PanelId
+	}
+	return ""
+}
+
+func (x *IssueRequest) GetViewKeyVersion() int32 {
+	if x != nil {
+		return x.ViewKeyVersion
+	}
+	return 0
+}
+
 type ValidateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
@@ -281,6 +305,9 @@ type Principal struct {
 	Consumer       string                 `protobuf:"bytes,5,opt,name=consumer,proto3" json:"consumer,omitempty"`
 	RequestId      string                 `protobuf:"bytes,6,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	ExpiresAt      string                 `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Kind           string                 `protobuf:"bytes,8,opt,name=kind,proto3" json:"kind,omitempty"`
+	PanelId        string                 `protobuf:"bytes,9,opt,name=panel_id,json=panelId,proto3" json:"panel_id,omitempty"`
+	ViewKeyVersion int32                  `protobuf:"varint,10,opt,name=view_key_version,json=viewKeyVersion,proto3" json:"view_key_version,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -362,6 +389,27 @@ func (x *Principal) GetExpiresAt() string {
 		return x.ExpiresAt
 	}
 	return ""
+}
+
+func (x *Principal) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Principal) GetPanelId() string {
+	if x != nil {
+		return x.PanelId
+	}
+	return ""
+}
+
+func (x *Principal) GetViewKeyVersion() int32 {
+	if x != nil {
+		return x.ViewKeyVersion
+	}
+	return 0
 }
 
 type Event struct {
@@ -3459,6 +3507,798 @@ func (x *Panel) GetInterpretationVersion() int32 {
 	return 0
 }
 
+type DisplayWindow struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisplayWindow) Reset() {
+	*x = DisplayWindow{}
+	mi := &file_services_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisplayWindow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisplayWindow) ProtoMessage() {}
+
+func (x *DisplayWindow) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisplayWindow.ProtoReflect.Descriptor instead.
+func (*DisplayWindow) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *DisplayWindow) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *DisplayWindow) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+type ShareLookupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ViewKey       string                 `protobuf:"bytes,1,opt,name=view_key,json=viewKey,proto3" json:"view_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShareLookupRequest) Reset() {
+	*x = ShareLookupRequest{}
+	mi := &file_services_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareLookupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareLookupRequest) ProtoMessage() {}
+
+func (x *ShareLookupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareLookupRequest.ProtoReflect.Descriptor instead.
+func (*ShareLookupRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ShareLookupRequest) GetViewKey() string {
+	if x != nil {
+		return x.ViewKey
+	}
+	return ""
+}
+
+type ShareLookup struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IntegrationId  string                 `protobuf:"bytes,1,opt,name=integration_id,json=integrationId,proto3" json:"integration_id,omitempty"`
+	InstallationId string                 `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	PanelId        string                 `protobuf:"bytes,3,opt,name=panel_id,json=panelId,proto3" json:"panel_id,omitempty"`
+	Enabled        bool                   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	ViewKeyVersion int32                  `protobuf:"varint,5,opt,name=view_key_version,json=viewKeyVersion,proto3" json:"view_key_version,omitempty"`
+	EmployeeIds    []int64                `protobuf:"varint,6,rep,packed,name=employee_ids,json=employeeIds,proto3" json:"employee_ids,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ShareLookup) Reset() {
+	*x = ShareLookup{}
+	mi := &file_services_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareLookup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareLookup) ProtoMessage() {}
+
+func (x *ShareLookup) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareLookup.ProtoReflect.Descriptor instead.
+func (*ShareLookup) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *ShareLookup) GetIntegrationId() string {
+	if x != nil {
+		return x.IntegrationId
+	}
+	return ""
+}
+
+func (x *ShareLookup) GetInstallationId() string {
+	if x != nil {
+		return x.InstallationId
+	}
+	return ""
+}
+
+func (x *ShareLookup) GetPanelId() string {
+	if x != nil {
+		return x.PanelId
+	}
+	return ""
+}
+
+func (x *ShareLookup) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *ShareLookup) GetViewKeyVersion() int32 {
+	if x != nil {
+		return x.ViewKeyVersion
+	}
+	return 0
+}
+
+func (x *ShareLookup) GetEmployeeIds() []int64 {
+	if x != nil {
+		return x.EmployeeIds
+	}
+	return nil
+}
+
+type PanelRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	PanelId       string                 `protobuf:"bytes,2,opt,name=panel_id,json=panelId,proto3" json:"panel_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PanelRef) Reset() {
+	*x = PanelRef{}
+	mi := &file_services_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PanelRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PanelRef) ProtoMessage() {}
+
+func (x *PanelRef) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PanelRef.ProtoReflect.Descriptor instead.
+func (*PanelRef) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *PanelRef) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *PanelRef) GetPanelId() string {
+	if x != nil {
+		return x.PanelId
+	}
+	return ""
+}
+
+type PanelCommand struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	CommandId     string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	PanelId       string                 `protobuf:"bytes,3,opt,name=panel_id,json=panelId,proto3" json:"panel_id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	EmployeeIds   []int64                `protobuf:"varint,5,rep,packed,name=employee_ids,json=employeeIds,proto3" json:"employee_ids,omitempty"`
+	DisplayWindow *DisplayWindow         `protobuf:"bytes,6,opt,name=display_window,json=displayWindow,proto3" json:"display_window,omitempty"`
+	Enabled       *bool                  `protobuf:"varint,7,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	Revision      int64                  `protobuf:"varint,8,opt,name=revision,proto3" json:"revision,omitempty"`
+	HasName       bool                   `protobuf:"varint,9,opt,name=has_name,json=hasName,proto3" json:"has_name,omitempty"`
+	HasEmployees  bool                   `protobuf:"varint,10,opt,name=has_employees,json=hasEmployees,proto3" json:"has_employees,omitempty"`
+	HasWindow     bool                   `protobuf:"varint,11,opt,name=has_window,json=hasWindow,proto3" json:"has_window,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PanelCommand) Reset() {
+	*x = PanelCommand{}
+	mi := &file_services_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PanelCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PanelCommand) ProtoMessage() {}
+
+func (x *PanelCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PanelCommand.ProtoReflect.Descriptor instead.
+func (*PanelCommand) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *PanelCommand) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *PanelCommand) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *PanelCommand) GetPanelId() string {
+	if x != nil {
+		return x.PanelId
+	}
+	return ""
+}
+
+func (x *PanelCommand) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PanelCommand) GetEmployeeIds() []int64 {
+	if x != nil {
+		return x.EmployeeIds
+	}
+	return nil
+}
+
+func (x *PanelCommand) GetDisplayWindow() *DisplayWindow {
+	if x != nil {
+		return x.DisplayWindow
+	}
+	return nil
+}
+
+func (x *PanelCommand) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+func (x *PanelCommand) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *PanelCommand) GetHasName() bool {
+	if x != nil {
+		return x.HasName
+	}
+	return false
+}
+
+func (x *PanelCommand) GetHasEmployees() bool {
+	if x != nil {
+		return x.HasEmployees
+	}
+	return false
+}
+
+func (x *PanelCommand) GetHasWindow() bool {
+	if x != nil {
+		return x.HasWindow
+	}
+	return false
+}
+
+type ManagedPanel struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	EmployeeIds    []int64                `protobuf:"varint,3,rep,packed,name=employee_ids,json=employeeIds,proto3" json:"employee_ids,omitempty"`
+	DisplayWindow  *DisplayWindow         `protobuf:"bytes,4,opt,name=display_window,json=displayWindow,proto3" json:"display_window,omitempty"`
+	Timezone       string                 `protobuf:"bytes,5,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Enabled        bool                   `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Revision       int64                  `protobuf:"varint,7,opt,name=revision,proto3" json:"revision,omitempty"`
+	UpdatedAt      string                 `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ShareUrlIssued bool                   `protobuf:"varint,9,opt,name=share_url_issued,json=shareUrlIssued,proto3" json:"share_url_issued,omitempty"`
+	ViewKey        string                 `protobuf:"bytes,10,opt,name=view_key,json=viewKey,proto3" json:"view_key,omitempty"`
+	ShareUrl       string                 `protobuf:"bytes,11,opt,name=share_url,json=shareUrl,proto3" json:"share_url,omitempty"`
+	ViewKeyVersion int32                  `protobuf:"varint,12,opt,name=view_key_version,json=viewKeyVersion,proto3" json:"view_key_version,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ManagedPanel) Reset() {
+	*x = ManagedPanel{}
+	mi := &file_services_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ManagedPanel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ManagedPanel) ProtoMessage() {}
+
+func (x *ManagedPanel) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ManagedPanel.ProtoReflect.Descriptor instead.
+func (*ManagedPanel) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *ManagedPanel) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ManagedPanel) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ManagedPanel) GetEmployeeIds() []int64 {
+	if x != nil {
+		return x.EmployeeIds
+	}
+	return nil
+}
+
+func (x *ManagedPanel) GetDisplayWindow() *DisplayWindow {
+	if x != nil {
+		return x.DisplayWindow
+	}
+	return nil
+}
+
+func (x *ManagedPanel) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *ManagedPanel) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *ManagedPanel) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *ManagedPanel) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *ManagedPanel) GetShareUrlIssued() bool {
+	if x != nil {
+		return x.ShareUrlIssued
+	}
+	return false
+}
+
+func (x *ManagedPanel) GetViewKey() string {
+	if x != nil {
+		return x.ViewKey
+	}
+	return ""
+}
+
+func (x *ManagedPanel) GetShareUrl() string {
+	if x != nil {
+		return x.ShareUrl
+	}
+	return ""
+}
+
+func (x *ManagedPanel) GetViewKeyVersion() int32 {
+	if x != nil {
+		return x.ViewKeyVersion
+	}
+	return 0
+}
+
+type ManagedPanelPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Panels        []*ManagedPanel        `protobuf:"bytes,1,rep,name=panels,proto3" json:"panels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ManagedPanelPage) Reset() {
+	*x = ManagedPanelPage{}
+	mi := &file_services_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ManagedPanelPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ManagedPanelPage) ProtoMessage() {}
+
+func (x *ManagedPanelPage) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ManagedPanelPage.ProtoReflect.Descriptor instead.
+func (*ManagedPanelPage) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ManagedPanelPage) GetPanels() []*ManagedPanel {
+	if x != nil {
+		return x.Panels
+	}
+	return nil
+}
+
+type ViewerPanel struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Name                  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Timezone              string                 `protobuf:"bytes,2,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	DisplayWindow         *DisplayWindow         `protobuf:"bytes,3,opt,name=display_window,json=displayWindow,proto3" json:"display_window,omitempty"`
+	Employees             []*User                `protobuf:"bytes,4,rep,name=employees,proto3" json:"employees,omitempty"`
+	InterpretationVersion int32                  `protobuf:"varint,5,opt,name=interpretation_version,json=interpretationVersion,proto3" json:"interpretation_version,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ViewerPanel) Reset() {
+	*x = ViewerPanel{}
+	mi := &file_services_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViewerPanel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViewerPanel) ProtoMessage() {}
+
+func (x *ViewerPanel) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViewerPanel.ProtoReflect.Descriptor instead.
+func (*ViewerPanel) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ViewerPanel) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ViewerPanel) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *ViewerPanel) GetDisplayWindow() *DisplayWindow {
+	if x != nil {
+		return x.DisplayWindow
+	}
+	return nil
+}
+
+func (x *ViewerPanel) GetEmployees() []*User {
+	if x != nil {
+		return x.Employees
+	}
+	return nil
+}
+
+func (x *ViewerPanel) GetInterpretationVersion() int32 {
+	if x != nil {
+		return x.InterpretationVersion
+	}
+	return 0
+}
+
+type ViewerTimeline struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Employees             []*User                `protobuf:"bytes,1,rep,name=employees,proto3" json:"employees,omitempty"`
+	Timezone              string                 `protobuf:"bytes,2,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Data                  *QueryResult           `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Coverage              string                 `protobuf:"bytes,4,opt,name=coverage,proto3" json:"coverage,omitempty"`
+	Freshness             string                 `protobuf:"bytes,5,opt,name=freshness,proto3" json:"freshness,omitempty"`
+	EmptyReason           string                 `protobuf:"bytes,6,opt,name=empty_reason,json=emptyReason,proto3" json:"empty_reason,omitempty"`
+	InterpretationVersion int32                  `protobuf:"varint,7,opt,name=interpretation_version,json=interpretationVersion,proto3" json:"interpretation_version,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ViewerTimeline) Reset() {
+	*x = ViewerTimeline{}
+	mi := &file_services_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViewerTimeline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViewerTimeline) ProtoMessage() {}
+
+func (x *ViewerTimeline) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViewerTimeline.ProtoReflect.Descriptor instead.
+func (*ViewerTimeline) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ViewerTimeline) GetEmployees() []*User {
+	if x != nil {
+		return x.Employees
+	}
+	return nil
+}
+
+func (x *ViewerTimeline) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *ViewerTimeline) GetData() *QueryResult {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ViewerTimeline) GetCoverage() string {
+	if x != nil {
+		return x.Coverage
+	}
+	return ""
+}
+
+func (x *ViewerTimeline) GetFreshness() string {
+	if x != nil {
+		return x.Freshness
+	}
+	return ""
+}
+
+func (x *ViewerTimeline) GetEmptyReason() string {
+	if x != nil {
+		return x.EmptyReason
+	}
+	return ""
+}
+
+func (x *ViewerTimeline) GetInterpretationVersion() int32 {
+	if x != nil {
+		return x.InterpretationVersion
+	}
+	return 0
+}
+
+type ViewerEmployee struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Employee              *User                  `protobuf:"bytes,1,opt,name=employee,proto3" json:"employee,omitempty"`
+	Timezone              string                 `protobuf:"bytes,2,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Data                  *QueryResult           `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Coverage              string                 `protobuf:"bytes,4,opt,name=coverage,proto3" json:"coverage,omitempty"`
+	Freshness             string                 `protobuf:"bytes,5,opt,name=freshness,proto3" json:"freshness,omitempty"`
+	EmptyReason           string                 `protobuf:"bytes,6,opt,name=empty_reason,json=emptyReason,proto3" json:"empty_reason,omitempty"`
+	InterpretationVersion int32                  `protobuf:"varint,7,opt,name=interpretation_version,json=interpretationVersion,proto3" json:"interpretation_version,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ViewerEmployee) Reset() {
+	*x = ViewerEmployee{}
+	mi := &file_services_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViewerEmployee) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViewerEmployee) ProtoMessage() {}
+
+func (x *ViewerEmployee) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViewerEmployee.ProtoReflect.Descriptor instead.
+func (*ViewerEmployee) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ViewerEmployee) GetEmployee() *User {
+	if x != nil {
+		return x.Employee
+	}
+	return nil
+}
+
+func (x *ViewerEmployee) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *ViewerEmployee) GetData() *QueryResult {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ViewerEmployee) GetCoverage() string {
+	if x != nil {
+		return x.Coverage
+	}
+	return ""
+}
+
+func (x *ViewerEmployee) GetFreshness() string {
+	if x != nil {
+		return x.Freshness
+	}
+	return ""
+}
+
+func (x *ViewerEmployee) GetEmptyReason() string {
+	if x != nil {
+		return x.EmptyReason
+	}
+	return ""
+}
+
+func (x *ViewerEmployee) GetInterpretationVersion() int32 {
+	if x != nil {
+		return x.InterpretationVersion
+	}
+	return 0
+}
+
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
 // candidate credential is never persisted or exposed to Activity/CRM Events.
 type BootstrapAccountRequest struct {
@@ -3472,7 +4312,7 @@ type BootstrapAccountRequest struct {
 
 func (x *BootstrapAccountRequest) Reset() {
 	*x = BootstrapAccountRequest{}
-	mi := &file_services_proto_msgTypes[46]
+	mi := &file_services_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3484,7 +4324,7 @@ func (x *BootstrapAccountRequest) String() string {
 func (*BootstrapAccountRequest) ProtoMessage() {}
 
 func (x *BootstrapAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[46]
+	mi := &file_services_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3497,7 +4337,7 @@ func (x *BootstrapAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootstrapAccountRequest.ProtoReflect.Descriptor instead.
 func (*BootstrapAccountRequest) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{46}
+	return file_services_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *BootstrapAccountRequest) GetIntegrationId() string {
@@ -3531,7 +4371,7 @@ type BootstrapAccount struct {
 
 func (x *BootstrapAccount) Reset() {
 	*x = BootstrapAccount{}
-	mi := &file_services_proto_msgTypes[47]
+	mi := &file_services_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3543,7 +4383,7 @@ func (x *BootstrapAccount) String() string {
 func (*BootstrapAccount) ProtoMessage() {}
 
 func (x *BootstrapAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[47]
+	mi := &file_services_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3556,7 +4396,7 @@ func (x *BootstrapAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootstrapAccount.ProtoReflect.Descriptor instead.
 func (*BootstrapAccount) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{47}
+	return file_services_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *BootstrapAccount) GetId() int64 {
@@ -3582,7 +4422,7 @@ const file_services_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token\";\n" +
 	"\x05Grant\x12\x1a\n" +
 	"\baudience\x18\x01 \x01(\tR\baudience\x12\x16\n" +
-	"\x06action\x18\x02 \x01(\tR\x06action\"\xff\x01\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\"\xd8\x02\n" +
 	"\fIssueRequest\x12%\n" +
 	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12'\n" +
 	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x19\n" +
@@ -3591,11 +4431,15 @@ const file_services_proto_rawDesc = "" +
 	"\bconsumer\x18\x05 \x01(\tR\bconsumer\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x06 \x01(\tR\trequestId\x121\n" +
-	"\x06grants\x18\a \x03(\v2\x19.amocrm.services.v1.GrantR\x06grants\"s\n" +
+	"\x06grants\x18\a \x03(\v2\x19.amocrm.services.v1.GrantR\x06grants\x12\x12\n" +
+	"\x04kind\x18\b \x01(\tR\x04kind\x12\x19\n" +
+	"\bpanel_id\x18\t \x01(\tR\apanelId\x12(\n" +
+	"\x10view_key_version\x18\n" +
+	" \x01(\x05R\x0eviewKeyVersion\"s\n" +
 	"\x0fValidateRequest\x12,\n" +
 	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1a\n" +
 	"\baudience\x18\x02 \x01(\tR\baudience\x12\x16\n" +
-	"\x06action\x18\x03 \x01(\tR\x06action\"\xe8\x01\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\"\xc1\x02\n" +
 	"\tPrincipal\x12%\n" +
 	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12'\n" +
 	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x19\n" +
@@ -3605,7 +4449,11 @@ const file_services_proto_rawDesc = "" +
 	"\n" +
 	"request_id\x18\x06 \x01(\tR\trequestId\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\a \x01(\tR\texpiresAt\"\xd0\x03\n" +
+	"expires_at\x18\a \x01(\tR\texpiresAt\x12\x12\n" +
+	"\x04kind\x18\b \x01(\tR\x04kind\x12\x19\n" +
+	"\bpanel_id\x18\t \x01(\tR\apanelId\x12(\n" +
+	"\x10view_key_version\x18\n" +
+	" \x01(\x05R\x0eviewKeyVersion\"\xd0\x03\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -3897,7 +4745,78 @@ const file_services_proto_rawDesc = "" +
 	"\bcoverage\x18\x05 \x01(\tR\bcoverage\x12\x1c\n" +
 	"\tfreshness\x18\x06 \x01(\tR\tfreshness\x12!\n" +
 	"\fempty_reason\x18\a \x01(\tR\vemptyReason\x125\n" +
-	"\x16interpretation_version\x18\b \x01(\x05R\x15interpretationVersion\"\x8a\x01\n" +
+	"\x16interpretation_version\x18\b \x01(\x05R\x15interpretationVersion\"3\n" +
+	"\rDisplayWindow\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\"/\n" +
+	"\x12ShareLookupRequest\x12\x19\n" +
+	"\bview_key\x18\x01 \x01(\tR\aviewKey\"\xdf\x01\n" +
+	"\vShareLookup\x12%\n" +
+	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x19\n" +
+	"\bpanel_id\x18\x03 \x01(\tR\apanelId\x12\x18\n" +
+	"\aenabled\x18\x04 \x01(\bR\aenabled\x12(\n" +
+	"\x10view_key_version\x18\x05 \x01(\x05R\x0eviewKeyVersion\x12!\n" +
+	"\femployee_ids\x18\x06 \x03(\x03R\vemployeeIds\"S\n" +
+	"\bPanelRef\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x19\n" +
+	"\bpanel_id\x18\x02 \x01(\tR\apanelId\"\x9d\x03\n" +
+	"\fPanelCommand\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x02 \x01(\tR\tcommandId\x12\x19\n" +
+	"\bpanel_id\x18\x03 \x01(\tR\apanelId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12!\n" +
+	"\femployee_ids\x18\x05 \x03(\x03R\vemployeeIds\x12H\n" +
+	"\x0edisplay_window\x18\x06 \x01(\v2!.amocrm.services.v1.DisplayWindowR\rdisplayWindow\x12\x1d\n" +
+	"\aenabled\x18\a \x01(\bH\x00R\aenabled\x88\x01\x01\x12\x1a\n" +
+	"\brevision\x18\b \x01(\x03R\brevision\x12\x19\n" +
+	"\bhas_name\x18\t \x01(\bR\ahasName\x12#\n" +
+	"\rhas_employees\x18\n" +
+	" \x01(\bR\fhasEmployees\x12\x1d\n" +
+	"\n" +
+	"has_window\x18\v \x01(\bR\thasWindowB\n" +
+	"\n" +
+	"\b_enabled\"\x9c\x03\n" +
+	"\fManagedPanel\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\femployee_ids\x18\x03 \x03(\x03R\vemployeeIds\x12H\n" +
+	"\x0edisplay_window\x18\x04 \x01(\v2!.amocrm.services.v1.DisplayWindowR\rdisplayWindow\x12\x1a\n" +
+	"\btimezone\x18\x05 \x01(\tR\btimezone\x12\x18\n" +
+	"\aenabled\x18\x06 \x01(\bR\aenabled\x12\x1a\n" +
+	"\brevision\x18\a \x01(\x03R\brevision\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\x12(\n" +
+	"\x10share_url_issued\x18\t \x01(\bR\x0eshareUrlIssued\x12\x19\n" +
+	"\bview_key\x18\n" +
+	" \x01(\tR\aviewKey\x12\x1b\n" +
+	"\tshare_url\x18\v \x01(\tR\bshareUrl\x12(\n" +
+	"\x10view_key_version\x18\f \x01(\x05R\x0eviewKeyVersion\"L\n" +
+	"\x10ManagedPanelPage\x128\n" +
+	"\x06panels\x18\x01 \x03(\v2 .amocrm.services.v1.ManagedPanelR\x06panels\"\xf6\x01\n" +
+	"\vViewerPanel\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
+	"\btimezone\x18\x02 \x01(\tR\btimezone\x12H\n" +
+	"\x0edisplay_window\x18\x03 \x01(\v2!.amocrm.services.v1.DisplayWindowR\rdisplayWindow\x126\n" +
+	"\temployees\x18\x04 \x03(\v2\x18.amocrm.services.v1.UserR\temployees\x125\n" +
+	"\x16interpretation_version\x18\x05 \x01(\x05R\x15interpretationVersion\"\xad\x02\n" +
+	"\x0eViewerTimeline\x126\n" +
+	"\temployees\x18\x01 \x03(\v2\x18.amocrm.services.v1.UserR\temployees\x12\x1a\n" +
+	"\btimezone\x18\x02 \x01(\tR\btimezone\x123\n" +
+	"\x04data\x18\x03 \x01(\v2\x1f.amocrm.services.v1.QueryResultR\x04data\x12\x1a\n" +
+	"\bcoverage\x18\x04 \x01(\tR\bcoverage\x12\x1c\n" +
+	"\tfreshness\x18\x05 \x01(\tR\tfreshness\x12!\n" +
+	"\fempty_reason\x18\x06 \x01(\tR\vemptyReason\x125\n" +
+	"\x16interpretation_version\x18\a \x01(\x05R\x15interpretationVersion\"\xab\x02\n" +
+	"\x0eViewerEmployee\x124\n" +
+	"\bemployee\x18\x01 \x01(\v2\x18.amocrm.services.v1.UserR\bemployee\x12\x1a\n" +
+	"\btimezone\x18\x02 \x01(\tR\btimezone\x123\n" +
+	"\x04data\x18\x03 \x01(\v2\x1f.amocrm.services.v1.QueryResultR\x04data\x12\x1a\n" +
+	"\bcoverage\x18\x04 \x01(\tR\bcoverage\x12\x1c\n" +
+	"\tfreshness\x18\x05 \x01(\tR\tfreshness\x12!\n" +
+	"\fempty_reason\x18\x06 \x01(\tR\vemptyReason\x125\n" +
+	"\x16interpretation_version\x18\a \x01(\x05R\x15interpretationVersion\"\x8a\x01\n" +
 	"\x17BootstrapAccountRequest\x12%\n" +
 	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12%\n" +
 	"\x0eaccount_domain\x18\x02 \x01(\tR\raccountDomain\x12!\n" +
@@ -3921,13 +4840,26 @@ const file_services_proto_rawDesc = "" +
 	"\x05Apply\x12\x1b.amocrm.services.v1.Command\x1a\x1d.amocrm.services.v1.Operation\x12I\n" +
 	"\vQueryEvents\x12\x19.amocrm.services.v1.Query\x1a\x1f.amocrm.services.v1.QueryResult\x12B\n" +
 	"\x06Status\x12\x18.amocrm.services.v1.Auth\x1a\x1e.amocrm.services.v1.SyncStatus\x12V\n" +
-	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\x85\x03\n" +
+	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\xf5\t\n" +
 	"\bActivity\x12@\n" +
 	"\bGetPanel\x12\x19.amocrm.services.v1.Query\x1a\x19.amocrm.services.v1.Panel\x12G\n" +
 	"\bGetEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event\x12E\n" +
 	"\vGetSettings\x12\x18.amocrm.services.v1.Auth\x1a\x1c.amocrm.services.v1.Settings\x12O\n" +
 	"\tConfigure\x12#.amocrm.services.v1.SettingsCommand\x1a\x1d.amocrm.services.v1.Operation\x12V\n" +
-	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2p\n" +
+	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation\x12W\n" +
+	"\fResolveShare\x12&.amocrm.services.v1.ShareLookupRequest\x1a\x1f.amocrm.services.v1.ShareLookup\x12Q\n" +
+	"\vCreatePanel\x12 .amocrm.services.v1.PanelCommand\x1a .amocrm.services.v1.ManagedPanel\x12L\n" +
+	"\n" +
+	"ListPanels\x12\x18.amocrm.services.v1.Auth\x1a$.amocrm.services.v1.ManagedPanelPage\x12Q\n" +
+	"\x0fGetManagedPanel\x12\x1c.amocrm.services.v1.PanelRef\x1a .amocrm.services.v1.ManagedPanel\x12P\n" +
+	"\n" +
+	"PatchPanel\x12 .amocrm.services.v1.PanelCommand\x1a .amocrm.services.v1.ManagedPanel\x12U\n" +
+	"\x0fRotateShareLink\x12 .amocrm.services.v1.PanelCommand\x1a .amocrm.services.v1.ManagedPanel\x12H\n" +
+	"\rListEmployees\x12\x18.amocrm.services.v1.Auth\x1a\x1d.amocrm.services.v1.Directory\x12F\n" +
+	"\tViewPanel\x12\x18.amocrm.services.v1.Auth\x1a\x1f.amocrm.services.v1.ViewerPanel\x12M\n" +
+	"\fViewTimeline\x12\x19.amocrm.services.v1.Query\x1a\".amocrm.services.v1.ViewerTimeline\x12M\n" +
+	"\fViewEmployee\x12\x19.amocrm.services.v1.Query\x1a\".amocrm.services.v1.ViewerEmployee\x12H\n" +
+	"\tViewEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event2p\n" +
 	"\rCoreBootstrap\x12_\n" +
 	"\n" +
 	"GetAccount\x12+.amocrm.services.v1.BootstrapAccountRequest\x1a$.amocrm.services.v1.BootstrapAccountB4Z2github.com/sk1fy/amocrm-pro/internal/servicerpc/pbb\x06proto3"
@@ -3944,7 +4876,7 @@ func file_services_proto_rawDescGZIP() []byte {
 	return file_services_proto_rawDescData
 }
 
-var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_services_proto_goTypes = []any{
 	(*Auth)(nil),                    // 0: amocrm.services.v1.Auth
 	(*Grant)(nil),                   // 1: amocrm.services.v1.Grant
@@ -3992,8 +4924,18 @@ var file_services_proto_goTypes = []any{
 	(*Settings)(nil),                // 43: amocrm.services.v1.Settings
 	(*SettingsCommand)(nil),         // 44: amocrm.services.v1.SettingsCommand
 	(*Panel)(nil),                   // 45: amocrm.services.v1.Panel
-	(*BootstrapAccountRequest)(nil), // 46: amocrm.services.v1.BootstrapAccountRequest
-	(*BootstrapAccount)(nil),        // 47: amocrm.services.v1.BootstrapAccount
+	(*DisplayWindow)(nil),           // 46: amocrm.services.v1.DisplayWindow
+	(*ShareLookupRequest)(nil),      // 47: amocrm.services.v1.ShareLookupRequest
+	(*ShareLookup)(nil),             // 48: amocrm.services.v1.ShareLookup
+	(*PanelRef)(nil),                // 49: amocrm.services.v1.PanelRef
+	(*PanelCommand)(nil),            // 50: amocrm.services.v1.PanelCommand
+	(*ManagedPanel)(nil),            // 51: amocrm.services.v1.ManagedPanel
+	(*ManagedPanelPage)(nil),        // 52: amocrm.services.v1.ManagedPanelPage
+	(*ViewerPanel)(nil),             // 53: amocrm.services.v1.ViewerPanel
+	(*ViewerTimeline)(nil),          // 54: amocrm.services.v1.ViewerTimeline
+	(*ViewerEmployee)(nil),          // 55: amocrm.services.v1.ViewerEmployee
+	(*BootstrapAccountRequest)(nil), // 56: amocrm.services.v1.BootstrapAccountRequest
+	(*BootstrapAccount)(nil),        // 57: amocrm.services.v1.BootstrapAccount
 }
 var file_services_proto_depIdxs = []int32{
 	1,  // 0: amocrm.services.v1.IssueRequest.grants:type_name -> amocrm.services.v1.Grant
@@ -4034,51 +4976,84 @@ var file_services_proto_depIdxs = []int32{
 	33, // 35: amocrm.services.v1.Panel.users:type_name -> amocrm.services.v1.User
 	39, // 36: amocrm.services.v1.Panel.data:type_name -> amocrm.services.v1.QueryResult
 	43, // 37: amocrm.services.v1.Panel.settings:type_name -> amocrm.services.v1.Settings
-	2,  // 38: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
-	3,  // 39: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
-	31, // 40: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
-	34, // 41: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
-	13, // 42: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
-	16, // 43: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
-	19, // 44: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
-	23, // 45: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
-	27, // 46: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
-	30, // 47: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
-	40, // 48: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
-	36, // 49: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
-	0,  // 50: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
-	42, // 51: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	36, // 52: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
-	30, // 53: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
-	0,  // 54: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
-	44, // 55: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
-	42, // 56: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	46, // 57: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
-	0,  // 58: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
-	4,  // 59: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
-	32, // 60: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
-	35, // 61: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
-	15, // 62: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
-	18, // 63: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
-	22, // 64: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
-	26, // 65: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
-	29, // 66: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
-	5,  // 67: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
-	41, // 68: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
-	39, // 69: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
-	38, // 70: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
-	41, // 71: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
-	45, // 72: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
-	5,  // 73: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
-	43, // 74: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
-	41, // 75: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
-	41, // 76: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
-	47, // 77: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
-	58, // [58:78] is the sub-list for method output_type
-	38, // [38:58] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	0,  // 38: amocrm.services.v1.PanelRef.auth:type_name -> amocrm.services.v1.Auth
+	0,  // 39: amocrm.services.v1.PanelCommand.auth:type_name -> amocrm.services.v1.Auth
+	46, // 40: amocrm.services.v1.PanelCommand.display_window:type_name -> amocrm.services.v1.DisplayWindow
+	46, // 41: amocrm.services.v1.ManagedPanel.display_window:type_name -> amocrm.services.v1.DisplayWindow
+	51, // 42: amocrm.services.v1.ManagedPanelPage.panels:type_name -> amocrm.services.v1.ManagedPanel
+	46, // 43: amocrm.services.v1.ViewerPanel.display_window:type_name -> amocrm.services.v1.DisplayWindow
+	33, // 44: amocrm.services.v1.ViewerPanel.employees:type_name -> amocrm.services.v1.User
+	33, // 45: amocrm.services.v1.ViewerTimeline.employees:type_name -> amocrm.services.v1.User
+	39, // 46: amocrm.services.v1.ViewerTimeline.data:type_name -> amocrm.services.v1.QueryResult
+	33, // 47: amocrm.services.v1.ViewerEmployee.employee:type_name -> amocrm.services.v1.User
+	39, // 48: amocrm.services.v1.ViewerEmployee.data:type_name -> amocrm.services.v1.QueryResult
+	2,  // 49: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
+	3,  // 50: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
+	31, // 51: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
+	34, // 52: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
+	13, // 53: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
+	16, // 54: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
+	19, // 55: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
+	23, // 56: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
+	27, // 57: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
+	30, // 58: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	40, // 59: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
+	36, // 60: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
+	0,  // 61: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
+	42, // 62: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	36, // 63: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
+	30, // 64: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	0,  // 65: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
+	44, // 66: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
+	42, // 67: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	47, // 68: amocrm.services.v1.Activity.ResolveShare:input_type -> amocrm.services.v1.ShareLookupRequest
+	50, // 69: amocrm.services.v1.Activity.CreatePanel:input_type -> amocrm.services.v1.PanelCommand
+	0,  // 70: amocrm.services.v1.Activity.ListPanels:input_type -> amocrm.services.v1.Auth
+	49, // 71: amocrm.services.v1.Activity.GetManagedPanel:input_type -> amocrm.services.v1.PanelRef
+	50, // 72: amocrm.services.v1.Activity.PatchPanel:input_type -> amocrm.services.v1.PanelCommand
+	50, // 73: amocrm.services.v1.Activity.RotateShareLink:input_type -> amocrm.services.v1.PanelCommand
+	0,  // 74: amocrm.services.v1.Activity.ListEmployees:input_type -> amocrm.services.v1.Auth
+	0,  // 75: amocrm.services.v1.Activity.ViewPanel:input_type -> amocrm.services.v1.Auth
+	36, // 76: amocrm.services.v1.Activity.ViewTimeline:input_type -> amocrm.services.v1.Query
+	36, // 77: amocrm.services.v1.Activity.ViewEmployee:input_type -> amocrm.services.v1.Query
+	30, // 78: amocrm.services.v1.Activity.ViewEvent:input_type -> amocrm.services.v1.EventRequest
+	56, // 79: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
+	0,  // 80: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
+	4,  // 81: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
+	32, // 82: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
+	35, // 83: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
+	15, // 84: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
+	18, // 85: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
+	22, // 86: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
+	26, // 87: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
+	29, // 88: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
+	5,  // 89: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
+	41, // 90: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
+	39, // 91: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
+	38, // 92: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
+	41, // 93: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
+	45, // 94: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
+	5,  // 95: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
+	43, // 96: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
+	41, // 97: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
+	41, // 98: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
+	48, // 99: amocrm.services.v1.Activity.ResolveShare:output_type -> amocrm.services.v1.ShareLookup
+	51, // 100: amocrm.services.v1.Activity.CreatePanel:output_type -> amocrm.services.v1.ManagedPanel
+	52, // 101: amocrm.services.v1.Activity.ListPanels:output_type -> amocrm.services.v1.ManagedPanelPage
+	51, // 102: amocrm.services.v1.Activity.GetManagedPanel:output_type -> amocrm.services.v1.ManagedPanel
+	51, // 103: amocrm.services.v1.Activity.PatchPanel:output_type -> amocrm.services.v1.ManagedPanel
+	51, // 104: amocrm.services.v1.Activity.RotateShareLink:output_type -> amocrm.services.v1.ManagedPanel
+	35, // 105: amocrm.services.v1.Activity.ListEmployees:output_type -> amocrm.services.v1.Directory
+	53, // 106: amocrm.services.v1.Activity.ViewPanel:output_type -> amocrm.services.v1.ViewerPanel
+	54, // 107: amocrm.services.v1.Activity.ViewTimeline:output_type -> amocrm.services.v1.ViewerTimeline
+	55, // 108: amocrm.services.v1.Activity.ViewEmployee:output_type -> amocrm.services.v1.ViewerEmployee
+	5,  // 109: amocrm.services.v1.Activity.ViewEvent:output_type -> amocrm.services.v1.Event
+	57, // 110: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
+	80, // [80:111] is the sub-list for method output_type
+	49, // [49:80] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_services_proto_init() }
@@ -4086,13 +5061,14 @@ func file_services_proto_init() {
 	if File_services_proto != nil {
 		return
 	}
+	file_services_proto_msgTypes[50].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_proto_rawDesc), len(file_services_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   48,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

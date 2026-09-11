@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -54,6 +55,9 @@ type API struct {
 	OAuthIdentityBurst        int
 	OAuthLimiterInactiveTTL   time.Duration
 	OAuthLimiterMaxEntries    int
+	ActivityAppOrigins        []string
+	ActivityAppPublicOrigin   string
+	ActivityManagementToken   string
 }
 
 type BootstrapIntegration struct {
@@ -229,6 +233,11 @@ func LoadAPI() (API, error) {
 		return API{}, errors.New("OAUTH_LIMITER_INACTIVE_TTL must cover a full burst refill and be at least 1s")
 	}
 
+	origins, publicOrigin, managementToken, err := loadActivityShare()
+	if err != nil {
+		return API{}, err
+	}
+
 	return API{
 		Common: common, ManagementHTTPAddress: managementAddress,
 		MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
@@ -245,7 +254,29 @@ func LoadAPI() (API, error) {
 		OAuthIPRate:          oauthIPRate, OAuthIPBurst: oauthIPBurst,
 		OAuthIdentityRate: oauthIdentityRate, OAuthIdentityBurst: oauthIdentityBurst,
 		OAuthLimiterInactiveTTL: oauthLimiterInactiveTTL, OAuthLimiterMaxEntries: oauthLimiterMaxEntries,
+		ActivityAppOrigins: origins, ActivityAppPublicOrigin: publicOrigin, ActivityManagementToken: managementToken,
 	}, nil
+}
+
+func loadActivityShare() ([]string, string, string, error) {
+	var origins []string
+	for _, item := range strings.Split(os.Getenv("ACTIVITY_APP_ORIGINS"), ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, err := url.ParseRequestURI(item); err != nil {
+			return nil, "", "", fmt.Errorf("ACTIVITY_APP_ORIGINS: invalid origin %q", item)
+		}
+		origins = append(origins, item)
+	}
+	publicOrigin := strings.TrimRight(strings.TrimSpace(os.Getenv("ACTIVITY_APP_PUBLIC_ORIGIN")), "/")
+	if publicOrigin != "" {
+		if _, err := url.ParseRequestURI(publicOrigin); err != nil {
+			return nil, "", "", fmt.Errorf("ACTIVITY_APP_PUBLIC_ORIGIN: invalid origin")
+		}
+	}
+	return origins, publicOrigin, os.Getenv("ACTIVITY_MANAGEMENT_TOKEN"), nil
 }
 
 func addressesConflict(first, second string) bool {

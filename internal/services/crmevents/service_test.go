@@ -53,6 +53,9 @@ func TestUnauthorizedLocalCallsDoNotReachStorage(t *testing.T) {
 	if _, err := service.Query(context.Background(), serviceapi.Query{}); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 		t.Fatal(err)
 	}
+	if _, err := service.GetEvent(context.Background(), serviceapi.EventRequest{EventID: "card"}); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatal(err)
+	}
 	if _, err := service.Apply(context.Background(), serviceapi.Command{}); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 		t.Fatal(err)
 	}

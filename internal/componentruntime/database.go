@@ -63,7 +63,44 @@ func RegisterPoolMetrics(reg prometheus.Registerer, pool *pgxpool.Pool, service 
 			m := metric
 			reg.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "component_db_" + m.name, Help: m.help, ConstLabels: prometheus.Labels{"service": service}}, func() float64 { return m.value(pool.Stat()) }))
 		}
+		reg.MustRegister(newDBSizeCollector(pool, service))
 	}
+}
+
+type dbSizeCollector struct {
+	pool *pgxpool.Pool
+	size *prometheus.Desc
+	up   *prometheus.Desc
+}
+
+func newDBSizeCollector(pool *pgxpool.Pool, service string) *dbSizeCollector {
+	labels := prometheus.Labels{"service": service}
+	return &dbSizeCollector{
+		pool: pool,
+		size: prometheus.NewDesc("component_db_size_bytes", "PostgreSQL database size for this owner service.", nil, labels),
+		up:   prometheus.NewDesc("component_db_size_up", "Whether the last owner database size scrape succeeded.", nil, labels),
+	}
+}
+
+func (c *dbSizeCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.size
+	ch <- c.up
+}
+
+func (c *dbSizeCollector) Collect(ch chan<- prometheus.Metric) {
+	if c.pool == nil {
+		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var size float64
+	if err := c.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&size); err != nil {
+		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		return
+	}
+	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 1)
+	ch <- prometheus.MustNewConstMetric(c.size, prometheus.GaugeValue, size)
 }
 
 type queryStart struct{}

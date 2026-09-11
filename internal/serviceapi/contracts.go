@@ -25,6 +25,14 @@ const (
 	ActionOperation = "operation"
 	ActionEvents    = "events"
 	ActionUsers     = "users"
+	ActionView      = "view"
+	ActionPanels    = "panels"
+)
+
+const (
+	PrincipalKindUser     = ""
+	PrincipalKindViewer   = "viewer"
+	PrincipalKindOperator = "operator"
 )
 
 type Code string
@@ -73,11 +81,14 @@ type Auth struct {
 }
 type Principal struct {
 	Scope
-	ActorID   int64     `json:"actor_id"`
-	System    bool      `json:"system"`
-	Consumer  string    `json:"consumer"`
-	RequestID string    `json:"request_id"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ActorID        int64     `json:"actor_id"`
+	System         bool      `json:"system"`
+	Kind           string    `json:"kind,omitempty"`
+	PanelID        uuid.UUID `json:"panel_id,omitempty"`
+	ViewKeyVersion int       `json:"view_key_version,omitempty"`
+	Consumer       string    `json:"consumer"`
+	RequestID      string    `json:"request_id"`
+	ExpiresAt      time.Time `json:"expires_at"`
 }
 type Grant struct {
 	Audience string `json:"audience"`
@@ -89,11 +100,14 @@ type Grant struct {
 // for already admitted sources, and live policy is checked before every page.
 type IssueRequest struct {
 	Scope
-	ActorID   int64   `json:"actor_id"`
-	System    bool    `json:"system"`
-	Consumer  string  `json:"consumer"`
-	RequestID string  `json:"request_id"`
-	Grants    []Grant `json:"grants"`
+	ActorID        int64     `json:"actor_id"`
+	System         bool      `json:"system"`
+	Kind           string    `json:"kind,omitempty"`
+	PanelID        uuid.UUID `json:"panel_id,omitempty"`
+	ViewKeyVersion int       `json:"view_key_version,omitempty"`
+	Consumer       string    `json:"consumer"`
+	RequestID      string    `json:"request_id"`
+	Grants         []Grant   `json:"grants"`
 }
 type Policy interface {
 	Issue(context.Context, IssueRequest) (Auth, error)
@@ -259,6 +273,17 @@ type Activity interface {
 	Settings(context.Context, Auth) (Settings, error)
 	Configure(context.Context, SettingsCommand) (Operation, error)
 	Operation(context.Context, OperationRequest) (Operation, error)
+	ResolveShare(context.Context, ShareLookupRequest) (ShareLookup, error)
+	CreatePanel(context.Context, PanelCommand) (ManagedPanel, error)
+	ListPanels(context.Context, Auth) ([]ManagedPanel, error)
+	GetManagedPanel(context.Context, PanelRef) (ManagedPanel, error)
+	PatchPanel(context.Context, PanelCommand) (ManagedPanel, error)
+	RotateShareLink(context.Context, PanelCommand) (ManagedPanel, error)
+	ListEmployees(context.Context, Auth) (Directory, error)
+	ViewPanel(context.Context, Auth) (ViewerPanel, error)
+	ViewTimeline(context.Context, Query) (ViewerTimeline, error)
+	ViewEmployee(context.Context, Query) (ViewerEmployee, error)
+	ViewEvent(context.Context, EventRequest) (Event, error)
 }
 
 // EventPresenter is an additive product port. Core uses it for the existing
@@ -287,6 +312,10 @@ func UserGrantsFor(audience, action string) []Grant {
 	switch {
 	case audience == ActivityService && action == ActionPanel:
 		return []Grant{{ActivityService, ActionPanel}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}
+	case audience == ActivityService && action == ActionView:
+		return []Grant{{ActivityService, ActionView}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}
+	case audience == ActivityService && action == ActionPanels:
+		return []Grant{{ActivityService, ActionPanels}, {GatewayService, ActionUsers}}
 	case audience == ActivityService && (action == ActionSettings || action == ActionOperation):
 		return []Grant{{audience, action}}
 	case audience == EventsService && (action == ActionRead || action == ActionStatus || action == ActionSync || action == ActionOperation):

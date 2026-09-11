@@ -1,0 +1,119 @@
+# Overlay on docker-compose.activity.yml. Distinct static DNS names and extra
+# networks so Activity and CRM Events are not on the Core data plane.
+# Does not change the default stack when this file is omitted.
+#
+# mTLS ServerName is the hostname from GATEWAY_ADDRESS / ACTIVITY_ADDRESS /
+# CRM_EVENTS_ADDRESS. Keep worker / activity / crm-events (names already in
+# development identities). Do not disable TLS verification for a new hostname.
+# cmd/service-certs is not a production CA; see docs/runbooks/secrets-rotation.md.
+#
+# Default project name ends with -test so an accidental `up` cannot attach to
+# amocrm-activity. Always pass -p <name>-test. Never use runtime DBs of
+# project amocrm-activity.
+name: amocrm-activity-transfer-test
+
+networks:
+  core-plane:
+  activity-plane:
+  events-plane:
+  rpc-plane:
+
+services:
+  postgres:
+    networks:
+      core-plane:
+        aliases: [core-postgres]
+      activity-plane:
+        aliases: [activity-postgres]
+      events-plane:
+        aliases: [events-postgres]
+  postgres-events:
+    profiles: ["transfer-db"]
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: events_admin
+      POSTGRES_PASSWORD: events_admin_dev
+      POSTGRES_DB: postgres
+    volumes:
+      - transfer-events-data:/var/lib/postgresql/data
+      - ./deploy/activity/init-db.sh:/docker-entrypoint-initdb.d/010-owners.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U events_admin -d postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    mem_limit: 512m
+    cpus: 1.0
+    networks:
+      events-plane:
+        aliases: [events-postgres-target]
+  postgres-activity:
+    profiles: ["transfer-db"]
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: activity_admin
+      POSTGRES_PASSWORD: activity_admin_dev
+      POSTGRES_DB: postgres
+    volumes:
+      - transfer-activity-data:/var/lib/postgresql/data
+      - ./deploy/activity/init-db.sh:/docker-entrypoint-initdb.d/010-owners.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U activity_admin -d postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    mem_limit: 512m
+    cpus: 1.0
+    networks:
+      activity-plane:
+        aliases: [activity-postgres-target]
+  certificates:
+    networks: [rpc-plane]
+  migrate-core:
+    environment:
+      DATABASE_URL: postgres://core_owner:core_owner_dev@core-postgres:5432/amocrm_core?sslmode=disable
+    networks: [core-plane]
+  migrate-activity:
+    environment:
+      DATABASE_URL: postgres://activity_owner:activity_owner_dev@activity-postgres:5432/amocrm_activity?sslmode=disable
+    networks: [activity-plane]
+  migrate-events:
+    environment:
+      DATABASE_URL: postgres://events_owner:events_owner_dev@events-postgres:5432/amocrm_events?sslmode=disable
+    networks: [events-plane]
+  worker:
+    environment:
+      DATABASE_URL: postgres://core_runtime:core_runtime_dev@core-postgres:5432/amocrm_core?sslmode=disable
+    networks: [core-plane, rpc-plane]
+  api:
+    environment:
+      DATABASE_URL: postgres://core_runtime:core_runtime_dev@core-postgres:5432/amocrm_core?sslmode=disable
+      ACTIVITY_ADDRESS: activity:9091
+      CRM_EVENTS_ADDRESS: crm-events:9092
+      GATEWAY_ADDRESS: worker:9090
+    networks: [core-plane, rpc-plane]
+  activity:
+    environment:
+      ACTIVITY_DATABASE_URL: postgres://activity_runtime:activity_runtime_dev@activity-postgres:5432/amocrm_activity?sslmode=disable
+      GATEWAY_ADDRESS: worker:9090
+      CRM_EVENTS_ADDRESS: crm-events:9092
+    networks: [activity-plane, rpc-plane]
+  crm-events:
+    environment:
+      CRM_EVENTS_DATABASE_URL: postgres://events_runtime:events_runtime_dev@events-postgres:5432/amocrm_events?sslmode=disable
+      GATEWAY_ADDRESS: worker:9090
+    networks: [events-plane, rpc-plane]
+  activity-control:
+    environment:
+      DATABASE_URL: postgres://core_runtime:core_runtime_dev@core-postgres:5432/amocrm_core?sslmode=disable
+    networks: [core-plane]
+  integrations:
+    environment:
+      DATABASE_URL: postgres://core_runtime:core_runtime_dev@core-postgres:5432/amocrm_core?sslmode=disable
+    networks: [core-plane]
+
+volumes:
+  transfer-events-data:
+  transfer-activity-data:

@@ -1,0 +1,64 @@
+
+> amocrm-pro-activity-site@0.1.0 check
+> node --check src/app.mjs && node --check src/bridge-client.mjs && node --check src/activity-api.mjs && node --check src/viewer-api.mjs && node --check src/routing.mjs && node --test test/*.test.mjs && node scripts/build.mjs
+
+✔ bootstrap success and HTTP 401/403/429/503 map to user errors (6.98ms)
+✔ uncertain 503 keeps idempotency payload; 403 does not retry the same key (6.355959ms)
+✔ 202 is acceptance; succeeded stops polling and reloads panel once (4.853167ms)
+✔ compact panel pages keep group_id, dedupe events and cache cards (5.695333ms)
+✔ stale panel responses do not replace a newer filter result (7.196417ms)
+✔ HTTP log never receives a token field from the API wrapper (19.342458ms)
+✔ refresh invalidates pending cards, pagination keeps the current cache (8.649458ms)
+✔ old inflight detail cannot overwrite a card fetched after refresh (1.703ms)
+✔ allowlist accepts bootstrap and Activity routes only (10.375083ms)
+✔ JWT-like values are redacted and detected (2.586375ms)
+✔ opener origin is taken from the hash and must be HTTPS origin (2.213125ms)
+✔ viewer API origin is configuration, not a hardcoded production host (0.505125ms)
+✔ handshake then Activity request returns only status and body (10.09975ms)
+✔ foreign origin and foreign source are ignored (53.403375ms)
+✔ wrong session is rejected without transport (10.1785ms)
+✔ forbidden route never reaches Core transport (11.359375ms)
+✔ request times out when transport never settles (49.5165ms)
+✔ closing the site window stops the host (4.042042ms)
+✔ POST retry keeps payload and Idempotency-Key; transport is called again (3.203125ms)
+✔ star targetOrigin is never used by host or client (6.184584ms)
+✔ unknown and incomplete observations never claim zero employee activity (6.237916ms)
+✔ Core acceptance is shown as delivery pending, never completion (0.946833ms)
+✔ bounded employee period filter supplies no caller identity (17.284584ms)
+✔ journal query keeps compact, group_id and known categories in account timezone (83.287917ms)
+✔ settings keep initial 1–7, retention 2–30 and retention >= initial (4.860667ms)
+✔ calendar presets round-trip inclusive 23:59:50 in the account timezone (65.720208ms)
+✔ audit: observed count and DST validation (18.115041ms)
+✔ local server forwards only Activity requests; credentials stay on server and browser calls need CSRF (179.667125ms)
+✔ viewer proxy forwards Authorization to Core view paths and does not rewrite to /site (27.374833ms)
+✔ fixture mode serves synthetic JSON and hides unknown keys as 404 (18.862459ms)
+✔ hash /#/p/{viewKey} opens viewer mode and ignores opener (9.908ms)
+✔ malformed panel hash is invalid viewer, not widget-bridge (6.0045ms)
+✔ widget opener hash and empty hash stay on the tester path (15.007333ms)
+✔ direct open shows connection instructions and no employee demo rows (10.495583ms)
+✔ account mismatch shows confirmed ids and disables actions (6.10825ms)
+✔ employee list renders a timeline and does not treat unknown coverage as zero activity (127.590333ms)
+✔ eventTitle prefers view.title and falls back to the raw type (1.070042ms)
+✔ 202 acceptance text is not shown as completion (0.751833ms)
+✔ empty reasons and omitted details are distinct from verified inactivity (67.398459ms)
+✔ timeline positions events inside the selected period (4.229875ms)
+✔ direct backend setup and timeline/feed controls have honest data states (9.655834ms)
+✔ share-link viewer shows panel, backend totals, and distinct empty/error/missing states (47.382292ms)
+✔ display_window is a visual band for a single account day, not a filter (16.788083ms)
+✔ viewer allowlist is the Core view API and rejects view_key in the query (4.458041ms)
+✔ viewer client sends Bearer view key and never puts it in the URL (4.888667ms)
+✔ unknown or revoked view key is a 404, 429 keeps Retry-After (17.886875ms)
+✔ stale timeline and employee responses do not replace a newer period (9.173459ms)
+✔ UI totals come from backend totals, not the loaded event page (0.547958ms)
+✔ viewer transport maps a network failure and keeps Authorization off the URL (16.954959ms)
+✔ overview retains backend events and pages without changing period totals (0.787667ms)
+✔ overview renderer shows a returned employee event before expanding a row (149.961417ms)
+ℹ tests 51
+ℹ suites 0
+ℹ pass 51
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1975.341167
+Built static files to dist/

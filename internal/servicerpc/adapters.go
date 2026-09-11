@@ -274,6 +274,160 @@ func (c activityClient) Operation(ctx context.Context, r serviceapi.OperationReq
 	}
 	return fromOperation(v), nil
 }
+func (s *activityServer) ResolveShare(ctx context.Context, r *pb.ShareLookupRequest) (*pb.ShareLookup, error) {
+	v, err := s.impl.ResolveShare(ctx, fromShareLookupRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toShareLookup(v), nil
+}
+func (c activityClient) ResolveShare(ctx context.Context, r serviceapi.ShareLookupRequest) (serviceapi.ShareLookup, error) {
+	v, err := c.remote.ResolveShare(ctx, toShareLookupRequest(r))
+	if err != nil {
+		return serviceapi.ShareLookup{}, err
+	}
+	return fromShareLookup(v), nil
+}
+func (s *activityServer) CreatePanel(ctx context.Context, r *pb.PanelCommand) (*pb.ManagedPanel, error) {
+	v, err := s.impl.CreatePanel(ctx, fromPanelCommand(r))
+	if err != nil {
+		return nil, err
+	}
+	return toManagedPanel(v), nil
+}
+func (c activityClient) CreatePanel(ctx context.Context, r serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	v, err := c.remote.CreatePanel(ctx, toPanelCommand(r))
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	return fromManagedPanel(v), nil
+}
+func (s *activityServer) ListPanels(ctx context.Context, r *pb.Auth) (*pb.ManagedPanelPage, error) {
+	v, err := s.impl.ListPanels(ctx, fromAuth(r))
+	if err != nil {
+		return nil, err
+	}
+	return toManagedPanelPage(serviceapi.ManagedPanelPage{Panels: v}), nil
+}
+func (c activityClient) ListPanels(ctx context.Context, r serviceapi.Auth) ([]serviceapi.ManagedPanel, error) {
+	v, err := c.remote.ListPanels(ctx, toAuth(r))
+	if err != nil {
+		return nil, err
+	}
+	return fromManagedPanelPage(v).Panels, nil
+}
+func (s *activityServer) GetManagedPanel(ctx context.Context, r *pb.PanelRef) (*pb.ManagedPanel, error) {
+	v, err := s.impl.GetManagedPanel(ctx, fromPanelRef(r))
+	if err != nil {
+		return nil, err
+	}
+	return toManagedPanel(v), nil
+}
+func (c activityClient) GetManagedPanel(ctx context.Context, r serviceapi.PanelRef) (serviceapi.ManagedPanel, error) {
+	v, err := c.remote.GetManagedPanel(ctx, toPanelRef(r))
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	return fromManagedPanel(v), nil
+}
+func (s *activityServer) PatchPanel(ctx context.Context, r *pb.PanelCommand) (*pb.ManagedPanel, error) {
+	v, err := s.impl.PatchPanel(ctx, fromPanelCommand(r))
+	if err != nil {
+		return nil, err
+	}
+	return toManagedPanel(v), nil
+}
+func (c activityClient) PatchPanel(ctx context.Context, r serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	v, err := c.remote.PatchPanel(ctx, toPanelCommand(r))
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	return fromManagedPanel(v), nil
+}
+func (s *activityServer) RotateShareLink(ctx context.Context, r *pb.PanelCommand) (*pb.ManagedPanel, error) {
+	v, err := s.impl.RotateShareLink(ctx, fromPanelCommand(r))
+	if err != nil {
+		return nil, err
+	}
+	return toManagedPanel(v), nil
+}
+func (c activityClient) RotateShareLink(ctx context.Context, r serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	v, err := c.remote.RotateShareLink(ctx, toPanelCommand(r))
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	return fromManagedPanel(v), nil
+}
+func (s *activityServer) ListEmployees(ctx context.Context, r *pb.Auth) (*pb.Directory, error) {
+	v, err := s.impl.ListEmployees(ctx, fromAuth(r))
+	if err != nil {
+		return nil, err
+	}
+	return toDirectory(v), nil
+}
+func (c activityClient) ListEmployees(ctx context.Context, r serviceapi.Auth) (serviceapi.Directory, error) {
+	v, err := c.remote.ListEmployees(ctx, toAuth(r))
+	if err != nil {
+		return serviceapi.Directory{}, err
+	}
+	return fromDirectory(v), nil
+}
+func (s *activityServer) ViewPanel(ctx context.Context, r *pb.Auth) (*pb.ViewerPanel, error) {
+	v, err := s.impl.ViewPanel(ctx, fromAuth(r))
+	if err != nil {
+		return nil, err
+	}
+	return toViewerPanel(v), nil
+}
+func (c activityClient) ViewPanel(ctx context.Context, r serviceapi.Auth) (serviceapi.ViewerPanel, error) {
+	v, err := c.remote.ViewPanel(ctx, toAuth(r))
+	if err != nil {
+		return serviceapi.ViewerPanel{}, err
+	}
+	return fromViewerPanel(v), nil
+}
+func (s *activityServer) ViewTimeline(ctx context.Context, r *pb.Query) (*pb.ViewerTimeline, error) {
+	v, err := s.impl.ViewTimeline(ctx, fromQuery(r))
+	if err != nil {
+		return nil, err
+	}
+	return toViewerTimeline(v), nil
+}
+func (c activityClient) ViewTimeline(ctx context.Context, r serviceapi.Query) (serviceapi.ViewerTimeline, error) {
+	v, err := c.remote.ViewTimeline(ctx, toQuery(r))
+	if err != nil {
+		return serviceapi.ViewerTimeline{}, err
+	}
+	return fromViewerTimeline(v), nil
+}
+func (s *activityServer) ViewEmployee(ctx context.Context, r *pb.Query) (*pb.ViewerEmployee, error) {
+	v, err := s.impl.ViewEmployee(ctx, fromQuery(r))
+	if err != nil {
+		return nil, err
+	}
+	return toViewerEmployee(v), nil
+}
+func (c activityClient) ViewEmployee(ctx context.Context, r serviceapi.Query) (serviceapi.ViewerEmployee, error) {
+	v, err := c.remote.ViewEmployee(ctx, toQuery(r))
+	if err != nil {
+		return serviceapi.ViewerEmployee{}, err
+	}
+	return fromViewerEmployee(v), nil
+}
+func (s *activityServer) ViewEvent(ctx context.Context, r *pb.EventRequest) (*pb.Event, error) {
+	v, err := s.impl.ViewEvent(ctx, fromEventRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toEvent(v), nil
+}
+func (c activityClient) ViewEvent(ctx context.Context, r serviceapi.EventRequest) (serviceapi.Event, error) {
+	v, err := c.remote.ViewEvent(ctx, toEventRequest(r))
+	if err != nil {
+		return serviceapi.Event{}, err
+	}
+	return fromEvent(v), nil
+}
 
 type policyServer struct {
 	pb.UnimplementedPolicyServer

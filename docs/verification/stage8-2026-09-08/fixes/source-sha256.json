@@ -1,0 +1,9 @@
+{
+  "Makefile": "f61b73962680a9c6c07fbeff4f417b778a7c302b537cc3daa519cdd2a775ab9f",
+  "deploy/activity/verify-restored-commands.sh": "d2cba4d2db5b8b889d7fcd6f5b2b51cceff3d8dde0b8f008f7a75e9c746bbfd1",
+  "deploy/activity/verify-backup-owners.sh": "7c6e9a9194196f63b1be31e5f51809055f5eb1d28b0d9ddd28e486fbdc8ecac1",
+  "deploy/observability/alerts.yml": "9c8a45094c61f1813e5ef9fb24814daaf2180b03b8f381620ec43a60acac1760",
+  "deploy/observability/alerts.test.yml": "6c152c6feaeb6565c91ad86f9d4b1e4402f27f639927665ddd758a8c8edd37d5",
+  "docs/runbooks/activity-module-transfer.md": "b377cbbf4b00adcadd03e91a95401805144a6a9d03797efba5fa57a7364743dc",
+  "docs/runbooks/activity-backup-restore.md": "c5d0638b4979a6f2e0e95a1ce0f56d6ac330842ab5d58286d58f1afb99ee1890"
+}

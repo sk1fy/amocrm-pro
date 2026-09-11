@@ -33,6 +33,9 @@ func (c *checker) Check(ctx context.Context, s serviceapi.Scope, actor int64, sy
 	}
 	return nil
 }
+func (c *checker) CheckDelegation(ctx context.Context, s serviceapi.Scope) error {
+	return c.Check(ctx, s, 0, true)
+}
 
 type fakeAPI struct {
 	err   error

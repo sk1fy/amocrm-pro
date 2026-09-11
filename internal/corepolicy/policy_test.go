@@ -127,6 +127,87 @@ func TestIssueRestrictsActorScopeAndCollectorGrants(t *testing.T) {
 	}
 }
 
+func TestViewerAndOperatorIssueSkipRoleLookup(t *testing.T) {
+	tracker := &issueTracker{scope: serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}}
+	_, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewWithChecker(tracker, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	core := ForCaller(s, serviceapi.CoreService)
+	user := serviceapi.IssueRequest{Scope: tracker.scope, ActorID: 7, Consumer: serviceapi.ActivityService, RequestID: "user", Grants: serviceapi.UserGrants()}
+	if _, err := core.Issue(context.Background(), user); err != nil {
+		t.Fatal(err)
+	}
+	if tracker.checks != 1 || tracker.delegations != 0 {
+		t.Fatalf("widget path checks=%d delegations=%d", tracker.checks, tracker.delegations)
+	}
+	viewer := serviceapi.IssueRequest{Scope: tracker.scope, Kind: serviceapi.PrincipalKindViewer, ViewKeyVersion: 1, PanelID: uuid.New(), Consumer: serviceapi.ActivityService, RequestID: "viewer", Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionView)}
+	missingVersion := viewer
+	missingVersion.ViewKeyVersion = 0
+	if _, err := core.Issue(context.Background(), missingVersion); serviceapi.ErrorCode(err) != serviceapi.InvalidArgument {
+		t.Fatalf("viewer without version accepted: %v", err)
+	}
+	auth, err := core.Issue(context.Background(), viewer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tracker.checks != 1 || tracker.delegations != 1 {
+		t.Fatalf("viewer looked up a role: checks=%d delegations=%d", tracker.checks, tracker.delegations)
+	}
+	p, err := ForCaller(s, serviceapi.ActivityService).Validate(context.Background(), auth, serviceapi.ActivityService, serviceapi.ActionView)
+	if err != nil || p.Kind != serviceapi.PrincipalKindViewer || p.PanelID != viewer.PanelID || p.ViewKeyVersion != viewer.ViewKeyVersion || p.ActorID != 0 {
+		t.Fatalf("viewer principal=%+v err=%v", p, err)
+	}
+	if _, err := ForCaller(s, serviceapi.ActivityService).Validate(context.Background(), auth, serviceapi.ActivityService, serviceapi.ActionPanel); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("viewer reached widget panel: %v", err)
+	}
+	operator := serviceapi.IssueRequest{Scope: tracker.scope, Kind: serviceapi.PrincipalKindOperator, Consumer: serviceapi.ActivityService, RequestID: "operator", Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanels)}
+	if _, err := core.Issue(context.Background(), operator); err != nil {
+		t.Fatal(err)
+	}
+	if tracker.checks != 1 || tracker.delegations != 3 {
+		t.Fatalf("operator looked up a role: checks=%d delegations=%d", tracker.checks, tracker.delegations)
+	}
+	tracker.disabled = true
+	if _, err := core.Issue(context.Background(), viewer); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("disabled pilot issued viewer: %v", err)
+	}
+	if _, err := core.Issue(context.Background(), serviceapi.IssueRequest{Scope: tracker.scope, System: true, ActorID: 0, Consumer: serviceapi.ActivityService, RequestID: "system", Grants: []serviceapi.Grant{{Audience: serviceapi.EventsService, Action: serviceapi.ActionSync}}}); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("Core issued system: %v", err)
+	}
+}
+
+type issueTracker struct {
+	scope                 serviceapi.Scope
+	disabled, unavailable bool
+	checks, delegations   int
+}
+
+func (c *issueTracker) Check(_ context.Context, s serviceapi.Scope, actor int64, system bool) error {
+	c.checks++
+	if c.unavailable {
+		return serviceapi.Fail(serviceapi.Unavailable, "policy unavailable")
+	}
+	if c.disabled || s != c.scope || (!system && actor != 7) {
+		return serviceapi.Fail(serviceapi.PermissionDenied, "not admitted")
+	}
+	return nil
+}
+func (c *issueTracker) CheckDelegation(_ context.Context, s serviceapi.Scope) error {
+	c.delegations++
+	if c.unavailable {
+		return serviceapi.Fail(serviceapi.Unavailable, "policy unavailable")
+	}
+	if c.disabled || s != c.scope {
+		return serviceapi.Fail(serviceapi.PermissionDenied, "not admitted")
+	}
+	return nil
+}
+
 func TestPanelDelegationCannotMutateOrInspectUnrelatedOperations(t *testing.T) {
 	s, _, request := testPolicy(t)
 	request.Grants = serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanel)

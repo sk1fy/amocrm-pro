@@ -64,6 +64,24 @@ func (r *stage6Repository) Configure(ctx context.Context, p serviceapi.Principal
 func (r *stage6Repository) Operation(ctx context.Context, p serviceapi.Principal, id string) (serviceapi.Operation, error) {
 	return r.inner.Operation(ctx, p, id)
 }
+func (r *stage6Repository) ResolveShare(ctx context.Context, hash []byte) (serviceapi.ShareLookup, error) {
+	return r.inner.ResolveShare(ctx, hash)
+}
+func (r *stage6Repository) CreatePanel(ctx context.Context, p serviceapi.Principal, c serviceapi.PanelCommand, panel serviceapi.ManagedPanel, hash []byte) (serviceapi.ManagedPanel, error) {
+	return r.inner.CreatePanel(ctx, p, c, panel, hash)
+}
+func (r *stage6Repository) ListPanels(ctx context.Context, scope serviceapi.Scope) ([]serviceapi.ManagedPanel, error) {
+	return r.inner.ListPanels(ctx, scope)
+}
+func (r *stage6Repository) GetPanel(ctx context.Context, scope serviceapi.Scope, id uuid.UUID) (serviceapi.ManagedPanel, error) {
+	return r.inner.GetPanel(ctx, scope, id)
+}
+func (r *stage6Repository) PatchPanel(ctx context.Context, p serviceapi.Principal, c serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	return r.inner.PatchPanel(ctx, p, c)
+}
+func (r *stage6Repository) RotateShareLink(ctx context.Context, p serviceapi.Principal, c serviceapi.PanelCommand, hash []byte, viewKey string) (serviceapi.ManagedPanel, error) {
+	return r.inner.RotateShareLink(ctx, p, c, hash, viewKey)
+}
 
 type stage6Events struct {
 	mu        sync.Mutex

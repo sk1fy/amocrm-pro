@@ -183,7 +183,7 @@ func StartAPI(ctx context.Context, c Config, core *pgxpool.Pool, reg prometheus.
 			return nil, err
 		}
 		g.closers = append(g.closers, aPool.Close)
-		product = activity.New(activity.NewPostgres(aPool), aClient.Policy, g.components.Events(), aClient.Gateway)
+		product = activity.New(activity.NewPostgres(aPool), aClient.Policy, g.components.Events(), aClient.Gateway).WithShareOrigin(c.ShareOrigin)
 		if err := g.components.Register(serviceapi.ActivityService, product, ownedPlacement("embedded", c.ActivityPool, 0), readyAll(aPool.Ping, aClient.Ready)); err != nil {
 			return nil, err
 		}
@@ -315,7 +315,7 @@ func RunStandalone(ctx context.Context, role string) error {
 		if err := g.components.Register(serviceapi.EventsService, events.CRMEvents, remotePlacement(), events.Ready); err != nil {
 			return err
 		}
-		product := activity.New(activity.NewPostgres(pool), client.Policy, g.components.Events(), g.components.Gateway())
+		product := activity.New(activity.NewPostgres(pool), client.Policy, g.components.Events(), g.components.Gateway()).WithShareOrigin(c.ShareOrigin)
 		if err := g.components.Register(role, product, ownedPlacement("grpc", c.ActivityPool, 0), pool.Ping); err != nil {
 			return err
 		}

@@ -22,6 +22,9 @@
 | [0018](0018-installation-lifecycle.md) | Accepted | Installation disable/revoke/uninstall, webhook unregister and data-retention split |
 | [0019](0019-gateway-outbound-budget.md) | Accepted | One Gateway process owns amoCRM v4 budget; inter-replica limiter only with multiple replicas |
 | [0021](0021-production-secrets.md) | Accepted, KMS deferred | Env/file keyring for current single-host; production KMS not chosen without target server |
+| [0022](0022-activity-slo-and-observability.md) | Accepted for local/pilot contract | Numerical Activity SLO/SLI, bounded metrics, importable dashboard and alert rules; target Grafana not deployed |
+| [0023](0023-product-module-physical-transfer.md) | Accepted as operational rule | Compute-only vs owner-DB move, static addresses, mTLS SAN, drain/fencing; local Docker stand is not the target server |
+| [0024](0024-activity-share-panels.md) | Accepted for stage 9 | Shareable Activity panels, viewer principal without amoCRM role lookup, Core public viewer HTTP; widget admin-only unchanged |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

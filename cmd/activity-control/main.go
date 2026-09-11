@@ -11,10 +11,11 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
 	"os"
+	"strings"
 	"time"
 )
 
-const usage = "usage: activity-control list | inspect|retry COMMAND_UUID | pilot-enable|pilot-disable INSTALLATION_UUID"
+const usage = "usage: activity-control list | inspect|retry COMMAND_UUID | pilot-enable|pilot-disable INSTALLATION_UUID | panel-list|panel-create|panel-get|panel-patch|panel-rotate|panel-employees ..."
 
 func main() {
 	if buildinfo.PrintVersion(os.Args, os.Stdout) {
@@ -27,6 +28,9 @@ func main() {
 }
 
 func run(args []string) error {
+	if len(args) > 0 && strings.HasPrefix(args[0], "panel-") {
+		return runPanel(args)
+	}
 	command, id, err := parseArgs(args)
 	if err != nil {
 		return err

@@ -7,9 +7,9 @@ option go_package = "github.com/sk1fy/amocrm-pro/internal/servicerpc/pb";
 // authenticated mTLS service identity. Maximum message size is 4 MiB.
 message Auth { string token = 1; }
 message Grant { string audience = 1; string action = 2; }
-message IssueRequest { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; repeated Grant grants = 7; }
+message IssueRequest { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; repeated Grant grants = 7; string kind = 8; string panel_id = 9;  int32 view_key_version = 10; }
 message ValidateRequest { Auth auth = 1; string audience = 2; string action = 3; }
-message Principal { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; string expires_at = 7; }
+message Principal { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; string expires_at = 7; string kind = 8; string panel_id = 9;  int32 view_key_version = 10; }
 message Event { string id = 1; int64 created_at = 2; int64 created_by = 3; string type = 4; int64 entity_id = 5; string entity_type = 6; bytes value_before = 7; bytes value_after = 8; int64 linked_talk_contact_id = 9; repeated EnrichmentObject enrichment = 10; repeated CatalogName names = 11; EventView view = 12; }
 message EventDetail { string key = 1; string label = 2; bytes before = 3; bytes after = 4; string text = 5; string source = 6; bool current = 7; }
 message EventView { string category = 1; string title = 2; string summary = 3; string detail_state = 4; string author_label = 5; string entity_label = 6; repeated EventDetail details = 7; string enrichment_state = 8; }
@@ -54,10 +54,20 @@ message OperationRequest { Auth auth = 1; string operation_id = 2; }
 message Settings { int32 initial_days = 1; int32 retention_days = 2; }
 message SettingsCommand { Auth auth = 1; string command_id = 2; Settings settings = 3; }
 message Panel { repeated User users = 1; string timezone = 2; QueryResult data = 3; Settings settings = 4; string coverage = 5; string freshness = 6; string empty_reason = 7; int32 interpretation_version = 8; }
+message DisplayWindow { string from = 1; string to = 2; }
+message ShareLookupRequest { string view_key = 1; }
+message ShareLookup { string integration_id = 1; string installation_id = 2; string panel_id = 3; bool enabled = 4; int32 view_key_version = 5; repeated int64 employee_ids = 6; }
+message PanelRef { Auth auth = 1; string panel_id = 2; }
+message PanelCommand { Auth auth = 1; string command_id = 2; string panel_id = 3; string name = 4; repeated int64 employee_ids = 5; DisplayWindow display_window = 6; optional bool enabled = 7; int64 revision = 8; bool has_name = 9; bool has_employees = 10; bool has_window = 11; }
+message ManagedPanel { string id = 1; string name = 2; repeated int64 employee_ids = 3; DisplayWindow display_window = 4; string timezone = 5; bool enabled = 6; int64 revision = 7; string updated_at = 8; bool share_url_issued = 9; string view_key = 10; string share_url = 11; int32 view_key_version = 12; }
+message ManagedPanelPage { repeated ManagedPanel panels = 1; }
+message ViewerPanel { string name = 1; string timezone = 2; DisplayWindow display_window = 3; repeated User employees = 4; int32 interpretation_version = 5; }
+message ViewerTimeline { repeated User employees = 1; string timezone = 2; QueryResult data = 3; string coverage = 4; string freshness = 5; string empty_reason = 6; int32 interpretation_version = 7; }
+message ViewerEmployee { User employee = 1; string timezone = 2; QueryResult data = 3; string coverage = 4; string freshness = 5; string empty_reason = 6; int32 interpretation_version = 7; }
 service Policy { rpc Issue(IssueRequest) returns (Auth); rpc Validate(ValidateRequest) returns (Principal); }
 service Gateway { rpc Events(EventPageRequest) returns (EventPage); rpc Users(UsersRequest) returns (Directory); rpc Notes(NotesRequest) returns (NotePage); rpc Tasks(TasksRequest) returns (TaskPage); rpc Pipelines(CatalogRequest) returns (PipelineCatalog); rpc CustomFields(CustomFieldsRequest) returns (CustomFieldCatalog); rpc Entities(EntitiesRequest) returns (EntityCatalog); }
 service CRMEvents { rpc GetEvent(EventRequest) returns (Event); rpc Apply(Command) returns (Operation); rpc QueryEvents(Query) returns (QueryResult); rpc Status(Auth) returns (SyncStatus); rpc OperationStatus(OperationRequest) returns (Operation); }
-service Activity { rpc GetPanel(Query) returns (Panel); rpc GetEvent(EventRequest) returns (Event); rpc GetSettings(Auth) returns (Settings); rpc Configure(SettingsCommand) returns (Operation); rpc OperationStatus(OperationRequest) returns (Operation); }
+service Activity { rpc GetPanel(Query) returns (Panel); rpc GetEvent(EventRequest) returns (Event); rpc GetSettings(Auth) returns (Settings); rpc Configure(SettingsCommand) returns (Operation); rpc OperationStatus(OperationRequest) returns (Operation); rpc ResolveShare(ShareLookupRequest) returns (ShareLookup); rpc CreatePanel(PanelCommand) returns (ManagedPanel); rpc ListPanels(Auth) returns (ManagedPanelPage); rpc GetManagedPanel(PanelRef) returns (ManagedPanel); rpc PatchPanel(PanelCommand) returns (ManagedPanel); rpc RotateShareLink(PanelCommand) returns (ManagedPanel); rpc ListEmployees(Auth) returns (Directory); rpc ViewPanel(Auth) returns (ViewerPanel); rpc ViewTimeline(Query) returns (ViewerTimeline); rpc ViewEmployee(Query) returns (ViewerEmployee); rpc ViewEvent(EventRequest) returns (Event); }
 
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
 // candidate credential is never persisted or exposed to Activity/CRM Events.

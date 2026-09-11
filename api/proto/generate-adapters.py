@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate mechanical, typed conversions; business logic remains in owners."""
-import pathlib,re
+import pathlib,re,subprocess
 root=pathlib.Path(__file__).resolve().parents[2]
 proto=(root/'api/proto/services.proto').read_text()
 messages=dict(re.findall(r'message (\w+) \{(.*?)\}',proto,re.S))
@@ -9,7 +9,7 @@ def camel(s):return ''.join(w.title() for w in s.split('_'))
 def domain(s):return camel(s).replace('Id','ID').replace('Ids','IDs')
 for name,body in messages.items():
  if name=='ValidateRequest':continue
- fields=re.findall(r'(repeated\s+)?(\w+) (\w+) = \d+;',body)
+ fields=re.findall(r'(repeated\s+)?(?:optional\s+)?(\w+) (\w+) = \d+;',body)
  for direction in ['to','from']:
   if direction=='to':out.append(f'func to{name}(src serviceapi.{name}) *pb.{name} {{ out:=new(pb.{name})')
   else:out.append(f'func from{name}(src *pb.{name}) serviceapi.{name} {{ var out serviceapi.{name};if src==nil{{return out}}')
@@ -20,9 +20,9 @@ for name,body in messages.items():
     if typ in messages:
      out.append(f'for _,item:=range {src} {{ {dst}=append({dst},{direction}{typ}(item)) }}')
     else:out.append(f'{dst}=append({dst},{src}...)')
-   elif field in ('integration_id','installation_id'):
+   elif field in ('integration_id','installation_id','panel_id') or (name=='ManagedPanel' and field=='id'):
     out.append(f'{dst}={src}.String()' if direction=='to' else f'{dst}=parseUUID({src})')
-   elif field=='expires_at':out.append(f'{dst}={src}.Format(time.RFC3339Nano)' if direction=='to' else f'{dst}=parseTime({src})')
+   elif field=='expires_at' or (name=='ManagedPanel' and field=='updated_at'):out.append(f'{dst}={src}.Format(time.RFC3339Nano)' if direction=='to' else f'{dst}=parseTime({src})')
    elif name=='Event' and field=='view':
     if direction=='to':out.append('if src.View != nil { out.View = toEventView(*src.View) }')
     else:out.append('if src.View != nil && (src.View.Category != "" || src.View.Title != "" || src.View.Summary != "" || len(src.View.Details) > 0) { view := fromEventView(src.View); out.View = &view }')
@@ -31,3 +31,5 @@ for name,body in messages.items():
    else:out.append(f'{dst}={src}')
   out.append('return out }')
 (root/'internal/servicerpc/conversion.go').write_text('\n'.join(out)+'\n')
+
+subprocess.run(["gofmt", "-w", str(root/"internal/servicerpc/conversion.go")], check=True)
