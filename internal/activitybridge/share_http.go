@@ -81,8 +81,7 @@ func (b *Bridge) viewerAccess(next http.Handler) http.Handler {
 			writeShareError(w, err)
 			return
 		}
-		hash := sha256.Sum256([]byte(key))
-		if b.viewerLimiter != nil && !b.viewerLimiter.Allow(hash) {
+		if b.viewerLimiter != nil && !b.viewerLimiter.AllowGlobal() {
 			w.Header().Set("Retry-After", "1")
 			writeShareError(w, errCapacity)
 			return
@@ -302,6 +301,9 @@ func (b *Bridge) issueViewer(r *http.Request) (serviceapi.Auth, error) {
 	if !lookup.Enabled {
 		return serviceapi.Auth{}, errNotFound
 	}
+	if !b.viewerLimiter.Allow(sha256.Sum256([]byte(key))) {
+		return serviceapi.Auth{}, errCapacity
+	}
 	return b.policy.Issue(ctx, serviceapi.IssueRequest{
 		Scope: lookup.Scope, Kind: serviceapi.PrincipalKindViewer, PanelID: lookup.PanelID, ViewKeyVersion: lookup.ViewKeyVersion,
 		Consumer: serviceapi.ActivityService, RequestID: requestID(r), Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionView),
@@ -472,6 +474,9 @@ func writeShareError(w http.ResponseWriter, err error) {
 		return
 	}
 	code := serviceapi.ErrorCode(err)
+	if code == serviceapi.ResourceExhausted {
+		w.Header().Set("Retry-After", "1")
+	}
 	if code == serviceapi.Unauthenticated {
 		w.Header().Set("WWW-Authenticate", "Bearer")
 		respond(w, http.StatusUnauthorized, jsonError{Error: jsonErrorFields{

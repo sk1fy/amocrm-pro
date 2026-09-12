@@ -22,14 +22,19 @@ const (
 )
 
 type Metrics struct {
-	passes     *prometheus.CounterVec
-	duration   prometheus.Histogram
-	deleted    *prometheus.CounterVec
-	batchLimit *prometheus.CounterVec
+	lastSuccess prometheus.Gauge
+	passes      *prometheus.CounterVec
+	duration    prometheus.Histogram
+	deleted     *prometheus.CounterVec
+	batchLimit  *prometheus.CounterVec
 }
 
 func NewMetrics(registerer prometheus.Registerer) *Metrics {
 	metrics := &Metrics{
+		lastSuccess: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "amocrm", Subsystem: "cleanup", Name: "last_success_timestamp_seconds",
+			Help: "Unix time of the last committed cleanup pass; zero until first success.",
+		}),
 		passes: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "amocrm", Subsystem: "cleanup", Name: "passes_total",
 			Help: "Cleanup passes by durable outcome.",
@@ -48,7 +53,7 @@ func NewMetrics(registerer prometheus.Registerer) *Metrics {
 			Help: "Cleanup passes that exhausted the configured batch limit.",
 		}, []string{"record"}),
 	}
-	registerer.MustRegister(metrics.passes, metrics.duration, metrics.deleted, metrics.batchLimit)
+	registerer.MustRegister(metrics.passes, metrics.duration, metrics.deleted, metrics.batchLimit, metrics.lastSuccess)
 	return metrics
 }
 
@@ -65,6 +70,7 @@ func (m *Metrics) observe(started time.Time, result Result, err error) {
 		m.passes.WithLabelValues("skipped").Inc()
 		return
 	}
+	m.lastSuccess.SetToCurrentTime()
 	m.passes.WithLabelValues("completed").Inc()
 	observations := []struct {
 		record       string

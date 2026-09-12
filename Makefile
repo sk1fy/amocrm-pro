@@ -62,6 +62,7 @@ activity-backup-verify: ## Synthetic dump/restore of Core, Activity and CRM Even
 	sh deploy/activity/verify-backup-owners.sh --isolated
 
 activity-transfer-verify: ## Overlay config plus Events restore onto a second PostgreSQL
+	python3 deploy/activity/test-verify-transfer.py
 	sh deploy/activity/verify-transfer.sh
 
 activity-observability-test: ## Validate Prometheus config and exercise pilot alert rules

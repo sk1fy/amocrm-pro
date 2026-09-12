@@ -50,7 +50,8 @@ Prometheus. Alertmanager пустой: страница `/alerts` показыв
 | `GatewayRPCUnavailable` / `ActivityDeliveryUnavailable` | RPC/outbox `unavailable` | `/components`, mTLS, процесс Gateway/Activity/Events |
 | `GatewayScrapeUnavailable` | Gateway management не отвечает или цель исчезла из scrape | Core worker, сеть и `up{job="activity-worker"}`; серверный RPC counter при остановке процесса не растёт |
 | `ActivityOutboxGrowing` | pending/delivering >15m | Core worker, product Ready, повтор delivery |
-| `CleanupStall` / `CleanupSilent` | batch limit без delete или нет completed pass | worker lock, `CLEANUP_INTERVAL` (default 15m) |
+| `CleanupErrors` / `CleanupSilent` | ошибки проходов; последний успех старше 2h, ещё не было успеха или отсутствует метрика | worker logs, DB, lock, `CLEANUP_INTERVAL` (default 15m) |
+| `CleanupBatchPressure` | минимум три достижения batch cap за час, условие держится 30m | проверить объём просроченной истории и бюджет очистки; это индикатор давления, не измерение backlog |
 | `OwnerDatabaseSizeUnreadable` | `pg_database_size` не собрался | connectivity owner DB, `component_db_size_up` |
 | `OwnerDatabaseSizeGrowingFast` | placeholder роста owner DB | не диск хоста; смотреть retention/cleanup |
 | `HostDiskLow` | 10% free | **нужен node_exporter**, в overlay его нет |

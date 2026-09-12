@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,7 +19,7 @@ func TestViewerLimiterBoundsDistinctCredentialsAndReclaimsIdleKeys(t *testing.T)
 	for i := 0; i < 10000; i++ {
 		var key [32]byte
 		binary.LittleEndian.PutUint64(key[:], uint64(i))
-		if l.Allow(key) {
+		if l.AllowGlobal() && l.Allow(key) {
 			accepted++
 		}
 	}
@@ -70,5 +71,34 @@ func TestViewerHTTPBudgetRejectsUnknownKeysBeforeLookup(t *testing.T) {
 	}
 	if calls != viewerGlobalBurst {
 		t.Fatalf("excess request reached downstream: %d", calls)
+	}
+}
+
+func TestInvalidKeysCannotFillViewerBuckets(t *testing.T) {
+	product := &shareActivity{lookup: serviceapi.ShareLookup{Enabled: true}}
+	b := New(nil, &sharePolicy{}, product, nil)
+	b.ConfigureShare([]string{"https://activity.example.invalid"}, "")
+	now := time.Now()
+	b.viewerLimiter.now = func() time.Time { return now }
+	h := b.viewerAccess(http.HandlerFunc(b.ViewPanelHTTP))
+	for i := 0; i <= viewerMaxKeys; i++ {
+		now = now.Add(20 * time.Millisecond)
+		r := httptest.NewRequest("GET", "/api/v1/activity/view/panel", nil)
+		r.Header.Set("Authorization", fmt.Sprintf("Bearer invalid-%d", i))
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 404 {
+			t.Fatalf("invalid key %d: %d", i, w.Code)
+		}
+	}
+	if len(b.viewerLimiter.buckets) != 0 {
+		t.Fatal("invalid keys allocated buckets")
+	}
+	r := httptest.NewRequest("GET", "/api/v1/activity/view/panel", nil)
+	r.Header.Set("Authorization", "Bearer synthetic-view-key")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 200 || len(b.viewerLimiter.buckets) != 1 {
+		t.Fatalf("valid key denied: %d", w.Code)
 	}
 }

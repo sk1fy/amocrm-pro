@@ -3,6 +3,19 @@
 # Never uses compose project amocrm-activity or runtime DBs amocrm_*.
 # Live gRPC cutover is opt-in and off by default (TRANSFER_LIVE=1).
 set -eu
+umask 077
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/amocrm-transfer.XXXXXXXX")
+compose=""
+compose_started=0
+cleanup() {
+  if [ "$compose_started" = 1 ]; then
+    $compose_cmd -p "$TRANSFER_PROJECT" -f "$compose" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  fi
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 TRANSFER_PROJECT=${TRANSFER_PROJECT:-amocrm-stage8-transfer-test}
 
@@ -37,17 +50,17 @@ printf '== compose config (compute-only overlay) ==\n'
 $compose_cmd -p "$TRANSFER_PROJECT" \
   -f "$repo/docker-compose.activity.yml" \
   -f "$repo/docker-compose.activity-transfer.yml" \
-  config >/tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'core-plane' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'activity-plane' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'events-plane' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'rpc-plane' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'core-postgres' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'activity-postgres' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'events-postgres' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'activity:9091' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'crm-events:9092' /tmp/${TRANSFER_PROJECT}-config.yml
-grep -q 'worker:9090' /tmp/${TRANSFER_PROJECT}-config.yml
+  config >"$tmpdir/config.yml"
+grep -q 'core-plane' "$tmpdir/config.yml"
+grep -q 'activity-plane' "$tmpdir/config.yml"
+grep -q 'events-plane' "$tmpdir/config.yml"
+grep -q 'rpc-plane' "$tmpdir/config.yml"
+grep -q 'core-postgres' "$tmpdir/config.yml"
+grep -q 'activity-postgres' "$tmpdir/config.yml"
+grep -q 'events-postgres' "$tmpdir/config.yml"
+grep -q 'activity:9091' "$tmpdir/config.yml"
+grep -q 'crm-events:9092' "$tmpdir/config.yml"
+grep -q 'worker:9090' "$tmpdir/config.yml"
 $compose_cmd -f "$repo/docker-compose.activity.yml" config | grep -q '^name: amocrm-activity$'
 printf 'PASS: overlay config has isolated planes and static RPC host:port names\n'
 printf 'PASS: docker-compose.activity.yml without overlay keeps name amocrm-activity\n'
@@ -56,9 +69,9 @@ printf '== compose config (--profile transfer-db) ==\n'
 $compose_cmd -p "$TRANSFER_PROJECT" --profile transfer-db \
   -f "$repo/docker-compose.activity.yml" \
   -f "$repo/docker-compose.activity-transfer.yml" \
-  config >/tmp/${TRANSFER_PROJECT}-config-db.yml
-grep -q 'events-postgres-target' /tmp/${TRANSFER_PROJECT}-config-db.yml
-grep -q 'activity-postgres-target' /tmp/${TRANSFER_PROJECT}-config-db.yml
+  config >"$tmpdir/config-db.yml"
+grep -q 'events-postgres-target' "$tmpdir/config-db.yml"
+grep -q 'activity-postgres-target' "$tmpdir/config-db.yml"
 printf 'PASS: transfer-db profile exposes second PostgreSQL aliases for owner DB move\n'
 
 if [ "${TRANSFER_LIVE:-0}" = "1" ]; then
@@ -67,7 +80,6 @@ fi
 
 printf '== two-instance CRM Events dump/restore ==\n'
 started=$(date +%s)
-tmpdir=$(mktemp -d)
 compose="$tmpdir/docker-compose.stage8-transfer-db-test.yml"
 cat >"$compose" <<EOF
 name: $TRANSFER_PROJECT
@@ -185,12 +197,7 @@ fi
 printf 'PASS: CRM Events restored onto a second PostgreSQL instance; consumer, coverage and command identity preserved\n'
 INNER
 
-cleanup() {
-  $compose_cmd -p "$TRANSFER_PROJECT" -f "$compose" down --volumes --remove-orphans >/dev/null 2>&1 || true
-  rm -rf "$tmpdir"
-  rm -f /tmp/${TRANSFER_PROJECT}-config.yml /tmp/${TRANSFER_PROJECT}-config-db.yml
-}
-trap cleanup EXIT INT TERM
+compose_started=1
 
 $compose_cmd -p "$TRANSFER_PROJECT" -f "$compose" down --volumes --remove-orphans >/dev/null 2>&1 || true
 $compose_cmd -p "$TRANSFER_PROJECT" -f "$compose" up --detach --wait postgres-src postgres-dst

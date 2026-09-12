@@ -84,27 +84,34 @@ groups:
           summary: Core Activity outbox is not draining
           description: Oldest pending/delivering command is older than 15m. Receipt/outbox IDs stay in diagnostics.
 
-      - alert: CleanupStall
-        expr: |
-          sum(increase(amocrm_cleanup_batch_limit_total[1h])) > 0
-          and sum(increase(amocrm_cleanup_rows_deleted_total[1h])) == 0
+      - alert: CleanupErrors
+        expr: sum(increase(amocrm_cleanup_passes_total{outcome="error"}[1h])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cleanup passes are failing
+          description: Cleanup errors persist; inspect worker logs and database connectivity.
+
+      - alert: CleanupBatchPressure
+        expr: sum by (record) (increase(amocrm_cleanup_batch_limit_total[1h])) >= 3
         for: 30m
         labels:
           severity: warning
         annotations:
-          summary: Cleanup is hitting batch limits without deleting rows
-          description: >
-            Worker cleanup default interval is 15m. Batch-limit pressure without
-            deleted rows means the pass cannot advance technical history.
+          summary: Cleanup repeatedly exhausts its deletion budget
+          description: Successful passes hit the batch cap repeatedly. Retained history may be accumulating; review cleanup capacity and retention.
 
       - alert: CleanupSilent
-        expr: increase(amocrm_cleanup_passes_total{outcome="completed"}[2h]) == 0
+        expr: |
+          (time() - max(amocrm_cleanup_last_success_timestamp_seconds) > 7200)
+          or absent(amocrm_cleanup_last_success_timestamp_seconds)
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: Cleanup completed passes have stopped
-          description: No completed cleanup pass in two hours (four default intervals). Worker may be down or skipping the lock.
+          description: No successful cleanup in two hours (eight default intervals), no first success, or missing metrics. Success is aggregated across replicas sharing the cleanup lock.
 
       - alert: OwnerDatabaseSizeUnreadable
         expr: component_db_size_up == 0

@@ -24,7 +24,14 @@ func queryFingerprint(q serviceapi.Query, p serviceapi.Principal) string {
 	if order == "" {
 		order = "asc"
 	}
+	// Omit the additional field for the legacy widget principal so its
+	// existing cursor fingerprints remain byte-for-byte compatible.
+	panelID := ""
+	if p.Kind == serviceapi.PrincipalKindViewer {
+		panelID = p.PanelID.String()
+	}
 	data, _ := json.Marshal(struct {
+		PanelID               string           `json:"panel_id,omitempty"`
 		Version               int              `json:"version"`
 		Scope                 serviceapi.Scope `json:"scope"`
 		From                  int64            `json:"from"`
@@ -42,7 +49,7 @@ func queryFingerprint(q serviceapi.Query, p serviceapi.Principal) string {
 		Timezone              string           `json:"timezone,omitempty"`
 		Buckets               string           `json:"buckets,omitempty"`
 	}{
-		Version: serviceapi.EventReadVersion, Scope: p.Scope,
+		Version: serviceapi.EventReadVersion, Scope: p.Scope, PanelID: panelID,
 		From: q.From, To: q.To, UserIDs: sortedUnique(q.UserIDs),
 		Types: sortedUnique(q.Types), TypePrefix: q.TypePrefix,
 		EntityType: q.EntityType, EntityIDs: sortedUnique(q.EntityIDs),

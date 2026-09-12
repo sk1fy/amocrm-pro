@@ -185,3 +185,53 @@ func TestPostgresPanelsIsolationRotateDisableAndViewerDTO(t *testing.T) {
 		t.Fatalf("disabled view=%v", err)
 	}
 }
+
+func TestPostgresConcurrentPanelQuota(t *testing.T) {
+	dsn := os.Getenv("ACTIVITY_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("ACTIVITY_TEST_DATABASE_URL not set")
+	}
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil || !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
+		t.Fatal("requires a _test database")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if err := migrations.New(pool, "../../../migrations/activity").Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	scope := serviceapi.Scope{InstallationID: uuid.New(), IntegrationID: uuid.New()}
+	s := New(NewPostgres(pool), panelPolicy{principal: serviceapi.Principal{Scope: scope, Kind: serviceapi.PrincipalKindOperator}}, nil, &panelGateway{users: []serviceapi.User{{ID: 7, Name: "User"}}})
+	create := func() error {
+		_, err := s.CreatePanel(ctx, serviceapi.PanelCommand{Auth: serviceapi.Auth{Token: "ok"}, CommandID: uuid.NewString(), Name: "Panel", EmployeeIDs: []int64{7}, DisplayWindow: serviceapi.DisplayWindow{From: "09:00", To: "18:00"}})
+		return err
+	}
+	for i := 0; i < 49; i++ {
+		if err := create(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	start := make(chan struct{})
+	results := make(chan error, 12)
+	for i := 0; i < 12; i++ {
+		go func() { <-start; results <- create() }()
+	}
+	close(start)
+	successes := 0
+	for i := 0; i < 12; i++ {
+		err := <-results
+		if err == nil {
+			successes++
+		} else if serviceapi.ErrorCode(err) != serviceapi.ResourceExhausted {
+			t.Fatal(err)
+		}
+	}
+	panels, err := s.store.ListPanels(ctx, scope)
+	if err != nil || successes != 1 || len(panels) != 50 {
+		t.Fatalf("successes=%d panels=%d err=%v", successes, len(panels), err)
+	}
+}

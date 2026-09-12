@@ -51,3 +51,21 @@ func TestCleanupMetricsObserveOutcomesAndBoundedPressure(t *testing.T) {
 		t.Fatalf("job batch limit = %v", got)
 	}
 }
+
+func TestCleanupLastSuccessStartsAtZeroAndIgnoresFailures(t *testing.T) {
+	m := NewMetrics(prometheus.NewRegistry())
+	m.observe(time.Now(), Result{}, errors.New("startup failure"))
+	if got := testutil.ToFloat64(m.lastSuccess); got != 0 {
+		t.Fatalf("failed startup published success: %v", got)
+	}
+	m.observe(time.Now(), Result{LockAcquired: true}, nil)
+	success := testutil.ToFloat64(m.lastSuccess)
+	if success <= 0 {
+		t.Fatal("missing success timestamp")
+	}
+	m.observe(time.Now(), Result{}, nil)
+	m.observe(time.Now(), Result{}, errors.New("failure"))
+	if got := testutil.ToFloat64(m.lastSuccess); got != success {
+		t.Fatal("skip/error changed success timestamp")
+	}
+}

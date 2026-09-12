@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 
@@ -71,6 +72,12 @@ func (s *Postgres) CreatePanel(ctx context.Context, p serviceapi.Principal, c se
 			return serviceapi.ManagedPanel{}, err
 		}
 		return replay, nil
+	}
+	// Serialize quota admission across processes for this installation/integration.
+	// Hash collisions only serialize unrelated scopes; they cannot bypass the quota.
+	lockHash := sha256.Sum256([]byte("activity-panel-quota:" + p.InstallationID.String() + ":" + p.IntegrationID.String()))
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(binary.BigEndian.Uint64(lockHash[:8]))); err != nil {
+		return serviceapi.ManagedPanel{}, err
 	}
 	var count int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM panels WHERE installation_id=$1 AND integration_id=$2`, p.InstallationID, p.IntegrationID).Scan(&count); err != nil {

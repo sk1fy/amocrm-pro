@@ -127,3 +127,51 @@ tests:
     exp_samples:
     - labels: '{}'
       value: 1
+
+- name: cleanup fails from startup without completed series
+  interval: 1m
+  input_series:
+  - series: amocrm_cleanup_last_success_timestamp_seconds{instance="worker"}
+    values: 0+0x160
+  - series: amocrm_cleanup_passes_total{outcome="error",instance="worker"}
+    values: 0+1x160
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="CleanupSilent",alertstate="firing"}) or vector(0)
+    eval_time: 140m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="CleanupErrors",alertstate="firing"}) or vector(0)
+    eval_time: 30m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: cleanup succeeds while deletion budget remains exhausted
+  interval: 1m
+  input_series:
+  - series: amocrm_cleanup_last_success_timestamp_seconds{instance="worker"}
+    values: 0+60x160
+  - series: amocrm_cleanup_batch_limit_total{record="job",instance="worker"}
+    values: 0+1x160
+  - series: amocrm_cleanup_rows_deleted_total{record="job",instance="worker"}
+    values: 0+100x160
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="CleanupBatchPressure",alertstate="firing"}) or vector(0)
+    eval_time: 140m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="CleanupSilent",alertstate="firing"}) or vector(0)
+    eval_time: 140m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: missing cleanup metrics
+  interval: 1m
+  input_series: []
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="CleanupSilent",alertstate="firing"}) or vector(0)
+    eval_time: 20m
+    exp_samples:
+    - labels: '{}'
+      value: 1

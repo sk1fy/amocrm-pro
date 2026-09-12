@@ -31,6 +31,17 @@ func newViewKeyLimiter() *viewKeyLimiter {
 	return &viewKeyLimiter{buckets: make(map[[32]byte]*viewBucket), global: rate.NewLimiter(viewerGlobalRate, viewerGlobalBurst), now: time.Now}
 }
 
+// AllowGlobal bounds unverified requests without allocating per-key state.
+func (l *viewKeyLimiter) AllowGlobal() bool {
+	if l == nil {
+		return true
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.global.AllowN(l.now(), 1)
+}
+
+// Allow allocates a bucket only after ResolveShare has authenticated the key.
 func (l *viewKeyLimiter) Allow(key [32]byte) bool {
 	if l == nil {
 		return true
@@ -38,11 +49,6 @@ func (l *viewKeyLimiter) Allow(key [32]byte) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
-	// Shared admission precedes allocation and ResolveShare: changing an
-	// unverified Bearer value must not buy another unrestricted request budget.
-	if !l.global.AllowN(now, 1) {
-		return false
-	}
 	if !now.Before(l.nextCleanup) {
 		for key, entry := range l.buckets {
 			if now.Sub(entry.lastSeen) >= viewerInactiveTTL {
