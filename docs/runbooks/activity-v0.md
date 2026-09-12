@@ -13,6 +13,10 @@
 
 ## Топологии и подготовка
 
+Для подключения Activity к **существующему Core-стеку** без замены его БД
+используйте [отдельную инструкцию overlay v0](activity-existing-stack.md).
+Ниже описан изолированный development-стек.
+
 `docker-compose.activity.yml` создаёт **отдельный development-стек** с собственным
 volume PostgreSQL. Это не обновление существующего `docker-compose.yml`, сервера
 или данных PHP. Все пароли/ключ шифрования в development Compose демонстрационные.

@@ -1,0 +1,217 @@
+# Existing-stack TEST overlay: join Activity v0 and CRM Events to Core
+# stack (amocrm-pro). The Core API keeps the existing amocrm database,
+# integrations and OAuth; worker/Gateway remains the single amoCRM budget
+# owner; Activity and CRM Events own separate logical databases and are
+# reached by the Core API over gRPC with mTLS identities from one CA.
+#
+# Requires pre-provisioned owner/runtime roles and product databases.
+# This file does not bootstrap PostgreSQL or harden Core roles.
+# Setup, required environment and rollback:
+#   docs/runbooks/activity-existing-stack.md
+# Keep the existing project name to reuse its PostgreSQL/identity volumes.
+#   docker compose -p amocrm-pro -f docker-compose.yml -f docker-compose.v0.yml config --quiet
+#   docker compose -p amocrm-pro -f docker-compose.yml -f docker-compose.v0.yml up -d --build api worker activity crm-events
+
+services:
+  api:
+    environment:
+      ACTIVITY_MODE: grpc
+      GATEWAY_ADDRESS: worker:9090
+      ACTIVITY_ADDRESS: activity:9091
+      CRM_EVENTS_ADDRESS: crm-events:9092
+      SERVICE_IDENTITY_DIR: /identity
+      # Share panels (ADR-0024): exact viewer CORS origins, public share_url
+      # origin and the management token for the operator/TeamOS CLI calls.
+      ACTIVITY_APP_ORIGINS: "${ACTIVITY_APP_ORIGINS:-}"
+      ACTIVITY_APP_PUBLIC_ORIGIN: "${ACTIVITY_APP_PUBLIC_ORIGIN:-}"
+      ACTIVITY_MANAGEMENT_TOKEN: "${ACTIVITY_MANAGEMENT_TOKEN:-}"
+    volumes:
+      - core-identity:/identity:ro
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+
+  worker:
+    environment:
+      ACTIVITY_MODE: grpc
+      SERVICE_IDENTITY_DIR: /identity
+    volumes:
+      - gateway-identity:/identity:ro
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+
+  certificates:
+    image: amocrm-service-certs:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: service-certs
+      args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ ! -f /gateway/delegation.key ]; then
+          service-certs /tmp/generated
+          for identity in core gateway activity crm-events; do
+            cp -a /tmp/generated/$$identity/. /$$identity/
+            chown -R 10001:10001 /$$identity
+            chmod 700 /$$identity
+          done
+        fi
+        for identity in core gateway activity crm-events; do
+          test -f /$$identity/tls.key
+        done
+        test -f /gateway/delegation.key
+    volumes:
+      - core-identity:/core
+      - gateway-identity:/gateway
+      - activity-identity:/activity
+      - events-identity:/crm-events
+    restart: "no"
+    networks:
+      - backend
+
+  migrate-activity:
+    image: "${MIGRATE_IMAGE:-amocrm-migrate:local}"
+    environment:
+      DATABASE_URL: "postgres://activity_owner:${ACTIVITY_OWNER_PASSWORD}@postgres:5432/amocrm_activity?sslmode=disable"
+      MIGRATIONS_DIR: /migrations/activity
+      MIGRATION_TIMEOUT: "${MIGRATION_TIMEOUT:-2m}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  migrate-events:
+    image: "${MIGRATE_IMAGE:-amocrm-migrate:local}"
+    environment:
+      DATABASE_URL: "postgres://events_owner:${EVENTS_OWNER_PASSWORD}@postgres:5432/amocrm_events?sslmode=disable"
+      MIGRATIONS_DIR: /migrations/crmevents
+      MIGRATION_TIMEOUT: "${MIGRATION_TIMEOUT:-2m}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  crm-events:
+    image: amocrm-crm-events:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: crm-events
+      args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    init: true
+    environment:
+      APP_ENV: "${APP_ENV:-development}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      ACTIVITY_MODE: grpc
+      CRM_EVENTS_DATABASE_URL: "postgres://events_runtime:${EVENTS_RUNTIME_PASSWORD}@postgres:5432/amocrm_events?sslmode=disable"
+      CRM_EVENTS_WORKERS: "2"
+      GATEWAY_ADDRESS: worker:9090
+      SERVICE_IDENTITY_DIR: /identity
+    volumes:
+      - events-identity:/identity:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+      migrate-events:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8092/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: "${CONTAINER_STOP_GRACE_PERIOD:-20s}"
+    restart: unless-stopped
+    networks:
+      - backend
+
+  activity:
+    image: amocrm-activity:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: activity
+      args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    init: true
+    environment:
+      APP_ENV: "${APP_ENV:-development}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      ACTIVITY_MODE: grpc
+      ACTIVITY_DATABASE_URL: "postgres://activity_runtime:${ACTIVITY_RUNTIME_PASSWORD}@postgres:5432/amocrm_activity?sslmode=disable"
+      GATEWAY_ADDRESS: worker:9090
+      CRM_EVENTS_ADDRESS: crm-events:9092
+      SERVICE_IDENTITY_DIR: /identity
+      # Public origin used to assemble share_url (hosted viewer site).
+      ACTIVITY_APP_PUBLIC_ORIGIN: "${ACTIVITY_APP_PUBLIC_ORIGIN:-}"
+    volumes:
+      - activity-identity:/identity:ro
+    depends_on:
+      worker:
+        condition: service_healthy
+      crm-events:
+        condition: service_healthy
+      migrate-activity:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8091/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: "${CONTAINER_STOP_GRACE_PERIOD:-20s}"
+    restart: unless-stopped
+    networks:
+      - backend
+
+  activity-control:
+    profiles: ["tools"]
+    image: amocrm-activity-control:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: activity-control
+      args:
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+    networks:
+      - backend
+
+volumes:
+  core-identity:
+  gateway-identity:
+  activity-identity:
+  events-identity:
