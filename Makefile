@@ -1,8 +1,14 @@
 SHELL := /bin/sh
 
 # Include staged, unstaged and untracked changes; dirty builds are never
-# advertised as exact clean commits. Direct Compose defaults to unknown.
-BUILD_REVISION := $(shell git rev-parse --verify HEAD 2>/dev/null || echo unknown)$(shell test -z "$$(git status --porcelain 2>/dev/null)" || echo -dirty)
+# advertised as exact clean commits, and the dirty suffix changes with the
+# working tree so Docker cache-bust layers invalidate. Direct Compose defaults
+# to unknown.
+BUILD_REVISION := $(shell rev=$$(git rev-parse --verify HEAD 2>/dev/null || echo unknown); \
+	if [ -n "$$(git status --porcelain 2>/dev/null)" ]; then \
+		dirty=$$({ git status --porcelain; git diff HEAD; } 2>/dev/null | { shasum 2>/dev/null || sha1sum; } | cut -c1-8); \
+		echo "$$rev-dirty-$$dirty"; \
+	else echo "$$rev"; fi)
 export BUILD_REVISION
 
 DOCKER ?= docker

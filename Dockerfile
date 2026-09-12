@@ -20,6 +20,8 @@ FROM dependencies AS source
 
 ARG BUILD_REVISION=unknown
 
+RUN echo "$BUILD_REVISION" > /build-revision
+
 COPY . .
 
 FROM source AS openapi-test
@@ -27,6 +29,10 @@ FROM source AS openapi-test
 RUN go test -count=1 ./api
 
 FROM dependencies AS test-base
+
+ARG BUILD_REVISION=unknown
+
+RUN echo "$BUILD_REVISION" > /build-revision
 
 ENV CGO_ENABLED=1
 
