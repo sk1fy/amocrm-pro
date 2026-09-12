@@ -168,13 +168,15 @@ services:
       <<: *core-env
       HTTP_ADDRESS: ":8080"
       MANAGEMENT_HTTP_ADDRESS: ":8082"
+      ADMIN_HTTP_ADDRESS: ":8083"
+      ADMIN_API_TOKEN: "${ADMIN_API_TOKEN:-admin-dev-token-change-me}"
       ACTIVITY_ADDRESS: activity:9091
       CRM_EVENTS_ADDRESS: crm-events:9092
       ACTIVITY_APP_ORIGINS: "${ACTIVITY_APP_ORIGINS:-http://127.0.0.1:4173}"
       ACTIVITY_APP_PUBLIC_ORIGIN: "${ACTIVITY_APP_PUBLIC_ORIGIN:-http://127.0.0.1:4173}"
       ACTIVITY_MANAGEMENT_TOKEN: "${ACTIVITY_MANAGEMENT_TOKEN:-activity-dev-management-token}"
     volumes: ["core-identity:/identity:ro"]
-    ports: ["127.0.0.1:${ACTIVITY_API_PORT:-18080}:8080", "127.0.0.1:${ACTIVITY_MANAGEMENT_PORT:-18082}:8082"]
+    ports: ["127.0.0.1:${ACTIVITY_API_PORT:-18080}:8080", "127.0.0.1:${ACTIVITY_MANAGEMENT_PORT:-18082}:8082", "127.0.0.1:${ACTIVITY_ADMIN_PORT:-18083}:8083"]
     depends_on:
       certificates: {condition: service_completed_successfully}
       migrate-core: {condition: service_completed_successfully}

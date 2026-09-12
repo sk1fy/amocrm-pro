@@ -389,9 +389,16 @@ func readyAll(checks ...func(context.Context) error) func(context.Context) error
 		return nil
 	}
 }
+func (g *Graph) Snapshot() []services.RegisteredComponent {
+	if g == nil || g.components == nil {
+		return nil
+	}
+	return g.components.Snapshot()
+}
+
 func (g *Graph) Catalog(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(g.components.Snapshot())
+	_ = json.NewEncoder(w).Encode(g.Snapshot())
 }
 func (g *Graph) Readiness(w http.ResponseWriter, r *http.Request) {
 	if err := g.Ready(r.Context()); err != nil {

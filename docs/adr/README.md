@@ -25,6 +25,7 @@
 | [0022](0022-activity-slo-and-observability.md) | Accepted for local/pilot contract | Numerical Activity SLO/SLI, bounded metrics, importable dashboard and alert rules; target Grafana not deployed |
 | [0023](0023-product-module-physical-transfer.md) | Accepted as operational rule | Compute-only vs owner-DB move, static addresses, mTLS SAN, drain/fencing; local Docker stand is not the target server |
 | [0024](0024-activity-share-panels.md) | Accepted for stage 9 | Shareable Activity panels, viewer principal without amoCRM role lookup, Core public viewer HTTP; widget admin-only unchanged |
+| [0025](0025-admin-read-listener.md) | Accepted for admin panel stage 1 | Read-only internal admin HTTP listener; public and management listeners unchanged |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

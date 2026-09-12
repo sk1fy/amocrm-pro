@@ -25,6 +25,8 @@ services:
       ACTIVITY_APP_ORIGINS: "${ACTIVITY_APP_ORIGINS:-}"
       ACTIVITY_APP_PUBLIC_ORIGIN: "${ACTIVITY_APP_PUBLIC_ORIGIN:-}"
       ACTIVITY_MANAGEMENT_TOKEN: "${ACTIVITY_MANAGEMENT_TOKEN:-}"
+      ADMIN_HTTP_ADDRESS: ":8083"
+      ADMIN_API_TOKEN: "${ADMIN_API_TOKEN:-admin-dev-token-change-me}"
     volumes:
       - core-identity:/identity:ro
     depends_on:

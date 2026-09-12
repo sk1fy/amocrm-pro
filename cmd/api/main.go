@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sk1fy/amocrm-pro/internal/adminread"
 	"github.com/sk1fy/amocrm-pro/internal/apicontract"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	"github.com/sk1fy/amocrm-pro/internal/installations"
@@ -244,7 +245,25 @@ func run() error {
 
 	publicServer := httpserver.New(cfg.HTTPAddress, router)
 	managementServer := httpserver.New(cfg.ManagementHTTPAddress, managementRouter)
-	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, publicServer, managementServer); err != nil {
+	servers := []*http.Server{publicServer, managementServer}
+	if cfg.AdminHTTPAddress != "" {
+		adminRouter := chi.NewRouter()
+		adminRouter.Use(httpmiddleware.RequestID)
+		adminRouter.Use(httpmiddleware.Recover(logger))
+		adminRouter.Use(httpmiddleware.AccessLog(logger))
+		adminread.Register(adminRouter, adminread.Dependencies{
+			Pool:     pool,
+			Timeout:  cfg.DatabaseTimeout,
+			Token:    cfg.AdminAPIToken,
+			Logger:   logger,
+			Revision: buildinfo.SourceRevision(),
+			RuntimeCatalog: func() any {
+				return components.Snapshot()
+			},
+		})
+		servers = append(servers, httpserver.New(cfg.AdminHTTPAddress, adminRouter))
+	}
+	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, servers...); err != nil {
 		return err
 	}
 	return components.Err()

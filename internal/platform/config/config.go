@@ -32,6 +32,8 @@ type Common struct {
 type API struct {
 	Common
 	ManagementHTTPAddress     string
+	AdminHTTPAddress          string
+	AdminAPIToken             string
 	MaxWebhookBody            int64
 	WebhookTimeout            time.Duration
 	WebhookGlobalRate         float64
@@ -108,6 +110,23 @@ func LoadAPI() (API, error) {
 	}
 	if addressesConflict(common.HTTPAddress, managementAddress) {
 		return API{}, errors.New("MANAGEMENT_HTTP_ADDRESS must not conflict with HTTP_ADDRESS")
+	}
+
+	adminAddress := strings.TrimSpace(os.Getenv("ADMIN_HTTP_ADDRESS"))
+	adminToken := strings.TrimSpace(os.Getenv("ADMIN_API_TOKEN"))
+	if (adminAddress == "") != (adminToken == "") {
+		return API{}, errors.New("ADMIN_HTTP_ADDRESS and ADMIN_API_TOKEN must be set together")
+	}
+	if adminAddress != "" {
+		if err := validateListenAddress(adminAddress); err != nil {
+			return API{}, fmt.Errorf("ADMIN_HTTP_ADDRESS: %w", err)
+		}
+		if addressesConflict(common.HTTPAddress, adminAddress) {
+			return API{}, errors.New("ADMIN_HTTP_ADDRESS must not conflict with HTTP_ADDRESS")
+		}
+		if addressesConflict(managementAddress, adminAddress) {
+			return API{}, errors.New("ADMIN_HTTP_ADDRESS must not conflict with MANAGEMENT_HTTP_ADDRESS")
+		}
 	}
 
 	maxBody, err := int64Value("MAX_WEBHOOK_BODY_BYTES", 2<<20, 1024, 16<<20)
@@ -240,6 +259,7 @@ func LoadAPI() (API, error) {
 
 	return API{
 		Common: common, ManagementHTTPAddress: managementAddress,
+		AdminHTTPAddress: adminAddress, AdminAPIToken: adminToken,
 		MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
 		WebhookGlobalRate: webhookGlobalRate, WebhookGlobalBurst: webhookGlobalBurst,
 		WebhookInstallationRate:   webhookInstallationRate,

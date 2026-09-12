@@ -23,6 +23,7 @@
 
 - `amocrm-api` — OAuth, widget API, webhook ingress и public liveness;
 - отдельный API management listener — readiness и metrics;
+- отдельный API admin read listener — внутренний `/admin/v1/*`, только если заданы `ADMIN_HTTP_ADDRESS` и `ADMIN_API_TOKEN`;
 - `amocrm-worker` — PostgreSQL jobs, amoCRM API, workflows и cleanup;
 - `amocrm-migrate` — короткоживущая migration utility;
 - PostgreSQL — system of record, inbox, queue, replay/idempotency и audit.

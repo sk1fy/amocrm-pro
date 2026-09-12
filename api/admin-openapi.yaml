@@ -1,0 +1,631 @@
+openapi: 3.1.0
+info:
+  title: amoCRM Core admin read API
+  version: v1
+  summary: Internal read-only admin listener.
+  description: |
+    Internal Core admin read contract. This is not the public widget/OAuth API.
+    Authenticate with `Authorization: Bearer` using `ADMIN_API_TOKEN` and send
+    `X-Admin-Actor`. Responses never include OAuth tokens, ciphertext, webhook
+    keys, or job payload/result.
+servers:
+  - url: /
+security:
+  - adminBearer: []
+tags:
+  - name: Admin
+paths:
+  /admin/v1/backend:
+    get:
+      tags: [Admin]
+      operationId: getAdminBackend
+      summary: Core identity, revision and component catalog.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+      responses:
+        '200':
+          description: Backend observation.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackendResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/accounts:
+    get:
+      tags: [Admin]
+      operationId: listAdminAccounts
+      summary: Accounts aggregated from installations.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: q
+          in: query
+          schema: {type: string}
+        - name: integration_id
+          in: query
+          schema: {type: string, format: uuid}
+        - name: status
+          in: query
+          schema: {type: string}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Account list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/accounts/{account_id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminAccount
+      summary: Account with all installations.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: account_id
+          in: path
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+      responses:
+        '200':
+          description: Account card.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/installations:
+    get:
+      tags: [Admin]
+      operationId: listAdminInstallations
+      summary: Installation list.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: account_id
+          in: query
+          schema: {type: integer, format: int64, minimum: 1}
+        - name: domain
+          in: query
+          schema: {type: string}
+        - name: integration_id
+          in: query
+          schema: {type: string, format: uuid}
+        - name: status
+          in: query
+          schema: {type: string}
+        - name: webhook_status
+          in: query
+          schema: {type: string}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Installation list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/installations/{id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminInstallation
+      summary: Installation card with authorization and webhook facts.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Installation card.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/installations/{id}/jobs:
+    get:
+      tags: [Admin]
+      operationId: listAdminInstallationJobs
+      summary: Jobs for one installation without payload or result.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+        - name: status
+          in: query
+          schema: {type: string}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Job list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/installations/{id}/audit:
+    get:
+      tags: [Admin]
+      operationId: listAdminInstallationAudit
+      summary: Audit log for one installation.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Audit list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/installations/{id}/activity/deliveries:
+    get:
+      tags: [Admin]
+      operationId: listAdminInstallationDeliveries
+      summary: Activity command deliveries for one installation.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+      responses:
+        '200':
+          description: Delivery list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveriesResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/integrations:
+    get:
+      tags: [Admin]
+      operationId: listAdminIntegrations
+      summary: Integrations with grants and installation counts.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Integration list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/integrations/{id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminIntegration
+      summary: Integration card.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Integration card.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/jobs:
+    get:
+      tags: [Admin]
+      operationId: listAdminJobs
+      summary: Jobs across installations. Window is at most 7 days.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: status
+          in: query
+          schema: {type: string}
+        - name: type
+          in: query
+          schema: {type: string}
+        - name: since
+          in: query
+          schema: {type: string, format: date-time}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Job list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/jobs/summary:
+    get:
+      tags: [Admin]
+      operationId: getAdminJobsSummary
+      summary: Job counts grouped by status.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+      responses:
+        '200':
+          description: Job counts.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobsSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/jobs/{id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminJob
+      summary: Job with attempts. Payload and result are omitted.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Job card.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/v1/audit:
+    get:
+      tags: [Admin]
+      operationId: listAdminAudit
+      summary: Audit log by object or installation.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: object_type
+          in: query
+          schema: {type: string}
+        - name: object_id
+          in: query
+          schema: {type: string}
+        - name: action
+          in: query
+          schema: {type: string}
+        - name: installation_id
+          in: query
+          schema: {type: string, format: uuid}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Audit list.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    adminBearer:
+      type: http
+      scheme: bearer
+      description: Shared ADMIN_API_TOKEN for the internal admin listener.
+  parameters:
+    RequestID:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: Optional UUID correlation ID. Invalid values are replaced.
+      schema:
+        type: string
+        format: uuid
+    AdminActor:
+      name: X-Admin-Actor
+      in: header
+      required: true
+      description: Actor for logs, such as employee:<uuid> or automation:<name>.
+      schema:
+        type: string
+        minLength: 3
+        maxLength: 200
+    ResourceID:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 25}
+    Cursor:
+      name: cursor
+      in: query
+      schema: {type: string}
+  headers:
+    RequestID:
+      description: UUID correlation ID accepted or generated by the API.
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    AdminError:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id, retryable]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum: [unauthenticated, invalid_argument, not_found, internal]
+            message:
+              type: string
+              minLength: 1
+            request_id:
+              type: string
+            retryable:
+              type: boolean
+    ListResponse:
+      type: object
+      required: [source, observed_at, items, next_cursor, total]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        items: {type: array, items: {type: object}}
+        next_cursor:
+          type: [string, 'null']
+        total:
+          type: [integer, 'null']
+    BackendResponse:
+      type: object
+      required: [source, observed_at, backend, revision, contract_version, capabilities, components]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        backend: {type: string, const: core}
+        revision: {type: string}
+        contract_version: {type: string, const: v1}
+        capabilities:
+          type: array
+          items: {type: string}
+        components: {}
+    AccountResponse:
+      type: object
+      required: [source, observed_at, account_id, domains, origin, installations]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        account_id: {type: integer, format: int64}
+        domains:
+          type: array
+          items: {type: string}
+        origin: {type: string, enum: [real, fixture]}
+        installations:
+          type: array
+          items: {type: object}
+    InstallationResponse:
+      type: object
+      required: [source, observed_at, installation, authorization, webhook, grants, activity]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        installation: {type: object}
+        authorization: {type: object}
+        webhook: {type: object}
+        grants:
+          type: array
+          items: {type: object}
+        activity: {type: object}
+    IntegrationResponse:
+      type: object
+      required: [source, observed_at, integration]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        integration: {type: object}
+    JobResponse:
+      type: object
+      required: [source, observed_at, job, attempts]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        job: {type: object}
+        attempts:
+          type: array
+          items: {type: object}
+    JobsSummaryResponse:
+      type: object
+      required: [source, observed_at, counts]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        counts:
+          type: object
+          additionalProperties: {type: integer}
+    DeliveriesResponse:
+      type: object
+      required: [source, observed_at, items]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        items:
+          type: array
+          items: {type: object}
+  responses:
+    Unauthenticated:
+      description: Missing or invalid bearer token or actor.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+        WWW-Authenticate:
+          description: Authentication challenge.
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminError'
+    InvalidArgument:
+      description: Request parameters are invalid.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminError'
+    NotFound:
+      description: The requested resource was not found.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminError'
+    InternalError:
+      description: Internal error without SQL, DSN or secret details.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminError'

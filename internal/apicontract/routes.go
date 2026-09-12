@@ -71,4 +71,36 @@ var (
 		Ready,
 		Metrics,
 	}
+
+	AdminBackend                = Route{Method: http.MethodGet, Path: "/admin/v1/backend"}
+	AdminAccounts               = Route{Method: http.MethodGet, Path: "/admin/v1/accounts"}
+	AdminAccount                = Route{Method: http.MethodGet, Path: "/admin/v1/accounts/{account_id}"}
+	AdminInstallations          = Route{Method: http.MethodGet, Path: "/admin/v1/installations"}
+	AdminInstallation           = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}"}
+	AdminInstallationJobs       = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/jobs"}
+	AdminInstallationAudit      = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/audit"}
+	AdminInstallationDeliveries = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/deliveries"}
+	AdminIntegrations           = Route{Method: http.MethodGet, Path: "/admin/v1/integrations"}
+	AdminIntegration            = Route{Method: http.MethodGet, Path: "/admin/v1/integrations/{id}"}
+	AdminJobs                   = Route{Method: http.MethodGet, Path: "/admin/v1/jobs"}
+	AdminJobsSummary            = Route{Method: http.MethodGet, Path: "/admin/v1/jobs/summary"}
+	AdminJob                    = Route{Method: http.MethodGet, Path: "/admin/v1/jobs/{id}"}
+	AdminAudit                  = Route{Method: http.MethodGet, Path: "/admin/v1/audit"}
+
+	AdminRoutes = []Route{
+		AdminBackend,
+		AdminAccounts,
+		AdminAccount,
+		AdminInstallations,
+		AdminInstallation,
+		AdminInstallationJobs,
+		AdminInstallationAudit,
+		AdminInstallationDeliveries,
+		AdminIntegrations,
+		AdminIntegration,
+		AdminJobs,
+		AdminJobsSummary,
+		AdminJob,
+		AdminAudit,
+	}
 )

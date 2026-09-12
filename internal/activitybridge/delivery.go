@@ -315,6 +315,7 @@ type Delivery struct {
 	CommandID      uuid.UUID `json:"command_id"`
 	InstallationID uuid.UUID `json:"installation_id"`
 	Target         string    `json:"target"`
+	Action         string    `json:"action,omitempty"`
 	Status         string    `json:"status"`
 	ErrorCode      string    `json:"error_code,omitempty"`
 	Attempts       int       `json:"attempts"`
@@ -323,11 +324,33 @@ type Delivery struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type DeliveryFilter struct {
+	InstallationID uuid.UUID
+	Limit          int
+	FailedOnly     bool
+}
+
 func ListDeliveries(ctx context.Context, pool *pgxpool.Pool) ([]Delivery, error) {
-	rows, err := pool.Query(ctx, `SELECT receipt.command_id,receipt.installation_id,receipt.target,outbox.status,coalesce(outbox.error_code,''),outbox.attempts,outbox.max_attempts,receipt.created_at,outbox.updated_at
+	return ListDeliveriesFiltered(ctx, pool, DeliveryFilter{FailedOnly: true, Limit: 100})
+}
+
+func ListDeliveriesFiltered(ctx context.Context, pool *pgxpool.Pool, f DeliveryFilter) ([]Delivery, error) {
+	limit := f.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	var installationID any
+	if f.InstallationID != uuid.Nil {
+		installationID = f.InstallationID
+	}
+	query := `SELECT receipt.command_id,receipt.installation_id,receipt.target,receipt.action,outbox.status,coalesce(outbox.error_code,''),outbox.attempts,outbox.max_attempts,receipt.created_at,outbox.updated_at
  FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id)
- WHERE outbox.status IN ('failed','expired')
- ORDER BY receipt.created_at,receipt.command_id LIMIT 100`)
+ WHERE ($1::uuid IS NULL OR receipt.installation_id=$1)`
+	if f.FailedOnly {
+		query += ` AND outbox.status IN ('failed','expired')`
+	}
+	query += ` ORDER BY receipt.created_at,receipt.command_id LIMIT $2`
+	rows, err := pool.Query(ctx, query, installationID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +358,7 @@ func ListDeliveries(ctx context.Context, pool *pgxpool.Pool) ([]Delivery, error)
 	list := make([]Delivery, 0)
 	for rows.Next() {
 		var item Delivery
-		if err := rows.Scan(&item.CommandID, &item.InstallationID, &item.Target, &item.Status, &item.ErrorCode, &item.Attempts, &item.MaxAttempts, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.CommandID, &item.InstallationID, &item.Target, &item.Action, &item.Status, &item.ErrorCode, &item.Attempts, &item.MaxAttempts, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, item)
@@ -345,9 +368,9 @@ func ListDeliveries(ctx context.Context, pool *pgxpool.Pool) ([]Delivery, error)
 
 func InspectDelivery(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID) (Delivery, error) {
 	var item Delivery
-	err := pool.QueryRow(ctx, `SELECT receipt.command_id,receipt.installation_id,receipt.target,outbox.status,coalesce(outbox.error_code,''),outbox.attempts,outbox.max_attempts,receipt.created_at,outbox.updated_at
+	err := pool.QueryRow(ctx, `SELECT receipt.command_id,receipt.installation_id,receipt.target,receipt.action,outbox.status,coalesce(outbox.error_code,''),outbox.attempts,outbox.max_attempts,receipt.created_at,outbox.updated_at
  FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id)
- WHERE outbox.command_id=$1`, id).Scan(&item.CommandID, &item.InstallationID, &item.Target, &item.Status, &item.ErrorCode, &item.Attempts, &item.MaxAttempts, &item.CreatedAt, &item.UpdatedAt)
+ WHERE outbox.command_id=$1`, id).Scan(&item.CommandID, &item.InstallationID, &item.Target, &item.Action, &item.Status, &item.ErrorCode, &item.Attempts, &item.MaxAttempts, &item.CreatedAt, &item.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Delivery{}, serviceapi.Fail(serviceapi.NotFound, "delivery not found")
 	}

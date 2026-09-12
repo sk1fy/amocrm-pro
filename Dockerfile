@@ -37,7 +37,7 @@ COPY . .
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors"]
+CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
@@ -93,7 +93,7 @@ FROM runtime AS api
 
 COPY --from=api-build --chown=app:app /out/amocrm-api /usr/local/bin/amocrm-api
 
-EXPOSE 8080 8082
+EXPOSE 8080 8082 8083
 
 ENTRYPOINT ["/usr/local/bin/amocrm-api"]
 

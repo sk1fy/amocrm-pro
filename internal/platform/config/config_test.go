@@ -28,6 +28,92 @@ func TestAPIManagementAddressDefaultsToSeparateListener(t *testing.T) {
 	if api.HTTPAddress != ":8080" || api.ManagementHTTPAddress != ":8082" {
 		t.Fatalf("unexpected API listeners: public=%q management=%q", api.HTTPAddress, api.ManagementHTTPAddress)
 	}
+	if api.AdminHTTPAddress != "" || api.AdminAPIToken != "" {
+		t.Fatalf("admin listener must stay disabled by default: address=%q token_set=%t", api.AdminHTTPAddress, api.AdminAPIToken != "")
+	}
+}
+
+func TestAPIAcceptsAdminListenerWhenAddressAndTokenAreSet(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("ADMIN_HTTP_ADDRESS", "127.0.0.1:8083")
+	t.Setenv("ADMIN_API_TOKEN", "admin-dev-token-change-me")
+
+	api, err := LoadAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api.AdminHTTPAddress != "127.0.0.1:8083" || api.AdminAPIToken != "admin-dev-token-change-me" {
+		t.Fatalf("admin listener = address=%q token=%q", api.AdminHTTPAddress, api.AdminAPIToken)
+	}
+}
+
+func TestAPIRejectsInvalidAdminAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("ADMIN_HTTP_ADDRESS", ":invalid")
+	t.Setenv("ADMIN_API_TOKEN", "admin-dev-token-change-me")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "port must be an integer") {
+		t.Fatalf("expected admin address rejection, got %v", err)
+	}
+}
+
+func TestAPIRejectsAdminAddressConflictWithHTTP(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("HTTP_ADDRESS", "0.0.0.0:8080")
+	t.Setenv("ADMIN_HTTP_ADDRESS", ":8080")
+	t.Setenv("ADMIN_API_TOKEN", "admin-dev-token-change-me")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "must not conflict with HTTP_ADDRESS") {
+		t.Fatalf("expected admin/HTTP conflict rejection, got %v", err)
+	}
+}
+
+func TestAPIRejectsAdminAddressConflictWithManagement(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("MANAGEMENT_HTTP_ADDRESS", "127.0.0.1:9090")
+	t.Setenv("ADMIN_HTTP_ADDRESS", ":9090")
+	t.Setenv("ADMIN_API_TOKEN", "admin-dev-token-change-me")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "must not conflict with MANAGEMENT_HTTP_ADDRESS") {
+		t.Fatalf("expected admin/management conflict rejection, got %v", err)
+	}
+}
+
+func TestAPIRejectsAdminAddressWithoutToken(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("ADMIN_HTTP_ADDRESS", ":8083")
+	t.Setenv("ADMIN_API_TOKEN", "")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "must be set together") {
+		t.Fatalf("expected paired admin config rejection, got %v", err)
+	}
+}
+
+func TestAPIRejectsAdminTokenWithoutAddress(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	t.Setenv("ADMIN_HTTP_ADDRESS", "")
+	t.Setenv("ADMIN_API_TOKEN", "admin-dev-token-change-me")
+
+	_, err := LoadAPI()
+	if err == nil || !strings.Contains(err.Error(), "must be set together") {
+		t.Fatalf("expected paired admin config rejection, got %v", err)
+	}
 }
 
 func TestAPIRejectsConflictingManagementAddress(t *testing.T) {
