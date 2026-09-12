@@ -53,10 +53,13 @@ type AccountListItem struct {
 }
 
 type AccountInstallation struct {
-	ID              uuid.UUID `json:"id"`
-	IntegrationID   uuid.UUID `json:"integration_id"`
-	IntegrationCode string    `json:"integration_code"`
-	Status          string    `json:"status"`
+	ID               uuid.UUID `json:"id"`
+	IntegrationID    uuid.UUID `json:"integration_id"`
+	IntegrationCode  string    `json:"integration_code"`
+	Status           string    `json:"status"`
+	WebhookStatus    string    `json:"webhook_status,omitempty"`
+	Authorization    string    `json:"authorization_state,omitempty"`
+	RecentFailedJobs int       `json:"recent_failed_jobs"`
 }
 
 type AccountResponse struct {
@@ -144,6 +147,7 @@ type ActivityInfo struct {
 type Job struct {
 	ID               uuid.UUID  `json:"id"`
 	InstallationID   *uuid.UUID `json:"installation_id"`
+	AccountID        *int64     `json:"account_id,omitempty"`
 	Type             string     `json:"type"`
 	ActorType        *string    `json:"actor_type"`
 	ActorID          *string    `json:"actor_id"`

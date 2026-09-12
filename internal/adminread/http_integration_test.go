@@ -46,6 +46,10 @@ func TestAdminReadListsAndCards(t *testing.T) {
 		VALUES ($1, 'widget.ping', 'queued', '{}'::jsonb, now(), now())`, firstID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := pool.Exec(ctx, `INSERT INTO jobs (installation_id, type, status, payload, created_at, updated_at)
+		VALUES ($1, 'webhook.reconcile', 'failed', '{}'::jsonb, now(), now())`, firstID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := pool.Exec(ctx, `INSERT INTO audit_log (installation_id, actor_type, actor_id, action, object_type, object_id)
 		VALUES ($1, 'operator', 'test', 'installation.view', 'installation', $2)`, firstID, firstID.String()); err != nil {
 		t.Fatal(err)
@@ -99,12 +103,42 @@ func TestAdminReadListsAndCards(t *testing.T) {
 	}
 	var accountList struct {
 		Items []AccountListItem
+		Total *int64 `json:"total"`
 	}
 	decodeJSON(t, accounts, &accountList)
 	if len(accountList.Items) != 1 || accountList.Items[0].AccountID != 31415926 || accountList.Items[0].Origin != originFixture {
 		t.Fatalf("accounts=%s", accounts.Body.String())
 	}
+	if accountList.Total == nil || *accountList.Total != 1 {
+		t.Fatalf("accounts total=%v body=%s", accountList.Total, accounts.Body.String())
+	}
+	installations := accountList.Items[0].Installations
+	if len(installations) != 2 {
+		t.Fatalf("account installations=%d", len(installations))
+	}
+	authByID := map[uuid.UUID]string{}
+	failedByID := map[uuid.UUID]int{}
+	for _, item := range installations {
+		authByID[item.ID] = item.Authorization
+		failedByID[item.ID] = item.RecentFailedJobs
+	}
+	if authByID[firstID] != authValid || authByID[secondID] != authMissing {
+		t.Fatalf("list authorization=%v body=%s", authByID, accounts.Body.String())
+	}
+	if failedByID[firstID] != 1 {
+		t.Fatalf("recent failed jobs=%v body=%s", failedByID, accounts.Body.String())
+	}
 	assertNoSecretJSONKeys(t, accounts.Body.Bytes())
+
+	allAccounts := adminGET(t, router, "/admin/v1/accounts?limit=1")
+	var allAccountsBody struct {
+		Items []AccountListItem
+		Total *int64 `json:"total"`
+	}
+	decodeJSON(t, allAccounts, &allAccountsBody)
+	if len(allAccountsBody.Items) != 1 || allAccountsBody.Total == nil || *allAccountsBody.Total != 2 {
+		t.Fatalf("accounts total with limit=1: %s", allAccounts.Body.String())
+	}
 
 	account := adminGET(t, router, "/admin/v1/accounts/31415926")
 	if account.Code != http.StatusOK {
@@ -152,7 +186,67 @@ func TestAdminReadListsAndCards(t *testing.T) {
 	if jobs.Code != http.StatusOK {
 		t.Fatalf("jobs=%d %s", jobs.Code, jobs.Body.String())
 	}
+	var jobsBody struct {
+		Items []Job
+	}
+	decodeJSON(t, jobs, &jobsBody)
+	if len(jobsBody.Items) != 2 {
+		t.Fatalf("jobs items=%d body=%s", len(jobsBody.Items), jobs.Body.String())
+	}
+	if jobsBody.Items[0].AccountID == nil || *jobsBody.Items[0].AccountID != 31415926 {
+		t.Fatalf("job account_id=%v body=%s", jobsBody.Items[0].AccountID, jobs.Body.String())
+	}
 	assertNoSecretJSONKeys(t, jobs.Body.Bytes())
+
+	job := adminGET(t, router, "/admin/v1/jobs/"+jobsBody.Items[0].ID.String())
+	if job.Code != http.StatusOK {
+		t.Fatalf("job=%d %s", job.Code, job.Body.String())
+	}
+	assertNoSecretJSONKeys(t, job.Body.Bytes())
+
+	integrations := adminGET(t, router, "/admin/v1/integrations")
+	if integrations.Code != http.StatusOK {
+		t.Fatalf("integrations=%d %s", integrations.Code, integrations.Body.String())
+	}
+	assertNoSecretJSONKeys(t, integrations.Body.Bytes())
+
+	integration := adminGET(t, router, "/admin/v1/integrations/"+integrationID.String())
+	if integration.Code != http.StatusOK {
+		t.Fatalf("integration=%d %s", integration.Code, integration.Body.String())
+	}
+	assertNoSecretJSONKeys(t, integration.Body.Bytes())
+
+	audit := adminGET(t, router, "/admin/v1/audit?installation_id="+firstID.String())
+	if audit.Code != http.StatusOK {
+		t.Fatalf("audit=%d %s", audit.Code, audit.Body.String())
+	}
+	var auditBody struct {
+		Items []AuditEntry
+	}
+	decodeJSON(t, audit, &auditBody)
+	if len(auditBody.Items) != 1 {
+		t.Fatalf("audit items=%d body=%s", len(auditBody.Items), audit.Body.String())
+	}
+	assertNoSecretJSONKeys(t, audit.Body.Bytes())
+
+	installationAudit := adminGET(t, router, "/admin/v1/installations/"+firstID.String()+"/audit")
+	if installationAudit.Code != http.StatusOK {
+		t.Fatalf("installation audit=%d %s", installationAudit.Code, installationAudit.Body.String())
+	}
+	assertNoSecretJSONKeys(t, installationAudit.Body.Bytes())
+
+	deliveries := adminGET(t, router, "/admin/v1/installations/"+firstID.String()+"/activity/deliveries")
+	if deliveries.Code != http.StatusOK {
+		t.Fatalf("deliveries=%d %s", deliveries.Code, deliveries.Body.String())
+	}
+	var deliveryBody struct {
+		Items []any
+	}
+	decodeJSON(t, deliveries, &deliveryBody)
+	if len(deliveryBody.Items) != 1 {
+		t.Fatalf("deliveries=%s", deliveries.Body.String())
+	}
+	assertNoSecretJSONKeys(t, deliveries.Body.Bytes())
 
 	if rec := adminGET(t, router, "/admin/v1/jobs?since="+time.Now().UTC().Add(-8*24*time.Hour).Format(time.RFC3339)); rec.Code != http.StatusBadRequest {
 		t.Fatalf("jobs window=%d %s", rec.Code, rec.Body.String())

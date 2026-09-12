@@ -112,13 +112,13 @@ func (h *handler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	items, next, err := h.store.listAccounts(r.Context(), f)
+	items, next, total, err := h.store.listAccounts(r.Context(), f)
 	if err != nil {
 		h.queryFailed(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, listResponse{
-		Source: sourceCore, ObservedAt: observed, Items: items, NextCursor: next,
+		Source: sourceCore, ObservedAt: observed, Items: items, NextCursor: next, Total: total,
 	})
 }
 

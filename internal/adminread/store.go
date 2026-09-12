@@ -68,9 +68,25 @@ type installationRow struct {
 	isFixture     bool
 }
 
-func (s *store) listAccounts(ctx context.Context, f installationListFilter) ([]AccountListItem, *string, error) {
+func (s *store) listAccounts(ctx context.Context, f installationListFilter) ([]AccountListItem, *string, *int64, error) {
 	ctx, cancel := s.withTimeout(ctx)
 	defer cancel()
+	now := time.Now().UTC()
+
+	totalFilter := f
+	totalFilter.CursorTime = nil
+	totalFilter.CursorID = ""
+	var totalB strings.Builder
+	totalArgs := make([]any, 0, 12)
+	totalB.WriteString(`SELECT count(DISTINCT i.account_id)
+FROM installations i
+JOIN integrations ig ON ig.id = i.integration_id
+WHERE 1=1`)
+	appendInstallationFilters(&totalB, &totalArgs, totalFilter)
+	var total int64
+	if err := s.pool.QueryRow(ctx, totalB.String(), totalArgs...).Scan(&total); err != nil {
+		return nil, nil, nil, fmt.Errorf("count accounts: %w", err)
+	}
 
 	var b strings.Builder
 	args := make([]any, 0, 12)
@@ -82,7 +98,7 @@ WHERE 1=1`)
 	if f.CursorTime != nil && f.CursorID != "" {
 		accountID, err := strconv.ParseInt(f.CursorID, 10, 64)
 		if err != nil {
-			return nil, nil, errInvalid("invalid cursor")
+			return nil, nil, nil, errInvalid("invalid cursor")
 		}
 		fmt.Fprintf(&b, " GROUP BY i.account_id HAVING (max(i.updated_at), i.account_id) < ($%d::timestamptz, $%d::bigint)", len(args)+1, len(args)+2)
 		args = append(args, *f.CursorTime, accountID)
@@ -94,7 +110,7 @@ WHERE 1=1`)
 
 	rows, err := s.pool.Query(ctx, b.String(), args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer rows.Close()
 	type accountKey struct {
@@ -105,12 +121,12 @@ WHERE 1=1`)
 	for rows.Next() {
 		var key accountKey
 		if err := rows.Scan(&key.ID, &key.LastActivityAt); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		keys = append(keys, key)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	rows.Close()
 	var next *string
@@ -121,7 +137,7 @@ WHERE 1=1`)
 		next = &cursor
 	}
 	if len(keys) == 0 {
-		return []AccountListItem{}, nil, nil
+		return []AccountListItem{}, nil, &total, nil
 	}
 	ids := make([]int64, 0, len(keys))
 	index := make(map[int64]int, len(keys))
@@ -145,9 +161,14 @@ WHERE 1=1`)
 	var db strings.Builder
 	dargs := make([]any, 0, 12+len(ids))
 	db.WriteString(`SELECT i.id, i.integration_id, ig.code, i.account_id, i.account_domain, i.status, i.updated_at,
-	COALESCE(i.settings->>'origin' = 'fixture', false)
+	COALESCE(i.settings->>'origin' = 'fixture', false),
+	i.webhook_status, oc.expires_at, oc.lease_until, (oc.installation_id IS NOT NULL),
+	(SELECT count(*) FROM jobs j
+	 WHERE j.installation_id = i.id AND j.status IN ('failed', 'dead')
+	   AND j.updated_at > now() - interval '24 hours')
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
+LEFT JOIN oauth_credentials oc ON oc.installation_id = i.id
 WHERE i.account_id IN (`)
 	for i, id := range ids {
 		if i > 0 {
@@ -161,24 +182,35 @@ WHERE i.account_id IN (`)
 	db.WriteString(" ORDER BY i.updated_at DESC, i.id DESC")
 	drows, err := s.pool.Query(ctx, db.String(), dargs...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list account installations: %w", err)
+		return nil, nil, nil, fmt.Errorf("list account installations: %w", err)
 	}
 	defer drows.Close()
 	domainSeen := make(map[int64]map[string]bool, len(keys))
 	for drows.Next() {
 		var item AccountInstallation
 		var accountID int64
-		var domain, status string
+		var domain, status, webhookStatus string
 		var updated time.Time
-		var fixture bool
-		if err := drows.Scan(&item.ID, &item.IntegrationID, &item.IntegrationCode, &accountID, &domain, &status, &updated, &fixture); err != nil {
-			return nil, nil, err
+		var fixture, credentialsPresent bool
+		var expiresAt, leaseUntil *time.Time
+		var recentFailedJobs int
+		if err := drows.Scan(&item.ID, &item.IntegrationID, &item.IntegrationCode, &accountID, &domain, &status, &updated, &fixture,
+			&webhookStatus, &expiresAt, &leaseUntil, &credentialsPresent, &recentFailedJobs); err != nil {
+			return nil, nil, nil, err
 		}
 		pos, ok := index[accountID]
 		if !ok {
 			continue
 		}
 		item.Status = status
+		item.WebhookStatus = webhookStatus
+		item.RecentFailedJobs = recentFailedJobs
+		item.Authorization = MapAuthorization(AuthorizationFacts{
+			InstallationStatus: status,
+			Present:            credentialsPresent,
+			ExpiresAt:          expiresAt,
+			LeaseUntil:         leaseUntil,
+		}, now).State
 		acc := &items[pos]
 		acc.Installations = append(acc.Installations, item)
 		acc.ConnectionsByStatus[status]++
@@ -194,9 +226,9 @@ WHERE i.account_id IN (`)
 		}
 	}
 	if err := drows.Err(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return items, next, nil
+	return items, next, &total, nil
 }
 
 func (s *store) getAccount(ctx context.Context, accountID int64, now time.Time) (AccountResponse, error) {
@@ -423,25 +455,26 @@ func (s *store) listJobs(ctx context.Context, f jobListFilter) ([]Job, *string, 
 	defer cancel()
 	var b strings.Builder
 	args := make([]any, 0, 8)
-	b.WriteString(`SELECT id, installation_id, type, actor_type, actor_id, resource_type, resource_id,
-	status, priority, attempts, max_attempts, run_after, last_error_code, last_error_message,
-	created_at, updated_at, finished_at
-FROM jobs
+	b.WriteString(`SELECT j.id, j.installation_id, j.type, j.actor_type, j.actor_id, j.resource_type, j.resource_id,
+	j.status, j.priority, j.attempts, j.max_attempts, j.run_after, j.last_error_code, j.last_error_message,
+	j.created_at, j.updated_at, j.finished_at, i.account_id
+FROM jobs j
+LEFT JOIN installations i ON i.id = j.installation_id
 WHERE 1=1`)
 	if f.InstallationID != nil {
-		fmt.Fprintf(&b, " AND installation_id = $%d", len(args)+1)
+		fmt.Fprintf(&b, " AND j.installation_id = $%d", len(args)+1)
 		args = append(args, *f.InstallationID)
 	}
 	if f.Status != "" {
-		fmt.Fprintf(&b, " AND status = $%d", len(args)+1)
+		fmt.Fprintf(&b, " AND j.status = $%d", len(args)+1)
 		args = append(args, f.Status)
 	}
 	if f.Type != "" {
-		fmt.Fprintf(&b, " AND type = $%d", len(args)+1)
+		fmt.Fprintf(&b, " AND j.type = $%d", len(args)+1)
 		args = append(args, f.Type)
 	}
 	if f.Since != nil {
-		fmt.Fprintf(&b, " AND created_at >= $%d", len(args)+1)
+		fmt.Fprintf(&b, " AND j.created_at >= $%d", len(args)+1)
 		args = append(args, *f.Since)
 	}
 	if f.CursorTime != nil && f.CursorID != "" {
@@ -449,10 +482,10 @@ WHERE 1=1`)
 		if err != nil {
 			return nil, nil, errInvalid("invalid cursor")
 		}
-		fmt.Fprintf(&b, " AND (created_at, id) < ($%d::timestamptz, $%d::uuid)", len(args)+1, len(args)+2)
+		fmt.Fprintf(&b, " AND (j.updated_at, j.id) < ($%d::timestamptz, $%d::uuid)", len(args)+1, len(args)+2)
 		args = append(args, *f.CursorTime, id)
 	}
-	fmt.Fprintf(&b, " ORDER BY created_at DESC, id DESC LIMIT $%d", len(args)+1)
+	fmt.Fprintf(&b, " ORDER BY j.updated_at DESC, j.id DESC LIMIT $%d", len(args)+1)
 	args = append(args, f.Limit+1)
 	rows, err := s.pool.Query(ctx, b.String(), args...)
 	if err != nil {
@@ -474,7 +507,7 @@ WHERE 1=1`)
 	if len(items) > f.Limit {
 		items = items[:f.Limit]
 		last := items[len(items)-1]
-		cursor := encodeCursor(last.CreatedAt, last.ID.String())
+		cursor := encodeCursor(last.UpdatedAt, last.ID.String())
 		next = &cursor
 	}
 	return items, next, nil
@@ -483,10 +516,12 @@ WHERE 1=1`)
 func (s *store) getJob(ctx context.Context, id uuid.UUID) (Job, error) {
 	ctx, cancel := s.withTimeout(ctx)
 	defer cancel()
-	row := s.pool.QueryRow(ctx, `SELECT id, installation_id, type, actor_type, actor_id, resource_type, resource_id,
-	status, priority, attempts, max_attempts, run_after, last_error_code, last_error_message,
-	created_at, updated_at, finished_at
-FROM jobs WHERE id=$1`, id)
+	row := s.pool.QueryRow(ctx, `SELECT j.id, j.installation_id, j.type, j.actor_type, j.actor_id, j.resource_type, j.resource_id,
+	j.status, j.priority, j.attempts, j.max_attempts, j.run_after, j.last_error_code, j.last_error_message,
+	j.created_at, j.updated_at, j.finished_at, i.account_id
+FROM jobs j
+LEFT JOIN installations i ON i.id = j.installation_id
+WHERE j.id=$1`, id)
 	item, err := scanJob(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Job{}, errNotFound("job not found")
@@ -741,7 +776,7 @@ func scanJob(row jobScanner) (Job, error) {
 		&item.ID, &item.InstallationID, &item.Type, &item.ActorType, &item.ActorID,
 		&item.ResourceType, &item.ResourceID, &item.Status, &item.Priority, &item.Attempts,
 		&item.MaxAttempts, &item.RunAfter, &item.LastErrorCode, &item.LastErrorMessage,
-		&item.CreatedAt, &item.UpdatedAt, &item.FinishedAt,
+		&item.CreatedAt, &item.UpdatedAt, &item.FinishedAt, &item.AccountID,
 	)
 	if err != nil {
 		return Job{}, err

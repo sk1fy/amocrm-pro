@@ -42,5 +42,15 @@ curl -sS \
 - `payload` и `result` jobs;
 - `ADMIN_API_TOKEN` в логах и телах ответов.
 
+## Гарантии списков
+
+- `GET /admin/v1/accounts` возвращает `total` (`count(DISTINCT account_id)`
+  по фильтрам); каждая установка несёт `webhook_status`,
+  `authorization_state` (вычисленное состояние без секретов) и
+  `recent_failed_jobs` (failed/dead за 24 ч);
+- `GET /admin/v1/jobs` и `GET /admin/v1/installations/{id}/jobs` сортируют
+  по `updated_at` (новые первыми), в каждом job есть `installation_id` и
+  `account_id`; окно `since` ограничено 7 сутками.
+
 Контракт: [`api/admin-openapi.yaml`](../../api/admin-openapi.yaml).
 Решение: [ADR-0025](../adr/0025-admin-read-listener.md).
