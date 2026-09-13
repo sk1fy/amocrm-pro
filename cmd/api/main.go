@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/adminread"
 	"github.com/sk1fy/amocrm-pro/internal/apicontract"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
@@ -261,6 +262,7 @@ func run() error {
 				return components.Snapshot()
 			},
 		})
+		admincommand.Register(adminRouter, admincommand.NewStore(pool, keyRing, cfg.DatabaseTimeout, cfg.PublicBaseURL))
 		servers = append(servers, httpserver.New(cfg.AdminHTTPAddress, adminRouter))
 	}
 	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, servers...); err != nil {

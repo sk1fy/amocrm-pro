@@ -25,12 +25,13 @@ type WorkerConfig struct {
 }
 
 type Worker struct {
-	store            *Store
-	logger           *slog.Logger
-	config           WorkerConfig
-	handlers         map[string]Handler
-	failureObservers map[string]FailureObserver
-	metrics          *Metrics
+	store               *Store
+	logger              *slog.Logger
+	config              WorkerConfig
+	handlers            map[string]Handler
+	failureObservers    map[string]FailureObserver
+	completionObservers map[string]CompletionObserver
+	metrics             *Metrics
 }
 
 func (w *Worker) SetMetrics(metrics *Metrics) {
@@ -148,6 +149,11 @@ func (w *Worker) poll(ctx context.Context, semaphore chan struct{}, active *sync
 	}
 }
 
+// SetCompletionObservers configures receipt finalizers before Run starts.
+func (w *Worker) SetCompletionObservers(observers map[string]CompletionObserver) {
+	w.completionObservers = observers
+}
+
 func (w *Worker) execute(parent context.Context, job Job) {
 	started := time.Now()
 	logger := w.logger.With(
@@ -184,7 +190,7 @@ func (w *Worker) execute(parent context.Context, job Job) {
 	finalizeContext, finalizeCancel := context.WithTimeout(context.Background(), finalizeTimeout)
 	defer finalizeCancel()
 	if err == nil {
-		if completeErr := w.store.Complete(finalizeContext, job, w.config.ID, result, duration); completeErr != nil {
+		if completeErr := w.store.CompleteWithObserver(finalizeContext, job, w.config.ID, result, duration, w.completionObservers[job.Type]); completeErr != nil {
 			logger.Error("complete job", "error", completeErr, "duration", duration)
 			return
 		}

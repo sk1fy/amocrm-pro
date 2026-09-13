@@ -294,6 +294,10 @@ func (s *Store) ExtendLease(ctx context.Context, id uuid.UUID, workerID string, 
 }
 
 func (s *Store) Complete(ctx context.Context, job Job, workerID string, result json.RawMessage, duration time.Duration) error {
+	return s.CompleteWithObserver(ctx, job, workerID, result, duration, nil)
+}
+
+func (s *Store) CompleteWithObserver(ctx context.Context, job Job, workerID string, result json.RawMessage, duration time.Duration, observer CompletionObserver) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin complete job: %w", err)
@@ -317,6 +321,11 @@ func (s *Store) Complete(ctx context.Context, job Job, workerID string, result j
 	}
 	if err := insertAttempt(ctx, tx, job, workerID, "completed", "", "", duration); err != nil {
 		return err
+	}
+	if observer != nil {
+		if err := observer(ctx, tx, job, result); err != nil {
+			return err
+		}
 	}
 	return tx.Commit(ctx)
 }

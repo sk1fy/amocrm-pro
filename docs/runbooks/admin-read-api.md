@@ -1,6 +1,7 @@
 # Admin read API
 
-Внутренний read-only listener Core для админ-панели. Это не публичный API.
+Внутренний listener Core для админ-панели. Это не публичный API.
+Команды и durable-квитанции описаны в [admin-commands.md](admin-commands.md).
 
 ## Включение
 

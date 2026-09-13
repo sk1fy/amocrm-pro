@@ -19,6 +19,17 @@ import (
 
 const maxAPIResponseBody = 4 << 20
 
+var ErrTransport = errors.New("amoCRM transport failed")
+
+type transportError struct {
+	operation string
+	cause     error
+}
+
+func (e transportError) Error() string        { return e.operation + ": " + e.cause.Error() }
+func (e transportError) Unwrap() error        { return e.cause }
+func (e transportError) Is(target error) bool { return target == ErrTransport }
+
 type AccessToken struct {
 	InstallationID uuid.UUID
 	IntegrationID  uuid.UUID
@@ -56,6 +67,13 @@ func NewClient(httpClient *http.Client, tokens TokenProvider) *Client {
 		resolveAccount: AccountBaseURL,
 		reauthTimeout:  2 * time.Second,
 	}
+}
+
+// WithTokenProvider scopes credentials while retaining this Gateway's one shared
+// outbound limiter and metrics. It does not copy the client's mutex.
+func (c *Client) WithTokenProvider(tokens TokenProvider) *Client {
+	return &Client{httpClient: c.httpClient, tokens: tokens, limiter: c.limiter,
+		resolveAccount: c.resolveAccount, reauthTimeout: c.reauthTimeout, metrics: c.metrics}
 }
 
 func (c *Client) DoJSON(
@@ -152,13 +170,13 @@ func (c *Client) request(
 		if errors.As(err, &urlError) && urlError.Err != nil {
 			err = urlError.Err
 		}
-		return 0, nil, nil, fmt.Errorf("request amoCRM API: %w", err)
+		return 0, nil, nil, transportError{operation: "request amoCRM API", cause: err}
 	}
 	c.observeResponse(response.StatusCode, nil)
 	defer response.Body.Close()
 	contents, err := io.ReadAll(io.LimitReader(response.Body, maxAPIResponseBody+1))
 	if err != nil {
-		return 0, nil, nil, fmt.Errorf("read amoCRM API response: %w", err)
+		return 0, nil, nil, transportError{operation: "read amoCRM API response", cause: err}
 	}
 	if len(contents) > maxAPIResponseBody {
 		return 0, nil, nil, errors.New("amoCRM API response body exceeds limit")

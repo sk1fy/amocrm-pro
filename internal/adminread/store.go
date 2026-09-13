@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/jobs"
 )
 
 type store struct {
@@ -483,9 +484,10 @@ func (s *store) listJobs(ctx context.Context, f jobListFilter) ([]Job, *string, 
 	args := make([]any, 0, 8)
 	b.WriteString(`SELECT j.id, j.installation_id, j.type, j.actor_type, j.actor_id, j.resource_type, j.resource_id,
 	j.status, j.priority, j.attempts, j.max_attempts, j.run_after, j.last_error_code, j.last_error_message,
-	j.created_at, j.updated_at, j.finished_at, i.account_id
+	j.created_at, j.updated_at, j.finished_at, i.account_id, COALESCE(i.status='active' AND ig.status='active',false)
 FROM jobs j
 LEFT JOIN installations i ON i.id = j.installation_id
+LEFT JOIN integrations ig ON ig.id=i.integration_id
 WHERE 1=1`)
 	if f.InstallationID != nil {
 		fmt.Fprintf(&b, " AND j.installation_id = $%d", len(args)+1)
@@ -544,9 +546,10 @@ func (s *store) getJob(ctx context.Context, id uuid.UUID) (Job, error) {
 	defer cancel()
 	row := s.pool.QueryRow(ctx, `SELECT j.id, j.installation_id, j.type, j.actor_type, j.actor_id, j.resource_type, j.resource_id,
 	j.status, j.priority, j.attempts, j.max_attempts, j.run_after, j.last_error_code, j.last_error_message,
-	j.created_at, j.updated_at, j.finished_at, i.account_id
+	j.created_at, j.updated_at, j.finished_at, i.account_id, COALESCE(i.status='active' AND ig.status='active',false)
 FROM jobs j
 LEFT JOIN installations i ON i.id = j.installation_id
+LEFT JOIN integrations ig ON ig.id=i.integration_id
 WHERE j.id=$1`, id)
 	item, err := scanJob(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -798,16 +801,19 @@ type jobScanner interface {
 
 func scanJob(row jobScanner) (Job, error) {
 	var item Job
+	var targetActive bool
 	err := row.Scan(
 		&item.ID, &item.InstallationID, &item.Type, &item.ActorType, &item.ActorID,
 		&item.ResourceType, &item.ResourceID, &item.Status, &item.Priority, &item.Attempts,
 		&item.MaxAttempts, &item.RunAfter, &item.LastErrorCode, &item.LastErrorMessage,
-		&item.CreatedAt, &item.UpdatedAt, &item.FinishedAt, &item.AccountID,
+		&item.CreatedAt, &item.UpdatedAt, &item.FinishedAt, &item.AccountID, &targetActive,
 	)
 	if err != nil {
 		return Job{}, err
 	}
 	item.RunAfter = item.RunAfter.UTC()
+	item.RetryReason = jobs.SafeRetryReason(item.Type, jobs.Status(item.Status), item.Attempts, targetActive)
+	item.RetryAllowed = item.RetryReason == ""
 	item.CreatedAt = item.CreatedAt.UTC()
 	item.UpdatedAt = item.UpdatedAt.UTC()
 	if item.FinishedAt != nil {

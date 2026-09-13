@@ -32,6 +32,7 @@ type Common struct {
 
 type API struct {
 	Common
+	PublicBaseURL             string
 	ManagementHTTPAddress     string
 	AdminHTTPAddress          string
 	AdminAPIToken             string
@@ -115,6 +116,13 @@ func LoadAPI() (API, error) {
 
 	adminAddress := strings.TrimSpace(os.Getenv("ADMIN_HTTP_ADDRESS"))
 	adminToken := strings.TrimSpace(os.Getenv("ADMIN_API_TOKEN"))
+	publicBaseURL := strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL"))
+	if adminAddress != "" && publicBaseURL != "" {
+		base, err := url.Parse(publicBaseURL)
+		if err != nil || base.Scheme != "https" || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Path != "" && base.Path != "/") {
+			return API{}, errors.New("PUBLIC_BASE_URL must be an absolute HTTPS origin")
+		}
+	}
 	if (adminAddress == "") != (adminToken == "") {
 		return API{}, errors.New("ADMIN_HTTP_ADDRESS and ADMIN_API_TOKEN must be set together")
 	}
@@ -264,6 +272,7 @@ func LoadAPI() (API, error) {
 	return API{
 		Common: common, ManagementHTTPAddress: managementAddress,
 		AdminHTTPAddress: adminAddress, AdminAPIToken: adminToken,
+		PublicBaseURL:  publicBaseURL,
 		MaxWebhookBody: maxBody, WebhookTimeout: webhookTimeout,
 		WebhookGlobalRate: webhookGlobalRate, WebhookGlobalBurst: webhookGlobalBurst,
 		WebhookInstallationRate:   webhookInstallationRate,

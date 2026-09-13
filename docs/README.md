@@ -12,7 +12,7 @@ handoff-файлы не являются текущим backlog.
 - [`adr/`](adr/) — принятые архитектурные решения.
 - [`runbooks/`](runbooks/) — operator и integration runbooks.
 - [`../api/openapi.yaml`](../api/openapi.yaml) — публичный HTTP-контракт.
-- [`../api/admin-openapi.yaml`](../api/admin-openapi.yaml) — внутренний admin read контракт.
+- [`../api/admin-openapi.yaml`](../api/admin-openapi.yaml) — внутренний контракт чтения и команд админки.
 
 ## Historical documentation
 

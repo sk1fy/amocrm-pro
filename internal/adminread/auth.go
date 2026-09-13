@@ -21,6 +21,9 @@ func actorFrom(ctx context.Context) string {
 	return actor
 }
 
+// ActorFromContext is populated only by the shared admin listener authentication.
+func ActorFromContext(ctx context.Context) string { return actorFrom(ctx) }
+
 func (h *handler) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.token == "" || !timingSafeEqual(bearerOrEmpty(r), h.token) {

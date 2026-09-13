@@ -138,8 +138,8 @@ process-local quota scope, bounded metrics and reproducible capacity evidence.
 
 - Public API listener: OAuth, widget, webhook and `/live`.
 - API management listener: `/live`, PostgreSQL `/ready` and `/metrics`.
-- API admin read listener (optional): `/admin/v1/*` on
-  `ADMIN_HTTP_ADDRESS`, Bearer token, read-only, not public; Compose
+- API admin listener (optional): чтение и durable commands `/admin/v1/*` on
+  `ADMIN_HTTP_ADDRESS`, Bearer token, not public; Compose
   publishes only `127.0.0.1`.
 - Worker listener: internal health and metrics only.
 - Account domains are restricted to supported amoCRM/Kommo HTTPS suffixes.

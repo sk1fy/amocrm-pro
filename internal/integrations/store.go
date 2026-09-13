@@ -19,9 +19,10 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("integration not found")
-	ErrConflict = errors.New("integration code or client id already exists")
-	codePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,62}[a-z0-9]$`)
+	ErrNotFound     = errors.New("integration not found")
+	ErrConflict     = errors.New("integration code or client id already exists")
+	ErrInvalidState = errors.New("installation state does not allow the command")
+	codePattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,62}[a-z0-9]$`)
 )
 
 type Cipher interface {
@@ -39,6 +40,7 @@ func NewStore(pool *pgxpool.Pool, cipher Cipher) *Store { return &Store{pool: po
 type Command struct {
 	Action         string
 	Actor          string
+	ActorType      string
 	Code           string
 	ClientID       string
 	Secret         []byte
@@ -68,6 +70,9 @@ func installationAction(action string) bool {
 }
 
 func (c Command) Validate() error {
+	if c.ActorType != "" && c.ActorType != "operator" && c.ActorType != "admin" {
+		return errors.New("invalid actor type")
+	}
 	if len(c.Actor) == 0 || len(c.Actor) > 128 || strings.TrimSpace(c.Actor) != c.Actor || strings.ContainsAny(c.Actor, "\r\n\t") {
 		return errors.New("actor must be a non-empty identifier of at most 128 bytes")
 	}
@@ -150,18 +155,39 @@ func (s *Store) Apply(ctx context.Context, c Command) (Result, error) {
 		return Result{}, errors.New("begin operator transaction failed")
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	result, err := s.ApplyTx(ctx, tx, c)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Result{}, errors.New("commit operator transaction failed")
+	}
+	return result, nil
+}
+
+// ApplyTx shares the CLI mutation and audit with a caller-owned transaction.
+func (s *Store) ApplyTx(ctx context.Context, tx pgx.Tx, c Command) (Result, error) {
+	if err := c.Validate(); err != nil {
+		return Result{}, err
+	}
+	if tx == nil {
+		return Result{}, errors.New("operator transaction is nil")
+	}
+	if c.ActorType == "" {
+		c.ActorType = "operator"
+	}
 	lockKey := "integration:" + c.Code
 	if installationAction(c.Action) {
 		lockKey = "installation:" + c.InstallationID.String()
 	}
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, lockKey); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, lockKey); err != nil {
 		return Result{}, errors.New("lock operator mutation failed")
 	}
 	r := Result{Code: c.Code, Action: "integration." + c.Action}
 	if installationAction(c.Action) {
 		return applyInstallation(ctx, tx, c)
 	}
-	err = tx.QueryRow(ctx, `SELECT id,status FROM integrations WHERE code=$1 FOR UPDATE`, c.Code).Scan(&r.ID, &r.Status)
+	err := tx.QueryRow(ctx, `SELECT id,status FROM integrations WHERE code=$1 FOR UPDATE`, c.Code).Scan(&r.ID, &r.Status)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return Result{}, errors.New("read integration failed")
 	}
@@ -249,11 +275,8 @@ func (s *Store) Apply(ctx context.Context, c Command) (Result, error) {
 		return Result{}, errors.New("update integration failed")
 	}
 	encoded, _ := json.Marshal(metadata)
-	if _, err = tx.Exec(ctx, `INSERT INTO audit_log(actor_type,actor_id,action,object_type,object_id,metadata) VALUES('operator',$1,$2,'integration',$3,$4)`, c.Actor, r.Action, r.ID.String(), encoded); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO audit_log(actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,$2,$3,'integration',$4,$5)`, c.ActorType, c.Actor, r.Action, r.ID.String(), encoded); err != nil {
 		return Result{}, errors.New("audit operator mutation failed")
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return Result{}, errors.New("commit operator transaction failed")
 	}
 	return r, nil
 }
@@ -297,11 +320,8 @@ func applyInstallation(ctx context.Context, tx pgx.Tx, c Command) (Result, error
 	}
 	r.Status = next
 	metadata, _ := json.Marshal(map[string]any{"previous_status": current, "status": next, "integration_status": integrationStatus})
-	if _, err = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,'operator',$2,$3,'installation',$4,$5)`, c.InstallationID, c.Actor, r.Action, c.InstallationID.String(), metadata); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,$2,$3,$4,'installation',$5,$6)`, c.InstallationID, c.ActorType, c.Actor, r.Action, c.InstallationID.String(), metadata); err != nil {
 		return Result{}, errors.New("audit operator mutation failed")
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return Result{}, errors.New("commit operator transaction failed")
 	}
 	return r, nil
 }
@@ -310,22 +330,27 @@ func installationTransition(action, current string) (string, error) {
 	switch action {
 	case "disable-installation":
 		if current == "uninstalled" {
-			return "", errors.New("cannot disable an uninstalled installation")
+			return "", stateError("cannot disable an uninstalled installation")
 		}
 		return "disabled", nil
 	case "enable-installation":
 		if current != "disabled" {
-			return "", errors.New("enable-installation restores only a disabled installation; uninstalled tenants reauthorize through OAuth")
+			return "", stateError("enable-installation restores only a disabled installation; uninstalled tenants reauthorize through OAuth")
 		}
 		return "active", nil
 	case "uninstall":
 		return "uninstalled", nil
 	case "revoke":
 		if current == "disabled" || current == "uninstalled" {
-			return "", errors.New("cannot revoke a disabled or uninstalled installation")
+			return "", stateError("cannot revoke a disabled or uninstalled installation")
 		}
 		return "reauth_required", nil
 	default:
 		return "", errors.New("unknown operator action")
 	}
 }
+
+type stateError string
+
+func (e stateError) Error() string { return string(e) }
+func (e stateError) Unwrap() error { return ErrInvalidState }

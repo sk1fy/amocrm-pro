@@ -1,5 +1,7 @@
 # Runbooks
 
+- [Команды админки и восстановление квитанций](admin-commands.md)
+
 - [`integrations.md`](integrations.md) — multi-widget provisioning, secret rotation, service grants and disable/restore.
 - [`admin-read-api.md`](admin-read-api.md) — optional internal admin read listener, token and actor headers.
 - [`widget-capacity.md`](widget-capacity.md) — widget API limits, fair queue rollout and capacity diagnostics.

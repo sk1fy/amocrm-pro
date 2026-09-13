@@ -109,7 +109,7 @@ services:
     environment:
       <<: *core-env
       HTTP_ADDRESS: ":8081"
-      PUBLIC_BASE_URL: https://hooks.example.invalid
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-https://hooks.example.invalid}"
       WORKER_CONCURRENCY: "2"
       WORKER_INTEGRATION_CONCURRENCY: "1"
     volumes: ["gateway-identity:/identity:ro"]
@@ -170,6 +170,7 @@ services:
       MANAGEMENT_HTTP_ADDRESS: ":8082"
       ADMIN_HTTP_ADDRESS: ":8083"
       ADMIN_API_TOKEN: "${ADMIN_API_TOKEN:-admin-dev-token-change-me}"
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-https://hooks.example.invalid}"
       ACTIVITY_ADDRESS: activity:9091
       CRM_EVENTS_ADDRESS: crm-events:9092
       ACTIVITY_APP_ORIGINS: "${ACTIVITY_APP_ORIGINS:-http://127.0.0.1:4173}"

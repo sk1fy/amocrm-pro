@@ -35,6 +35,27 @@ func TestAdminDevelopmentTokenEnvironmentBoundary(t *testing.T) {
 	}
 }
 
+func TestAdminPublicBaseURLMustBeHTTPSOrigin(t *testing.T) {
+	for _, value := range []string{"https://core.example.invalid", "http://core.example.invalid", "https://core.example.invalid/path", "https://core.example.invalid?fixture=1"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+			t.Setenv("APP_ENV", "development")
+			t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+			t.Setenv("ADMIN_HTTP_ADDRESS", ":8083")
+			t.Setenv("ADMIN_API_TOKEN", "fixture-admin-credential")
+			t.Setenv("PUBLIC_BASE_URL", value)
+			cfg, err := LoadAPI()
+			if value == "https://core.example.invalid" {
+				if err != nil || cfg.PublicBaseURL != value {
+					t.Fatalf("valid public origin=%q %v", cfg.PublicBaseURL, err)
+				}
+			} else if err == nil {
+				t.Fatal("invalid public origin accepted")
+			}
+		})
+	}
+}
+
 func TestProductionRejectsPublicDevelopmentEncryptionKey(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
 	t.Setenv("APP_ENV", "production")

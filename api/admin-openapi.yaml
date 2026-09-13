@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: amoCRM Core admin read API
+  title: amoCRM Core admin API
   version: v1
-  summary: Internal read-only admin listener.
+  summary: Internal admin read and command listener.
   description: |
-    Internal Core admin read contract. This is not the public widget/OAuth API.
+    Internal Core admin contract. This is not the public widget/OAuth API.
     Authenticate with `Authorization: Bearer` using `ADMIN_API_TOKEN` and send
     `X-Admin-Actor`. Responses never include OAuth tokens, ciphertext, webhook
     keys, or job payload/result.
@@ -194,7 +194,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResponse'
+                $ref: '#/components/schemas/JobListResponse'
         '400':
           $ref: '#/components/responses/InvalidArgument'
         '401':
@@ -344,7 +344,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResponse'
+                $ref: '#/components/schemas/JobListResponse'
         '400':
           $ref: '#/components/responses/InvalidArgument'
         '401':
@@ -438,6 +438,63 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '500':
           $ref: '#/components/responses/InternalError'
+  /admin/v1/commands:
+    post:
+      tags: [Admin]
+      operationId: executeAdminCommand
+      summary: Execute or enqueue a durable idempotent admin command.
+      description: |
+        Idempotency keys are global across actors. A UUID key is the receipt ID;
+        other keys map to UUIDv5 in the OID namespace. Changed requests conflict.
+        Secrets are accepted only for integration create/rotate-secret and are
+        never persisted in command receipts, jobs, logs, or responses.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 200}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandRequest'
+      responses:
+        '200':
+          description: Terminal receipt, including a replay.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommandReceipt'}
+        '202':
+          description: Pending worker command.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommandReceipt'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/commands/{id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminCommand
+      summary: Read a durable receipt without retrying its command.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Receipt with its latest persisted safe result.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommandReceipt'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
 components:
   securitySchemes:
     adminBearer:
@@ -483,6 +540,54 @@ components:
         type: string
         format: uuid
   schemas:
+    CommandRequest:
+      type: object
+      additionalProperties: false
+      required: [target_type, target_id, command, payload]
+      properties:
+        target_type: {type: string, enum: [installation, integration, job, delivery]}
+        target_id:
+          type: string
+          description: UUID, or new for integration create.
+        command:
+          type: string
+          enum: [create, update, rotate-secret, enable, disable, set-service, revoke, uninstall, reconcile, check, pilot-enable, pilot-disable, retry]
+        payload:
+          type: object
+          additionalProperties: false
+          properties:
+            installation_id: {type: string, format: uuid, description: Required owner assertion for delivery retry.}
+            code: {type: string}
+            client_id: {type: string, format: uuid}
+            client_secret: {type: string, writeOnly: true, minLength: 1, maxLength: 16384}
+            redirect_uri: {type: string, format: uri}
+            webhook_events: {type: array, items: {type: string}}
+            services: {type: array, items: {type: string}}
+            service: {type: string, enum: [lead-status, activity]}
+            enabled: {type: boolean}
+    CommandReceipt:
+      type: object
+      required: [id, target_type, target_id, command, state, result, observed_at, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        target_type: {type: string}
+        target_id: {type: string}
+        command: {type: string}
+        state: {type: string, enum: [accepted, pending, running, succeeded, failed, partial, unknown_outcome]}
+        outcome: {type: string}
+        result:
+          type: object
+          description: Safe result only. Check has classification, verification, observed_at and retry_after seconds; uninstall may have webhook_error.
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string}
+            message: {type: string}
+        observed_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        finished_at: {type: string, format: date-time}
+        job_id: {type: string, format: uuid}
     AdminError:
       type: object
       required: [error]
@@ -495,7 +600,7 @@ components:
           properties:
             code:
               type: string
-              enum: [unauthenticated, invalid_argument, not_found, internal]
+              enum: [unauthenticated, invalid_argument, not_found, conflict, internal]
             message:
               type: string
               minLength: 1
@@ -646,13 +751,28 @@ components:
         source: {type: string, const: core}
         observed_at: {type: string, format: date-time}
         integration: {type: object}
+    Job:
+      type: object
+      required: [id, type, status, retry_allowed]
+      properties:
+        id: {type: string, format: uuid}
+        type: {type: string}
+        status: {type: string}
+        retry_allowed: {type: boolean}
+        retry_reason: {type: string, enum: [unsupported_type, not_failed, target_inactive, attempt_limit]}
+    JobListResponse:
+      allOf:
+        - {$ref: '#/components/schemas/ListResponse'}
+        - type: object
+          properties:
+            items: {type: array, items: {$ref: '#/components/schemas/Job'}}
     JobResponse:
       type: object
       required: [source, observed_at, job, attempts]
       properties:
         source: {type: string, const: core}
         observed_at: {type: string, format: date-time}
-        job: {type: object}
+        job: {$ref: '#/components/schemas/Job'}
         attempts:
           type: array
           items: {type: object}
@@ -675,6 +795,11 @@ components:
           type: array
           items: {type: object}
   responses:
+    Conflict:
+      description: Changed idempotent request or another command in flight for the target.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/AdminError'}
     Unauthenticated:
       description: Missing or invalid bearer token or actor.
       headers:

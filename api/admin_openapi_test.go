@@ -23,6 +23,9 @@ func TestAdminOpenAPIContract(t *testing.T) {
 	for _, route := range apicontract.AdminRoutes {
 		expected[route.Path] = append(expected[route.Path], route.Method)
 	}
+	for _, route := range apicontract.AdminCommandRoutes {
+		expected[route.Path] = append(expected[route.Path], route.Method)
+	}
 	if document.Paths.Len() != len(expected) {
 		t.Fatalf("OpenAPI paths = %d, expected %d", document.Paths.Len(), len(expected))
 	}

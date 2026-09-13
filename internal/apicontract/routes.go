@@ -86,6 +86,9 @@ var (
 	AdminJobsSummary            = Route{Method: http.MethodGet, Path: "/admin/v1/jobs/summary"}
 	AdminJob                    = Route{Method: http.MethodGet, Path: "/admin/v1/jobs/{id}"}
 	AdminAudit                  = Route{Method: http.MethodGet, Path: "/admin/v1/audit"}
+	AdminCommands               = Route{Method: http.MethodPost, Path: "/admin/v1/commands"}
+	AdminCommand                = Route{Method: http.MethodGet, Path: "/admin/v1/commands/{id}"}
+	AdminCommandRoutes          = []Route{AdminCommands, AdminCommand}
 
 	AdminRoutes = []Route{
 		AdminBackend,

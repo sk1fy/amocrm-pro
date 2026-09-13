@@ -82,6 +82,7 @@ services:
       MANAGEMENT_HTTP_ADDRESS: ":8082"
       ADMIN_HTTP_ADDRESS: ":8083"
       ADMIN_API_TOKEN: "${ADMIN_API_TOKEN:-admin-dev-token-change-me}"
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
       SHUTDOWN_TIMEOUT: "${SHUTDOWN_TIMEOUT:-15s}"
       DATABASE_TIMEOUT: "${DATABASE_TIMEOUT:-2s}"

@@ -147,6 +147,8 @@ type ActivityInfo struct {
 }
 
 type Job struct {
+	RetryAllowed     bool       `json:"retry_allowed"`
+	RetryReason      string     `json:"retry_reason,omitempty"`
 	ID               uuid.UUID  `json:"id"`
 	InstallationID   *uuid.UUID `json:"installation_id"`
 	AccountID        *int64     `json:"account_id,omitempty"`
@@ -233,6 +235,8 @@ type DeliveriesResponse struct {
 }
 
 var adminCapabilities = []string{
+	"commands",
+	"diagnostics",
 	"accounts",
 	"installations",
 	"integrations",

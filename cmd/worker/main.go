@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
@@ -128,6 +129,11 @@ func run() error {
 		"webhook.process_event": webhook.JobFailureObserver(webhookStore),
 	}
 	leadStatusModule.RegisterJobs(handlers, observers, amocrmAPI)
+	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
+	handlers[admincommand.CheckJobType] = adminExecutor.Handler
+	handlers[admincommand.UninstallJobType] = adminExecutor.Handler
+	observers[admincommand.CheckJobType] = admincommand.FailReceipt
+	observers[admincommand.UninstallJobType] = admincommand.FailReceipt
 
 	worker := jobs.NewWorker(jobStore, logger, jobs.WorkerConfig{
 		ID:                     cfg.WorkerID,
@@ -142,6 +148,10 @@ func run() error {
 		ClaimTimeout:           cfg.DatabaseTimeout,
 	}, handlers, observers)
 	worker.SetMetrics(jobMetrics)
+	worker.SetCompletionObservers(map[string]jobs.CompletionObserver{
+		admincommand.CheckJobType:     admincommand.CompleteReceipt,
+		admincommand.UninstallJobType: admincommand.CompleteReceipt,
+	})
 	cleanupScheduler, err := maintenance.NewScheduler(
 		maintenance.NewStore(pool), logger, maintenance.SchedulerConfig{
 			Interval: cfg.CleanupInterval,

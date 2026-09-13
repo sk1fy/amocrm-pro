@@ -77,7 +77,7 @@ API calls, workflow, retries, token refresh и cleanup выполняет worker
 | --- | --- | --- |
 | `api` | OAuth, widget API и webhook ingress | `127.0.0.1:8080` |
 | `api` management | Liveness, readiness и Prometheus metrics | `127.0.0.1:8082` |
-| `api` admin read | внутренний read-only API админ-панели | `127.0.0.1:8083` (activity-стек `18083`) |
+| `api` admin | внутренние чтение и команды админ-панели | `127.0.0.1:8083` (activity-стек `18083`) |
 | `worker` | Jobs, amoCRM API, workflow и cleanup | `127.0.0.1:8081` |
 | `migrate` | Применение SQL-миграций | нет |
 | `integrations` | Operator CLI: provisioning, secrets, disable и service grants | нет |

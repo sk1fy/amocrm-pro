@@ -68,6 +68,7 @@ type TxExecutor interface {
 }
 
 type FailureObserver func(context.Context, TxExecutor, Job, Failure, Status) error
+type CompletionObserver func(context.Context, TxExecutor, Job, json.RawMessage) error
 
 type Error struct {
 	Code       string

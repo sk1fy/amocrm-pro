@@ -261,14 +261,22 @@ func SetPilot(ctx context.Context, pool *pgxpool.Pool, installationID uuid.UUID,
 		return err
 	}
 	defer rollback(tx)
+	if err := SetPilotTx(ctx, tx, installationID, enabled, "operator", "activity-cli"); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// SetPilotTx shares pilot mutation and audit with a caller-owned receipt.
+func SetPilotTx(ctx context.Context, tx pgx.Tx, installationID uuid.UUID, enabled bool, actorType, actorID string) error {
 	if _, err := tx.Exec(ctx, `INSERT INTO activity_pilots(installation_id,enabled) VALUES($1,$2) ON CONFLICT(installation_id) DO UPDATE SET enabled=EXCLUDED.enabled,updated_at=now()`, installationID, enabled); err != nil {
 		return err
 	}
 	metadata, _ := json.Marshal(map[string]bool{"enabled": enabled})
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,'operator','activity-cli','activity.pilot','installation',$2,$3)`, installationID, installationID.String(), metadata); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,$2,$3,'activity.pilot','installation',$4,$5)`, installationID, actorType, actorID, installationID.String(), metadata); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 // RetryDelivery keeps the same command ID and payload, including when the
@@ -280,10 +288,18 @@ func RetryDelivery(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID) error 
 		return err
 	}
 	defer rollback(tx)
+	if err := RetryDeliveryTx(ctx, tx, id, "operator", "activity-cli"); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// RetryDeliveryTx retains the existing receiver idempotency and retry horizon.
+func RetryDeliveryTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, actorType, actorID string) error {
 	var installation uuid.UUID
 	var created time.Time
 	var status string
-	err = tx.QueryRow(ctx, `SELECT receipt.installation_id,receipt.created_at,outbox.status FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id) WHERE outbox.command_id=$1 FOR UPDATE OF outbox,receipt`, id).Scan(&installation, &created, &status)
+	err := tx.QueryRow(ctx, `SELECT receipt.installation_id,receipt.created_at,outbox.status FROM activity_command_outbox outbox JOIN activity_command_receipts receipt USING(command_id) WHERE outbox.command_id=$1 FOR UPDATE OF outbox,receipt`, id).Scan(&installation, &created, &status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return serviceapi.Fail(serviceapi.NotFound, "failed delivery not found")
 	}
@@ -303,10 +319,10 @@ func RetryDelivery(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID) error 
 	if tag.RowsAffected() != 1 {
 		return serviceapi.Fail(serviceapi.NotFound, "failed delivery not found")
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id) VALUES($1,'operator','activity-cli','activity.delivery.retry','command',$2)`, installation, id.String()); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id) VALUES($1,$2,$3,'activity.delivery.retry','command',$4)`, installation, actorType, actorID, id.String()); err != nil {
 		return fmt.Errorf("audit delivery retry: %w", err)
 	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 // Delivery is the operator-visible Core outbox row. Widget Operation() is a
