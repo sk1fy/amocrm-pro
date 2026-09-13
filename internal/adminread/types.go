@@ -243,4 +243,133 @@ var adminCapabilities = []string{
 	"jobs",
 	"audit",
 	"activity_deliveries",
+	"activity_settings",
+	"activity_sync",
+	"activity_panels",
+	"lead_status",
+	"stats",
+}
+
+type ActivitySettingsResponse struct {
+	Source        string    `json:"source"`
+	ObservedAt    time.Time `json:"observed_at"`
+	InitialDays   int       `json:"initial_days"`
+	RetentionDays int       `json:"retention_days"`
+	UpdatedAt     int64     `json:"updated_at"`
+}
+
+type ActivityStatusResponse struct {
+	Source          string    `json:"source"`
+	ObservedAt      time.Time `json:"observed_at"`
+	Enabled         bool      `json:"enabled"`
+	State           string    `json:"state"`
+	Verification    string    `json:"verification"`
+	LagSeconds      int64     `json:"lag_seconds"`
+	ReauthRequired  bool      `json:"reauth_required"`
+	ErrorCode       string    `json:"error_code,omitempty"`
+	LastSuccessAt   *string   `json:"last_success_at"`
+	LastEventAt     *string   `json:"last_event_at"`
+	VerifiedFrom    *string   `json:"verified_from"`
+	VerifiedThrough *string   `json:"verified_through"`
+}
+
+type ActivityOperationResponse struct {
+	Source        string    `json:"source"`
+	ObservedAt    time.Time `json:"observed_at"`
+	CommandID     string    `json:"command_id"`
+	OperationID   string    `json:"operation_id"`
+	State         string    `json:"state"`
+	DeliveryState string    `json:"delivery_state"`
+	ErrorCode     string    `json:"error_code,omitempty"`
+}
+
+type AdminPanel struct {
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	EmployeeIDs    []int64   `json:"employee_ids"`
+	DisplayWindow  any       `json:"display_window"`
+	Timezone       string    `json:"timezone,omitempty"`
+	Enabled        bool      `json:"enabled"`
+	Revision       int64     `json:"revision"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	ShareURLIssued bool      `json:"share_url_issued"`
+}
+
+type LeadStatusRule struct {
+	ID               string    `json:"id"`
+	SourcePipelineID int64     `json:"source_pipeline_id"`
+	SourceStatusID   int64     `json:"source_status_id"`
+	TargetPipelineID int64     `json:"target_pipeline_id"`
+	TargetStatusID   int64     `json:"target_status_id"`
+	Enabled          bool      `json:"enabled"`
+	Revision         int64     `json:"revision"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type LeadStatusRun struct {
+	ID           string     `json:"id"`
+	WorkflowType string     `json:"workflow_type"`
+	Status       string     `json:"status"`
+	RuleID       *string    `json:"rule_id"`
+	CreatedAt    time.Time  `json:"created_at"`
+	FinishedAt   *time.Time `json:"finished_at"`
+	EffectState  *string    `json:"effect_state"`
+	EffectError  *string    `json:"effect_error"`
+	EffectType   *string    `json:"effect_type,omitempty"`
+}
+
+type StatsResponse struct {
+	Source            string            `json:"source"`
+	ObservedAt        time.Time         `json:"observed_at"`
+	Period            string            `json:"period"`
+	From              time.Time         `json:"from"`
+	To                time.Time         `json:"to"`
+	PeriodStart       time.Time         `json:"period_start"`
+	PeriodEnd         time.Time         `json:"period_end"`
+	Connections       []StatsConnection `json:"connections"`
+	PeriodEvents      StatsPeriodEvents `json:"period_events"`
+	Connected         *int64            `json:"connected"`
+	Disconnected      *int64            `json:"disconnected"`
+	ActiveAccounts    *int64            `json:"active_accounts"`
+	LastUseAt         *time.Time        `json:"last_use_at"`
+	JobErrors         *int64            `json:"job_errors"`
+	Latency           StatsLatency      `json:"latency"`
+	LatencyP50Ms      *int64            `json:"latency_p50_ms"`
+	Queues            []StatsQueue      `json:"queues"`
+	AuthProblemsCount *int64            `json:"auth_problems_count"`
+	SyncProblemsCount *int64            `json:"sync_problems_count"`
+	AuthProblems      *int64            `json:"auth_problems"`
+	SyncProblems      *int64            `json:"sync_problems"`
+}
+
+type StatsConnection struct {
+	IntegrationCode string `json:"integration_code"`
+	Product         string `json:"product"`
+	Status          string `json:"status"`
+	Count           int64  `json:"count"`
+}
+
+type StatsPeriodEvents struct {
+	Connected    *int64 `json:"connected"`
+	Disconnected *int64 `json:"disconnected"`
+}
+
+type StatsLatency struct {
+	AvgMS *float64 `json:"avg_ms"`
+	P50MS *float64 `json:"p50_ms"`
+}
+
+type StatsQueue struct {
+	Type   string `json:"type"`
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
+type StatsAccount struct {
+	AccountID       int64  `json:"account_id"`
+	Domain          string `json:"domain"`
+	InstallationID  string `json:"installation_id"`
+	IntegrationCode string `json:"integration_code"`
+	Reason          string `json:"reason"`
 }

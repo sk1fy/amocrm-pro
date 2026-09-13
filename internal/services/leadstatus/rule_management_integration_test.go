@@ -3,6 +3,7 @@ package leadstatus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -196,6 +197,42 @@ func admitAndClaimRule(
 		t.Fatalf("claimed rule job/error = %+v/%v", claimed, err)
 	}
 	return claimed[0]
+}
+
+func TestConfigureAdminCASAndAuditWithoutAmoCRM(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	principal := widgetPrincipal(t, pool, 303, 81)
+	store := NewRuleStore(pool)
+	actor := "employee:11111111-1111-4111-8111-111111111111"
+	create := LeadStatusRuleCommand{
+		SourcePipelineID: 10, SourceStatusID: 20,
+		TargetPipelineID: 30, TargetStatusID: 40,
+		Enabled: true, ExpectedRevision: 0,
+	}
+	first, err := store.ConfigureAdmin(context.Background(), principal.InstallationID, actor, create)
+	if err != nil || first.Revision != 1 {
+		t.Fatalf("create=%+v %v", first, err)
+	}
+	create.ExpectedRevision = 1
+	create.TargetStatusID = 41
+	second, err := store.ConfigureAdmin(context.Background(), principal.InstallationID, actor, create)
+	if err != nil || second.Revision != 2 || second.RuleID != first.RuleID {
+		t.Fatalf("update=%+v %v", second, err)
+	}
+	create.ExpectedRevision = 1
+	if _, err := store.ConfigureAdmin(context.Background(), principal.InstallationID, actor, create); !errors.Is(err, ErrRuleRevisionConflict) {
+		t.Fatalf("stale revision=%v", err)
+	}
+	var audits int
+	var actorType, actorID string
+	if err := pool.QueryRow(context.Background(), `SELECT count(*), max(actor_type), max(actor_id) FROM audit_log WHERE action=$1 AND object_id=$2`,
+		LeadStatusRuleConfigureJobType, first.RuleID.String()).Scan(&audits, &actorType, &actorID); err != nil {
+		t.Fatal(err)
+	}
+	if audits != 2 || actorType != "admin" || actorID != actor {
+		t.Fatalf("admin audit=%d %s %s", audits, actorType, actorID)
+	}
 }
 
 func completeRuleJob(t *testing.T, pool *pgxpool.Pool, job jobs.Job, result json.RawMessage) {

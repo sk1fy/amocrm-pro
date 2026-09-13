@@ -7,6 +7,18 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
+func TestDeliveryIssueRequestUsesOperatorKindForActorZero(t *testing.T) {
+	scope := serviceapi.Scope{}
+	user := deliveryIssueRequest(scope, 7, "cmd", serviceapi.ActivityService, serviceapi.ActionSettings)
+	if user.Kind != "" || user.ActorID != 7 {
+		t.Fatalf("user issue=%+v", user)
+	}
+	operator := deliveryIssueRequest(scope, 0, "cmd", serviceapi.EventsService, serviceapi.ActionSync)
+	if operator.Kind != serviceapi.PrincipalKindOperator || operator.ActorID != 0 || operator.Consumer != serviceapi.ActivityService {
+		t.Fatalf("operator issue=%+v", operator)
+	}
+}
+
 func TestPastRedeliveryHorizonUsesCreatedAtNotAttempts(t *testing.T) {
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	if pastRedeliveryHorizon(now.Add(-RedeliveryHorizon+time.Second), now) {

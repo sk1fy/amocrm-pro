@@ -66,7 +66,13 @@ func writeError(w http.ResponseWriter, err error) {
 	if status == 0 {
 		status = 500
 	}
-	writeJSON(w, status, map[string]any{"error": map[string]any{"code": safe.Code, "message": safe.Message, "request_id": w.Header().Get("X-Request-ID"), "retryable": false}})
+	body := map[string]any{"code": safe.Code, "message": safe.Message, "request_id": w.Header().Get("X-Request-ID"), "retryable": false}
+	out := map[string]any{"error": body}
+	if len(safe.Details) > 0 {
+		body["details"] = safe.Details
+		out["current"] = safe.Details
+	}
+	writeJSON(w, status, out)
 }
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")

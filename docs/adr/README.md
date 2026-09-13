@@ -28,6 +28,7 @@
 | [0025](0025-admin-read-listener.md) | Accepted for admin panel stage 1 | Read-only internal admin HTTP listener; public and management listeners unchanged |
 | [0026](0026-admin-read-diagnostics.md) | Accepted | Согласованные факты диагностики admin read, последние доставки и запрет публичного dev-токена вне development |
 | [0027](0027-admin-command-receipts.md) | Accepted | Durable admin receipts, native transactional commands, worker diagnostics and safe retries |
+| [0028](0028-admin-activity-principal.md) | Accepted | Admin listener issues operator-kind Activity Auth; settings/sync/status grants; actor_id=0 outbox |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

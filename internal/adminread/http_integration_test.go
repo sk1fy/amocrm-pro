@@ -252,11 +252,56 @@ func TestAdminReadListsAndCards(t *testing.T) {
 		t.Fatalf("jobs window=%d %s", rec.Code, rec.Body.String())
 	}
 
+	stats := adminGET(t, router, "/admin/v1/stats")
+	if stats.Code != http.StatusOK {
+		t.Fatalf("stats=%d %s", stats.Code, stats.Body.String())
+	}
+	assertNoSecretJSONKeys(t, stats.Body.Bytes())
+	var statsBody StatsResponse
+	decodeJSON(t, stats, &statsBody)
+	if statsBody.JobErrors == nil || *statsBody.JobErrors != 1 || statsBody.Latency.AvgMS != nil || statsBody.Latency.P50MS != nil {
+		t.Fatalf("empty-ish stats=%s", stats.Body.String())
+	}
+	if statsBody.AuthProblemsCount == nil || statsBody.ActiveAccounts == nil || statsBody.SyncProblemsCount == nil {
+		t.Fatalf("snapshot counts must not be null: %s", stats.Body.String())
+	}
+
+	settings := adminGET(t, router, "/admin/v1/installations/"+firstID.String()+"/activity/settings")
+	if settings.Code != http.StatusServiceUnavailable {
+		t.Fatalf("settings without bridge=%d %s", settings.Code, settings.Body.String())
+	}
+	assertNoSecretJSONKeys(t, settings.Body.Bytes())
+	status := adminGET(t, router, "/admin/v1/installations/"+firstID.String()+"/activity/status")
+	if status.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status without bridge=%d %s", status.Code, status.Body.String())
+	}
+
 	unauth := httptest.NewRequest(http.MethodGet, "/admin/v1/backend", nil)
 	unauthRec := httptest.NewRecorder()
 	router.ServeHTTP(unauthRec, unauth)
 	if unauthRec.Code != http.StatusUnauthorized {
 		t.Fatalf("unauth=%d %s", unauthRec.Code, unauthRec.Body.String())
+	}
+}
+
+func TestAdminStatsEmptyDatabaseUsesZeroNotNull(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	stats := adminGET(t, adminTestRouter(t, pool), "/admin/v1/stats")
+	if stats.Code != http.StatusOK {
+		t.Fatalf("stats=%d %s", stats.Code, stats.Body.String())
+	}
+	assertNoSecretJSONKeys(t, stats.Body.Bytes())
+	var body StatsResponse
+	decodeJSON(t, stats, &body)
+	if body.JobErrors == nil || *body.JobErrors != 0 || body.AuthProblemsCount == nil || *body.AuthProblemsCount != 0 || body.SyncProblemsCount == nil || *body.SyncProblemsCount != 0 || body.ActiveAccounts == nil || *body.ActiveAccounts != 0 {
+		t.Fatalf("empty snapshot counts=%s", stats.Body.String())
+	}
+	if body.Latency.AvgMS != nil || body.Latency.P50MS != nil {
+		t.Fatalf("empty latency must be null: %s", stats.Body.String())
+	}
+	if body.PeriodEvents.Connected == nil || *body.PeriodEvents.Connected != 0 || body.PeriodEvents.Disconnected == nil || *body.PeriodEvents.Disconnected != 0 {
+		t.Fatalf("empty period events=%s", stats.Body.String())
 	}
 }
 
@@ -365,7 +410,7 @@ func assertNoSecretKeys(t *testing.T, value any) {
 	case map[string]any:
 		for key, child := range node {
 			lower := strings.ToLower(key)
-			for _, forbidden := range []string{"secret", "token", "ciphertext", "key_hash", "password"} {
+			for _, forbidden := range []string{"secret", "token", "ciphertext", "key_hash", "password", "view_key"} {
 				if strings.Contains(lower, forbidden) {
 					t.Errorf("forbidden JSON key %q", key)
 				}

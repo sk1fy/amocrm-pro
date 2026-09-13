@@ -40,6 +40,12 @@ Admin API проверяет роль сотрудника и отправляе
 | Объект | Команды | Payload |
 | --- | --- | --- |
 | installation | enable, disable, revoke, uninstall, reconcile, check, pilot-enable, pilot-disable | `{}` |
+| installation | activity-configure | initial_days, retention_days; expected_updated_at необязателен (0 = ещё не сохраняли) |
+| installation | activity-sync | kind=enable\|sync\|backfill\|disable; from/to только для backfill |
+| installation | activity-panel-create | name, employee_ids, display_window; enabled необязателен |
+| installation | activity-panel-patch | panel_id, revision; name/employee_ids/display_window/enabled по желанию |
+| installation | activity-panel-rotate | panel_id; новый секрет остаётся в Activity |
+| installation | lead-status-configure | source/target pipeline и status, enabled, expected_revision |
 | integration | create | code, client_id, client_secret, redirect_uri, services; webhook_events необязателен; target_id=`new` |
 | integration | update | redirect_uri и/или webhook_events |
 | integration | rotate-secret | client_secret |
@@ -91,6 +97,14 @@ failed/dead при active установке и интеграции. Испол
 `retry_allowed`/`retry_reason` из read API; Core проверяет их заново при
 команде. Старые попытки и principal сохраняются, добавляется пять попыток.
 Activity retry допускается только для failed доставки моложе семи суток.
+
+Команды Activity (ADR-0028) идут от `Kind=operator`, `actor_id=0`, без
+`used_widget_tokens`. Токены делегации в квитанции не попадают.
+`activity-configure` применяет CAS `expected_updated_at` сразу в
+Activity DB. `activity-sync` остаётся `pending`, пока outbox не
+`accepted` и операция CRM Events не завершится. Rotate панели из
+админки инвалидирует старые ссылки; URL нужно брать через
+`activity-control`.
 
 ## Проверки
 

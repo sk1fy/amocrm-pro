@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
@@ -227,38 +228,9 @@ func (s *RuleStore) Configure(
 		return LeadStatusRuleResult{}, err
 	}
 
-	result := LeadStatusRuleResult{
-		SourcePipelineID: command.SourcePipelineID, SourceStatusID: command.SourceStatusID,
-		TargetPipelineID: command.TargetPipelineID, TargetStatusID: command.TargetStatusID,
-		Enabled: command.Enabled,
-	}
-	if command.ExpectedRevision == 0 {
-		result.Revision = 1
-		err = tx.QueryRow(ctx, `
-			INSERT INTO lead_status_workflow_rules (
-				installation_id,source_pipeline_id,source_status_id,
-				target_pipeline_id,target_status_id,enabled,revision
-			) VALUES ($1,$2,$3,$4,$5,$6,1)
-			ON CONFLICT (installation_id,source_pipeline_id,source_status_id) DO NOTHING
-			RETURNING id`, *job.InstallationID, command.SourcePipelineID,
-			command.SourceStatusID, command.TargetPipelineID, command.TargetStatusID,
-			command.Enabled).Scan(&result.RuleID)
-	} else {
-		err = tx.QueryRow(ctx, `
-			UPDATE lead_status_workflow_rules
-			SET target_pipeline_id=$4,target_status_id=$5,enabled=$6,
-				revision=revision+1,updated_at=now()
-			WHERE installation_id=$1 AND source_pipeline_id=$2 AND source_status_id=$3
-			  AND revision=$7
-			RETURNING id,revision`, *job.InstallationID, command.SourcePipelineID,
-			command.SourceStatusID, command.TargetPipelineID, command.TargetStatusID,
-			command.Enabled, command.ExpectedRevision).Scan(&result.RuleID, &result.Revision)
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return LeadStatusRuleResult{}, ErrRuleRevisionConflict
-	}
+	result, err := applyLeadStatusRuleCAS(ctx, tx, *job.InstallationID, command)
 	if err != nil {
-		return LeadStatusRuleResult{}, fmt.Errorf("apply lead status rule CAS: %w", err)
+		return LeadStatusRuleResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO lead_status_workflow_rule_configurations (
@@ -289,6 +261,139 @@ func (s *RuleStore) Configure(
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return LeadStatusRuleResult{}, fmt.Errorf("commit rule configuration: %w", err)
+	}
+	return result, nil
+}
+
+func (s *RuleStore) ConfigureAdmin(
+	ctx context.Context,
+	installationID uuid.UUID,
+	actor string,
+	command LeadStatusRuleCommand,
+) (LeadStatusRuleResult, error) {
+	if s == nil || s.pool == nil {
+		return LeadStatusRuleResult{}, serviceapi.Fail(serviceapi.Unavailable, "lead-status is unavailable")
+	}
+	if actor == "" {
+		return LeadStatusRuleResult{}, serviceapi.Fail(serviceapi.InvalidArgument, "admin actor is required")
+	}
+	if !validLeadStatusRuleCommand(command) {
+		return LeadStatusRuleResult{}, ErrInvalidLeadStatusRule
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("begin admin rule configuration: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var marker int
+	err = tx.QueryRow(ctx, `
+		SELECT 1
+		FROM installations AS installation
+		JOIN integrations AS integration ON integration.id=installation.integration_id
+		JOIN integration_services AS grant ON grant.integration_id=integration.id
+		  AND grant.service_code='lead-status' AND grant.enabled
+		WHERE installation.id=$1 AND installation.status='active' AND integration.status='active'
+		FOR SHARE OF installation, integration`, installationID).Scan(&marker)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LeadStatusRuleResult{}, serviceapi.Fail(serviceapi.PermissionDenied, "lead-status is not enabled")
+	}
+	if err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("authorize admin rule configuration: %w", err)
+	}
+
+	payload, err := json.Marshal(command)
+	if err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("encode admin rule command: %w", err)
+	}
+	var jobID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		INSERT INTO jobs (
+			installation_id, type, actor_type, actor_id, resource_type, resource_id,
+			status, payload, max_attempts, created_at, finished_at
+		) VALUES ($1,$2,'admin',$3,$4,$5,'completed',$6,1,now(),now())
+		RETURNING id`,
+		installationID, LeadStatusRuleConfigureJobType, actor, leadStatusRuleResourceType,
+		leadStatusRuleResourceID(command), payload,
+	).Scan(&jobID)
+	if err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("record admin rule job: %w", err)
+	}
+
+	result, err := applyLeadStatusRuleCAS(ctx, tx, installationID, command)
+	if err != nil {
+		return LeadStatusRuleResult{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO lead_status_workflow_rule_configurations (
+			job_id,installation_id,rule_id,actor_user_id,source_pipeline_id,
+			source_status_id,target_pipeline_id,target_status_id,enabled,revision
+		) VALUES ($1,$2,$3,0,$4,$5,$6,$7,$8,$9)`,
+		jobID, installationID, result.RuleID, result.SourcePipelineID,
+		result.SourceStatusID, result.TargetPipelineID, result.TargetStatusID,
+		result.Enabled, result.Revision,
+	); err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("record admin rule configuration receipt: %w", err)
+	}
+	metadata, _ := json.Marshal(map[string]any{
+		"source_pipeline_id": result.SourcePipelineID, "source_status_id": result.SourceStatusID,
+		"target_pipeline_id": result.TargetPipelineID, "target_status_id": result.TargetStatusID,
+		"enabled": result.Enabled, "revision": result.Revision,
+	})
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO audit_log (
+			installation_id,actor_type,actor_id,action,object_type,object_id,
+			correlation_job_id,metadata
+		) VALUES ($1,'admin',$2,$3,'lead_status_workflow_rule',$4,$5,$6)`,
+		installationID, actor, LeadStatusRuleConfigureJobType, result.RuleID.String(), jobID, metadata,
+	); err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("audit admin rule configuration: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("commit admin rule configuration: %w", err)
+	}
+	return result, nil
+}
+
+func applyLeadStatusRuleCAS(
+	ctx context.Context,
+	tx pgx.Tx,
+	installationID uuid.UUID,
+	command LeadStatusRuleCommand,
+) (LeadStatusRuleResult, error) {
+	result := LeadStatusRuleResult{
+		SourcePipelineID: command.SourcePipelineID, SourceStatusID: command.SourceStatusID,
+		TargetPipelineID: command.TargetPipelineID, TargetStatusID: command.TargetStatusID,
+		Enabled: command.Enabled,
+	}
+	var err error
+	if command.ExpectedRevision == 0 {
+		result.Revision = 1
+		err = tx.QueryRow(ctx, `
+			INSERT INTO lead_status_workflow_rules (
+				installation_id,source_pipeline_id,source_status_id,
+				target_pipeline_id,target_status_id,enabled,revision
+			) VALUES ($1,$2,$3,$4,$5,$6,1)
+			ON CONFLICT (installation_id,source_pipeline_id,source_status_id) DO NOTHING
+			RETURNING id`, installationID, command.SourcePipelineID,
+			command.SourceStatusID, command.TargetPipelineID, command.TargetStatusID,
+			command.Enabled).Scan(&result.RuleID)
+	} else {
+		err = tx.QueryRow(ctx, `
+			UPDATE lead_status_workflow_rules
+			SET target_pipeline_id=$4,target_status_id=$5,enabled=$6,
+				revision=revision+1,updated_at=now()
+			WHERE installation_id=$1 AND source_pipeline_id=$2 AND source_status_id=$3
+			  AND revision=$7
+			RETURNING id,revision`, installationID, command.SourcePipelineID,
+			command.SourceStatusID, command.TargetPipelineID, command.TargetStatusID,
+			command.Enabled, command.ExpectedRevision).Scan(&result.RuleID, &result.Revision)
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LeadStatusRuleResult{}, ErrRuleRevisionConflict
+	}
+	if err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("apply lead status rule CAS: %w", err)
 	}
 	return result, nil
 }

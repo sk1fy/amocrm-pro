@@ -173,7 +173,9 @@ func allowedGrant(g serviceapi.Grant, system bool, kind string) bool {
 	case serviceapi.PrincipalKindOperator:
 		switch g.Audience {
 		case serviceapi.ActivityService:
-			return g.Action == serviceapi.ActionPanels
+			return g.Action == serviceapi.ActionSettings || g.Action == serviceapi.ActionOperation || g.Action == serviceapi.ActionPanels
+		case serviceapi.EventsService:
+			return g.Action == serviceapi.ActionStatus || g.Action == serviceapi.ActionSync || g.Action == serviceapi.ActionOperation
 		case serviceapi.GatewayService:
 			return g.Action == serviceapi.ActionUsers
 		}

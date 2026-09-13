@@ -250,13 +250,15 @@ type CRMEvents interface {
 }
 
 type Settings struct {
-	InitialDays   int `json:"initial_days"`
-	RetentionDays int `json:"retention_days"`
+	InitialDays   int   `json:"initial_days"`
+	RetentionDays int   `json:"retention_days"`
+	UpdatedAt     int64 `json:"updated_at,omitempty"` // unix seconds; 0 = never saved (defaults)
 }
 type SettingsCommand struct {
-	Auth      Auth     `json:"auth"`
-	CommandID string   `json:"command_id"`
-	Settings  Settings `json:"settings"`
+	Auth              Auth     `json:"auth"`
+	CommandID         string   `json:"command_id"`
+	Settings          Settings `json:"settings"`
+	ExpectedUpdatedAt *int64   `json:"expected_updated_at,omitempty"`
 }
 type Panel struct {
 	Coverage              string      `json:"coverage"`

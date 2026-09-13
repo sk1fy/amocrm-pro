@@ -258,11 +258,12 @@ func run() error {
 			Token:    cfg.AdminAPIToken,
 			Logger:   logger,
 			Revision: buildinfo.SourceRevision(),
+			Bridge:   components.Bridge,
 			RuntimeCatalog: func() any {
 				return components.Snapshot()
 			},
 		})
-		admincommand.Register(adminRouter, admincommand.NewStore(pool, keyRing, cfg.DatabaseTimeout, cfg.PublicBaseURL))
+		admincommand.Register(adminRouter, admincommand.NewStore(pool, keyRing, cfg.DatabaseTimeout, cfg.PublicBaseURL, components.Bridge, leadstatus.NewRuleStore(pool)))
 		servers = append(servers, httpserver.New(cfg.AdminHTTPAddress, adminRouter))
 	}
 	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, servers...); err != nil {

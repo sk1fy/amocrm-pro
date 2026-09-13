@@ -9,10 +9,13 @@ import (
 )
 
 const (
-	codeUnauthenticated = "unauthenticated"
-	codeInvalidArgument = "invalid_argument"
-	codeNotFound        = "not_found"
-	codeInternal        = "internal"
+	codeUnauthenticated    = "unauthenticated"
+	codeInvalidArgument    = "invalid_argument"
+	codeNotFound           = "not_found"
+	codeConflict           = "conflict"
+	codePermissionDenied   = "permission_denied"
+	codeBackendUnavailable = "backend_unavailable"
+	codeInternal           = "internal"
 )
 
 type apiError struct {
@@ -33,6 +36,18 @@ func errInvalid(message string) error {
 
 func errNotFound(message string) error {
 	return apiError{status: http.StatusNotFound, code: codeNotFound, message: message}
+}
+
+func errConflict(message string) error {
+	return apiError{status: http.StatusConflict, code: codeConflict, message: message}
+}
+
+func errPermissionDenied(message string) error {
+	return apiError{status: http.StatusForbidden, code: codePermissionDenied, message: message}
+}
+
+func errUnavailable(message string) error {
+	return apiError{status: http.StatusServiceUnavailable, code: codeBackendUnavailable, message: message}
 }
 
 type jsonError struct {

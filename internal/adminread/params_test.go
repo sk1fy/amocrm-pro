@@ -35,6 +35,17 @@ func TestNormalizeAccountQuery(t *testing.T) {
 	}
 }
 
+func TestParseStatsPeriod(t *testing.T) {
+	now := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+	from, to, period, err := parseStatsPeriod("", now)
+	if err != nil || period != "7d" || to != now || now.Sub(from) != 7*24*time.Hour {
+		t.Fatalf("default period=%s %v %v", period, from, err)
+	}
+	if _, _, _, err := parseStatsPeriod("1h", now); err == nil {
+		t.Fatal("rejected period must fail")
+	}
+}
+
 func TestCursorRoundTrip(t *testing.T) {
 	at := time.Date(2026, 9, 12, 10, 5, 0, 123456789, time.UTC)
 	encoded := encodeCursor(at, "11111111-1111-1111-1111-111111111111")

@@ -263,6 +263,226 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /admin/v1/installations/{id}/activity/settings:
+    get:
+      tags: [Admin]
+      operationId: getAdminActivitySettings
+      summary: Activity collection settings for one installation.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Settings observation. updated_at 0 means defaults were never saved.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivitySettingsResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/PermissionDenied'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/BackendUnavailable'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/activity/status:
+    get:
+      tags: [Admin]
+      operationId: getAdminActivityStatus
+      summary: CRM Events sync status. not_enabled is a 200 data state.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Sync status observation.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityStatusResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/PermissionDenied'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/BackendUnavailable'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/activity/operations/{operation_id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminActivityOperation
+      summary: Activity or CRM Events operation for the installation.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+        - name: operation_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Operation observation without tokens.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityOperationResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/PermissionDenied'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/BackendUnavailable'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/activity/panels:
+    get:
+      tags: [Admin]
+      operationId: listAdminActivityPanels
+      summary: Managed Activity panels without view_key or share_url.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Panel list.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ListResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/PermissionDenied'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/BackendUnavailable'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/activity/panels/{panel_id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminActivityPanel
+      summary: One managed panel without view_key or share_url.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+        - name: panel_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Panel observation.
+          content:
+            application/json:
+              schema: {type: object}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/PermissionDenied'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/BackendUnavailable'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/activity/employees:
+    get:
+      tags: [Admin]
+      operationId: listAdminActivityEmployees
+      summary: Directory of employees for panel management.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Employee directory.
+          content:
+            application/json:
+              schema: {type: object}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/PermissionDenied'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/BackendUnavailable'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/lead-status/rules:
+    get:
+      tags: [Admin]
+      operationId: listAdminLeadStatusRules
+      summary: Lead-status workflow rules for one installation.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+      responses:
+        '200':
+          description: Rule list.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ListResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/lead-status/runs:
+    get:
+      tags: [Admin]
+      operationId: listAdminLeadStatusRuns
+      summary: Lead-status workflow runs and latest effect state.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - $ref: '#/components/parameters/ResourceID'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Run list.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ListResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/stats:
+    get:
+      tags: [Admin]
+      operationId: getAdminStats
+      summary: Platform stats for a 24h, 7d or 30d period.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: period
+          in: query
+          schema: {type: string, enum: [24h, 7d, 30d], default: 7d}
+      responses:
+        '200':
+          description: Stats snapshot. Unknown values are null, zero is a real count.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StatsResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/stats/accounts:
+    get:
+      tags: [Admin]
+      operationId: listAdminStatsAccounts
+      summary: Account rows for one stats metric. Total matches the summary count.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: metric
+          in: query
+          required: true
+          schema: {type: string, enum: [auth_problems, sync_problems, connected, disconnected, active]}
+        - name: period
+          in: query
+          schema: {type: string, enum: [24h, 7d, 30d], default: 7d}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Account list for the metric.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ListResponse'}
+        '400': {$ref: '#/components/responses/InvalidArgument'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '500': {$ref: '#/components/responses/InternalError'}
   /admin/v1/integrations:
     get:
       tags: [Admin]
@@ -551,7 +771,7 @@ components:
           description: UUID, or new for integration create.
         command:
           type: string
-          enum: [create, update, rotate-secret, enable, disable, set-service, revoke, uninstall, reconcile, check, pilot-enable, pilot-disable, retry]
+          enum: [create, update, rotate-secret, enable, disable, set-service, revoke, uninstall, reconcile, check, pilot-enable, pilot-disable, retry, activity-configure, activity-sync, activity-panel-create, activity-panel-patch, activity-panel-rotate, lead-status-configure]
         payload:
           type: object
           additionalProperties: false
@@ -565,6 +785,26 @@ components:
             services: {type: array, items: {type: string}}
             service: {type: string, enum: [lead-status, activity]}
             enabled: {type: boolean}
+            initial_days: {type: integer}
+            retention_days: {type: integer}
+            expected_updated_at: {type: integer, format: int64}
+            kind: {type: string, enum: [enable, sync, backfill, disable]}
+            from: {type: integer, format: int64}
+            to: {type: integer, format: int64}
+            name: {type: string}
+            employee_ids: {type: array, items: {type: integer, format: int64}}
+            display_window:
+              type: object
+              properties:
+                from: {type: string}
+                to: {type: string}
+            panel_id: {type: string, format: uuid}
+            revision: {type: integer, format: int64}
+            source_pipeline_id: {type: integer, format: int64}
+            source_status_id: {type: integer, format: int64}
+            target_pipeline_id: {type: integer, format: int64}
+            target_status_id: {type: integer, format: int64}
+            expected_revision: {type: integer, format: int64}
     CommandReceipt:
       type: object
       required: [id, target_type, target_id, command, state, result, observed_at, created_at]
@@ -600,7 +840,7 @@ components:
           properties:
             code:
               type: string
-              enum: [unauthenticated, invalid_argument, not_found, conflict, internal]
+              enum: [unauthenticated, invalid_argument, not_found, conflict, permission_denied, backend_unavailable, internal]
             message:
               type: string
               minLength: 1
@@ -794,6 +1034,59 @@ components:
         items:
           type: array
           items: {type: object}
+    ActivitySettingsResponse:
+      type: object
+      required: [source, observed_at, initial_days, retention_days, updated_at]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        initial_days: {type: integer}
+        retention_days: {type: integer}
+        updated_at: {type: integer, format: int64}
+    ActivityStatusResponse:
+      type: object
+      required: [source, observed_at, enabled, state, verification, lag_seconds, reauth_required]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        enabled: {type: boolean}
+        state: {type: string}
+        verification: {type: string}
+        lag_seconds: {type: integer, format: int64}
+        reauth_required: {type: boolean}
+        error_code: {type: string}
+        last_success_at: {type: [string, 'null'], format: date-time}
+        last_event_at: {type: [string, 'null'], format: date-time}
+        verified_from: {type: [string, 'null'], format: date-time}
+        verified_through: {type: [string, 'null'], format: date-time}
+    ActivityOperationResponse:
+      type: object
+      required: [source, observed_at, command_id, operation_id, state, delivery_state]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        command_id: {type: string}
+        operation_id: {type: string}
+        state: {type: string}
+        delivery_state: {type: string}
+        error_code: {type: string}
+    StatsResponse:
+      type: object
+      required: [source, observed_at, period, connections, period_events, active_accounts, job_errors, latency, queues, auth_problems_count, sync_problems_count]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        period: {type: string}
+        from: {type: string, format: date-time}
+        to: {type: string, format: date-time}
+        connections: {type: array, items: {type: object}}
+        period_events: {type: object}
+        active_accounts: {type: [integer, 'null']}
+        job_errors: {type: [integer, 'null']}
+        latency: {type: object}
+        queues: {type: array, items: {type: object}}
+        auth_problems_count: {type: [integer, 'null']}
+        sync_problems_count: {type: [integer, 'null']}
   responses:
     Conflict:
       description: Changed idempotent request or another command in flight for the target.
@@ -841,3 +1134,13 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/AdminError'
+    PermissionDenied:
+      description: Pilot, capability or role denied the observation.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/AdminError'}
+    BackendUnavailable:
+      description: Activity or CRM Events adapter is unavailable.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/AdminError'}

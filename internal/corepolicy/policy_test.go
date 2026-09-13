@@ -208,6 +208,40 @@ func (c *issueTracker) CheckDelegation(_ context.Context, s serviceapi.Scope) er
 	return nil
 }
 
+func TestOperatorCanIssueCollectionGrantsWithoutSystemOrWidgetPanel(t *testing.T) {
+	s, _, r := testPolicy(t)
+	core := ForCaller(s, serviceapi.CoreService)
+	for _, grants := range [][]serviceapi.Grant{
+		serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionSettings),
+		serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionOperation),
+		serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanels),
+		serviceapi.UserGrantsFor(serviceapi.EventsService, serviceapi.ActionStatus),
+		serviceapi.UserGrantsFor(serviceapi.EventsService, serviceapi.ActionSync),
+		serviceapi.UserGrantsFor(serviceapi.EventsService, serviceapi.ActionOperation),
+		{{Audience: serviceapi.GatewayService, Action: serviceapi.ActionUsers}},
+	} {
+		req := serviceapi.IssueRequest{Scope: r.Scope, Kind: serviceapi.PrincipalKindOperator, Consumer: serviceapi.ActivityService, RequestID: "operator-grant", Grants: grants}
+		if _, err := core.Issue(context.Background(), req); err != nil {
+			t.Fatalf("operator grants %+v: %v", grants, err)
+		}
+	}
+	denied := []serviceapi.IssueRequest{
+		{Scope: r.Scope, Kind: serviceapi.PrincipalKindOperator, Consumer: serviceapi.ActivityService, RequestID: "system", System: true, Grants: []serviceapi.Grant{{Audience: serviceapi.EventsService, Action: serviceapi.ActionSync}}},
+		{Scope: r.Scope, Kind: serviceapi.PrincipalKindOperator, Consumer: serviceapi.ActivityService, RequestID: "panel", Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanel)},
+		{Scope: r.Scope, Kind: serviceapi.PrincipalKindOperator, Consumer: serviceapi.ActivityService, RequestID: "events", Grants: []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: serviceapi.ActionEvents}}},
+	}
+	for _, req := range denied {
+		if _, err := core.Issue(context.Background(), req); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied && serviceapi.ErrorCode(err) != serviceapi.InvalidArgument {
+			t.Fatalf("operator must not issue %+v: %v", req.Grants, err)
+		}
+	}
+	user := r
+	user.Grants = serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionSettings)
+	if _, err := core.Issue(context.Background(), user); err != nil {
+		t.Fatalf("widget settings path: %v", err)
+	}
+}
+
 func TestPanelDelegationCannotMutateOrInspectUnrelatedOperations(t *testing.T) {
 	s, _, request := testPolicy(t)
 	request.Grants = serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanel)

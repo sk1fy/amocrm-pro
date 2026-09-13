@@ -90,6 +90,17 @@ var (
 	AdminCommand                = Route{Method: http.MethodGet, Path: "/admin/v1/commands/{id}"}
 	AdminCommandRoutes          = []Route{AdminCommands, AdminCommand}
 
+	AdminActivitySettings  = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/settings"}
+	AdminActivityStatus    = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/status"}
+	AdminActivityOperation = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/operations/{operation_id}"}
+	AdminActivityPanels    = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/panels"}
+	AdminActivityPanel     = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/panels/{panel_id}"}
+	AdminActivityEmployees = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/employees"}
+	AdminLeadStatusRules   = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/lead-status/rules"}
+	AdminLeadStatusRuns    = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/lead-status/runs"}
+	AdminStats             = Route{Method: http.MethodGet, Path: "/admin/v1/stats"}
+	AdminStatsAccounts     = Route{Method: http.MethodGet, Path: "/admin/v1/stats/accounts"}
+
 	AdminRoutes = []Route{
 		AdminBackend,
 		AdminAccounts,
@@ -99,11 +110,21 @@ var (
 		AdminInstallationJobs,
 		AdminInstallationAudit,
 		AdminInstallationDeliveries,
+		AdminActivitySettings,
+		AdminActivityStatus,
+		AdminActivityOperation,
+		AdminActivityPanels,
+		AdminActivityPanel,
+		AdminActivityEmployees,
+		AdminLeadStatusRules,
+		AdminLeadStatusRuns,
 		AdminIntegrations,
 		AdminIntegration,
 		AdminJobs,
 		AdminJobsSummary,
 		AdminJob,
 		AdminAudit,
+		AdminStats,
+		AdminStatsAccounts,
 	}
 )

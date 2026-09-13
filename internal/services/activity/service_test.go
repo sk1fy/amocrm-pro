@@ -178,4 +178,9 @@ func TestSettingsBounds(t *testing.T) {
 	if err := ValidateSettings(Defaults()); err != nil {
 		t.Fatal(err)
 	}
+	ignored := Defaults()
+	ignored.UpdatedAt = 99
+	if err := ValidateSettings(ignored); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -137,7 +137,7 @@ func (b *Bridge) DeliverOne(ctx context.Context) (bool, error) {
 	if target == serviceapi.EventsService {
 		action = serviceapi.ActionSync
 	}
-	auth, deliveryErr := b.policy.Issue(callCtx, serviceapi.IssueRequest{Scope: scope, ActorID: actor, Consumer: serviceapi.ActivityService, RequestID: id.String(), Grants: serviceapi.UserGrantsFor(target, action)})
+	auth, deliveryErr := b.policy.Issue(callCtx, deliveryIssueRequest(scope, actor, id.String(), target, action))
 	var operation serviceapi.Operation
 	if deliveryErr == nil {
 		switch target {
@@ -190,6 +190,14 @@ func (b *Bridge) DeliverOne(ctx context.Context) (bool, error) {
 		b.logger.WarnContext(finishCtx, "Activity command delivery deferred or rejected", "command_id", id.String(), "code", code, "delivery_state", status, "attempt", attempts)
 	}
 	return true, nil
+}
+
+func deliveryIssueRequest(scope serviceapi.Scope, actor int64, requestID, audience, action string) serviceapi.IssueRequest {
+	req := serviceapi.IssueRequest{Scope: scope, ActorID: actor, Consumer: serviceapi.ActivityService, RequestID: requestID, Grants: serviceapi.UserGrantsFor(audience, action)}
+	if actor == 0 {
+		req.Kind = serviceapi.PrincipalKindOperator
+	}
+	return req
 }
 
 func permanent(code serviceapi.Code) bool {

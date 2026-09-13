@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/integrations"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
 const CheckJobType = "admin.connection_check"
@@ -42,9 +43,10 @@ type Receipt struct {
 }
 
 type Error struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Status  int    `json:"-"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Status  int            `json:"-"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 func (e *Error) Error() string { return e.Message }
@@ -54,20 +56,39 @@ func invalid(message string) *Error {
 func conflict(message string) *Error {
 	return &Error{Code: "conflict", Message: message, Status: http.StatusConflict}
 }
+func conflictDetails(message string, details map[string]any) *Error {
+	return &Error{Code: "conflict", Message: message, Status: http.StatusConflict, Details: details}
+}
 func notFound() *Error {
 	return &Error{Code: "not_found", Message: "target not found", Status: http.StatusNotFound}
 }
 
 type commandPayload struct {
-	InstallationID string    `json:"installation_id"`
-	Code           string    `json:"code"`
-	ClientID       string    `json:"client_id"`
-	ClientSecret   string    `json:"client_secret"`
-	RedirectURI    *string   `json:"redirect_uri"`
-	WebhookEvents  *[]string `json:"webhook_events"`
-	Services       []string  `json:"services"`
-	Service        string    `json:"service"`
-	Enabled        *bool     `json:"enabled"`
+	InstallationID    string                    `json:"installation_id"`
+	Code              string                    `json:"code"`
+	ClientID          string                    `json:"client_id"`
+	ClientSecret      string                    `json:"client_secret"`
+	RedirectURI       *string                   `json:"redirect_uri"`
+	WebhookEvents     *[]string                 `json:"webhook_events"`
+	Services          []string                  `json:"services"`
+	Service           string                    `json:"service"`
+	Enabled           *bool                     `json:"enabled"`
+	InitialDays       *int                      `json:"initial_days"`
+	RetentionDays     *int                      `json:"retention_days"`
+	ExpectedUpdatedAt *int64                    `json:"expected_updated_at"`
+	Kind              string                    `json:"kind"`
+	From              int64                     `json:"from"`
+	To                int64                     `json:"to"`
+	Name              string                    `json:"name"`
+	EmployeeIDs       []int64                   `json:"employee_ids"`
+	DisplayWindow     *serviceapi.DisplayWindow `json:"display_window"`
+	PanelID           string                    `json:"panel_id"`
+	Revision          *int64                    `json:"revision"`
+	SourcePipelineID  int64                     `json:"source_pipeline_id"`
+	SourceStatusID    int64                     `json:"source_status_id"`
+	TargetPipelineID  int64                     `json:"target_pipeline_id"`
+	TargetStatusID    int64                     `json:"target_status_id"`
+	ExpectedRevision  *int64                    `json:"expected_revision"`
 }
 
 func ReceiptID(key string) uuid.UUID {
@@ -113,6 +134,18 @@ func normalize(req Request, key, actor string) (Request, commandPayload, [32]byt
 	case "installation":
 		switch req.Command {
 		case "enable", "disable", "revoke", "uninstall", "reconcile", "check", "pilot-enable", "pilot-disable":
+		case "activity-configure":
+			allow("initial_days", "retention_days", "expected_updated_at")
+		case "activity-sync":
+			allow("kind", "from", "to")
+		case "activity-panel-create":
+			allow("name", "employee_ids", "display_window", "enabled")
+		case "activity-panel-patch":
+			allow("panel_id", "revision", "name", "employee_ids", "display_window", "enabled")
+		case "activity-panel-rotate":
+			allow("panel_id")
+		case "lead-status-configure":
+			allow("source_pipeline_id", "source_status_id", "target_pipeline_id", "target_status_id", "enabled", "expected_revision")
 		default:
 			return req, p, [32]byte{}, [32]byte{}, invalid("unsupported installation command")
 		}
@@ -152,6 +185,54 @@ func normalize(req Request, key, actor string) (Request, commandPayload, [32]byt
 	}
 	if req.Command == "set-service" && p.Enabled == nil {
 		return req, p, [32]byte{}, [32]byte{}, invalid("set-service requires enabled")
+	}
+	if req.Command == "activity-configure" {
+		if p.InitialDays == nil || p.RetentionDays == nil {
+			return req, p, [32]byte{}, [32]byte{}, invalid("activity-configure requires initial_days and retention_days")
+		}
+		if err := serviceapi.ValidateSettings(serviceapi.Settings{InitialDays: *p.InitialDays, RetentionDays: *p.RetentionDays}); err != nil {
+			message := "invalid settings"
+			var se *serviceapi.Error
+			if errors.As(err, &se) && se.Message != "" {
+				message = se.Message
+			}
+			return req, p, [32]byte{}, [32]byte{}, invalid(message)
+		}
+	}
+	if req.Command == "activity-sync" {
+		if p.Kind == "" {
+			p.Kind = "sync"
+		}
+		if p.Kind != "sync" && p.Kind != "enable" && p.Kind != "disable" && p.Kind != "backfill" {
+			return req, p, [32]byte{}, [32]byte{}, invalid("unsupported sync kind")
+		}
+		if p.Kind == "backfill" {
+			if p.From <= 0 || p.To <= p.From || p.To-p.From > 31*86400 {
+				return req, p, [32]byte{}, [32]byte{}, invalid("backfill must be a past interval of at most 31 days")
+			}
+		} else if p.From != 0 || p.To != 0 {
+			return req, p, [32]byte{}, [32]byte{}, invalid("from/to are only valid for backfill")
+		}
+	}
+	if req.Command == "activity-panel-create" {
+		if p.Name == "" || p.EmployeeIDs == nil || p.DisplayWindow == nil {
+			return req, p, [32]byte{}, [32]byte{}, invalid("activity-panel-create requires name, employee_ids and display_window")
+		}
+	}
+	if req.Command == "activity-panel-patch" {
+		if _, err := uuid.Parse(p.PanelID); err != nil || p.Revision == nil {
+			return req, p, [32]byte{}, [32]byte{}, invalid("activity-panel-patch requires panel_id and revision")
+		}
+	}
+	if req.Command == "activity-panel-rotate" {
+		if _, err := uuid.Parse(p.PanelID); err != nil {
+			return req, p, [32]byte{}, [32]byte{}, invalid("activity-panel-rotate requires panel_id")
+		}
+	}
+	if req.Command == "lead-status-configure" {
+		if p.ExpectedRevision == nil || p.Enabled == nil {
+			return req, p, [32]byte{}, [32]byte{}, invalid("lead-status-configure requires expected_revision and enabled")
+		}
 	}
 	if req.TargetType == "delivery" {
 		id, err := uuid.Parse(p.InstallationID)

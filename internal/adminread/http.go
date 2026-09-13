@@ -22,6 +22,7 @@ type Dependencies struct {
 	Logger         *slog.Logger
 	Revision       string
 	RuntimeCatalog func() any
+	Bridge         *activitybridge.Bridge
 }
 
 type handler struct {
@@ -30,6 +31,7 @@ type handler struct {
 	logger   *slog.Logger
 	revision string
 	runtime  func() any
+	bridge   *activitybridge.Bridge
 }
 
 func Register(router chi.Router, deps Dependencies) {
@@ -39,6 +41,7 @@ func Register(router chi.Router, deps Dependencies) {
 		logger:   deps.Logger,
 		revision: deps.Revision,
 		runtime:  deps.RuntimeCatalog,
+		bridge:   deps.Bridge,
 	}
 	router.Use(h.authenticate)
 	for _, route := range apicontract.AdminRoutes {
@@ -76,6 +79,26 @@ func (h *handler) routeHandler(route apicontract.Route) http.HandlerFunc {
 		return h.getJob
 	case apicontract.AdminAudit.Path:
 		return h.listAudit
+	case apicontract.AdminActivitySettings.Path:
+		return h.getActivitySettings
+	case apicontract.AdminActivityStatus.Path:
+		return h.getActivityStatus
+	case apicontract.AdminActivityOperation.Path:
+		return h.getActivityOperation
+	case apicontract.AdminActivityPanels.Path:
+		return h.listActivityPanels
+	case apicontract.AdminActivityPanel.Path:
+		return h.getActivityPanel
+	case apicontract.AdminActivityEmployees.Path:
+		return h.listActivityEmployees
+	case apicontract.AdminLeadStatusRules.Path:
+		return h.listLeadStatusRules
+	case apicontract.AdminLeadStatusRuns.Path:
+		return h.listLeadStatusRuns
+	case apicontract.AdminStats.Path:
+		return h.stats
+	case apicontract.AdminStatsAccounts.Path:
+		return h.statsAccounts
 	default:
 		return func(w http.ResponseWriter, r *http.Request) {
 			writeError(w, r, errNotFound("not found"))

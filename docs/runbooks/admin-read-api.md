@@ -64,6 +64,23 @@ curl -sS \
   последние команды (новые первыми); CLI `ListDeliveries` по-прежнему
   выбирает failed/expired от старых к новым.
 
+## Activity, lead-status и статистика
+
+Listener выдаёт `serviceapi.Auth` с `Kind=operator` и `actor_id=0`
+(ADR-0028). Токен делегации не покидает процесс Core: ответы содержат
+только факты (`source=core`, `observed_at`). `view_key` и `share_url`
+в GET панелей нет.
+
+- `GET .../activity/settings` — `updated_at` 0, если строка настроек
+  ещё не сохранялась;
+- `GET .../activity/status` — unix-поля CRM Events как RFC3339 UTC
+  либо `null`; `state=not_enabled` это 200, отсутствие адаптера —
+  `503 backend_unavailable`;
+- `GET /admin/v1/stats?period=24h|7d|30d` (по умолчанию 7d) считает
+  все метрики в одном запросе. Ноль — реальное значение; неизвестное
+  (latency без попыток) — `null`.
+
 Контракт: [`api/admin-openapi.yaml`](../../api/admin-openapi.yaml).
 Решение: [ADR-0025](../adr/0025-admin-read-listener.md).
 Дополнение диагностики: [ADR-0026](../adr/0026-admin-read-diagnostics.md).
+Принципал Activity: [ADR-0028](../adr/0028-admin-activity-principal.md).

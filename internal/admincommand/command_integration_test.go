@@ -19,10 +19,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
 	"github.com/sk1fy/amocrm-pro/internal/adminread"
 	"github.com/sk1fy/amocrm-pro/internal/integrations"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 )
@@ -38,7 +40,7 @@ func fixture(t *testing.T) (*Store, *pgxpool.Pool, uuid.UUID, uuid.UUID) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool, keys, 5*time.Second, "https://core.example.invalid")
+	store := NewStore(pool, keys, 5*time.Second, "https://core.example.invalid", nil, nil)
 	redirect := "https://relay.example.invalid/oauth/amocrm/callback"
 	integration, err := integrations.NewStore(pool, keys).Apply(t.Context(), integrations.Command{Action: "create", Actor: "fixture", Code: "fixture-admin", ClientID: uuid.NewString(), Secret: []byte(fixtureSecret), RedirectURI: &redirect, Services: []string{"lead-status", "activity"}})
 	if err != nil {
@@ -377,6 +379,87 @@ func TestRetryPreservesJobPrincipalAndDeliveryOwner(t *testing.T) {
 	if r := execute(t, s, req); r.State != "succeeded" {
 		t.Fatalf("delivery retry=%+v", r)
 	}
+}
+
+func TestActivityConfigureConflictAndSyncPendingThenTerminal(t *testing.T) {
+	s, pool, id, _ := fixture(t)
+	if err := activitybridge.SetPilot(t.Context(), pool, id, true); err != nil {
+		t.Fatal(err)
+	}
+	conflictBridge := activitybridge.New(pool, &commandPolicy{}, &conflictActivity{}, &syncEvents{state: "succeeded"})
+	s.bridge = conflictBridge
+	req := request("installation", id, "activity-configure")
+	req.Payload = json.RawMessage(`{"initial_days":2,"retention_days":7,"expected_updated_at":0}`)
+	_, err := s.Execute(t.Context(), fixtureActor, uuid.NewString(), req)
+	var api *Error
+	if !errors.As(err, &api) || api.Code != "conflict" || api.Status != http.StatusConflict {
+		t.Fatalf("configure conflict=%v", err)
+	}
+
+	s.bridge = activitybridge.New(pool, &commandPolicy{}, &acceptingActivityAdapter{}, &syncEvents{state: "running"})
+	syncReq := request("installation", id, "activity-sync")
+	syncReq.Payload = json.RawMessage(`{"kind":"sync"}`)
+	pending, err := s.Execute(t.Context(), fixtureActor, uuid.NewString(), syncReq)
+	if err != nil || pending.State != "pending" {
+		t.Fatalf("sync pending=%+v %v", pending, err)
+	}
+	assertSafeReceipt(t, pending)
+	var commandID string
+	var result map[string]any
+	if err := json.Unmarshal(pending.Result, &result); err != nil {
+		t.Fatal(err)
+	}
+	commandID, _ = result["command_id"].(string)
+	if commandID == "" {
+		t.Fatalf("missing command_id in %s", pending.Result)
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE activity_command_outbox SET status='accepted' WHERE command_id=$1`, commandID); err != nil {
+		t.Fatal(err)
+	}
+	s.bridge = activitybridge.New(pool, &commandPolicy{}, &acceptingActivityAdapter{}, &syncEvents{state: "succeeded"})
+	got, err := s.Get(t.Context(), pending.ID)
+	if err != nil || got.State != "succeeded" {
+		t.Fatalf("sync terminal=%+v %v", got, err)
+	}
+}
+
+type commandPolicy struct{}
+
+func (commandPolicy) Issue(context.Context, serviceapi.IssueRequest) (serviceapi.Auth, error) {
+	return serviceapi.Auth{Token: "fixture"}, nil
+}
+func (commandPolicy) Validate(context.Context, serviceapi.Auth, string, string) (serviceapi.Principal, error) {
+	return serviceapi.Principal{}, nil
+}
+
+type conflictActivity struct{ serviceapi.Activity }
+
+func (conflictActivity) Settings(context.Context, serviceapi.Auth) (serviceapi.Settings, error) {
+	return serviceapi.DefaultSettings(), nil
+}
+func (conflictActivity) Configure(context.Context, serviceapi.SettingsCommand) (serviceapi.Operation, error) {
+	return serviceapi.Operation{}, serviceapi.Fail(serviceapi.Conflict, "settings were updated")
+}
+
+type acceptingActivityAdapter struct{ serviceapi.Activity }
+
+func (acceptingActivityAdapter) Settings(context.Context, serviceapi.Auth) (serviceapi.Settings, error) {
+	return serviceapi.DefaultSettings(), nil
+}
+func (acceptingActivityAdapter) Configure(_ context.Context, c serviceapi.SettingsCommand) (serviceapi.Operation, error) {
+	return serviceapi.Operation{ID: c.CommandID, CommandID: c.CommandID, State: serviceapi.OperationSucceeded}, nil
+}
+
+type syncEvents struct {
+	serviceapi.CRMEvents
+	state string
+}
+
+func (s *syncEvents) Status(context.Context, serviceapi.Auth) (serviceapi.SyncStatus, error) {
+	return serviceapi.SyncStatus{State: "idle"}, nil
+}
+func (s *syncEvents) Operation(_ context.Context, r serviceapi.OperationRequest) (serviceapi.Operation, error) {
+	return serviceapi.Operation{ID: r.OperationID, CommandID: r.OperationID, State: s.state}, nil
 }
 
 func TestWorkerPersistsCheckAndReplayDoesNotCallUpstreamAgain(t *testing.T) {

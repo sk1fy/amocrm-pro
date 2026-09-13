@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/integrations"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
+	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
 	"github.com/sk1fy/amocrm-pro/internal/webhook"
 )
 
@@ -25,17 +27,15 @@ type Store struct {
 	jobs          *jobs.Store
 	timeout       time.Duration
 	publicBaseURL string
+	bridge        *activitybridge.Bridge
+	rules         *leadstatus.RuleStore
 }
 
-func NewStore(pool *pgxpool.Pool, cipher integrations.Cipher, timeout time.Duration, publicBaseURL ...string) *Store {
+func NewStore(pool *pgxpool.Pool, cipher integrations.Cipher, timeout time.Duration, publicBaseURL string, bridge *activitybridge.Bridge, rules *leadstatus.RuleStore) *Store {
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
-	base := ""
-	if len(publicBaseURL) > 0 {
-		base = publicBaseURL[0]
-	}
-	return &Store{pool: pool, integrations: integrations.NewStore(pool, cipher), jobs: jobs.NewStore(pool), timeout: timeout, publicBaseURL: base}
+	return &Store{pool: pool, integrations: integrations.NewStore(pool, cipher), jobs: jobs.NewStore(pool), timeout: timeout, publicBaseURL: publicBaseURL, bridge: bridge, rules: rules}
 }
 
 func (s *Store) Execute(ctx context.Context, actor, key string, request Request) (Receipt, error) {
@@ -101,6 +101,9 @@ func (s *Store) Execute(ctx context.Context, actor, key string, request Request)
 		if err := domainTx.Rollback(ctx); err != nil {
 			return Receipt{}, err
 		}
+		if immediateConflict(req.Command, operationErr) {
+			return Receipt{}, classify(operationErr)
+		}
 		state, outcome = "failed", "rejected"
 		safeError = classify(operationErr)
 		result = map[string]any{}
@@ -109,7 +112,7 @@ func (s *Store) Execute(ctx context.Context, actor, key string, request Request)
 		if err := domainTx.Commit(ctx); err != nil {
 			return Receipt{}, err
 		}
-		if req.Command == "check" || req.Command == "uninstall" {
+		if req.Command == "check" || req.Command == "uninstall" || req.Command == "activity-sync" {
 			state, outcome = "pending", ""
 		} else if jobID != nil || req.TargetType == "delivery" {
 			outcome = "queued"
@@ -139,6 +142,7 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 		id, _ = uuid.Parse(req.TargetID)
 	}
 	var installationID *uuid.UUID
+	var integrationID uuid.UUID
 	var code, status, integrationStatus string
 	switch req.TargetType {
 	case "integration":
@@ -150,7 +154,7 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 		}
 	case "installation":
 		installationID = &id
-		if err := tx.QueryRow(ctx, `SELECT ig.code,i.status,ig.status FROM installations i JOIN integrations ig ON ig.id=i.integration_id WHERE i.id=$1`, id).Scan(&code, &status, &integrationStatus); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT ig.id,ig.code,i.status,ig.status FROM installations i JOIN integrations ig ON ig.id=i.integration_id WHERE i.id=$1`, id).Scan(&integrationID, &code, &status, &integrationStatus); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -213,6 +217,10 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 			}
 			err := activitybridge.SetPilotTx(ctx, tx, id, enabled, "admin", actor)
 			return map[string]any{"installation_id": id, "enabled": enabled}, nil, installationID, err
+		case "activity-configure", "activity-sync", "activity-panel-create", "activity-panel-patch", "activity-panel-rotate":
+			return s.applyActivity(ctx, tx, actor, receiptID, req, p, id, integrationID, installationID)
+		case "lead-status-configure":
+			return s.applyLeadStatus(ctx, actor, p, id, installationID)
 		}
 	}
 	if req.TargetType == "job" {
@@ -244,7 +252,209 @@ func (s *Store) Get(ctx context.Context, id uuid.UUID) (Receipt, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Receipt{}, notFound()
 	}
-	return r, err
+	if err != nil {
+		return Receipt{}, err
+	}
+	if err := s.refreshActivitySync(ctx, &r); err != nil {
+		return Receipt{}, err
+	}
+	return r, nil
+}
+
+func (s *Store) applyActivity(ctx context.Context, tx pgx.Tx, actor string, receiptID uuid.UUID, req Request, p commandPayload, installation, integration uuid.UUID, installationID *uuid.UUID) (map[string]any, *uuid.UUID, *uuid.UUID, error) {
+	if s.bridge == nil {
+		return nil, nil, installationID, serviceapi.Fail(serviceapi.Unavailable, "activity is unavailable")
+	}
+	scope := serviceapi.Scope{InstallationID: installation, IntegrationID: integration}
+	requestID := receiptID.String()
+	switch req.Command {
+	case "activity-configure":
+		settings := serviceapi.Settings{InitialDays: *p.InitialDays, RetentionDays: *p.RetentionDays}
+		result, err := s.bridge.AdminConfigure(ctx, scope, requestID, serviceapi.SettingsCommand{
+			CommandID: requestID, Settings: settings, ExpectedUpdatedAt: p.ExpectedUpdatedAt,
+		})
+		if err != nil {
+			if serviceapi.ErrorCode(err) == serviceapi.Conflict {
+				current, readErr := s.bridge.AdminSettings(ctx, scope, requestID)
+				if readErr == nil {
+					return nil, nil, installationID, conflictDetails("settings were updated", map[string]any{
+						"initial_days": current.InitialDays, "retention_days": current.RetentionDays, "updated_at": current.UpdatedAt,
+					})
+				}
+			}
+			return nil, nil, installationID, err
+		}
+		return map[string]any{"initial_days": result.InitialDays, "retention_days": result.RetentionDays, "updated_at": result.UpdatedAt}, nil, installationID, nil
+	case "activity-sync":
+		input := activitybridge.SyncInput{Kind: p.Kind, From: p.From, To: p.To}
+		if input.Kind == "backfill" && input.To > time.Now().Unix() {
+			return nil, nil, installationID, serviceapi.Fail(serviceapi.InvalidArgument, "backfill must be a past interval of at most 31 days")
+		}
+		settings, err := s.bridge.AdminSettings(ctx, scope, requestID)
+		if err != nil {
+			return nil, nil, installationID, err
+		}
+		if input.Kind == "backfill" && input.From < time.Now().Unix()-int64(settings.RetentionDays)*86400 {
+			return nil, nil, installationID, serviceapi.Fail(serviceapi.InvalidArgument, "backfill starts before retained history")
+		}
+		payload, _ := json.Marshal(serviceapi.Command{Kind: input.Kind, From: input.From, To: input.To, InitialDays: settings.InitialDays, RetentionDays: settings.RetentionDays})
+		inputJSON, _ := json.Marshal(input)
+		receipt, err := s.bridge.AdmitAdminTx(ctx, tx, scope, actor, requestID, serviceapi.EventsService, serviceapi.ActionSync, payload, inputJSON)
+		if err != nil {
+			return nil, nil, installationID, err
+		}
+		return map[string]any{"command_id": receipt.CommandID, "operation_id": receipt.OperationID, "delivery_state": receipt.DeliveryState}, nil, installationID, nil
+	case "activity-panel-create":
+		panel, err := s.bridge.AdminCreatePanel(ctx, scope, requestID, serviceapi.PanelCommand{
+			CommandID: requestID, Name: p.Name, EmployeeIDs: p.EmployeeIDs, DisplayWindow: *p.DisplayWindow,
+			Enabled: p.Enabled, HasName: true, HasEmployees: true, HasWindow: true,
+		})
+		if err != nil {
+			return nil, nil, installationID, err
+		}
+		return publicPanelResult(panel, false), nil, installationID, nil
+	case "activity-panel-patch":
+		panelID, _ := uuid.Parse(p.PanelID)
+		command := serviceapi.PanelCommand{PanelID: panelID, Revision: *p.Revision, Enabled: p.Enabled}
+		if p.Name != "" {
+			command.Name = p.Name
+			command.HasName = true
+		}
+		if p.EmployeeIDs != nil {
+			command.EmployeeIDs = p.EmployeeIDs
+			command.HasEmployees = true
+		}
+		if p.DisplayWindow != nil {
+			command.DisplayWindow = *p.DisplayWindow
+			command.HasWindow = true
+		}
+		panel, err := s.bridge.AdminPatchPanel(ctx, scope, requestID, command)
+		if err != nil {
+			return nil, nil, installationID, err
+		}
+		return publicPanelResult(panel, false), nil, installationID, nil
+	case "activity-panel-rotate":
+		// Rotating from admin invalidates old links; the new secret stays in
+		// Activity — operators use activity-control CLI if they need the URL.
+		panelID, _ := uuid.Parse(p.PanelID)
+		panel, err := s.bridge.AdminRotateShare(ctx, scope, requestID, serviceapi.PanelCommand{CommandID: requestID, PanelID: panelID, Rotate: true})
+		if err != nil {
+			return nil, nil, installationID, err
+		}
+		return publicPanelResult(panel, true), nil, installationID, nil
+	default:
+		return nil, nil, installationID, invalid("unsupported command")
+	}
+}
+
+func (s *Store) applyLeadStatus(ctx context.Context, actor string, p commandPayload, installation uuid.UUID, installationID *uuid.UUID) (map[string]any, *uuid.UUID, *uuid.UUID, error) {
+	if s.rules == nil {
+		return nil, nil, installationID, serviceapi.Fail(serviceapi.Unavailable, "lead-status is unavailable")
+	}
+	result, err := s.rules.ConfigureAdmin(ctx, installation, actor, leadstatus.LeadStatusRuleCommand{
+		SourcePipelineID: p.SourcePipelineID, SourceStatusID: p.SourceStatusID,
+		TargetPipelineID: p.TargetPipelineID, TargetStatusID: p.TargetStatusID,
+		Enabled: *p.Enabled, ExpectedRevision: *p.ExpectedRevision,
+	})
+	if err != nil {
+		return nil, nil, installationID, err
+	}
+	return map[string]any{
+		"rule_id": result.RuleID, "source_pipeline_id": result.SourcePipelineID, "source_status_id": result.SourceStatusID,
+		"target_pipeline_id": result.TargetPipelineID, "target_status_id": result.TargetStatusID,
+		"enabled": result.Enabled, "revision": result.Revision,
+	}, nil, installationID, nil
+}
+
+func (s *Store) refreshActivitySync(ctx context.Context, r *Receipt) error {
+	if s.bridge == nil || r.Command != "activity-sync" || (r.State != "pending" && r.State != "running") {
+		return nil
+	}
+	var result map[string]any
+	if err := json.Unmarshal(r.Result, &result); err != nil {
+		return nil
+	}
+	commandID, _ := result["command_id"].(string)
+	if commandID == "" {
+		return nil
+	}
+	installationID, err := uuid.Parse(r.TargetID)
+	if err != nil {
+		return nil
+	}
+	var integrationID uuid.UUID
+	if err := s.pool.QueryRow(ctx, `SELECT integration_id FROM installations WHERE id=$1`, installationID).Scan(&integrationID); err != nil {
+		return err
+	}
+	receipt, err := s.bridge.AdminOperation(ctx, serviceapi.Scope{InstallationID: installationID, IntegrationID: integrationID}, r.ID.String(), commandID)
+	if err != nil {
+		return nil
+	}
+	adminState, outcome := mapActivitySyncState(receipt)
+	result["delivery_state"] = receipt.DeliveryState
+	result["operation_id"] = receipt.OperationID
+	if receipt.ErrorCode != "" {
+		result["error_code"] = receipt.ErrorCode
+	}
+	encoded, _ := json.Marshal(result)
+	if _, err := s.pool.Exec(ctx, `UPDATE admin_commands SET state=$2,outcome=$3,result=$4,error=$5,
+		finished_at=CASE WHEN $2 IN ('succeeded','failed') THEN now() ELSE finished_at END WHERE id=$1 AND state IN ('pending','running')`,
+		r.ID, adminState, outcome, encoded, activitySyncError(adminState, receipt.ErrorCode)); err != nil {
+		return err
+	}
+	updated, _, err := loadReceipt(ctx, s.pool, `c.id=$1`, r.ID)
+	if err != nil {
+		return err
+	}
+	*r = updated
+	return nil
+}
+
+func mapActivitySyncState(receipt activitybridge.Receipt) (string, string) {
+	switch receipt.State {
+	case "pending_delivery":
+		return "pending", ""
+	case "succeeded":
+		return "succeeded", "completed"
+	case "failed", "expired":
+		return "failed", "rejected"
+	default:
+		return "running", ""
+	}
+}
+
+func activitySyncError(state, code string) any {
+	if state != "failed" || code == "" {
+		return nil
+	}
+	encoded, _ := json.Marshal(Error{Code: code, Message: "activity sync failed"})
+	return encoded
+}
+
+func publicPanelResult(panel serviceapi.ManagedPanel, rotate bool) map[string]any {
+	ids := panel.EmployeeIDs
+	if ids == nil {
+		ids = []int64{}
+	}
+	out := map[string]any{
+		"id": panel.ID, "name": panel.Name, "employee_ids": ids,
+		"display_window": panel.DisplayWindow, "enabled": panel.Enabled,
+		"revision": panel.Revision, "updated_at": panel.UpdatedAt,
+		"share_url_issued": panel.ShareUrlIssued,
+	}
+	if rotate {
+		out["view_key_version"] = panel.ViewKeyVersion
+		out["share_url_issued"] = true
+	}
+	return out
+}
+
+func immediateConflict(command string, err error) bool {
+	switch command {
+	case "activity-configure", "activity-panel-patch", "lead-status-configure":
+		return serviceapi.ErrorCode(err) == serviceapi.Conflict || errors.Is(err, leadstatus.ErrRuleRevisionConflict)
+	}
+	return false
 }
 
 type querier interface {
@@ -289,11 +499,33 @@ func classify(err error) *Error {
 	if errors.Is(err, integrations.ErrConflict) || errors.Is(err, integrations.ErrInvalidState) || errors.Is(err, jobs.ErrRetryNotAllowed) || errors.Is(err, webhook.ErrNotActive) {
 		return conflict(err.Error())
 	}
+	if errors.Is(err, leadstatus.ErrRuleRevisionConflict) {
+		return conflict("lead status rule revision conflict")
+	}
+	if errors.Is(err, leadstatus.ErrInvalidLeadStatusRule) {
+		return invalid("invalid lead status rule")
+	}
 	switch serviceapi.ErrorCode(err) {
 	case serviceapi.NotFound:
 		return notFound()
 	case serviceapi.Conflict:
-		return conflict("command precondition failed")
+		message := "command precondition failed"
+		var se *serviceapi.Error
+		if errors.As(err, &se) && se.Message != "" {
+			message = se.Message
+		}
+		return conflict(message)
+	case serviceapi.InvalidArgument:
+		message := "invalid argument"
+		var se *serviceapi.Error
+		if errors.As(err, &se) && se.Message != "" {
+			message = se.Message
+		}
+		return invalid(message)
+	case serviceapi.PermissionDenied, serviceapi.ReauthRequired:
+		return &Error{Code: "permission_denied", Message: "not permitted", Status: http.StatusForbidden}
+	case serviceapi.Unavailable, serviceapi.DeadlineExceeded:
+		return &Error{Code: "backend_unavailable", Message: "backend unavailable", Status: http.StatusServiceUnavailable}
 	}
 	return &Error{Code: "internal", Message: "command failed", Status: 500}
 }

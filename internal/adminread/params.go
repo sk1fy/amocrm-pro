@@ -184,3 +184,51 @@ func parseOptionalInt64(raw string) (*int64, error) {
 	}
 	return &id, nil
 }
+
+func parseStatsPeriod(raw string, now time.Time) (time.Time, time.Time, string, error) {
+	now = now.UTC()
+	period := strings.TrimSpace(raw)
+	if period == "" {
+		period = "7d"
+	}
+	var window time.Duration
+	switch period {
+	case "24h":
+		window = 24 * time.Hour
+	case "7d":
+		window = 7 * 24 * time.Hour
+	case "30d":
+		window = 30 * 24 * time.Hour
+	default:
+		return time.Time{}, time.Time{}, "", errInvalid("period must be 24h, 7d or 30d")
+	}
+	return now.Add(-window), now, period, nil
+}
+
+func encodeStatsCursor(accountID int64, installationID uuid.UUID) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(accountID, 10) + "|" + installationID.String()))
+}
+
+func decodeStatsCursor(raw string) (int64, uuid.UUID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, uuid.Nil, nil
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return 0, uuid.Nil, errInvalid("invalid cursor")
+	}
+	accountRaw, idRaw, ok := strings.Cut(string(decoded), "|")
+	if !ok || accountRaw == "" || idRaw == "" {
+		return 0, uuid.Nil, errInvalid("invalid cursor")
+	}
+	accountID, err := strconv.ParseInt(accountRaw, 10, 64)
+	if err != nil || accountID < 1 {
+		return 0, uuid.Nil, errInvalid("invalid cursor")
+	}
+	id, err := uuid.Parse(idRaw)
+	if err != nil || id == uuid.Nil {
+		return 0, uuid.Nil, errInvalid("invalid cursor")
+	}
+	return accountID, id, nil
+}

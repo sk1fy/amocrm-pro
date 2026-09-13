@@ -21,7 +21,7 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
 func (s *Postgres) Settings(ctx context.Context, scope serviceapi.Scope) (serviceapi.Settings, error) {
 	var settings serviceapi.Settings
-	err := s.pool.QueryRow(ctx, `SELECT initial_days, retention_days FROM settings WHERE installation_id=$1 AND integration_id=$2`, scope.InstallationID, scope.IntegrationID).Scan(&settings.InitialDays, &settings.RetentionDays)
+	err := s.pool.QueryRow(ctx, `SELECT initial_days, retention_days, extract(epoch from updated_at)::bigint FROM settings WHERE installation_id=$1 AND integration_id=$2`, scope.InstallationID, scope.IntegrationID).Scan(&settings.InitialDays, &settings.RetentionDays, &settings.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Defaults(), nil
 	}
@@ -39,8 +39,14 @@ func (s *Postgres) Configure(ctx context.Context, p serviceapi.Principal, c serv
 	canonical, _ := json.Marshal(struct {
 		Scope    serviceapi.Scope
 		Actor    int64
-		Settings serviceapi.Settings
-	}{p.Scope, p.ActorID, c.Settings})
+		Settings struct {
+			InitialDays   int `json:"initial_days"`
+			RetentionDays int `json:"retention_days"`
+		}
+	}{p.Scope, p.ActorID, struct {
+		InitialDays   int `json:"initial_days"`
+		RetentionDays int `json:"retention_days"`
+	}{c.Settings.InitialDays, c.Settings.RetentionDays}})
 	hash := sha256.Sum256(canonical)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -60,6 +66,18 @@ func (s *Postgres) Configure(ctx context.Context, p serviceapi.Principal, c serv
 			return serviceapi.Operation{}, serviceapi.Fail(serviceapi.Conflict, "command_id has different content")
 		}
 	} else {
+		if c.ExpectedUpdatedAt != nil {
+			var current int64
+			err := tx.QueryRow(ctx, `SELECT extract(epoch from updated_at)::bigint FROM settings WHERE installation_id=$1 AND integration_id=$2 FOR UPDATE`, p.InstallationID, p.IntegrationID).Scan(&current)
+			if errors.Is(err, pgx.ErrNoRows) {
+				current = 0
+			} else if err != nil {
+				return serviceapi.Operation{}, err
+			}
+			if current != *c.ExpectedUpdatedAt {
+				return serviceapi.Operation{}, serviceapi.Fail(serviceapi.Conflict, "settings were updated")
+			}
+		}
 		tag, err := tx.Exec(ctx, `INSERT INTO settings(installation_id,integration_id,initial_days,retention_days) VALUES($1,$2,$3,$4) ON CONFLICT(installation_id) DO UPDATE SET initial_days=EXCLUDED.initial_days,retention_days=EXCLUDED.retention_days,updated_at=now() WHERE settings.integration_id=EXCLUDED.integration_id`, p.InstallationID, p.IntegrationID, c.Settings.InitialDays, c.Settings.RetentionDays)
 		if err != nil {
 			return serviceapi.Operation{}, err
