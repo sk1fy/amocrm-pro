@@ -14,6 +14,7 @@ import (
 )
 
 const developmentEncryptionKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+const developmentAdminToken = "admin-dev-token-change-me"
 
 type Common struct {
 	ServiceName            string
@@ -116,6 +117,9 @@ func LoadAPI() (API, error) {
 	adminToken := strings.TrimSpace(os.Getenv("ADMIN_API_TOKEN"))
 	if (adminAddress == "") != (adminToken == "") {
 		return API{}, errors.New("ADMIN_HTTP_ADDRESS and ADMIN_API_TOKEN must be set together")
+	}
+	if common.Environment != "development" && adminToken == developmentAdminToken {
+		return API{}, errors.New("the public development admin token is forbidden outside APP_ENV=development")
 	}
 	if adminAddress != "" {
 		if err := validateListenAddress(adminAddress); err != nil {

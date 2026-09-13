@@ -11,6 +11,11 @@ Listener стартует только когда заданы **оба** зна
   процессе. Compose для dev ставит
   `ADMIN_API_TOKEN:-admin-dev-token-change-me`.
 
+Публичное значение Compose допускается только при `APP_ENV=development`.
+В production и staging задайте собственный `ADMIN_API_TOKEN`: с dev-токеном
+процесс откажется стартовать. Значение должно совпадать с токеном Core
+адаптера Admin API.
+
 Если обе переменные пустые, listener выключен. Если задана только одна —
 процесс API не стартует.
 
@@ -47,10 +52,17 @@ curl -sS \
 - `GET /admin/v1/accounts` возвращает `total` (`count(DISTINCT account_id)`
   по фильтрам); каждая установка несёт `webhook_status`,
   `authorization_state` (вычисленное состояние без секретов) и
-  `recent_failed_jobs` (failed/dead за 24 ч);
+  `recent_failed_jobs` (failed/dead за 24 ч), а также `grants` в формате
+  `{service, enabled}`; пустой массив означает отсутствие грантов;
+- `recent_failed_jobs` с тем же правилом доступен в кратких установках
+  `/admin/v1/installations` и в карточках аккаунта/установки;
 - `GET /admin/v1/jobs` и `GET /admin/v1/installations/{id}/jobs` сортируют
   по `updated_at` (новые первыми), в каждом job есть `installation_id` и
-  `account_id`; окно `since` ограничено 7 сутками.
+  `account_id`; окно `since` ограничено 7 сутками;
+- Доставки `/admin/v1/installations/{id}/activity/deliveries` возвращают
+  последние команды (новые первыми); CLI `ListDeliveries` по-прежнему
+  выбирает failed/expired от старых к новым.
 
 Контракт: [`api/admin-openapi.yaml`](../../api/admin-openapi.yaml).
 Решение: [ADR-0025](../adr/0025-admin-read-listener.md).
+Дополнение диагностики: [ADR-0026](../adr/0026-admin-read-diagnostics.md).

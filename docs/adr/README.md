@@ -26,6 +26,7 @@
 | [0023](0023-product-module-physical-transfer.md) | Accepted as operational rule | Compute-only vs owner-DB move, static addresses, mTLS SAN, drain/fencing; local Docker stand is not the target server |
 | [0024](0024-activity-share-panels.md) | Accepted for stage 9 | Shareable Activity panels, viewer principal without amoCRM role lookup, Core public viewer HTTP; widget admin-only unchanged |
 | [0025](0025-admin-read-listener.md) | Accepted for admin panel stage 1 | Read-only internal admin HTTP listener; public and management listeners unchanged |
+| [0026](0026-admin-read-diagnostics.md) | Accepted | Согласованные факты диагностики admin read, последние доставки и запрет публичного dev-токена вне development |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

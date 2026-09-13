@@ -328,6 +328,7 @@ type DeliveryFilter struct {
 	InstallationID uuid.UUID
 	Limit          int
 	FailedOnly     bool
+	NewestFirst    bool
 }
 
 func ListDeliveries(ctx context.Context, pool *pgxpool.Pool) ([]Delivery, error) {
@@ -349,7 +350,11 @@ func ListDeliveriesFiltered(ctx context.Context, pool *pgxpool.Pool, f DeliveryF
 	if f.FailedOnly {
 		query += ` AND outbox.status IN ('failed','expired')`
 	}
-	query += ` ORDER BY receipt.created_at,receipt.command_id LIMIT $2`
+	if f.NewestFirst {
+		query += ` ORDER BY receipt.created_at DESC,receipt.command_id DESC LIMIT $2`
+	} else {
+		query += ` ORDER BY receipt.created_at,receipt.command_id LIMIT $2`
+	}
 	rows, err := pool.Query(ctx, query, installationID, limit)
 	if err != nil {
 		return nil, err

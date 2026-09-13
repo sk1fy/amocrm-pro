@@ -19,6 +19,10 @@ type store struct {
 	timeout time.Duration
 }
 
+const recentFailedJobsSQL = `(SELECT count(*) FROM jobs j
+ WHERE j.installation_id = i.id AND j.status IN ('failed', 'dead')
+   AND j.updated_at > now() - interval '24 hours')`
+
 func (s *store) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	timeout := s.timeout
 	if timeout <= 0 {
@@ -163,9 +167,7 @@ WHERE 1=1`)
 	db.WriteString(`SELECT i.id, i.integration_id, ig.code, i.account_id, i.account_domain, i.status, i.updated_at,
 	COALESCE(i.settings->>'origin' = 'fixture', false),
 	i.webhook_status, oc.expires_at, oc.lease_until, (oc.installation_id IS NOT NULL),
-	(SELECT count(*) FROM jobs j
-	 WHERE j.installation_id = i.id AND j.status IN ('failed', 'dead')
-	   AND j.updated_at > now() - interval '24 hours')
+	` + recentFailedJobsSQL + `
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 LEFT JOIN oauth_credentials oc ON oc.installation_id = i.id
@@ -186,6 +188,8 @@ WHERE i.account_id IN (`)
 	}
 	defer drows.Close()
 	domainSeen := make(map[int64]map[string]bool, len(keys))
+	integrationIDs := make([]uuid.UUID, 0)
+	seenIntegrations := make(map[uuid.UUID]bool)
 	for drows.Next() {
 		var item AccountInstallation
 		var accountID int64
@@ -213,6 +217,10 @@ WHERE i.account_id IN (`)
 		}, now).State
 		acc := &items[pos]
 		acc.Installations = append(acc.Installations, item)
+		if !seenIntegrations[item.IntegrationID] {
+			seenIntegrations[item.IntegrationID] = true
+			integrationIDs = append(integrationIDs, item.IntegrationID)
+		}
 		acc.ConnectionsByStatus[status]++
 		if fixture {
 			acc.Origin = originFixture
@@ -227,6 +235,20 @@ WHERE i.account_id IN (`)
 	}
 	if err := drows.Err(); err != nil {
 		return nil, nil, nil, err
+	}
+	drows.Close()
+	grants, err := s.grantsByIntegration(ctx, integrationIDs)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for i := range items {
+		for j := range items[i].Installations {
+			installation := &items[i].Installations[j]
+			installation.Grants = grants[installation.IntegrationID]
+			if installation.Grants == nil {
+				installation.Grants = []Grant{}
+			}
+		}
 	}
 	return items, next, &total, nil
 }
@@ -263,7 +285,8 @@ func (s *store) listInstallations(ctx context.Context, f installationListFilter)
 	args := make([]any, 0, 12)
 	b.WriteString(`SELECT i.id, i.integration_id, ig.code, i.account_id, i.account_domain, i.status, i.installed_by,
 	CASE WHEN i.settings->>'origin' = 'fixture' THEN 'fixture' ELSE 'real' END,
-	i.created_at, i.updated_at, i.webhook_status
+	i.created_at, i.updated_at, i.webhook_status,
+	` + recentFailedJobsSQL + `
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 WHERE 1=1`)
@@ -289,6 +312,7 @@ WHERE 1=1`)
 		if err := rows.Scan(
 			&item.ID, &item.IntegrationID, &item.IntegrationCode, &item.AccountID, &item.AccountDomain,
 			&item.Status, &item.InstalledBy, &item.Origin, &item.CreatedAt, &item.UpdatedAt, &item.WebhookStatus,
+			&item.RecentFailedJobs,
 		); err != nil {
 			return nil, nil, err
 		}
@@ -336,7 +360,8 @@ func (s *store) loadInstallationCards(ctx context.Context, where string, args []
 	i.webhook_status, i.webhook_settings, i.webhook_checked_at, i.webhook_last_error,
 	oc.expires_at, oc.token_version, oc.key_version, oc.refreshed_at, oc.lease_until,
 	(oc.installation_id IS NOT NULL), ap.enabled,
-	(SELECT count(*) FROM installation_webhook_destinations d WHERE d.installation_id = i.id)
+	(SELECT count(*) FROM installation_webhook_destinations d WHERE d.installation_id = i.id),
+	` + recentFailedJobsSQL + `
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 LEFT JOIN oauth_credentials oc ON oc.installation_id = i.id
@@ -363,6 +388,7 @@ ORDER BY i.updated_at DESC, i.id DESC`
 			&row.webhook.CheckedAt, &row.webhook.LastError, &row.facts.ExpiresAt, &tokenVersion,
 			&keyVersion, &row.facts.RefreshedAt, &row.facts.LeaseUntil, &row.facts.Present,
 			&row.pilotEnabled, &row.webhook.ConfirmedDestinations,
+			&row.summary.RecentFailedJobs,
 		); err != nil {
 			return nil, err
 		}

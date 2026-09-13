@@ -8,6 +8,7 @@ info:
     Authenticate with `Authorization: Bearer` using `ADMIN_API_TOKEN` and send
     `X-Admin-Actor`. Responses never include OAuth tokens, ciphertext, webhook
     keys, or job payload/result.
+    The public Compose development token is rejected outside APP_ENV=development.
 servers:
   - url: /
 security:
@@ -65,7 +66,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResponse'
+                $ref: '#/components/schemas/AccountListResponse'
         '400':
           $ref: '#/components/responses/InvalidArgument'
         '401':
@@ -136,7 +137,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResponse'
+                $ref: '#/components/schemas/InstallationListResponse'
         '400':
           $ref: '#/components/responses/InvalidArgument'
         '401':
@@ -235,7 +236,8 @@ paths:
     get:
       tags: [Admin]
       operationId: listAdminInstallationDeliveries
-      summary: Activity command deliveries for one installation.
+      summary: Most recent Activity command deliveries for one installation.
+      description: Ordered by receipt created_at descending, then command_id descending.
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/AdminActor'
@@ -525,6 +527,88 @@ components:
           type: array
           items: {type: string}
         components: {}
+    Grant:
+      type: object
+      required: [service, enabled]
+      properties:
+        service: {type: string}
+        enabled: {type: boolean}
+    RecentFailedJobs:
+      type: integer
+      minimum: 0
+      description: Number of failed or dead jobs whose updated_at is within the last 24 hours.
+    AccountInstallation:
+      type: object
+      required: [id, integration_id, integration_code, status, recent_failed_jobs, grants]
+      properties:
+        id: {type: string, format: uuid}
+        integration_id: {type: string, format: uuid}
+        integration_code: {type: string}
+        status: {type: string}
+        webhook_status: {type: string}
+        authorization_state: {type: string}
+        recent_failed_jobs:
+          $ref: '#/components/schemas/RecentFailedJobs'
+        grants:
+          type: array
+          description: Integration service grants; an empty array means no grants exist.
+          items:
+            $ref: '#/components/schemas/Grant'
+    AccountListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ListResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required: [account_id, installations]
+                properties:
+                  account_id: {type: integer, format: int64}
+                  installations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccountInstallation'
+    InstallationSummary:
+      type: object
+      required: [id, integration_id, integration_code, account_id, account_domain, status, installed_by, origin, created_at, updated_at, recent_failed_jobs]
+      properties:
+        id: {type: string, format: uuid}
+        integration_id: {type: string, format: uuid}
+        integration_code: {type: string}
+        account_id: {type: integer, format: int64}
+        account_domain: {type: string}
+        status: {type: string}
+        installed_by: {type: [integer, 'null'], format: int64}
+        origin: {type: string, enum: [real, fixture]}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        webhook_status: {type: string}
+        recent_failed_jobs:
+          $ref: '#/components/schemas/RecentFailedJobs'
+    InstallationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ListResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/InstallationSummary'
+    InstallationCard:
+      type: object
+      required: [installation, authorization, webhook, grants, activity]
+      properties:
+        installation:
+          $ref: '#/components/schemas/InstallationSummary'
+        authorization: {type: object}
+        webhook: {type: object}
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Grant'
+        activity: {type: object}
     AccountResponse:
       type: object
       required: [source, observed_at, account_id, domains, origin, installations]
@@ -538,19 +622,22 @@ components:
         origin: {type: string, enum: [real, fixture]}
         installations:
           type: array
-          items: {type: object}
+          items:
+            $ref: '#/components/schemas/InstallationCard'
     InstallationResponse:
       type: object
       required: [source, observed_at, installation, authorization, webhook, grants, activity]
       properties:
         source: {type: string, const: core}
         observed_at: {type: string, format: date-time}
-        installation: {type: object}
+        installation:
+          $ref: '#/components/schemas/InstallationSummary'
         authorization: {type: object}
         webhook: {type: object}
         grants:
           type: array
-          items: {type: object}
+          items:
+            $ref: '#/components/schemas/Grant'
         activity: {type: object}
     IntegrationResponse:
       type: object

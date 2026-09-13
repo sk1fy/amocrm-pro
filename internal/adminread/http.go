@@ -307,7 +307,7 @@ func (h *handler) listDeliveries(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := h.store.withTimeout(r.Context())
 	defer cancel()
 	items, err := activitybridge.ListDeliveriesFiltered(ctx, h.store.pool, activitybridge.DeliveryFilter{
-		InstallationID: id, Limit: limit, FailedOnly: false,
+		InstallationID: id, Limit: limit, FailedOnly: false, NewestFirst: true,
 	})
 	if err != nil {
 		h.queryFailed(w, r, err)

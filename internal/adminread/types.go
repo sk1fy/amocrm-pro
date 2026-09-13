@@ -60,6 +60,7 @@ type AccountInstallation struct {
 	WebhookStatus    string    `json:"webhook_status,omitempty"`
 	Authorization    string    `json:"authorization_state,omitempty"`
 	RecentFailedJobs int       `json:"recent_failed_jobs"`
+	Grants           []Grant   `json:"grants"`
 }
 
 type AccountResponse struct {
@@ -72,17 +73,18 @@ type AccountResponse struct {
 }
 
 type InstallationSummary struct {
-	ID              uuid.UUID `json:"id"`
-	IntegrationID   uuid.UUID `json:"integration_id"`
-	IntegrationCode string    `json:"integration_code"`
-	AccountID       int64     `json:"account_id"`
-	AccountDomain   string    `json:"account_domain"`
-	Status          string    `json:"status"`
-	InstalledBy     *int64    `json:"installed_by"`
-	Origin          string    `json:"origin"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	WebhookStatus   string    `json:"webhook_status,omitempty"`
+	ID               uuid.UUID `json:"id"`
+	IntegrationID    uuid.UUID `json:"integration_id"`
+	IntegrationCode  string    `json:"integration_code"`
+	AccountID        int64     `json:"account_id"`
+	AccountDomain    string    `json:"account_domain"`
+	Status           string    `json:"status"`
+	InstalledBy      *int64    `json:"installed_by"`
+	Origin           string    `json:"origin"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	WebhookStatus    string    `json:"webhook_status,omitempty"`
+	RecentFailedJobs int       `json:"recent_failed_jobs"`
 }
 
 type InstallationCard struct {

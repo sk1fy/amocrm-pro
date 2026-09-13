@@ -1,10 +1,39 @@
 package config
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestAdminDevelopmentTokenEnvironmentBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name, environment, token string
+		wantError                bool
+	}{
+		{"development default", "development", developmentAdminToken, false},
+		{"production default", "production", developmentAdminToken, true},
+		{"staging default", "staging", developmentAdminToken, true},
+		{"production custom", "production", "synthetic-admin-credential-for-test", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+			t.Setenv("APP_ENV", tc.environment)
+			t.Setenv("ENCRYPTION_KEYS", "1:"+base64.StdEncoding.EncodeToString([]byte(strings.Repeat("x", 32))))
+			t.Setenv("ADMIN_HTTP_ADDRESS", ":8083")
+			t.Setenv("ADMIN_API_TOKEN", tc.token)
+			_, err := LoadAPI()
+			if tc.wantError {
+				if err == nil || !strings.Contains(err.Error(), "development admin token") {
+					t.Fatalf("expected development admin token rejection, got %v", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
 
 func TestProductionRejectsPublicDevelopmentEncryptionKey(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
