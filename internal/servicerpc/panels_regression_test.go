@@ -4,13 +4,53 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"math"
+	"reflect"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/corepolicy"
 	"github.com/sk1fy/amocrm-pro/internal/gateway"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
+	"github.com/sk1fy/amocrm-pro/internal/servicerpc/pb"
 	product "github.com/sk1fy/amocrm-pro/internal/services/activity"
-	"testing"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestPanelCommandProtobufRoundTripPreservesReplayIdentity(t *testing.T) {
+	disabled := false
+	want := serviceapi.PanelCommand{
+		Auth: serviceapi.Auth{Token: "signed-token"}, CommandID: uuid.NewString(), PanelID: uuid.New(),
+		Name: "Night", EmployeeIDs: []int64{1<<53 + 1, math.MaxInt64},
+		DisplayWindow: serviceapi.DisplayWindow{From: "22:00", To: "06:00"}, Enabled: &disabled,
+		Revision: math.MaxInt64, HasName: true, HasEmployees: true, HasWindow: true,
+	}
+	wire, err := proto.Marshal(toPanelCommand(want))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded pb.PanelCommand
+	if err := proto.Unmarshal(wire, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	got := fromPanelCommand(&decoded)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("protobuf changed patch command:\n got: %+v\nwant: %+v", got, want)
+	}
+
+	want.Enabled = nil
+	wire, err = proto.Marshal(toPanelCommand(want))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded.Reset()
+	if err := proto.Unmarshal(wire, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if got := fromPanelCommand(&decoded); !reflect.DeepEqual(got, want) {
+		t.Fatalf("protobuf changed nullable enabled or Has* flags: got %+v want %+v", got, want)
+	}
+}
 
 func TestPanelPatchValidationLocalAndMTLS(t *testing.T) {
 	ctx := context.Background()

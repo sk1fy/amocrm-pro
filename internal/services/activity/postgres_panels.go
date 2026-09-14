@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -132,6 +133,74 @@ func (s *Postgres) PatchPanel(ctx context.Context, p serviceapi.Principal, c ser
 	if c.PanelID == uuid.Nil {
 		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
 	}
+	if c.CommandID == "" {
+		return s.patchPanelCAS(ctx, p, c)
+	}
+	id, err := uuid.Parse(c.CommandID)
+	if err != nil || id == uuid.Nil {
+		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.InvalidArgument, "command_id must be a UUID")
+	}
+	requestHash := panelPatchRequestHash(p, c)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	defer rollback(tx)
+	tag, err := tx.Exec(ctx, `INSERT INTO panel_commands(command_id,installation_id,integration_id,panel_id,kind,request_hash) VALUES($1,$2,$3,$4,'patch',$5) ON CONFLICT(command_id) DO NOTHING`, id, p.InstallationID, p.IntegrationID, c.PanelID, requestHash[:])
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	if tag.RowsAffected() == 0 {
+		var kind string
+		var existingHash, result []byte
+		err := tx.QueryRow(ctx, `SELECT kind,request_hash,result FROM panel_commands WHERE command_id=$1 AND installation_id=$2 AND integration_id=$3`, id, p.InstallationID, p.IntegrationID).Scan(&kind, &existingHash, &result)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+		}
+		if err != nil {
+			return serviceapi.ManagedPanel{}, err
+		}
+		if kind != "patch" || !bytes.Equal(requestHash[:], existingHash) {
+			return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Conflict, "command_id has different content")
+		}
+		replay, err := decodePanelPatchResult(result, c.PanelID)
+		if err != nil {
+			return serviceapi.ManagedPanel{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return serviceapi.ManagedPanel{}, err
+		}
+		return replay, nil
+	}
+	current, err := scanPanel(tx.QueryRow(ctx, panelSelect+` WHERE id=$1 AND installation_id=$2 AND integration_id=$3 FOR UPDATE`, c.PanelID, p.InstallationID, p.IntegrationID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.NotFound, "not found")
+	}
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	updated, err := applyPanelPatch(ctx, tx, p, c, current)
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	result, err := encodePanelPatchResult(updated)
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	tag, err = tx.Exec(ctx, `UPDATE panel_commands SET result=$1 WHERE command_id=$2 AND installation_id=$3 AND integration_id=$4 AND kind='patch'`, result, id, p.InstallationID, p.IntegrationID)
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	if tag.RowsAffected() != 1 {
+		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Internal, "store patch command result")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	return updated, nil
+}
+
+func (s *Postgres) patchPanelCAS(ctx context.Context, p serviceapi.Principal, c serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return serviceapi.ManagedPanel{}, err
@@ -144,6 +213,17 @@ func (s *Postgres) PatchPanel(ctx context.Context, p serviceapi.Principal, c ser
 	if err != nil {
 		return serviceapi.ManagedPanel{}, err
 	}
+	updated, err := applyPanelPatch(ctx, tx, p, c, current)
+	if err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	return updated, nil
+}
+
+func applyPanelPatch(ctx context.Context, tx pgx.Tx, p serviceapi.Principal, c serviceapi.PanelCommand, current serviceapi.ManagedPanel) (serviceapi.ManagedPanel, error) {
 	if current.Revision != c.Revision {
 		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Conflict, "revision mismatch")
 	}
@@ -167,14 +247,97 @@ func (s *Postgres) PatchPanel(ctx context.Context, p serviceapi.Principal, c ser
 	if tag.RowsAffected() != 1 {
 		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Conflict, "revision mismatch")
 	}
-	updated, err := scanPanel(tx.QueryRow(ctx, panelSelect+` WHERE id=$1`, c.PanelID))
-	if err != nil {
-		return serviceapi.ManagedPanel{}, err
+	return scanPanel(tx.QueryRow(ctx, panelSelect+` WHERE id=$1`, c.PanelID))
+}
+
+func panelPatchRequestHash(p serviceapi.Principal, c serviceapi.PanelCommand) [sha256.Size]byte {
+	var canonical bytes.Buffer
+	writePatchString(&canonical, "activity-panel-patch-v1")
+	canonical.Write(p.InstallationID[:])
+	canonical.Write(p.IntegrationID[:])
+	_ = binary.Write(&canonical, binary.BigEndian, p.ActorID)
+	canonical.Write(c.PanelID[:])
+	_ = binary.Write(&canonical, binary.BigEndian, c.Revision)
+	canonical.WriteByte(boolByte(c.HasName))
+	canonical.WriteByte(boolByte(c.HasEmployees))
+	canonical.WriteByte(boolByte(c.HasWindow))
+	canonical.WriteByte(boolByte(c.Enabled != nil))
+	if c.HasName {
+		writePatchString(&canonical, c.Name)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return serviceapi.ManagedPanel{}, err
+	if c.HasEmployees {
+		_ = binary.Write(&canonical, binary.BigEndian, uint64(len(c.EmployeeIDs)))
+		for _, employeeID := range c.EmployeeIDs {
+			_ = binary.Write(&canonical, binary.BigEndian, employeeID)
+		}
 	}
-	return updated, nil
+	if c.HasWindow {
+		writePatchString(&canonical, c.DisplayWindow.From)
+		writePatchString(&canonical, c.DisplayWindow.To)
+	}
+	if c.Enabled != nil {
+		canonical.WriteByte(boolByte(*c.Enabled))
+	}
+	return sha256.Sum256(canonical.Bytes())
+}
+
+func writePatchString(dst *bytes.Buffer, value string) {
+	_ = binary.Write(dst, binary.BigEndian, uint64(len(value)))
+	dst.WriteString(value)
+}
+
+func boolByte(value bool) byte {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+type panelPatchResult struct {
+	ID             uuid.UUID                `json:"id"`
+	Name           string                   `json:"name"`
+	EmployeeIDs    []int64                  `json:"employee_ids"`
+	DisplayWindow  serviceapi.DisplayWindow `json:"display_window"`
+	Timezone       string                   `json:"timezone"`
+	Enabled        bool                     `json:"enabled"`
+	Revision       int64                    `json:"revision"`
+	UpdatedAt      string                   `json:"updated_at"`
+	ViewKeyVersion int                      `json:"view_key_version"`
+	ShareURLIssued bool                     `json:"share_url_issued"`
+}
+
+func encodePanelPatchResult(panel serviceapi.ManagedPanel) ([]byte, error) {
+	return json.Marshal(panelPatchResult{
+		ID: panel.ID, Name: panel.Name, EmployeeIDs: panel.EmployeeIDs,
+		DisplayWindow: panel.DisplayWindow, Timezone: panel.Timezone,
+		Enabled: panel.Enabled, Revision: panel.Revision,
+		UpdatedAt:      panel.UpdatedAt.Format(time.RFC3339Nano),
+		ViewKeyVersion: panel.ViewKeyVersion, ShareURLIssued: panel.ShareUrlIssued,
+	})
+}
+
+func decodePanelPatchResult(raw []byte, panelID uuid.UUID) (serviceapi.ManagedPanel, error) {
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Internal, "patch command result is unavailable")
+	}
+	var result panelPatchResult
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Internal, "patch command result is invalid")
+	}
+	updatedAt, err := time.Parse(time.RFC3339Nano, result.UpdatedAt)
+	if err != nil || result.ID == uuid.Nil || result.ID != panelID || result.Revision < 1 || result.Name == "" || result.Timezone == "" {
+		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Internal, "patch command result is invalid")
+	}
+	employeeIDs := result.EmployeeIDs
+	if employeeIDs == nil {
+		employeeIDs = []int64{}
+	}
+	return serviceapi.ManagedPanel{
+		ID: result.ID, Name: result.Name, EmployeeIDs: employeeIDs,
+		DisplayWindow: result.DisplayWindow, Timezone: result.Timezone,
+		Enabled: result.Enabled, Revision: result.Revision, UpdatedAt: updatedAt,
+		ViewKeyVersion: result.ViewKeyVersion, ShareUrlIssued: result.ShareURLIssued,
+	}, nil
 }
 
 func (s *Postgres) RotateShareLink(ctx context.Context, p serviceapi.Principal, c serviceapi.PanelCommand, hash []byte, viewKey string) (serviceapi.ManagedPanel, error) {

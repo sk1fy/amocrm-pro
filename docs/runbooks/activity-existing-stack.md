@@ -57,6 +57,22 @@ API сохраняет зависимость от Core migration; Activity/Even
 первом запуске и затем использует существующие volumes.
 API /live не заменяет /ready всего графа.
 
+### Rollout durable PatchPanel replay
+
+Для версии с replay административного patch панели соблюдать порядок:
+
+1. Применить Activity owner migration `000004_panel_patch_results`.
+2. Обновить Activity и проверить его readiness и повтор `PatchPanel` с одним
+   `command_id` до обновления Core.
+3. Только после этого обновить Core API, который передаёт стабильный ID
+   административной команды в Activity.
+
+Новый Activity остаётся совместим со старыми callers без `command_id`: они
+используют прежний revision CAS. Down migration `000004` намеренно
+отказывается удалять `panel_commands.result`, пока существуют patch receipts;
+сначала откатывают Core, прекращают новые patch-команды и отдельно принимают
+решение о сохранении durable history.
+
 activity-control здесь настроен как Core CLI для pilot/list/inspect/retry.
 Для panel-* HTTP-команд дополнительно нужны API_BASE_URL=http://api:8080
 и ACTIVITY_MANAGEMENT_TOKEN, переданные в контейнер; автоматически этому

@@ -8,6 +8,16 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
+type patchRecordingActivity struct {
+	serviceapi.Activity
+	commands []serviceapi.PanelCommand
+}
+
+func (a *patchRecordingActivity) PatchPanel(_ context.Context, command serviceapi.PanelCommand) (serviceapi.ManagedPanel, error) {
+	a.commands = append(a.commands, command)
+	return serviceapi.ManagedPanel{ID: command.PanelID, Revision: command.Revision + 1}, nil
+}
+
 func TestAdmitAdminSkipsWidgetTokensAndAuditsAdmin(t *testing.T) {
 	pool, _ := bridgeDatabase(t)
 	ctx := context.Background()
@@ -52,5 +62,29 @@ func TestAdminIssueUnavailableWithoutPolicy(t *testing.T) {
 	b = New(nil, nil, nil, nil)
 	if _, err := b.AdminSettings(context.Background(), serviceapi.Scope{}, "req"); serviceapi.ErrorCode(err) != serviceapi.Unavailable {
 		t.Fatalf("nil activity=%v", err)
+	}
+}
+
+func TestAdminPatchPanelPropagatesStableCoreCommandID(t *testing.T) {
+	receiver := &patchRecordingActivity{}
+	b := New(nil, &admissionPolicy{}, receiver, nil)
+	scope := serviceapi.Scope{InstallationID: uuid.New(), IntegrationID: uuid.New()}
+	requestID := uuid.NewString()
+	command := serviceapi.PanelCommand{PanelID: uuid.New(), Revision: 7}
+	for range 2 {
+		if _, err := b.AdminPatchPanel(context.Background(), scope, requestID, command); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(receiver.commands) != 2 || receiver.commands[0].CommandID != requestID || receiver.commands[1].CommandID != requestID {
+		t.Fatalf("core retry did not preserve command id: %+v", receiver.commands)
+	}
+	explicit := uuid.NewString()
+	command.CommandID = explicit
+	if _, err := b.AdminPatchPanel(context.Background(), scope, requestID, command); err != nil {
+		t.Fatal(err)
+	}
+	if got := receiver.commands[2].CommandID; got != explicit {
+		t.Fatalf("explicit command id overwritten: got %q want %q", got, explicit)
 	}
 }

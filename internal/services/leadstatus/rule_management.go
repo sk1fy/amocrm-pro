@@ -291,8 +291,8 @@ func (s *RuleStore) ConfigureAdmin(
 		SELECT 1
 		FROM installations AS installation
 		JOIN integrations AS integration ON integration.id=installation.integration_id
-		JOIN integration_services AS grant ON grant.integration_id=integration.id
-		  AND grant.service_code='lead-status' AND grant.enabled
+		JOIN integration_services AS service_grant ON service_grant.integration_id=integration.id
+		  AND service_grant.service_code='lead-status' AND service_grant.enabled
 		WHERE installation.id=$1 AND installation.status='active' AND integration.status='active'
 		FOR SHARE OF installation, integration`, installationID).Scan(&marker)
 	if errors.Is(err, pgx.ErrNoRows) {

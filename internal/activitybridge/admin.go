@@ -231,6 +231,9 @@ func (b *Bridge) AdminPatchPanel(ctx context.Context, scope serviceapi.Scope, re
 		return serviceapi.ManagedPanel{}, err
 	}
 	command.Auth = auth
+	if command.CommandID == "" {
+		command.CommandID = requestID
+	}
 	return b.activity.PatchPanel(ctx, command)
 }
 
