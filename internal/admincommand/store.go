@@ -450,10 +450,6 @@ func publicPanelResult(panel serviceapi.ManagedPanel, rotate bool) map[string]an
 }
 
 func immediateConflict(command string, err error) bool {
-	var adminError *Error
-	if errors.As(err, &adminError) && adminError.Status == http.StatusConflict {
-		return true
-	}
 	switch command {
 	case "activity-configure", "activity-panel-patch", "lead-status-configure":
 		// Reading the current settings enriches service conflicts into our
