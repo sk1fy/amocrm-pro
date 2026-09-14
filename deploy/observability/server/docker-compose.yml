@@ -1,0 +1,207 @@
+# Server observability stack (Prometheus, Loki, Grafana, Alloy, Alertmanager,
+# Node Exporter). This is a separate Compose project ("observability") that
+# attaches to the amocrm-pro "backend" network to scrape app management/metrics
+# endpoints without publishing extra host ports on the app containers.
+#
+# Configs are versioned in Git; secrets live in /opt/amocrm-observability/secrets.
+# Data lives under /opt/amocrm-observability/data (bind mounts, see README).
+#
+# Run from this directory:
+#   docker compose -f docker-compose.yml up -d
+#   docker compose -f docker-compose.yml config --quiet   # validate
+
+name: observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
+    init: true
+    read_only: true
+    user: "65534:65534"
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=8GB
+      - --web.listen-address=:9090
+      - --web.enable-lifecycle
+    volumes:
+      - ${OBSERVABILITY_DATA_DIR:-/opt/amocrm-observability/data}/prometheus:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./prometheus/server-alerts.yml:/etc/prometheus/server-alerts.yml:ro
+      - ${OBSERVABILITY_SECRETS_DIR:-/opt/amocrm-observability/secrets}/grafana_metrics_password:/etc/prometheus/grafana-metrics-password:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - monitoring
+      - amocrm-pro_backend
+      # Внутренняя сеть только для scrape admin-api:8092 (наружу не публикуется).
+      - adminobs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0@sha256:d5155cfac40a6d9250ffc97c19db2c5e190c7bc57c6b67125c94903358f8c7d8
+    init: true
+    read_only: true
+    user: "65534:65534"
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ${OBSERVABILITY_DATA_DIR:-/opt/amocrm-observability/data}/alertmanager:/alertmanager
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ${OBSERVABILITY_SECRETS_DIR:-/opt/amocrm-observability/secrets}/alertmanager_webhook_url:/etc/alertmanager/webhook-url:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 128m
+    cpus: 0.1
+    networks:
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2@sha256:4032c6d5bfd752342c3e631c2f1de93ba6b86c41db6b167b9a35372c139e7706
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|etc/hostname|etc/hosts|etc/resolv.conf)($|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+    mem_limit: 64m
+    cpus: 0.05
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.3.2@sha256:8af2de1abbdd7aa92b27c9bcc96f0f4140c9096b507c77921ffddf1c6ad6c48f
+    init: true
+    user: "10001:10001"
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+      - -config.expand-env
+    volumes:
+      - ${OBSERVABILITY_DATA_DIR:-/opt/amocrm-observability/data}/loki:/loki
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  alloy:
+    image: grafana/alloy:v1.5.1@sha256:01a63f4e032ce54ee94b22049bc27f597e74f85566478c377f4b5c7f020c1eb3
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    # Alloy runs as root: it needs the Docker socket to tail container logs.
+    # A read-only socket mount does NOT make the Docker API read-only; Alloy is
+    # a trusted component on this single host (see README for the tradeoff and
+    # the docker-socket-proxy hardening alternative).
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --stability.level=generally-available
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OBSERVABILITY_DATA_DIR:-/opt/amocrm-observability/data}/alloy:/var/lib/alloy/data
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+    mem_limit: 256m
+    cpus: 0.25
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.1@sha256:fa801ab6e1ae035135309580891e09f7eb94d1abdbd2106bdc288030b028158c
+    init: true
+    user: "472:472"
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_DOMAIN: 2-26-66-187.sslip.io
+      GF_SERVER_ROOT_URL: https://2-26-66-187.sslip.io/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_METRICS_ENABLED: "true"
+      GF_METRICS_BASIC_AUTH_USERNAME: metrics
+      GF_METRICS_BASIC_AUTH_PASSWORD__FILE: /run/secrets/grafana_metrics_password
+      GF_METRICS_DISABLE_TOTAL_STATS: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    volumes:
+      - ${OBSERVABILITY_DATA_DIR:-/opt/amocrm-observability/data}/grafana:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ${OBSERVABILITY_SECRETS_DIR:-/opt/amocrm-observability/secrets}/grafana_admin_password:/run/secrets/grafana_admin_password:ro
+      - ${OBSERVABILITY_SECRETS_DIR:-/opt/amocrm-observability/secrets}/grafana_metrics_password:/run/secrets/grafana_metrics_password:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/grafana/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Test/diagnostic sink for Alertmanager webhooks. Replace the URL in the
+  # secret file (alertmanager_webhook_url) with the agreed real channel
+  # (Slack/email/etc.) once provided. Logs received payloads to stdout.
+  webhook-sink:
+    image: python:3.12-alpine@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    command: ["python", "-u", "/sink/sink.py"]
+    volumes:
+      - ./webhook-sink/sink.py:/sink/sink.py:ro
+    mem_limit: 32m
+    cpus: 0.05
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+networks:
+  monitoring:
+    driver: bridge
+  amocrm-pro_backend:
+    external: true
+  adminobs:
+    external: true
+    name: amocrm-admin-observability

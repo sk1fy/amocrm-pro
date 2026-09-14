@@ -1,0 +1,131 @@
+// Grafana Alloy: discover and tail Docker logs for the amocrm-pro,
+// amocrm-pro-admin (deploy) and observability Compose projects, parse Go slog
+// JSON (api/worker/admin-api) and the plain log format (activity/crm-events),
+// then push to Loki.
+//
+// Indexed Loki labels are intentionally limited to environment, host, service
+// (and level). request_id and other high-cardinality fields are kept as
+// structured metadata, never as indexed labels.
+
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+
+	// Docker ANDs multiple values for the same filter key, so filter on the
+	// label's presence and narrow to the two projects via relabel below.
+	filter {
+		name   = "label"
+		values = ["com.docker.compose.project"]
+	}
+}
+
+discovery.relabel "docker_logs" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		regex         = "amocrm-pro|observability|deploy"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		regex         = "(.+)"
+		target_label  = "service"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "(.+)"
+		target_label  = "container_name"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		regex         = "(.+)"
+		target_label  = "compose_project"
+	}
+}
+
+loki.source.docker "logs" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.docker.containers.targets
+	forward_to = [loki.process.logs.receiver]
+
+	labels = {
+		environment = "production",
+		host        = "vm2074077.vds.chsl.one",
+	}
+
+	relabel_rules = discovery.relabel.docker_logs.rules
+}
+
+loki.process "logs" {
+	forward_to = [loki.write.default.receiver]
+
+	// Go slog JSON logs: api, worker and the admin panel API.
+	stage.match {
+		selector = `{service=~"api|worker|admin-api"}`
+
+		stage.json {
+			expressions = {
+				time       = "time",
+				level      = "level",
+				msg        = "msg",
+				request_id = "request_id",
+				method     = "method",
+				route      = "route",
+				status     = "status",
+			}
+		}
+
+		stage.timestamp {
+			source = "time"
+			format = "RFC3339Nano"
+		}
+
+		stage.structured_metadata {
+			values = {
+				request_id = "",
+				method     = "",
+				route      = "",
+				status     = "",
+			}
+		}
+
+		stage.labels {
+			values = {level = ""}
+		}
+
+		stage.output {
+			source = "msg"
+		}
+	}
+
+	// Plain log format: activity and crm-events ("2006/01/02 15:04:05 LEVEL msg").
+	stage.match {
+		selector = `{service=~"activity|crm-events"}`
+
+		stage.regex {
+			expression = `(?P<ts>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})\s+(?P<level>\w+)\s+(?P<msg>.*)`
+		}
+
+		stage.timestamp {
+			source = "ts"
+			format = "2006/01/02 15:04:05"
+		}
+
+		stage.labels {
+			values = {level = ""}
+		}
+
+		stage.output {
+			source = "msg"
+		}
+	}
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

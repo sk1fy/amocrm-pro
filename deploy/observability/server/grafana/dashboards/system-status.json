@@ -1,0 +1,281 @@
+{
+  "uid": "system-status",
+  "title": "Статус системы",
+  "description": "Понятная сводка: сервисы, алерты, связка admin→Core, хост, 5xx, p95, очереди и БД. Сначала смотрите эту панель, затем глубокие дашборды (Server / Monitoring / Logs / Activity).",
+  "tags": ["observability", "ru", "status"],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "links": [
+    { "title": "Server", "type": "dashboards", "tags": [], "asDropdown": true, "icon": "external link", "includeVars": false, "keepTime": true, "targetBlank": false, "tooltip": "", "url": "" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Сервисы: цели не в норме",
+      "description": "Сколько целей Prometheus (scrape targets) недоступны прямо сейчас. Норма: 0. Если > 0 — откройте панель «Состояние целей» и проверьте нужный сервис и сеть.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "count(up) - sum(up)", "legendFormat": "down" }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Активные алерты (firing)",
+      "description": "Число алертов в состоянии firing. Норма: 0. Больше нуля — откройте дашборд Monitoring или /alerting в Grafana и действуйте по описанию алерта.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)", "legendFormat": "firing" }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Связка admin-api → Core admin",
+      "description": "Состояние backend `core` глазами admin-api (метрика admin_backend_up). 1 = OK, 0 = admin-api не может обратиться к Core Admin API. Норма: 1. При 0 проверьте сеть amocrm-admin-link и совпадение токенов.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "admin_backend_up{backend=\"core\"}", "legendFormat": "core" }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "ПРОБЛЕМА", "color": "red", "index": 0 }, "1": { "text": "OK", "color": "green", "index": 1 } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Хост: uptime",
+      "description": "Время с момента загрузки сервера. Пороги: < 5 минут — красный (только что перезапускался), 5–60 минут — жёлтый, ≥ 1 часа — зелёный (стабильно).",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "time() - node_boot_time_seconds", "legendFormat": "uptime" }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 300 }, { "color": "green", "value": 3600 } ] } }, "overrides": [] }
+    },
+
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "CPU хоста, %",
+      "description": "Загрузка CPU. Норма: < 70%. Реагировать при устойчивом > 85% (проверьте топ-процессы и контейнеры).",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat": "CPU" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "RAM хоста, %",
+      "description": "Использование оперативной памяти. Норма: < 80%. При устойчивом > 90% ищите утечку/переполнение в контейнерах.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", "legendFormat": "RAM" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "gauge",
+      "title": "Диск /, % занято",
+      "description": "Занятость корневого раздела. Норма: < 80%. При > 90% реагировать (алерт HostDiskLow срабатывает при < 10% свободного).",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})", "legendFormat": "/" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Очередь задач Core (backlog)",
+      "description": "Суммарный backlog задач Core (amocrm_jobs_backlog). Норма: небольшой и колеблется. Постоянный рост — очередь не разгребается; смотрите дашборд Activity.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "sum(amocrm_jobs_backlog)", "legendFormat": "backlog" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "admin-api: доля 5xx, %",
+      "description": "Процент ответов admin-api со статусом 5xx. Норма: 0%. Устойчиво > 5% (алерт AdminAPIHigh5xxRate) — смотрите логи admin-api и admin DB.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "(100 * sum(rate(admin_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(admin_http_requests_total[5m])), 0.001)) or (0 * (up{job=\"admin-api\"} == 1))", "legendFormat": "5xx %" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "admin-api: p95 времени ответа, с",
+      "description": "95-й перцентиль длительности HTTP-запросов admin-api. Норма: < 1с. Устойчиво выше (алерт AdminAPILatencyHigh) — проверьте admin DB и Core backend.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(admin_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "noValue": "Нет запросов", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Очереди: возраст старейшей задачи, с",
+      "description": "Сколько живёт самая старая необработанная задача. Норма: секунды/минуты. > 900с (15м) — признак застоя (алерты по CRM Events/Activity).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "crm_events_oldest_job_age_seconds", "legendFormat": "CRM Events" },
+        { "refId": "B", "expr": "activity_delivery_oldest_pending_seconds", "legendFormat": "Activity доставка" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Размер баз данных",
+      "description": "Размер owner-БД каждого сервиса (component_db_size_bytes). Резкий/постоянный рост — смотрите retention и cleanup (алерт OwnerDatabaseSizeGrowingFast).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "component_db_size_bytes", "legendFormat": "{{service}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Состояние целей (scrape targets)",
+      "description": "Список всех целей Prometheus и их состояние (up=1 доступна, up=0 недоступна). Это техническая диагностика: помогает понять, какой именно сервис/сеть проверять.",
+      "gridPos": { "h": 9, "w": 14, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "format": "table", "expr": "up" }
+      ],
+      "options": { "showHeader": true },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "filterable": true },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 0 }, "1": { "text": "UP", "color": "green", "index": 1 } } }
+          ]
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Time" }, "properties": [ { "id": "custom.hidden", "value": true } ] },
+          { "matcher": { "id": "byName", "options": "__name__" }, "properties": [ { "id": "custom.hidden", "value": true } ] }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "type": "text",
+      "title": "Как читать этот дашборд",
+      "description": "Пояснение по метрикам и куда идти дальше.",
+      "gridPos": { "h": 9, "w": 10, "x": 14, "y": 24 },
+      "options": {
+        "mode": "markdown",
+        "content": "### Что здесь есть\n- **Сервисы / цели** — доступность scrape-целей Prometheus (up).\n- **Алерты** — сколько алертов сейчас firing.\n- **admin-api → Core** — работает ли связка админки с Core Admin API.\n- **CPU / RAM / Диск** — ресурсы хоста; норма и пороги указаны в подсказке каждой панели.\n- **5xx / p95** — ошибки и задержки admin-api.\n- **Очереди / БД** — возраст задач и рост баз.\n\n### Как отличать норму от инцидента\n- Зелёный — норма. Жёлтый — «приготовиться». Красный — реагировать.\n- Единичный всплеск на графике ≠ инцидент; реагируем на **устойчивое** значение (минуты).\n\n### Куда идти дальше\n- [**Server**](/grafana/d/server) — железо и файловые системы.\n- [**Monitoring**](/grafana/d/monitoring) — сам стек наблюдаемости.\n- [**Logs**](/grafana/d/logs) — логи контейнеров (Loki).\n- [**Activity / CRM Events**](/grafana/d/activity-events) — очереди и доставка.\n- [**Platform overview**](/grafana/d/platform-overview) — общий обзор платформы.\n- [**Alert rules**](/grafana/alerting/list) — список правил и их состояние."
+      }
+    }
+  ]
+}

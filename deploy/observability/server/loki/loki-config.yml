@@ -1,0 +1,59 @@
+# Loki single-binary, filesystem-backed, 7-day retention via the Compactor.
+# No authentication layer: Loki is reachable only on the internal monitoring
+# network (not published to the host). If remote access is ever needed, put an
+# authenticating proxy in front (https://grafana.com/docs/loki/latest/setup/install/).
+
+auth_enabled: false
+
+analytics:
+  reporting_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 168h
+  max_entries_limit_per_query: 5000
+  # Resource guards for this small host (2 vCPU / 3.8 GiB).
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+  max_query_length: 721h
+  max_streams_per_user: 10000
+  per_stream_rate_limit: 1MB
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+  compaction_interval: 10m
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100

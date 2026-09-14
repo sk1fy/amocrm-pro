@@ -1,0 +1,49 @@
+# Alertmanager routing. Notifications are delivered through the configured
+# receiver; the actual webhook URL is kept in a secret file (url_file), never
+# committed to Git. Grouping/inhibition tuned for a small single-host stack.
+#
+# NOTE (stage 2): the current receiver points at the local test sink
+# (observability-webhook-sink, see /etc/alertmanager/webhook-url). It is a
+# DIAGNOSTIC/TEST channel only — it is NOT a real notification channel. For
+# production, replace the secret file content with the real endpoint
+# (Slack/Telegram/email gateway) and keep this file unchanged; see README.md.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'environment', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: default
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: default
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url_file: /etc/alertmanager/webhook-url
+        send_resolved: true
+
+inhibit_rules:
+  # When the Gateway management endpoint is down, suppress downstream RPC/
+  # delivery noise that is a consequence of that same outage.
+  - source_matchers:
+      - alertname="GatewayScrapeUnavailable"
+    target_matchers:
+      - alertname=~"GatewayRPCUnavailable|ActivityDeliveryUnavailable|AmoCRMUnauthorizedRate"
+    equal: ['environment']
+
+  # Общее правило без имён алертов в матчерах: critical подавляет warning
+  # только когда совпадают четыре метки: alertname, environment, service,
+  # instance. Разные environment не подавляются.
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ['alertname', 'environment', 'service', 'instance']

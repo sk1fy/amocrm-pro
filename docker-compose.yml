@@ -134,7 +134,10 @@ services:
     stop_grace_period: "${CONTAINER_STOP_GRACE_PERIOD:-20s}"
     restart: unless-stopped
     networks:
-      - backend
+      backend:
+      adminlink:
+        aliases:
+          - core-admin
 
   worker:
     image: "${WORKER_IMAGE:-amocrm-worker:local}"
@@ -201,3 +204,8 @@ volumes:
 networks:
   backend:
     driver: bridge
+  # Isolated bridge shared ONLY by the Core admin listener (api:8083, alias
+  # core-admin) and admin-api. Never published on the host.
+  adminlink:
+    external: true
+    name: amocrm-admin-link

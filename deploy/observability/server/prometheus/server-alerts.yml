@@ -1,0 +1,137 @@
+# Server-level rules. App/Activity rules live in ../alerts.yml (kept as the
+# single source for Activity SLOs). These cover scrape availability, host
+# inodes, and the observability stack itself. Alert routing is done by
+# Alertmanager; Grafana Alerting is intentionally not used.
+
+groups:
+  - name: server.alerts
+    rules:
+      - alert: ScrapeTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
+          description: >
+            The management/metrics endpoint of an expected scrape target has been
+            unreachable for 5 minutes. Check the process, the container and the
+            network path. Dashboard: /grafana/d/server.
+
+      - alert: NodeFilesystemInodesLow
+        expr: |
+          node_filesystem_files_free{fstype!~"tmpfs|overlay|squashfs|ramfs"}
+          / node_filesystem_files{fstype!~"tmpfs|overlay|squashfs|ramfs"} < 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host filesystem {{ $labels.mountpoint }} is below 10% free inodes"
+          description: >
+            Inode exhaustion breaks file creation even when bytes are free.
+            Inspect /var/lib/docker and log dirs for many small files.
+            Dashboard: /grafana/d/server.
+
+      - alert: LokiDiscardingWrites
+        expr: sum(rate(loki_discarded_samples_total[5m])) > 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Loki is discarding incoming log lines"
+          description: >
+            Loki distributor/limits are rejecting writes (rate limits, max label
+            name/value length or per-stream limits). Logs are being lost.
+            Check loki_discarded_samples_total by reason. Dashboard: /grafana/d/monitoring.
+
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus rule evaluation is failing"
+          description: >
+            One or more rule groups failed to evaluate. Inspect prometheus logs
+            and the failing rules. Dashboard: /grafana/d/monitoring.
+
+      - alert: AlertmanagerNotificationFailures
+        expr: increase(alertmanager_notifications_failed_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager failed to deliver notifications"
+          description: >
+            Alertmanager could not send notifications to the configured receiver.
+            Check the webhook/email endpoint and alertmanager logs.
+            Dashboard: /grafana/d/monitoring.
+
+      - alert: AlloyConfigLoadFailed
+        expr: alloy_config_last_load_successful == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Grafana Alloy failed to load its configuration"
+          description: >
+            Alloy's last config load failed, so log discovery/tailing is not
+            running. Check alloy logs and the config file. Dashboard: /grafana/d/monitoring.
+
+      - alert: AlloyLogParsingErrors
+        expr: increase(loki_source_docker_target_parsing_errors_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Grafana Alloy is failing to parse some container logs"
+          description: >
+            Alloy's docker log parser reported errors. Inspect alloy logs and the
+            affected container's log format. Dashboard: /grafana/d/monitoring.
+
+  # ---------------------------------------------------------------------------
+  # admin-api (amocrm-pro-admin) and its link to the Core Admin API.
+  # Rules are intentionally low-noise: each requires a sustained condition and
+  # has a clear operator action. Dashboard: /grafana/d/system-status.
+  # ---------------------------------------------------------------------------
+  - name: admin.alerts
+    rules:
+      - alert: AdminBackendUnhealthy
+        expr: admin_backend_up{backend="core"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "admin-api не видит Core Admin API (backend core недоступен)"
+          description: >
+            Связка admin-api -> Core admin backend нарушена более 5 минут.
+            Проверьте сеть amocrm-admin-link, контейнеры api/admin-api и
+            совпадение ADMIN_API_TOKEN/CORE_ADMIN_API_TOKEN. Диагностика:
+            GET /api/v1/system/backends, дашборд «Статус системы».
+
+      - alert: AdminAPIHigh5xxRate
+        expr: |
+          sum(rate(admin_http_requests_total{status=~"5.."}[5m]))
+          / clamp_min(sum(rate(admin_http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "admin-api: доля 5xx выше 5%"
+          description: >
+            Более 5% ответов admin-api — 5xx в течение 10 минут. Смотрите логи
+            admin-api и состояние admin DB. Дашборд «Статус системы».
+
+      - alert: AdminAPILatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(admin_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "admin-api: p95 времени ответа выше 1с"
+          description: >
+            95-й перцентиль времени ответа admin-api превышает 1 секунду в
+            течение 10 минут. Проверьте admin DB и Core admin backend.
+            Дашборд «Статус системы».
