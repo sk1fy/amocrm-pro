@@ -5,3 +5,5 @@
 
 - [`2026-09-05-fair-claim-performance.md`](2026-09-05-fair-claim-performance.md) —
   измерения fair claiming, проверенные оптимизации и воспроизводимый benchmark.
+- [`admin-plan-2026-09-14.md`](admin-plan-2026-09-14.md) — аудит контрактов,
+  атомарности и интеграции с отдельной Admin-панелью на указанной ревизии.

@@ -11,6 +11,8 @@ handoff-файлы не являются текущим backlog.
 - [`project-memory/BUGS.md`](project-memory/BUGS.md) — открытые и исправленные дефекты.
 - [`adr/`](adr/) — принятые архитектурные решения.
 - [`runbooks/`](runbooks/) — operator и integration runbooks.
+- [`../deploy/observability/server/README.md`](../deploy/observability/server/README.md) —
+  развёртывание и проверка server-observability стека.
 - [`../api/openapi.yaml`](../api/openapi.yaml) — публичный HTTP-контракт.
 - [`../api/admin-openapi.yaml`](../api/admin-openapi.yaml) — внутренний контракт чтения и команд админки.
 
