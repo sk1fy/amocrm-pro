@@ -274,25 +274,47 @@ func (s *RuleStore) ConfigureAdmin(
 	if s == nil || s.pool == nil {
 		return LeadStatusRuleResult{}, serviceapi.Fail(serviceapi.Unavailable, "lead-status is unavailable")
 	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("begin admin rule configuration: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	result, err := s.ConfigureAdminTx(ctx, tx, installationID, actor, command)
+	if err != nil {
+		return LeadStatusRuleResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return LeadStatusRuleResult{}, fmt.Errorf("commit admin rule configuration: %w", err)
+	}
+	return result, nil
+}
+
+// ConfigureAdminTx applies the rule, job receipt and native audit in the
+// caller's transaction. The caller owns commit/rollback, so a failed admin
+// command receipt cannot leave an independently committed rule mutation.
+func (s *RuleStore) ConfigureAdminTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	installationID uuid.UUID,
+	actor string,
+	command LeadStatusRuleCommand,
+) (LeadStatusRuleResult, error) {
+	if s == nil || tx == nil {
+		return LeadStatusRuleResult{}, serviceapi.Fail(serviceapi.Unavailable, "lead-status is unavailable")
+	}
 	if actor == "" {
 		return LeadStatusRuleResult{}, serviceapi.Fail(serviceapi.InvalidArgument, "admin actor is required")
 	}
 	if !validLeadStatusRuleCommand(command) {
 		return LeadStatusRuleResult{}, ErrInvalidLeadStatusRule
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return LeadStatusRuleResult{}, fmt.Errorf("begin admin rule configuration: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
 	var marker int
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT 1
 		FROM installations AS installation
 		JOIN integrations AS integration ON integration.id=installation.integration_id
-		JOIN integration_services AS grant ON grant.integration_id=integration.id
-		  AND grant.service_code='lead-status' AND grant.enabled
+		JOIN integration_services AS service_grant ON service_grant.integration_id=integration.id
+		  AND service_grant.service_code='lead-status' AND service_grant.enabled
 		WHERE installation.id=$1 AND installation.status='active' AND integration.status='active'
 		FOR SHARE OF installation, integration`, installationID).Scan(&marker)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -348,9 +370,6 @@ func (s *RuleStore) ConfigureAdmin(
 		installationID, actor, LeadStatusRuleConfigureJobType, result.RuleID.String(), jobID, metadata,
 	); err != nil {
 		return LeadStatusRuleResult{}, fmt.Errorf("audit admin rule configuration: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return LeadStatusRuleResult{}, fmt.Errorf("commit admin rule configuration: %w", err)
 	}
 	return result, nil
 }

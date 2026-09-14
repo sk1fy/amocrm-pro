@@ -220,7 +220,7 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 		case "activity-configure", "activity-sync", "activity-panel-create", "activity-panel-patch", "activity-panel-rotate":
 			return s.applyActivity(ctx, tx, actor, receiptID, req, p, id, integrationID, installationID)
 		case "lead-status-configure":
-			return s.applyLeadStatus(ctx, actor, p, id, installationID)
+			return s.applyLeadStatus(ctx, tx, actor, p, id, installationID)
 		}
 	}
 	if req.TargetType == "job" {
@@ -347,11 +347,11 @@ func (s *Store) applyActivity(ctx context.Context, tx pgx.Tx, actor string, rece
 	}
 }
 
-func (s *Store) applyLeadStatus(ctx context.Context, actor string, p commandPayload, installation uuid.UUID, installationID *uuid.UUID) (map[string]any, *uuid.UUID, *uuid.UUID, error) {
+func (s *Store) applyLeadStatus(ctx context.Context, tx pgx.Tx, actor string, p commandPayload, installation uuid.UUID, installationID *uuid.UUID) (map[string]any, *uuid.UUID, *uuid.UUID, error) {
 	if s.rules == nil {
 		return nil, nil, installationID, serviceapi.Fail(serviceapi.Unavailable, "lead-status is unavailable")
 	}
-	result, err := s.rules.ConfigureAdmin(ctx, installation, actor, leadstatus.LeadStatusRuleCommand{
+	result, err := s.rules.ConfigureAdminTx(ctx, tx, installation, actor, leadstatus.LeadStatusRuleCommand{
 		SourcePipelineID: p.SourcePipelineID, SourceStatusID: p.SourceStatusID,
 		TargetPipelineID: p.TargetPipelineID, TargetStatusID: p.TargetStatusID,
 		Enabled: *p.Enabled, ExpectedRevision: *p.ExpectedRevision,
@@ -452,7 +452,11 @@ func publicPanelResult(panel serviceapi.ManagedPanel, rotate bool) map[string]an
 func immediateConflict(command string, err error) bool {
 	switch command {
 	case "activity-configure", "activity-panel-patch", "lead-status-configure":
-		return serviceapi.ErrorCode(err) == serviceapi.Conflict || errors.Is(err, leadstatus.ErrRuleRevisionConflict)
+		// Reading the current settings enriches service conflicts into our
+		// own Error type. Preserve the immediate 409 semantics after wrapping.
+		var api *Error
+		return (errors.As(err, &api) && api.Code == "conflict") ||
+			serviceapi.ErrorCode(err) == serviceapi.Conflict || errors.Is(err, leadstatus.ErrRuleRevisionConflict)
 	}
 	return false
 }
