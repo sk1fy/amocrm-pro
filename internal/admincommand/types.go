@@ -252,13 +252,27 @@ func normalize(req Request, key, actor string) (Request, commandPayload, [32]byt
 			return req, p, [32]byte{}, [32]byte{}, invalid(err.Error())
 		}
 	}
-	canonical, _ := json.Marshal(fields)
-	// Raw field values are canonicalized too, so whitespace/key order do not
-	// change replay identity. Only validated strings/booleans/arrays are accepted.
+	canonical, err := json.Marshal(fields)
+	if err != nil {
+		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command payload")
+	}
+	// Canonicalize nested property order without converting int64 IDs or
+	// revisions to float64. Otherwise distinct requests above 2^53 can share
+	// a request hash even though the domain layer receives different values.
 	var value any
-	_ = json.Unmarshal(canonical, &value)
-	req.Payload, _ = json.Marshal(value)
-	body, _ := json.Marshal(req)
+	canonicalDecoder := json.NewDecoder(bytes.NewReader(canonical))
+	canonicalDecoder.UseNumber()
+	if err := canonicalDecoder.Decode(&value); err != nil {
+		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command payload")
+	}
+	req.Payload, err = json.Marshal(value)
+	if err != nil {
+		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command payload")
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command request")
+	}
 	defer clear(body)
 	return req, p, sha256.Sum256([]byte(key)), sha256.Sum256(body), nil
 }
