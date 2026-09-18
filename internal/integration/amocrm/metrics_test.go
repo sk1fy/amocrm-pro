@@ -16,8 +16,36 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	"golang.org/x/time/rate"
 )
+
+// pairBoundLimiter makes the [account, integration] budget the binding one and
+// leaves the account ceiling out of the way.
+func pairBoundLimiter(t *testing.T, pairRPS float64) *limiter {
+	t.Helper()
+	config := DefaultLimiterConfig()
+	config.PairRPS = pairRPS
+	config.MaxWait = time.Minute
+	budgets, err := newLimiter(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return budgets
+}
+
+// accountBoundLimiter makes the account ceiling the binding budget.
+func accountBoundLimiter(t *testing.T, accountRPS float64) *limiter {
+	t.Helper()
+	config := DefaultLimiterConfig()
+	config.PairRPS = accountRPS
+	config.PairBurst = 100
+	config.AccountRPS = accountRPS
+	config.MaxWait = time.Minute
+	budgets, err := newLimiter(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return budgets
+}
 
 // This uses the production 7/s, burst-7 limiter. All four callers must consume
 // the same integration budget, including the prepared mutation path that does
@@ -214,7 +242,7 @@ func TestEnrichmentAndDirectoryShareExistingClientBudget(t *testing.T) {
 	}
 	assertFiniteLabels(t, families)
 
-	client.limiter = newLimiter(20, 1, rate.Inf, 1000)
+	client.limiter = pairBoundLimiter(t, 20)
 	if _, err := client.ListEvents(context.Background(), uuid.New(), 1, 10, 1, 100); err != nil {
 		t.Fatal(err)
 	}
@@ -313,11 +341,15 @@ func histogramOutcome(families []*dto.MetricFamily, name, outcome string) uint64
 }
 func assertFiniteLabels(t *testing.T, families []*dto.MetricFamily) {
 	t.Helper()
-	allowed := map[string]bool{"admitted": true, "canceled": true, "other": true, "transport_error": true, "429": true, "401": true, "2xx": true, "4xx": true, "5xx": true}
+	allowed := map[string]map[string]bool{
+		"outcome": {"admitted": true, "canceled": true, "deadline_exceeded": true, "overloaded": true,
+			"other": true, "transport_error": true, "429": true, "401": true, "2xx": true, "4xx": true, "5xx": true},
+		"scope": {"pair": true, "account": true, "process": true, "wait": true, "registry": true},
+	}
 	for _, f := range families {
 		for _, m := range f.Metric {
 			for _, l := range m.Label {
-				if l.GetName() != "outcome" || !allowed[l.GetValue()] {
+				if !allowed[l.GetName()][l.GetValue()] {
 					t.Fatalf("unbounded metric label: %s=%s", l.GetName(), l.GetValue())
 				}
 			}

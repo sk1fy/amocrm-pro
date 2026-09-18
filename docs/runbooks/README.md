@@ -5,6 +5,7 @@
 - [`integrations.md`](integrations.md) — multi-widget provisioning, secret rotation, service grants and disable/restore.
 - [`admin-read-api.md`](admin-read-api.md) — optional internal admin read listener, token and actor headers.
 - [`widget-capacity.md`](widget-capacity.md) — widget API limits, fair queue rollout and capacity diagnostics.
+- [`amocrm-outbound-budget.md`](amocrm-outbound-budget.md) — исходящие лимиты amoCRM по паре и аккаунту, переопределение для аккаунта и диагностика перегрузки.
 - [`migrate-down.md`](migrate-down.md) — guarded full migration rollback.
 - [`private-widget-e2e.md`](private-widget-e2e.md) — private integration/browser E2E preconditions and checks.
 - [`activity-v0.md`](activity-v0.md) — separate service deployment, pilot admission, diagnostics and embedded/gRPC switching.

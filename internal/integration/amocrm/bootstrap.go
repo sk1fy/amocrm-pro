@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 	"net/http"
 	"strings"
 	"time"
@@ -60,46 +59,15 @@ func (c *Client) BootstrapAccount(ctx context.Context, integrationID uuid.UUID, 
 		}
 		c.bootstrapAccounts[domain] = account.ID
 		c.bootstrapMu.Unlock()
-		// The request already happened. Debit its newly identified canonical account
-		// before exposing the ID to SaveInstallation; cancellation must not refund it.
+		// The request already happened. Debit the canonical pair and account
+		// budgets before exposing the ID to SaveInstallation; cancellation must
+		// not refund them.
 		start := time.Now()
-		err := c.limiter.chargeAccount(ctx, account.ID)
-		if c.metrics != nil {
-			outcome := "admitted"
-			if err != nil {
-				outcome = "canceled"
-			}
-			c.metrics.wait.WithLabelValues(outcome).Observe(time.Since(start).Seconds())
-		}
+		err := c.limiter.charge(ctx, budgetKey{AccountID: account.ID, IntegrationID: integrationID})
+		c.observeWait(start, err)
 		if err != nil {
 			return Account{}, fmt.Errorf("debit discovered account budget: %w", err)
 		}
 	}
 	return account, nil
-}
-func (l *limiter) chargeAccount(ctx context.Context, accountID int64) error {
-	l.mu.Lock()
-	bucket := l.accounts[accountID]
-	if bucket == nil {
-		bucket = rate.NewLimiter(l.accountRate, l.accountBurst)
-		l.accounts[accountID] = bucket
-	}
-	l.mu.Unlock()
-	now := time.Now()
-	reservation := bucket.ReserveN(now, 1)
-	if !reservation.OK() {
-		return errors.New("account budget cannot admit bootstrap debit")
-	}
-	delay := reservation.DelayFrom(now)
-	if delay <= 0 {
-		return ctx.Err()
-	}
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }

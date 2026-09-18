@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -46,9 +45,9 @@ func TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets(t *test
 			client, _, _ := bootstrapClientFixture(t, 200, 42)
 			integration := uuid.MustParse("ebc58cb3-a0b9-4c4b-a9b7-c2b3d8d456ba")
 			if kind == "same integration" {
-				client.limiter = newLimiter(20, 1, rate.Inf, 1000)
+				client.limiter = pairBoundLimiter(t, 20)
 			} else {
-				client.limiter = newLimiter(rate.Inf, 1000, 20, 1)
+				client.limiter = accountBoundLimiter(t, 20)
 				integration = uuid.New()
 			}
 			if _, err := client.ListEvents(context.Background(), uuid.New(), 1000, 2000, 1, 100); err != nil {
@@ -68,7 +67,7 @@ func TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets(t *test
 
 func TestBootstrapDiscoveryDebitsCanonicalAccountBeforeNormalTraffic(t *testing.T) {
 	client, provider, _ := bootstrapClientFixture(t, 200, 42)
-	client.limiter = newLimiter(rate.Inf, 1000, 20, 1)
+	client.limiter = accountBoundLimiter(t, 20)
 	account, err := client.BootstrapAccount(context.Background(), uuid.New(), 0, "fixture.amocrm.ru", "candidate")
 	if err != nil || account.ID != 42 {
 		t.Fatalf("bootstrap=%+v %v", account, err)

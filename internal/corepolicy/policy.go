@@ -282,6 +282,8 @@ func MapUpstreamError(err error) error {
 			return serviceapi.Fail(serviceapi.NotFound, "amoCRM resource not found")
 		case amocrm.ErrorRateLimited:
 			return &serviceapi.Error{Code: serviceapi.ResourceExhausted, Message: "amoCRM request budget exhausted", RetryAfter: api.RetryAfter}
+		case amocrm.ErrorOverloaded:
+			return &serviceapi.Error{Code: serviceapi.ResourceExhausted, Message: "outgoing amoCRM budget is saturated", RetryAfter: api.RetryAfter}
 		}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {

@@ -157,6 +157,11 @@ func auditLeadStatus(
 
 func classifyWorkflowError(err error) error {
 	var apiError *amocrm.APIError
+	if errors.As(err, &apiError) && apiError.Kind == amocrm.ErrorOverloaded {
+		// Local shedding has no upstream hint worth following; the job backoff
+		// adds jitter so shed attempts do not resynchronize.
+		return jobs.Retryable(string(apiError.Kind), 0, err)
+	}
 	if errors.As(err, &apiError) && apiError.Retryable {
 		return jobs.Retryable(string(apiError.Kind), apiError.RetryAfter, err)
 	}

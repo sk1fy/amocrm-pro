@@ -90,6 +90,24 @@ type Worker struct {
 	CleanupMaxBatches        int
 	WebhookInboxRetention    time.Duration
 	WebhookDeliveryRetention time.Duration
+	AmoCRMBudget             AmoCRMBudget
+}
+
+// AmoCRMBudget configures the outgoing amoCRM API v4 budgets of this process.
+// Values apply at start; changing them requires a worker restart.
+type AmoCRMBudget struct {
+	PairRPS          float64
+	PairBurst        int
+	AccountRPS       float64
+	AccountBurst     int
+	PairRPSByAccount map[int64]float64
+	Replicas         int
+	MaxWait          time.Duration
+	PairWaiters      int
+	AccountWaiters   int
+	ProcessWaiters   int
+	InactiveTTL      time.Duration
+	MaxEntries       int
 }
 
 type Migrate struct {
@@ -451,6 +469,11 @@ func LoadWorker() (Worker, error) {
 		return Worker{}, errors.New("WEBHOOK_DELIVERY_RETENTION must be positive")
 	}
 
+	amocrmBudget, err := loadAmoCRMBudget()
+	if err != nil {
+		return Worker{}, err
+	}
+
 	workerID := strings.TrimSpace(os.Getenv("WORKER_ID"))
 	if workerID == "" {
 		hostname, hostErr := os.Hostname()
@@ -470,7 +493,115 @@ func LoadWorker() (Worker, error) {
 		CleanupMaxBatches:        cleanupMaxBatches,
 		WebhookInboxRetention:    webhookInboxRetention,
 		WebhookDeliveryRetention: webhookDeliveryRetention,
+		AmoCRMBudget:             amocrmBudget,
 	}, nil
+}
+
+// loadAmoCRMBudget reads the outgoing budget settings. Defaults match the
+// amoCRM baseline of 7 rps per [account, integration] pair and 50 rps per
+// account; the limiter rejects any combination above that ceiling.
+func loadAmoCRMBudget() (AmoCRMBudget, error) {
+	pairRPS, err := positiveFloat("AMOCRM_BUDGET_PAIR_RPS", 7, 50)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	pairBurst, err := integer("AMOCRM_BUDGET_PAIR_BURST", 1, 1, 100)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	accountRPS, err := positiveFloat("AMOCRM_BUDGET_ACCOUNT_RPS", 50, 50)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	accountBurst, err := integer("AMOCRM_BUDGET_ACCOUNT_BURST", 1, 1, 100)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	overrides, err := accountPairRates("AMOCRM_BUDGET_ACCOUNT_PAIR_RPS", accountRPS)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	replicas, err := integer("AMOCRM_BUDGET_REPLICAS", 1, 1, 1)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	maxWait, err := duration("AMOCRM_BUDGET_MAX_WAIT", 5*time.Second)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	if maxWait < 100*time.Millisecond || maxWait > time.Minute {
+		return AmoCRMBudget{}, errors.New("AMOCRM_BUDGET_MAX_WAIT must be between 100ms and 1m")
+	}
+	pairWaiters, err := integer("AMOCRM_BUDGET_PAIR_WAITERS", 64, 1, 100_000)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	accountWaiters, err := integer("AMOCRM_BUDGET_ACCOUNT_WAITERS", 512, 1, 500_000)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	processWaiters, err := integer("AMOCRM_BUDGET_PROCESS_WAITERS", 4096, 1, 1_000_000)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	if accountWaiters < pairWaiters || processWaiters < accountWaiters {
+		return AmoCRMBudget{}, errors.New("AMOCRM_BUDGET_PAIR_WAITERS <= AMOCRM_BUDGET_ACCOUNT_WAITERS <= AMOCRM_BUDGET_PROCESS_WAITERS is required")
+	}
+	inactiveTTL, err := duration("AMOCRM_BUDGET_INACTIVE_TTL", 5*time.Minute)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	if inactiveTTL < time.Second || inactiveTTL > time.Hour {
+		return AmoCRMBudget{}, errors.New("AMOCRM_BUDGET_INACTIVE_TTL must be between 1s and 1h")
+	}
+	maxEntries, err := integer("AMOCRM_BUDGET_MAX_ENTRIES", 16384, 64, 1_000_000)
+	if err != nil {
+		return AmoCRMBudget{}, err
+	}
+	return AmoCRMBudget{
+		PairRPS: pairRPS, PairBurst: pairBurst,
+		AccountRPS: accountRPS, AccountBurst: accountBurst,
+		PairRPSByAccount: overrides, Replicas: replicas, MaxWait: maxWait,
+		PairWaiters: pairWaiters, AccountWaiters: accountWaiters,
+		ProcessWaiters: processWaiters, InactiveTTL: inactiveTTL, MaxEntries: maxEntries,
+	}, nil
+}
+
+// accountPairRates parses "accountID:rps" pairs, for example
+// "1234567:20,7654321:15". The override raises the pair budget of every
+// integration of that account and never the account ceiling itself.
+func accountPairRates(name string, ceiling float64) (map[int64]float64, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return nil, nil
+	}
+	rates := map[int64]float64{}
+	for _, item := range strings.Split(raw, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		accountText, rateText, found := strings.Cut(item, ":")
+		if !found {
+			return nil, fmt.Errorf("%s entries must look like accountID:rps, got %q", name, item)
+		}
+		accountID, err := strconv.ParseInt(strings.TrimSpace(accountText), 10, 64)
+		if err != nil || accountID <= 0 {
+			return nil, fmt.Errorf("%s account id must be a positive integer: %q", name, item)
+		}
+		if _, duplicate := rates[accountID]; duplicate {
+			return nil, fmt.Errorf("%s repeats account %d", name, accountID)
+		}
+		rps, err := strconv.ParseFloat(strings.TrimSpace(rateText), 64)
+		if err != nil || rps < 0.1 || rps > ceiling {
+			return nil, fmt.Errorf("%s rate for account %d must be between 0.1 and %g: %q", name, accountID, ceiling, item)
+		}
+		rates[accountID] = rps
+	}
+	if len(rates) > 1000 {
+		return nil, fmt.Errorf("%s accepts at most 1000 accounts", name)
+	}
+	return rates, nil
 }
 
 func LoadMigrate() (Migrate, error) {

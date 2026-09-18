@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 )
 
 const maxAPIResponseBody = 4 << 20
@@ -56,17 +55,31 @@ type Client struct {
 	metrics           *Metrics
 }
 
+// NewClient builds a Gateway client on the amoCRM baseline budgets. Use
+// NewClientWithLimits to apply per-account overrides from configuration.
 func NewClient(httpClient *http.Client, tokens TokenProvider) *Client {
+	client, err := NewClientWithLimits(httpClient, tokens, DefaultLimiterConfig())
+	if err != nil {
+		panic("amoCRM default limiter config is invalid: " + err.Error())
+	}
+	return client
+}
+
+func NewClientWithLimits(httpClient *http.Client, tokens TokenProvider, limits LimiterConfig) (*Client, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 15 * time.Second}
+	}
+	budgets, err := newLimiter(limits)
+	if err != nil {
+		return nil, err
 	}
 	return &Client{
 		httpClient:     httpClient,
 		tokens:         tokens,
-		limiter:        newLimiter(rate.Limit(7), 7, rate.Limit(50), 50),
+		limiter:        budgets,
 		resolveAccount: AccountBaseURL,
 		reauthTimeout:  2 * time.Second,
-	}
+	}, nil
 }
 
 // WithTokenProvider scopes credentials while retaining this Gateway's one shared
@@ -182,44 +195,4 @@ func (c *Client) request(
 		return 0, nil, nil, errors.New("amoCRM API response body exceeds limit")
 	}
 	return response.StatusCode, response.Header.Clone(), contents, nil
-}
-
-type limiter struct {
-	mu               sync.Mutex
-	integrationRate  rate.Limit
-	integrationBurst int
-	accountRate      rate.Limit
-	accountBurst     int
-	integrations     map[uuid.UUID]*rate.Limiter
-	accounts         map[int64]*rate.Limiter
-}
-
-func newLimiter(integrationRate rate.Limit, integrationBurst int, accountRate rate.Limit, accountBurst int) *limiter {
-	return &limiter{
-		integrationRate:  integrationRate,
-		integrationBurst: integrationBurst,
-		accountRate:      accountRate,
-		accountBurst:     accountBurst,
-		integrations:     make(map[uuid.UUID]*rate.Limiter),
-		accounts:         make(map[int64]*rate.Limiter),
-	}
-}
-
-func (l *limiter) wait(ctx context.Context, integrationID uuid.UUID, accountID int64) error {
-	l.mu.Lock()
-	integrationLimiter, ok := l.integrations[integrationID]
-	if !ok {
-		integrationLimiter = rate.NewLimiter(l.integrationRate, l.integrationBurst)
-		l.integrations[integrationID] = integrationLimiter
-	}
-	accountLimiter, ok := l.accounts[accountID]
-	if !ok {
-		accountLimiter = rate.NewLimiter(l.accountRate, l.accountBurst)
-		l.accounts[accountID] = accountLimiter
-	}
-	l.mu.Unlock()
-	if err := integrationLimiter.Wait(ctx); err != nil {
-		return err
-	}
-	return accountLimiter.Wait(ctx)
 }

@@ -342,6 +342,10 @@ func classifyReconcileError(err error) error {
 		return jobs.Permanent("installation_not_active", err)
 	}
 	var apiError *amocrm.APIError
+	if errors.As(err, &apiError) && apiError.Kind == amocrm.ErrorOverloaded {
+		// Local shedding carries no upstream hint; the job backoff adds jitter.
+		return jobs.Retryable(string(apiError.Kind), 0, err)
+	}
 	if errors.As(err, &apiError) && apiError.Retryable {
 		return jobs.Retryable(string(apiError.Kind), apiError.RetryAfter, err)
 	}

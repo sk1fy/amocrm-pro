@@ -41,6 +41,20 @@ func main() {
 	}
 }
 
+// outboundBudget keeps the worker the single owner of the amoCRM API v4
+// budgets: the pair budget is keyed by [account, integration] and every pair
+// of an account also shares that account's ceiling.
+func outboundBudget(cfg config.AmoCRMBudget) amocrmclient.LimiterConfig {
+	return amocrmclient.LimiterConfig{
+		PairRPS: cfg.PairRPS, PairBurst: cfg.PairBurst,
+		AccountRPS: cfg.AccountRPS, AccountBurst: cfg.AccountBurst,
+		PairRPSByAccount: cfg.PairRPSByAccount, Replicas: cfg.Replicas,
+		MaxWait: cfg.MaxWait, PairWaiters: cfg.PairWaiters,
+		AccountWaiters: cfg.AccountWaiters, ProcessWaiters: cfg.ProcessWaiters,
+		InactiveTTL: cfg.InactiveTTL, MaxEntries: cfg.MaxEntries,
+	}
+}
+
 func run() error {
 	cfg, err := config.LoadWorker()
 	if err != nil {
@@ -91,7 +105,10 @@ func run() error {
 	}
 	oauthGateway := oauthflow.NewGateway(amocrmclient.NewOAuthClient(externalHTTPClient))
 	tokenProvider := oauthflow.NewTokenProvider(pool, keyRing, oauthGateway)
-	amocrmAPI := amocrmclient.NewClient(externalHTTPClient, tokenProvider)
+	amocrmAPI, err := amocrmclient.NewClientWithLimits(externalHTTPClient, tokenProvider, outboundBudget(cfg.AmoCRMBudget))
+	if err != nil {
+		return err
+	}
 	amocrmAPI.SetMetrics(amocrmclient.NewMetrics(registry))
 	componentConfig, err := componentruntime.Load("worker")
 	if err != nil {

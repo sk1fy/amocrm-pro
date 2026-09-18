@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 )
 
 func TestScopedUninstallProviderSharesGatewayBudget(t *testing.T) {
@@ -19,7 +18,7 @@ func TestScopedUninstallProviderSharesGatewayBudget(t *testing.T) {
 	defer server.Close()
 	base := NewClient(server.Client(), &fakeTokenProvider{baseURL: server.URL})
 	base.resolveAccount = func(raw string) (*url.URL, error) { return url.Parse(raw) }
-	base.limiter = newLimiter(rate.Limit(0.001), 1, rate.Limit(0.001), 1)
+	base.limiter = pairBoundLimiter(t, 0.1)
 	scoped := base.WithTokenProvider(&fakeTokenProvider{baseURL: server.URL})
 	id := uuid.New()
 	if err := base.DoJSON(t.Context(), id, http.MethodGet, "/api/v4/account", nil, nil); err != nil {

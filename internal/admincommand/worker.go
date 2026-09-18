@@ -107,7 +107,7 @@ func classifyCheck(err error) (string, int64) {
 		switch upstream.Kind {
 		case amocrm.ErrorUnauthorized, amocrm.ErrorForbidden:
 			return "auth_error", 0
-		case amocrm.ErrorRateLimited:
+		case amocrm.ErrorRateLimited, amocrm.ErrorOverloaded:
 			return "rate_limited", int64(math.Ceil(upstream.RetryAfter.Seconds()))
 		case amocrm.ErrorTemporary:
 			return "network_error", 0
