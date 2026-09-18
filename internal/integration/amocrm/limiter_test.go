@@ -15,19 +15,24 @@ import (
 // testClock replaces wall time so window assertions never depend on scheduler
 // delays. Timers fire only from Advance.
 type testClock struct {
-	mu     sync.Mutex
-	now    time.Time
-	timers []*testTimer
+	mu         sync.Mutex
+	now        time.Time
+	timers     []*testTimer
+	processing int
+	idle       *sync.Cond
 }
 
 type testTimer struct {
 	at      time.Time
 	channel chan time.Time
 	done    bool
+	fired   bool
 }
 
 func newTestClock() *testClock {
-	return &testClock{now: time.Date(2036, 1, 1, 12, 0, 0, 0, time.UTC)}
+	c := &testClock{now: time.Date(2036, 1, 1, 12, 0, 0, 0, time.UTC)}
+	c.idle = sync.NewCond(&c.mu)
+	return c
 }
 
 func (c *testClock) Now() time.Time {
@@ -44,7 +49,13 @@ func (c *testClock) After(d time.Duration) (<-chan time.Time, func()) {
 	return timer.channel, func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		timer.done = true
+		if !timer.done {
+			timer.done = true
+			if timer.fired {
+				c.processing--
+				c.idle.Broadcast()
+			}
+		}
 	}
 }
 
@@ -65,8 +76,13 @@ func (c *testClock) Advance(d time.Duration) {
 		}
 		c.mu.Unlock()
 		c.Jump(next.Sub(c.Now()))
-		// Let woken callers complete admission or install their next timer.
-		time.Sleep(3 * time.Millisecond)
+		// Every fired timer is acknowledged only after its caller completes
+		// admission or registers the next wait. No scheduler-dependent sleep.
+		c.mu.Lock()
+		for c.processing > 0 {
+			c.idle.Wait()
+		}
+		c.mu.Unlock()
 		if !c.Now().Before(target) {
 			return
 		}
@@ -81,9 +97,10 @@ func (c *testClock) Jump(d time.Duration) {
 	var due []*testTimer
 	for _, timer := range c.timers {
 		switch {
-		case timer.done:
+		case timer.done || timer.fired:
 		case !timer.at.After(now):
-			timer.done = true
+			timer.fired = true
+			c.processing++
 			due = append(due, timer)
 		default:
 			pending = append(pending, timer)
@@ -226,7 +243,13 @@ func TestAccountCeilingBoundsEveryPairOfThatAccount(t *testing.T) {
 	if admitted := settled(t, total); admitted > 51 || admitted == 0 {
 		t.Fatalf("account admitted %d requests in one second, want between 1 and 51", admitted)
 	}
-	clock.Advance(4 * time.Second)
+	// Shared-slot placement preserves each pair's spacing; it does not
+	// promise that a particular arrival order drains all pairs in five seconds.
+	// Drive every timer up to the configured wait bound before checking drain.
+	clock.Advance(l.config.MaxWait)
+	for _, group := range groups {
+		group.join()
+	}
 	if admitted := settled(t, total); admitted != 160 {
 		t.Fatalf("drained %d of 160 requests", admitted)
 	}

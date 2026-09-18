@@ -309,16 +309,21 @@ func (l *limiter) wait(ctx context.Context, key budgetKey) error {
 		return err
 	}
 	delay := admit.delay
+	stop := func() {}
+	// Keep the current timer alive until admission completes or the next timer
+	// is installed. A controlled clock can then acknowledge processing, not
+	// merely delivery of the timer event.
+	defer func() { stop() }()
 	for {
 		if delay > 0 {
-			timer, stop := l.clock.After(delay)
+			timer, nextStop := l.clock.After(delay)
+			stop()
+			stop = nextStop
 			select {
 			case <-ctx.Done():
-				stop()
 				l.cancel(key, admit)
 				return ctx.Err()
 			case <-timer:
-				stop()
 			}
 		}
 		if err := ctx.Err(); err != nil {
