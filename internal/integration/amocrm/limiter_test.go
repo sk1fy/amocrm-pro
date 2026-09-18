@@ -302,7 +302,13 @@ func TestQueueFullShedsWithOverloadedError(t *testing.T) {
 	config.ProcessWaiters = 8
 	l, clock := newTestLimiter(t, config)
 	key := pairOf(3, uuid.New())
-	queued := call(l, key, 5)
+	// Consume the initial token before launching the waiters. Otherwise the
+	// immediately admitted caller may still hold a slot when the remaining
+	// goroutines arrive, making the number of queued callers scheduler-dependent.
+	if err := l.wait(context.Background(), key); err != nil {
+		t.Fatal(err)
+	}
+	queued := call(l, key, config.PairWaiters)
 	if waiting := settled(t, l.snapshotWaiting); waiting != 4 {
 		t.Fatalf("queue holds %d waiters, want the configured 4", waiting)
 	}
