@@ -15,6 +15,7 @@ DOCKER ?= docker
 COMPOSE ?= docker-compose
 GO_VERSION ?= 1.25
 GO_IMAGE ?= golang:$(GO_VERSION)-alpine
+GOVULNCHECK_VERSION ?= v1.1.4
 TEST_COMPOSE_PROJECT ?= amocrm-pro-integration-test
 TEST_COMPOSE := COMPOSE_PROJECT_NAME=$(TEST_COMPOSE_PROJECT) $(COMPOSE) -f docker-compose.test.yml
 MIGRATION_COUNT := $(words $(wildcard migrations/*.up.sql))
@@ -36,6 +37,10 @@ DOCKER_GO := $(DOCKER) run --rm \
 	$(GO_IMAGE)
 
 .DEFAULT_GOAL := help
+
+.PHONY: vulncheck
+vulncheck: ## Check reachable Go vulnerabilities against the official database
+	$(DOCKER_GO) go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 .PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test activity-ci activity-backup-verify activity-transfer-verify
 

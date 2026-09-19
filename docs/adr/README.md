@@ -30,6 +30,7 @@
 | [0027](0027-admin-command-receipts.md) | Accepted | Durable admin receipts, native transactional commands, worker diagnostics and safe retries |
 | [0028](0028-admin-activity-principal.md) | Accepted | Admin listener issues operator-kind Activity Auth; settings/sync/status grants; actor_id=0 outbox |
 | [0029](0029-outbound-budget-account-scope.md) | Accepted | Бюджет по паре [аккаунт, интеграция] 7 rps и потолок аккаунта 50 rps, burst 1, ограниченное ожидание с отказом |
+| [0030](0030-go-vulnerability-check.md) | Accepted | Docker govulncheck и обновление уязвимой gRPC-зависимости |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product

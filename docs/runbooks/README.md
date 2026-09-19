@@ -7,6 +7,7 @@
 - [`amocrm-outbound-budget.md`](amocrm-outbound-budget.md) — исходящие лимиты amoCRM по паре и аккаунту, переопределение для аккаунта и диагностика перегрузки.
 - [`migrate-down.md`](migrate-down.md) — guarded full migration rollback.
 - [`secrets-rotation.md`](secrets-rotation.md) — ротация application secrets, encryption keys и mTLS identities.
+- [`go-vulnerabilities.md`](go-vulnerabilities.md) — Docker govulncheck и проверка обновлений Go-зависимостей.
 - [`private-widget-e2e.md`](private-widget-e2e.md) — private integration/browser E2E preconditions and checks.
 - [`activity-existing-stack.md`](activity-existing-stack.md) — подключение Activity к уже работающему Core-стеку.
 - [`activity-v0.md`](activity-v0.md) — separate service deployment, pilot admission, diagnostics and embedded/gRPC switching.
