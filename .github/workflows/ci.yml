@@ -13,6 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  vulnerabilities:
+    name: Go vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: make vulncheck
+
   contract:
     name: OpenAPI contract
     runs-on: ubuntu-latest
@@ -63,6 +73,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }} image
     needs:
+      - vulnerabilities
       - contract
       - test
       - integration

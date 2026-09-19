@@ -107,6 +107,7 @@ make test
 make openapi-check
 make integration-test
 make vet
+make vulncheck
 make fmt-check
 make tidy
 make db-shell
