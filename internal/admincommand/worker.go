@@ -20,28 +20,34 @@ import (
 )
 
 type WorkerExecutor struct {
-	pool       *pgxpool.Pool
-	Check      func(context.Context, uuid.UUID) error
-	Unregister func(context.Context, uuid.UUID) error
+	GlobalChecks  int
+	CheckInterval time.Duration
+	Metrics       *CheckMetrics
+	pool          *pgxpool.Pool
+	Check         func(context.Context, uuid.UUID) error
+	CheckVersion  func(context.Context, uuid.UUID, int64) (int64, error)
+	Unregister    func(context.Context, uuid.UUID) error
 }
 
 func NewWorkerExecutor(pool *pgxpool.Pool, client *amocrm.Client, keys *cryptox.KeyRing, gateway oauth.OAuthGateway) *WorkerExecutor {
 	return &WorkerExecutor{pool: pool,
-		Check: func(ctx context.Context, id uuid.UUID) error {
+		CheckVersion: func(ctx context.Context, id uuid.UUID, initial int64) (int64, error) {
+			version := initial
+			checkedClient := client.WithCredentialVersionObserver(func(v int64) { version = v })
 			var account struct {
 				ID int64 `json:"id"`
 			}
-			if err := client.DoJSON(ctx, id, http.MethodGet, "/api/v4/account", nil, &account); err != nil {
-				return err
+			if err := checkedClient.DoJSON(ctx, id, http.MethodGet, "/api/v4/account", nil, &account); err != nil {
+				return version, err
 			}
 			var expected int64
 			if err := pool.QueryRow(ctx, `SELECT account_id FROM installations WHERE id=$1`, id).Scan(&expected); err != nil {
-				return err
+				return version, err
 			}
 			if account.ID != expected {
-				return amocrm.ErrIncompleteResponse
+				return version, amocrm.ErrIncompleteResponse
 			}
-			return nil
+			return version, nil
 		},
 		Unregister: func(ctx context.Context, id uuid.UUID) error {
 			tokens, err := oauth.NewUninstallTokenProvider(pool, keys, gateway, id)
@@ -54,10 +60,15 @@ func NewWorkerExecutor(pool *pgxpool.Pool, client *amocrm.Client, keys *cryptox.
 }
 
 type executionResult struct {
-	State   string         `json:"state"`
-	Outcome string         `json:"outcome"`
-	Result  map[string]any `json:"result"`
-	Error   *Error         `json:"error,omitempty"`
+	CheckIntervalSeconds float64        `json:"check_interval_seconds,omitempty"`
+	CheckVersion         int64          `json:"check_version,omitempty"`
+	CheckStatus          string         `json:"check_status,omitempty"`
+	CheckObserved        time.Time      `json:"check_observed,omitempty"`
+	RetryAfter           int64          `json:"check_retry_after,omitempty"`
+	State                string         `json:"state"`
+	Outcome              string         `json:"outcome"`
+	Result               map[string]any `json:"result"`
+	Error                *Error         `json:"error,omitempty"`
 }
 
 func (w *WorkerExecutor) Handler(ctx context.Context, job jobs.Job) (json.RawMessage, error) {
@@ -76,11 +87,48 @@ func (w *WorkerExecutor) Handler(ctx context.Context, job jobs.Job) (json.RawMes
 	result := executionResult{State: "succeeded", Outcome: "completed", Result: map[string]any{}}
 	switch {
 	case command == "check" && job.Type == CheckJobType:
-		err := w.Check(ctx, *job.InstallationID)
-		classification, retryAfter := classifyCheck(err)
+		release, admissionErr := w.admitCheck(ctx, *job.InstallationID)
+		if admissionErr != nil {
+			return nil, jobs.Retryable("check_capacity", time.Second, admissionErr)
+		}
+		defer release()
+		started := time.Now()
+		if w.Metrics != nil {
+			w.Metrics.Inflight.Inc()
+			defer w.Metrics.Inflight.Dec()
+		}
+
+		var initial int64
+		var status, integrationStatus string
+		if err := w.pool.QueryRow(ctx, `SELECT i.status,ig.status,COALESCE(c.token_version,0) FROM installations i JOIN integrations ig ON ig.id=i.integration_id LEFT JOIN oauth_credentials c ON c.installation_id=i.id WHERE i.id=$1`, *job.InstallationID).Scan(&status, &integrationStatus, &initial); err != nil {
+			return nil, err
+		}
+		if status == "disabled" || status == "uninstalled" || integrationStatus != "active" {
+			result.Outcome = "superseded"
+			break
+		}
+		version := initial
+		var checkErr error
+		if w.CheckVersion != nil {
+			version, checkErr = w.CheckVersion(ctx, *job.InstallationID, initial)
+		} else {
+			checkErr = w.Check(ctx, *job.InstallationID)
+		}
+		classification, retryAfter := classifyCheck(checkErr)
+		if w.Metrics != nil {
+			w.Metrics.Total.WithLabelValues(classification).Inc()
+			w.Metrics.Duration.Observe(time.Since(started).Seconds())
+		}
 		observed := time.Now().UTC()
+		result.CheckVersion, result.CheckStatus, result.CheckObserved, result.RetryAfter = version, status, observed, retryAfter
+		interval := w.CheckInterval
+		if interval <= 0 {
+			interval = defaultCheckInterval
+		}
+		result.CheckIntervalSeconds = interval.Seconds()
 		result.Outcome = classification
 		result.Result = map[string]any{"classification": classification, "verification": classification, "observed_at": observed, "retry_after": retryAfter}
+
 	case command == "uninstall" && job.Type == UninstallJobType:
 		result.Result = map[string]any{"installation_id": job.InstallationID, "status": "uninstalled"}
 		if err := w.Unregister(ctx, *job.InstallationID); err != nil {
@@ -105,7 +153,7 @@ func classifyCheck(err error) (string, int64) {
 	var upstream *amocrm.APIError
 	if errors.As(err, &upstream) {
 		switch upstream.Kind {
-		case amocrm.ErrorUnauthorized, amocrm.ErrorForbidden:
+		case amocrm.ErrorUnauthorized, amocrm.ErrorInvalidGrant:
 			return "auth_error", 0
 		case amocrm.ErrorRateLimited, amocrm.ErrorOverloaded:
 			return "rate_limited", int64(math.Ceil(upstream.RetryAfter.Seconds()))
@@ -116,7 +164,7 @@ func classifyCheck(err error) (string, int64) {
 		}
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "auth_error", 0
+		return "internal_error", 0
 	}
 	if errors.Is(err, amocrm.ErrTransport) {
 		return "network_error", 0
@@ -137,6 +185,16 @@ func CompleteReceipt(ctx context.Context, tx jobs.TxExecutor, job jobs.Job, raw 
 	}
 	if result.State != "succeeded" && result.State != "partial" {
 		return errors.New("invalid admin completion state")
+	}
+	if job.Type == CheckJobType && result.Outcome != "superseded" {
+		applied, err := persistCheck(ctx, tx, job, result)
+		if err != nil {
+			return err
+		}
+		if !applied {
+			result.Outcome = "superseded"
+			result.Result = map[string]any{"classification": "unknown", "reason": "superseded"}
+		}
 	}
 	data, err := json.Marshal(result.Result)
 	if err != nil {
@@ -168,6 +226,6 @@ func finalizeReceipt(ctx context.Context, tx jobs.TxExecutor, job jobs.Job, stat
 		RETURNING id,actor_id,target_type,target_id,command,installation_id
 	) INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata)
 	SELECT installation_id,'admin',actor_id,'admin.command.'||$2,target_type,target_id,
-		jsonb_build_object('receipt_id',id,'state',$2::text,'command',command) FROM changed`, job.ID, state, outcome, result, nullable(errorJSON))
+		jsonb_build_object('receipt_id',id,'state',$2::text,'command',command,'outcome',$3::text) FROM changed`, job.ID, state, outcome, result, nullable(errorJSON))
 	return err
 }

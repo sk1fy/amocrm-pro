@@ -6,6 +6,7 @@ global:
 
 rule_files:
   - alerts.yml
+  - connection-checks.yml
 
 alerting:
   alertmanagers: []

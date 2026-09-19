@@ -259,7 +259,7 @@ func (p *TokenProvider) rotateClaimed(ctx context.Context, claim refreshClaim) (
 	)
 	if err != nil {
 		var apiError *amocrm.APIError
-		if errors.As(err, &apiError) && (apiError.Kind == amocrm.ErrorUnauthorized || apiError.Kind == amocrm.ErrorValidation) {
+		if errors.As(err, &apiError) && (apiError.Kind == amocrm.ErrorUnauthorized || apiError.Kind == amocrm.ErrorInvalidGrant) {
 			if markErr := p.rejectClaim(installationID, claim.leaseToken, observedVersion); markErr != nil {
 				return amocrm.AccessToken{}, errors.Join(err, markErr)
 			}

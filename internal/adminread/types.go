@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/activitybridge"
+	"github.com/sk1fy/amocrm-pro/internal/connectioncheck"
 )
 
 const (
@@ -53,14 +54,15 @@ type AccountListItem struct {
 }
 
 type AccountInstallation struct {
-	ID               uuid.UUID `json:"id"`
-	IntegrationID    uuid.UUID `json:"integration_id"`
-	IntegrationCode  string    `json:"integration_code"`
-	Status           string    `json:"status"`
-	WebhookStatus    string    `json:"webhook_status,omitempty"`
-	Authorization    string    `json:"authorization_state,omitempty"`
-	RecentFailedJobs int       `json:"recent_failed_jobs"`
-	Grants           []Grant   `json:"grants"`
+	AuthorizationCheck connectioncheck.Snapshot `json:"authorization_check"`
+	ID                 uuid.UUID                `json:"id"`
+	IntegrationID      uuid.UUID                `json:"integration_id"`
+	IntegrationCode    string                   `json:"integration_code"`
+	Status             string                   `json:"status"`
+	WebhookStatus      string                   `json:"webhook_status,omitempty"`
+	Authorization      string                   `json:"authorization_state,omitempty"`
+	RecentFailedJobs   int                      `json:"recent_failed_jobs"`
+	Grants             []Grant                  `json:"grants"`
 }
 
 type AccountResponse struct {
@@ -73,18 +75,19 @@ type AccountResponse struct {
 }
 
 type InstallationSummary struct {
-	ID               uuid.UUID `json:"id"`
-	IntegrationID    uuid.UUID `json:"integration_id"`
-	IntegrationCode  string    `json:"integration_code"`
-	AccountID        int64     `json:"account_id"`
-	AccountDomain    string    `json:"account_domain"`
-	Status           string    `json:"status"`
-	InstalledBy      *int64    `json:"installed_by"`
-	Origin           string    `json:"origin"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
-	WebhookStatus    string    `json:"webhook_status,omitempty"`
-	RecentFailedJobs int       `json:"recent_failed_jobs"`
+	AuthorizationCheck connectioncheck.Snapshot `json:"authorization_check"`
+	ID                 uuid.UUID                `json:"id"`
+	IntegrationID      uuid.UUID                `json:"integration_id"`
+	IntegrationCode    string                   `json:"integration_code"`
+	AccountID          int64                    `json:"account_id"`
+	AccountDomain      string                   `json:"account_domain"`
+	Status             string                   `json:"status"`
+	InstalledBy        *int64                   `json:"installed_by"`
+	Origin             string                   `json:"origin"`
+	CreatedAt          time.Time                `json:"created_at"`
+	UpdatedAt          time.Time                `json:"updated_at"`
+	WebhookStatus      string                   `json:"webhook_status,omitempty"`
+	RecentFailedJobs   int                      `json:"recent_failed_jobs"`
 }
 
 type InstallationCard struct {
@@ -319,28 +322,34 @@ type LeadStatusRun struct {
 	EffectType   *string    `json:"effect_type,omitempty"`
 }
 
+type VerificationCounts struct {
+	Unverified      int64 `json:"unverified"`
+	TemporaryErrors int64 `json:"temporary_errors"`
+	Verified        int64 `json:"verified"`
+}
 type StatsResponse struct {
-	Source            string            `json:"source"`
-	ObservedAt        time.Time         `json:"observed_at"`
-	Period            string            `json:"period"`
-	From              time.Time         `json:"from"`
-	To                time.Time         `json:"to"`
-	PeriodStart       time.Time         `json:"period_start"`
-	PeriodEnd         time.Time         `json:"period_end"`
-	Connections       []StatsConnection `json:"connections"`
-	PeriodEvents      StatsPeriodEvents `json:"period_events"`
-	Connected         *int64            `json:"connected"`
-	Disconnected      *int64            `json:"disconnected"`
-	ActiveAccounts    *int64            `json:"active_accounts"`
-	LastUseAt         *time.Time        `json:"last_use_at"`
-	JobErrors         *int64            `json:"job_errors"`
-	Latency           StatsLatency      `json:"latency"`
-	LatencyP50Ms      *int64            `json:"latency_p50_ms"`
-	Queues            []StatsQueue      `json:"queues"`
-	AuthProblemsCount *int64            `json:"auth_problems_count"`
-	SyncProblemsCount *int64            `json:"sync_problems_count"`
-	AuthProblems      *int64            `json:"auth_problems"`
-	SyncProblems      *int64            `json:"sync_problems"`
+	Verification      *VerificationCounts `json:"verification,omitempty"`
+	Source            string              `json:"source"`
+	ObservedAt        time.Time           `json:"observed_at"`
+	Period            string              `json:"period"`
+	From              time.Time           `json:"from"`
+	To                time.Time           `json:"to"`
+	PeriodStart       time.Time           `json:"period_start"`
+	PeriodEnd         time.Time           `json:"period_end"`
+	Connections       []StatsConnection   `json:"connections"`
+	PeriodEvents      StatsPeriodEvents   `json:"period_events"`
+	Connected         *int64              `json:"connected"`
+	Disconnected      *int64              `json:"disconnected"`
+	ActiveAccounts    *int64              `json:"active_accounts"`
+	LastUseAt         *time.Time          `json:"last_use_at"`
+	JobErrors         *int64              `json:"job_errors"`
+	Latency           StatsLatency        `json:"latency"`
+	LatencyP50Ms      *int64              `json:"latency_p50_ms"`
+	Queues            []StatsQueue        `json:"queues"`
+	AuthProblemsCount *int64              `json:"auth_problems_count"`
+	SyncProblemsCount *int64              `json:"sync_problems_count"`
+	AuthProblems      *int64              `json:"auth_problems"`
+	SyncProblems      *int64              `json:"sync_problems"`
 }
 
 type StatsConnection struct {

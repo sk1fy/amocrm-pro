@@ -79,6 +79,7 @@ activity-transfer-verify: ## Overlay config plus Events restore onto a second Po
 activity-observability-test: ## Validate Prometheus config and exercise pilot alert rules
 	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) check config /config/prometheus.yml
 	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) test rules /config/alerts.test.yml
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) test rules /config/connection-checks.test.yml
 
 activity-ci: activity-observability-test activity-backup-verify ## Run Activity verification with disposable PostgreSQL and automatic cleanup
 	@set -eu; \

@@ -272,7 +272,7 @@ func MapUpstreamError(err error) error {
 	var api *amocrm.APIError
 	if errors.As(err, &api) {
 		switch api.Kind {
-		case amocrm.ErrorUnauthorized:
+		case amocrm.ErrorUnauthorized, amocrm.ErrorInvalidGrant:
 			return serviceapi.Fail(serviceapi.ReauthRequired, "installation requires authorization")
 		case amocrm.ErrorForbidden, amocrm.ErrorPayment:
 			return serviceapi.Fail(serviceapi.PermissionDenied, "amoCRM access denied")

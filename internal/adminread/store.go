@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/connectioncheck"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 )
 
@@ -33,6 +34,7 @@ func (s *store) withTimeout(ctx context.Context) (context.Context, context.Cance
 }
 
 type installationListFilter struct {
+	Verification  string
 	AccountID     *int64
 	Domain        string
 	IntegrationID *uuid.UUID
@@ -161,6 +163,9 @@ WHERE 1=1`)
 	}
 
 	detail := f
+	// Verification selects accounts; keep their other installations in the
+	// breakdown so one verified widget cannot hide another authorization error.
+	detail.Verification = ""
 	detail.CursorTime = nil
 	detail.CursorID = ""
 	var db strings.Builder
@@ -168,7 +173,7 @@ WHERE 1=1`)
 	db.WriteString(`SELECT i.id, i.integration_id, ig.code, i.account_id, i.account_domain, i.status, i.updated_at,
 	COALESCE(i.settings->>'origin' = 'fixture', false),
 	i.webhook_status, oc.expires_at, oc.lease_until, (oc.installation_id IS NOT NULL),
-	` + recentFailedJobsSQL + `
+	` + recentFailedJobsSQL + `, ` + checkJSONSQL + `
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 LEFT JOIN oauth_credentials oc ON oc.installation_id = i.id
@@ -199,14 +204,16 @@ WHERE i.account_id IN (`)
 		var fixture, credentialsPresent bool
 		var expiresAt, leaseUntil *time.Time
 		var recentFailedJobs int
+		var check []byte
 		if err := drows.Scan(&item.ID, &item.IntegrationID, &item.IntegrationCode, &accountID, &domain, &status, &updated, &fixture,
-			&webhookStatus, &expiresAt, &leaseUntil, &credentialsPresent, &recentFailedJobs); err != nil {
+			&webhookStatus, &expiresAt, &leaseUntil, &credentialsPresent, &recentFailedJobs, &check); err != nil {
 			return nil, nil, nil, err
 		}
 		pos, ok := index[accountID]
 		if !ok {
 			continue
 		}
+		item.AuthorizationCheck = decodeCheck(check, now)
 		item.Status = status
 		item.WebhookStatus = webhookStatus
 		item.RecentFailedJobs = recentFailedJobs
@@ -287,7 +294,7 @@ func (s *store) listInstallations(ctx context.Context, f installationListFilter)
 	b.WriteString(`SELECT i.id, i.integration_id, ig.code, i.account_id, i.account_domain, i.status, i.installed_by,
 	CASE WHEN i.settings->>'origin' = 'fixture' THEN 'fixture' ELSE 'real' END,
 	i.created_at, i.updated_at, i.webhook_status,
-	` + recentFailedJobsSQL + `
+	` + recentFailedJobsSQL + `, ` + checkJSONSQL + `
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 WHERE 1=1`)
@@ -310,13 +317,15 @@ WHERE 1=1`)
 	items := make([]InstallationSummary, 0)
 	for rows.Next() {
 		var item InstallationSummary
+		var check []byte
 		if err := rows.Scan(
 			&item.ID, &item.IntegrationID, &item.IntegrationCode, &item.AccountID, &item.AccountDomain,
 			&item.Status, &item.InstalledBy, &item.Origin, &item.CreatedAt, &item.UpdatedAt, &item.WebhookStatus,
-			&item.RecentFailedJobs,
+			&item.RecentFailedJobs, &check,
 		); err != nil {
 			return nil, nil, err
 		}
+		item.AuthorizationCheck = decodeCheck(check, time.Now().UTC())
 		item.CreatedAt = item.CreatedAt.UTC()
 		item.UpdatedAt = item.UpdatedAt.UTC()
 		items = append(items, item)
@@ -362,7 +371,7 @@ func (s *store) loadInstallationCards(ctx context.Context, where string, args []
 	oc.expires_at, oc.token_version, oc.key_version, oc.refreshed_at, oc.lease_until,
 	(oc.installation_id IS NOT NULL), ap.enabled,
 	(SELECT count(*) FROM installation_webhook_destinations d WHERE d.installation_id = i.id),
-	` + recentFailedJobsSQL + `
+	` + recentFailedJobsSQL + `, ` + checkJSONSQL + `
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 LEFT JOIN oauth_credentials oc ON oc.installation_id = i.id
@@ -379,7 +388,7 @@ ORDER BY i.updated_at DESC, i.id DESC`
 	seenIntegrations := make(map[uuid.UUID]bool)
 	for rows.Next() {
 		var row installationRow
-		var events []byte
+		var events, check []byte
 		var tokenVersion *int64
 		var keyVersion *int
 		if err := rows.Scan(
@@ -389,10 +398,11 @@ ORDER BY i.updated_at DESC, i.id DESC`
 			&row.webhook.CheckedAt, &row.webhook.LastError, &row.facts.ExpiresAt, &tokenVersion,
 			&keyVersion, &row.facts.RefreshedAt, &row.facts.LeaseUntil, &row.facts.Present,
 			&row.pilotEnabled, &row.webhook.ConfirmedDestinations,
-			&row.summary.RecentFailedJobs,
+			&row.summary.RecentFailedJobs, &check,
 		); err != nil {
 			return nil, err
 		}
+		row.summary.AuthorizationCheck = decodeCheck(check, now)
 		row.summary.IntegrationID = row.integrationID
 		row.summary.Origin = installationOrigin(row.isFixture)
 		row.summary.CreatedAt = row.summary.CreatedAt.UTC()
@@ -442,9 +452,11 @@ ORDER BY i.updated_at DESC, i.id DESC`
 		if g == nil {
 			g = []Grant{}
 		}
+		authorization := MapAuthorization(row.facts, now)
+		authorization.Unverified = row.summary.AuthorizationCheck.Classification != "verified_ok" || row.summary.AuthorizationCheck.Freshness != "fresh"
 		cards = append(cards, InstallationCard{
 			Installation:  row.summary,
-			Authorization: MapAuthorization(row.facts, now),
+			Authorization: authorization,
 			Webhook:       row.webhook,
 			Grants:        g,
 			Activity:      ActivityInfo{Pilot: pilotState(row.pilotEnabled)},
@@ -875,6 +887,23 @@ func appendInstallationFiltersShifted(b *strings.Builder, args *[]any, f install
 	}
 	if f.WebhookStatus != "" {
 		add(" AND i.webhook_status = $%d", f.WebhookStatus)
+	}
+	if f.Verification != "" {
+		clause := ""
+		switch f.Verification {
+		case "unknown":
+			clause = " AND NOT EXISTS (" + currentCheckSQL + ")"
+		case "ok":
+			clause = " AND EXISTS (" + currentCheckSQL + " AND ck.classification='verified_ok' AND ck.observed_at >= now() - make_interval(secs => %d))"
+		case "stale":
+			clause = " AND EXISTS (" + currentCheckSQL + " AND ck.observed_at < now() - make_interval(secs => %d))"
+		case "failed":
+			clause = " AND EXISTS (" + currentCheckSQL + " AND ck.classification<>'verified_ok')"
+		}
+		if f.Verification == "ok" || f.Verification == "stale" {
+			clause = fmt.Sprintf(clause, int(connectioncheck.FreshFor.Seconds()))
+		}
+		b.WriteString(clause)
 	}
 	q := f.Query
 	if q.AccountID != nil {

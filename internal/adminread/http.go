@@ -426,10 +426,16 @@ func parseInstallationListFilter(r *http.Request, accounts bool) (installationLi
 	}
 	f := installationListFilter{
 		IntegrationID: integrationID,
+		Verification:  strings.TrimSpace(r.URL.Query().Get("verification")),
 		Status:        strings.TrimSpace(r.URL.Query().Get("status")),
 		Limit:         limit,
 		CursorTime:    cursorTime,
 		CursorID:      cursorID,
+	}
+	switch f.Verification {
+	case "", "ok", "stale", "unknown", "failed":
+	default:
+		return installationListFilter{}, errInvalid("invalid verification filter")
 	}
 	if accounts {
 		f.Query = normalizeAccountQuery(r.URL.Query().Get("q"))

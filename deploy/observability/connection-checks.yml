@@ -1,0 +1,24 @@
+groups:
+  - name: admin-connection-checks
+    rules:
+      - alert: AdminConnectionVerificationStale
+        expr: max(admin_connection_check_scheduler_enabled) > 0 and (sum(max by (state) (admin_connection_verification_installations{state=~"unknown|stale"})) / clamp_min(sum(max by (state) (admin_connection_verification_installations)), 1)) > 0.25
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Более четверти активных установок требуют свежей проверки"
+      - alert: AdminConnectionCheckSchedulerLag
+        expr: max(admin_connection_check_scheduler_enabled) > 0 and max(admin_connection_check_scheduler_lag_seconds) > 900
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Планировщик проверок отстаёт более чем на 15 минут"
+      - alert: AdminConnectionChecksUnavailable
+        expr: sum(rate(admin_connection_checks_total{classification=~"network_error|internal_error"}[5m])) / clamp_min(sum(rate(admin_connection_checks_total[5m])), 0.001) > 0.9 and sum(increase(admin_connection_checks_total[5m])) >= 20
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Системная недоступность проверок amoCRM"

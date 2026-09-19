@@ -35,3 +35,5 @@
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product
 scope belongs in GitHub Issues.
+
+- [ADR-0031: наблюдения доступности](0031-admin-connection-verification.md).

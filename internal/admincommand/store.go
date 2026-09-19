@@ -241,8 +241,12 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 }
 
 func (s *Store) enqueueExternal(ctx context.Context, tx pgx.Tx, receiptID, installationID uuid.UUID, actor, kind string) (jobs.Job, error) {
+	attempts := 1
+	if kind == CheckJobType {
+		attempts = 5
+	}
 	return s.jobs.EnqueueTx(ctx, tx, jobs.EnqueueParams{InstallationID: &installationID, Type: kind, ActorType: "admin", ActorID: actor,
-		ResourceType: "admin_command", ResourceID: receiptID.String(), Payload: map[string]string{"receipt_id": receiptID.String()}, MaxAttempts: 1})
+		ResourceType: "admin_command", ResourceID: receiptID.String(), Payload: map[string]string{"receipt_id": receiptID.String()}, MaxAttempts: attempts})
 }
 
 func (s *Store) Get(ctx context.Context, id uuid.UUID) (Receipt, error) {

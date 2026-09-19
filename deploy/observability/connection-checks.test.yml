@@ -1,0 +1,36 @@
+rule_files:
+  - connection-checks.yml
+evaluation_interval: 1m
+tests:
+  - name: isolated client auth failure never triggers system critical
+    interval: 1m
+    input_series:
+      - series: admin_connection_checks_total{classification="auth_error"}
+        values: 0+10x30
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AdminConnectionChecksUnavailable
+        exp_alerts: []
+  - name: sustained technical failure triggers critical
+    interval: 1m
+    input_series:
+      - series: admin_connection_checks_total{classification="network_error"}
+        values: 0+10x30
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AdminConnectionChecksUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: "Системная недоступность проверок amoCRM"
+  - name: stale population with disabled scheduler does not warn
+    interval: 1m
+    input_series:
+      - series: admin_connection_check_scheduler_enabled
+        values: 0+0x30
+      - series: admin_connection_verification_installations{state="unknown"}
+        values: 100+0x30
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AdminConnectionVerificationStale
+        exp_alerts: []

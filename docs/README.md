@@ -35,3 +35,5 @@ handoff-файлы не являются текущим backlog.
 2. ADR — принятое архитектурное намерение;
 3. GitHub Issues — status, scope и backlog;
 4. checkpoint/audit — историческое evidence для указанной ревизии.
+
+- [Актуальность подключений](runbooks/connection-verification.md).

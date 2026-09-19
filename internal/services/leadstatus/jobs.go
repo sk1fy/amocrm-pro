@@ -124,7 +124,7 @@ func LeadSetStatusJobHandler(store *ExecutionStore, api LeadStatusAPI) jobs.Hand
 
 func classifyMutationError(err error) error {
 	var apiError *amocrm.APIError
-	if errors.As(err, &apiError) && apiError.Kind == amocrm.ErrorUnauthorized {
+	if errors.As(err, &apiError) && (apiError.Kind == amocrm.ErrorUnauthorized || apiError.Kind == amocrm.ErrorInvalidGrant) {
 		return jobs.Retryable(string(apiError.Kind), 0, err)
 	}
 	return classifyWorkflowError(err)

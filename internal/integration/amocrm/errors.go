@@ -11,6 +11,7 @@ import (
 type ErrorKind string
 
 const (
+	ErrorInvalidGrant ErrorKind = "invalid_grant"
 	ErrorUnauthorized ErrorKind = "unauthorized"
 	ErrorPayment      ErrorKind = "payment_required"
 	ErrorForbidden    ErrorKind = "forbidden"

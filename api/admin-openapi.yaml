@@ -44,6 +44,9 @@ paths:
       operationId: listAdminAccounts
       summary: Accounts aggregated from installations.
       parameters:
+        - name: verification
+          in: query
+          schema: {type: string, enum: [ok, stale, unknown, failed]}
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/AdminActor'
         - name: q
@@ -109,6 +112,9 @@ paths:
       operationId: listAdminInstallations
       summary: Installation list.
       parameters:
+        - name: verification
+          in: query
+          schema: {type: string, enum: [ok, stale, unknown, failed]}
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/AdminActor'
         - name: account_id
@@ -886,6 +892,8 @@ components:
       type: object
       required: [id, integration_id, integration_code, status, recent_failed_jobs, grants]
       properties:
+        authorization_check:
+          $ref: '#/components/schemas/AuthorizationCheck'
         id: {type: string, format: uuid}
         integration_id: {type: string, format: uuid}
         integration_code: {type: string}
@@ -919,6 +927,8 @@ components:
       type: object
       required: [id, integration_id, integration_code, account_id, account_domain, status, installed_by, origin, created_at, updated_at, recent_failed_jobs]
       properties:
+        authorization_check:
+          $ref: '#/components/schemas/AuthorizationCheck'
         id: {type: string, format: uuid}
         integration_id: {type: string, format: uuid}
         integration_code: {type: string}
@@ -1074,6 +1084,12 @@ components:
       type: object
       required: [source, observed_at, period, connections, period_events, active_accounts, job_errors, latency, queues, auth_problems_count, sync_problems_count]
       properties:
+        verification:
+          type: object
+          properties:
+            unverified: {type: integer}
+            temporary_errors: {type: integer}
+            verified: {type: integer}
         source: {type: string, const: core}
         observed_at: {type: string, format: date-time}
         period: {type: string}
@@ -1087,6 +1103,23 @@ components:
         queues: {type: array, items: {type: object}}
         auth_problems_count: {type: [integer, 'null']}
         sync_problems_count: {type: [integer, 'null']}
+    AuthorizationCheck:
+      type: object
+      description: Optional on older Core versions. Server freshness is 90 minutes; active is installation lifecycle, not live access.
+      required: [classification, observed_at, freshness, fresh_for_seconds]
+      properties:
+        classification: {type: string, enum: [verified_ok, auth_error, network_error, rate_limited, internal_error, unknown]}
+        observed_at: {type: [string, 'null'], format: date-time}
+        freshness: {type: string, enum: [fresh, stale, unknown, unavailable]}
+        fresh_for_seconds: {type: integer, enum: [5400]}
+        retry_after: {type: integer, minimum: 0}
+        error:
+          type: object
+          properties:
+            code: {type: string}
+            message: {type: string, description: Safe fixed message; never upstream body.}
+
+
   responses:
     Conflict:
       description: Changed idempotent request or another command in flight for the target.

@@ -132,8 +132,14 @@ func (c *OAuthClient) requestToken(ctx context.Context, accountDomain string, pa
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxOAuthResponseBody))
-		return OAuthToken{}, classifyResponse(response.StatusCode, response.Header, time.Now())
+		apiErr := classifyResponse(response.StatusCode, response.Header, time.Now())
+		var failure struct {
+			Error string `json:"error"`
+		}
+		if (response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusUnprocessableEntity) && decodeLimitedJSON(response.Body, maxOAuthResponseBody, &failure) == nil && failure.Error == "invalid_grant" {
+			apiErr.Kind = ErrorInvalidGrant
+		}
+		return OAuthToken{}, apiErr
 	}
 
 	var token OAuthToken

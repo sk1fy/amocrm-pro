@@ -20,7 +20,7 @@ func TestCheckClassification(t *testing.T) {
 	}{
 		{nil, "verified_ok", 0},
 		{&amocrm.APIError{Kind: amocrm.ErrorUnauthorized}, "auth_error", 0},
-		{&amocrm.APIError{Kind: amocrm.ErrorForbidden}, "auth_error", 0},
+		{&amocrm.APIError{Kind: amocrm.ErrorForbidden}, "internal_error", 0},
 		{&amocrm.APIError{Kind: amocrm.ErrorValidation, StatusCode: 400}, "internal_error", 0},
 		{&amocrm.APIError{Kind: amocrm.ErrorValidation, StatusCode: 422}, "internal_error", 0},
 		{&amocrm.APIError{Kind: amocrm.ErrorRateLimited, RetryAfter: 9 * time.Second}, "rate_limited", 9},

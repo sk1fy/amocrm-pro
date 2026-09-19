@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/sk1fy/amocrm-pro/internal/connectioncheck"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
@@ -265,6 +266,14 @@ func (s *store) statsSummary(ctx context.Context, from, to time.Time) (StatsResp
 		FROM activity_command_outbox outbox
 		JOIN activity_command_receipts receipt USING(command_id)
 		WHERE outbox.status='failed' AND receipt.created_at > now() - interval '7 days'`).Scan(out.SyncProblemsCount); err != nil {
+		return StatsResponse{}, err
+	}
+	out.Verification = &VerificationCounts{}
+	if err := s.pool.QueryRow(ctx, `SELECT
+ count(*) FILTER(WHERE v.observed_at IS NULL OR v.observed_at<$1::timestamptz-make_interval(secs=>$2)),
+ count(*) FILTER(WHERE v.classification IN ('network_error','rate_limited','internal_error')),
+ count(*) FILTER(WHERE v.classification='verified_ok' AND v.observed_at>=$1::timestamptz-make_interval(secs=>$2))
+ FROM installations i LEFT JOIN LATERAL (`+currentCheckSQL+`) v ON true WHERE i.status='active'`, to, connectioncheck.FreshFor.Seconds()).Scan(&out.Verification.Unverified, &out.Verification.TemporaryErrors, &out.Verification.Verified); err != nil {
 		return StatsResponse{}, err
 	}
 	out.AuthProblems = out.AuthProblemsCount

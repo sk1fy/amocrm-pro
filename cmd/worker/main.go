@@ -146,7 +146,17 @@ func run() error {
 		"webhook.process_event": webhook.JobFailureObserver(webhookStore),
 	}
 	leadStatusModule.RegisterJobs(handlers, observers, amocrmAPI)
+	checkConfig, err := admincommand.LoadCheckConfig()
+	if err != nil {
+		return err
+	}
+	checkMetrics := admincommand.NewCheckMetrics(registry)
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
+	adminExecutor.GlobalChecks = checkConfig.Global
+	adminExecutor.CheckInterval = checkConfig.Interval
+	adminExecutor.Metrics = checkMetrics
+	checkScheduler := &admincommand.CheckScheduler{Pool: pool, Store: admincommand.NewStore(pool, keyRing, cfg.DatabaseTimeout, cfg.PublicBaseURL, nil, nil), Config: checkConfig, Metrics: checkMetrics, Logger: logger}
+	go checkScheduler.Run(ctx)
 	handlers[admincommand.CheckJobType] = adminExecutor.Handler
 	handlers[admincommand.UninstallJobType] = adminExecutor.Handler
 	observers[admincommand.CheckJobType] = admincommand.FailReceipt
