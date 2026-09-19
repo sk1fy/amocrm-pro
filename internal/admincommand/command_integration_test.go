@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -423,6 +424,185 @@ func TestActivityConfigureConflictAndSyncPendingThenTerminal(t *testing.T) {
 	}
 }
 
+// prepareUnreadActivitySync leaves the admin receipt pending, then makes the
+// outbox accepted without reading the receipt again.
+func prepareUnreadActivitySync(t *testing.T, s *Store, pool *pgxpool.Pool, id uuid.UUID, events *syncEvents) (Request, Receipt) {
+	t.Helper()
+	if err := activitybridge.SetPilot(t.Context(), pool, id, true); err != nil {
+		t.Fatal(err)
+	}
+	s.bridge = activitybridge.New(pool, &commandPolicy{}, &acceptingActivityAdapter{}, events)
+	req := request("installation", id, "activity-sync")
+	req.Payload = json.RawMessage(`{"kind":"sync"}`)
+	pending := execute(t, s, req)
+	if pending.State != "pending" {
+		t.Fatalf("sync=%+v", pending)
+	}
+	var result struct {
+		CommandID string `json:"command_id"`
+	}
+	if err := json.Unmarshal(pending.Result, &result); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE activity_command_outbox SET status='accepted' WHERE command_id=$1`, result.CommandID); err != nil {
+		t.Fatal(err)
+	}
+	return req, pending
+}
+
+func TestExecuteReconcilesUnreadActivitySync(t *testing.T) {
+	for _, tc := range []struct {
+		name, storedState, remoteState, wantState string
+		remoteError                               error
+		wantConflict                              bool
+	}{
+		{name: "completed_pending", storedState: "pending", remoteState: "succeeded", wantState: "succeeded"},
+		{name: "completed_running", storedState: "running", remoteState: "succeeded", wantState: "succeeded"},
+		{name: "failed", storedState: "pending", remoteState: "failed", wantState: "failed"},
+		{name: "running", storedState: "pending", remoteState: "running", wantState: "running", wantConflict: true},
+		{name: "unavailable", storedState: "pending", remoteError: serviceapi.Fail(serviceapi.Unavailable, "fixture unavailable"), wantState: "running", wantConflict: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, pool, id, _ := fixture(t)
+			syncReq, pending := prepareUnreadActivitySync(t, s, pool, id, &syncEvents{state: tc.remoteState, err: tc.remoteError})
+			if _, err := pool.Exec(t.Context(), `UPDATE admin_commands SET state=$2 WHERE id=$1`, pending.ID, tc.storedState); err != nil {
+				t.Fatal(err)
+			}
+			checkReq := request("installation", id, "check")
+			key := uuid.NewString()
+			check, err := s.Execute(t.Context(), fixtureActor, key, checkReq)
+			if tc.wantConflict {
+				var api *Error
+				if !errors.As(err, &api) || api.Code != "conflict" || api.Status != http.StatusConflict {
+					t.Fatalf("active sync must block check: %+v %v", check, err)
+				}
+			} else {
+				if err != nil || check.State != "pending" || check.JobID == nil {
+					t.Fatalf("completed sync must admit check without GET: %+v %v", check, err)
+				}
+				replay, err := s.Execute(t.Context(), fixtureActor, key, checkReq)
+				if err != nil || replay.ID != check.ID || replay.JobID == nil || *replay.JobID != *check.JobID {
+					t.Fatalf("check replay=%+v %v", replay, err)
+				}
+			}
+			// Read SQL directly: Get would repair the state and hide this regression.
+			stored, _, err := loadReceipt(t.Context(), pool, `c.id=$1`, pending.ID)
+			if err != nil || stored.State != tc.wantState || (stored.FinishedAt != nil) == tc.wantConflict {
+				t.Fatalf("persisted sync=%+v %v", stored, err)
+			}
+			replay, err := s.Execute(t.Context(), fixtureActor, pending.ID.String(), syncReq)
+			if err != nil || replay.ID != pending.ID {
+				t.Fatalf("sync replay=%+v %v", replay, err)
+			}
+			changed := request("installation", id, "disable")
+			if _, err := s.Execute(t.Context(), fixtureActor, pending.ID.String(), changed); err == nil {
+				t.Fatal("changed request with original sync key must conflict")
+			}
+			var count int
+			if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM activity_command_receipts WHERE installation_id=$1`, id).Scan(&count); err != nil || count != 1 {
+				t.Fatalf("sync executed again: count=%d %v", count, err)
+			}
+		})
+	}
+}
+
+func TestConcurrentExecuteAfterUnreadActivitySync(t *testing.T) {
+	for _, sameKey := range []bool{false, true} {
+		t.Run(fmt.Sprintf("same_key_%t", sameKey), func(t *testing.T) {
+			s, pool, id, _ := fixture(t)
+			prepareUnreadActivitySync(t, s, pool, id, &syncEvents{state: "succeeded"})
+			const n = 6
+			key := uuid.NewString()
+			start := make(chan struct{})
+			type result struct {
+				receipt Receipt
+				err     error
+			}
+			results := make(chan result, n)
+			for range n {
+				go func() {
+					<-start
+					commandKey := key
+					if !sameKey {
+						commandKey = uuid.NewString()
+					}
+					r, err := s.Execute(t.Context(), fixtureActor, commandKey, request("installation", id, "check"))
+					results <- result{r, err}
+				}()
+			}
+			close(start)
+			accepted := 0
+			for range n {
+				result := <-results
+				if result.err == nil {
+					accepted++
+					if result.receipt.State != "pending" || result.receipt.JobID == nil || (sameKey && result.receipt.ID.String() != key) {
+						t.Errorf("check=%+v", result.receipt)
+					}
+				} else {
+					var api *Error
+					if sameKey || !errors.As(result.err, &api) || api.Code != "conflict" {
+						t.Errorf("execute=%v", result.err)
+					}
+				}
+			}
+			want := 1
+			if sameKey {
+				want = n
+			}
+			if accepted != want {
+				t.Fatalf("accepted=%d want=%d", accepted, want)
+			}
+			var count int
+			if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM jobs WHERE installation_id=$1 AND type=$2`, id, CheckJobType).Scan(&count); err != nil || count != 1 {
+				t.Fatalf("check jobs=%d %v", count, err)
+			}
+		})
+	}
+}
+
+func TestExecuteReconcilesActivitySyncWithSingleConnection(t *testing.T) {
+	s, pool, id, _ := fixture(t)
+	events := &syncEvents{state: "succeeded"}
+	prepareUnreadActivitySync(t, s, pool, id, events)
+	config := pool.Config()
+	config.MaxConns = 1
+	single, err := pgxpool.NewWithConfig(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(single.Close)
+	s.pool = single
+	s.bridge = activitybridge.New(single, &commandPolicy{}, &acceptingActivityAdapter{}, events)
+	// A transaction or unclosed rows during reconciliation would exhaust this
+	// pool before bridge status lookup and prevent the check from being admitted.
+	check := execute(t, s, request("installation", id, "check"))
+	if check.State != "pending" || check.JobID == nil {
+		t.Fatalf("check=%+v", check)
+	}
+}
+
+func TestCommandHTTPAfterUnreadActivitySync(t *testing.T) {
+	s, pool, id, _ := fixture(t)
+	prepareUnreadActivitySync(t, s, pool, id, &syncEvents{state: "succeeded"})
+	router := chi.NewRouter()
+	adminread.Register(router, adminread.Dependencies{Pool: pool, Token: "fixture-admin-bearer"})
+	Register(router, s)
+	body, err := json.Marshal(request("installation", id, "check"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/admin/v1/commands", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer fixture-admin-bearer")
+	req.Header.Set("X-Admin-Actor", fixtureActor)
+	req.Header.Set("Idempotency-Key", uuid.NewString())
+	out := httptest.NewRecorder()
+	router.ServeHTTP(out, req)
+	if out.Code != http.StatusAccepted {
+		t.Fatalf("check=%d %s", out.Code, out.Body.String())
+	}
+}
+
 type commandPolicy struct{}
 
 func (commandPolicy) Issue(context.Context, serviceapi.IssueRequest) (serviceapi.Auth, error) {
@@ -453,13 +633,14 @@ func (acceptingActivityAdapter) Configure(_ context.Context, c serviceapi.Settin
 type syncEvents struct {
 	serviceapi.CRMEvents
 	state string
+	err   error
 }
 
 func (s *syncEvents) Status(context.Context, serviceapi.Auth) (serviceapi.SyncStatus, error) {
 	return serviceapi.SyncStatus{State: "idle"}, nil
 }
 func (s *syncEvents) Operation(_ context.Context, r serviceapi.OperationRequest) (serviceapi.Operation, error) {
-	return serviceapi.Operation{ID: r.OperationID, CommandID: r.OperationID, State: s.state}, nil
+	return serviceapi.Operation{ID: r.OperationID, CommandID: r.OperationID, State: s.state}, s.err
 }
 
 func TestWorkerPersistsCheckAndReplayDoesNotCallUpstreamAgain(t *testing.T) {

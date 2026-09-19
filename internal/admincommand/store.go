@@ -46,6 +46,12 @@ func (s *Store) Execute(ctx context.Context, actor, key string, request Request)
 	defer clear(req.Payload)
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
+	// Reconcile before opening the admission transaction: bridge status reads
+	// may perform external I/O and use the pool. The locks and busy check below
+	// still decide admission against the latest committed receipts.
+	if err := s.refreshTargetActivitySync(ctx, req); err != nil {
+		return Receipt{}, err
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Receipt{}, err
@@ -364,6 +370,30 @@ func (s *Store) applyLeadStatus(ctx context.Context, tx pgx.Tx, actor string, p 
 		"target_pipeline_id": result.TargetPipelineID, "target_status_id": result.TargetStatusID,
 		"enabled": result.Enabled, "revision": result.Revision,
 	}, nil, installationID, nil
+}
+
+func (s *Store) refreshTargetActivitySync(ctx context.Context, req Request) error {
+	if s.bridge == nil || req.TargetType != "installation" {
+		return nil
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id FROM admin_commands
+		WHERE target_type=$1 AND target_id=$2 AND command='activity-sync'
+		AND state IN ('pending','running')`, req.TargetType, req.TargetID)
+	if err != nil {
+		return err
+	}
+	// CollectRows closes rows and releases the connection before Get/bridge
+	// queries the pool, including when only one connection is available.
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if _, err := s.Get(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) refreshActivitySync(ctx context.Context, r *Receipt) error {

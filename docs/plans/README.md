@@ -7,6 +7,9 @@ scope и последовательность реализации, но не я
 - [`2026-09-08-activity-backend-development.md`](2026-09-08-activity-backend-development.md) —
   план и зафиксированный результат разработки Activity backend, этапы 1–9.
 
+- [AMO-1427: stale sync receipt](2026-09-19-amo-1427-stale-sync.md) —
+  patch-план и результаты проверки исправления приёма admin-команд.
+
 Текущие факты и ограничения находятся в
 [`../project-memory/CONTEXT.md`](../project-memory/CONTEXT.md), открытые дефекты —
 в [`../project-memory/BUGS.md`](../project-memory/BUGS.md), архитектурные решения —
