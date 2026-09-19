@@ -43,8 +43,8 @@ Activity 215 Go PASS / 3 helper SKIP / UI 25 PASS; `make test` PASS.
 | `gofmt` / `go vet` targeted | clean | координатор |
 | Независимый review | CORE-01..05 pass; CORE-06 conditional; 0 bugs; предложения закрыты | [review.md](review.md) |
 | `make openapi-check` | exit 0 | координатор |
-| `make ACTIVITY_TEST_PROJECT=amocrm-stage7-test activity-ci` | exit 0; 215 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 25 PASS / 0 SKIP | [Go log](activity-go.txt), [UI log](activity-ui.txt), [checks.json](checks.json) |
-| `make TEST_COMPOSE_PROJECT=amocrm-stage7-integration-test integration-test` | exit 0 после исправления счётчика в CORE-01 тесте (sequence вместо table UPDATE в той же TX). Lead-status, webhook, widget routes, OAuth lease, uninstall PASS. 2 штатных SKIP performance | [integration-test.txt](integration-test.txt) |
+| `make ACTIVITY_TEST_PROJECT=amocrm-stage7-test activity-ci` | exit 0; 215 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 25 PASS / 0 SKIP | Go log (`activity-go.txt`), UI log (`activity-ui.txt`), checks.json (`checks.json`) |
+| `make TEST_COMPOSE_PROJECT=amocrm-stage7-integration-test integration-test` | exit 0 после исправления счётчика в CORE-01 тесте (sequence вместо table UPDATE в той же TX). Lead-status, webhook, widget routes, OAuth lease, uninstall PASS. 2 штатных SKIP performance | integration-test.txt (`integration-test.txt`) |
 
 Compose-проект `amocrm-stage7-test`, БД `*_test`. Runtime-проект `amocrm-activity` не менялся.
 

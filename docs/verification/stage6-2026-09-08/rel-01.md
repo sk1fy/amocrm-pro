@@ -68,7 +68,7 @@ go test -c -o /tmp/crmevents.test ./internal/services/crmevents
 go test -list 'TestCollectorGuaranteesHoldWithQueuedEnrichment|TestCollectorAndEnrichmentFailureIsolation|TestEnrichmentFailureDoesNotBlockOrAdvanceCoverage|TestCurrentCollectionPriorityOverBackfillAndEnrichment|TestSettingsSnapshotOnQueuedAndRunningJobs' ./internal/services/crmevents
 ```
 
-Хост-компиляция: exit 0. Лог: [rel-01/compile.txt](rel-01/compile.txt).
+Хост-компиляция: exit 0. Лог: rel-01/compile.txt (`rel-01/compile.txt`).
 
 ## Что не проверялось
 

@@ -40,7 +40,7 @@ GET /api/v1/widget/activity/events/{eventID}
 
 | Проверка | Результат | Артефакт |
 | --- | --- | --- |
-| `make ... activity-ci` | exit 0; 174 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 16 PASS / 0 SKIP | [Go log](activity-go.txt), [UI log](activity-ui.txt) |
+| `make ... activity-ci` | exit 0; 174 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 16 PASS / 0 SKIP | Go log (`activity-go.txt`), UI log (`activity-ui.txt`) |
 | Activity-сайт `npm test` / `npm run check` | 29 PASS / 0 FAIL | вне этого репозитория |
 | Backend Tester 2 `npm run check` / `npm run pack` | 36 PASS / 0 FAIL; ZIP собран | вне этого репозитория |
 

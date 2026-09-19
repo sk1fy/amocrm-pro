@@ -37,7 +37,7 @@ QA-02 и фактический pilot enable OPS-03 остаются откры�
 | `verify-transfer.sh` | exit 0; проект `amocrm-stage8-transfer-test`; live gRPC cutover нет | [mod-03.md](mod-03.md) |
 | QA-01 targeted unit | PASS | [qa-01.md](qa-01.md) |
 | Tester `npm run check` | 45 PASS / 0 FAIL / 0 SKIP | [tester.md](tester.md) |
-| `make ACTIVITY_TEST_PROJECT=amocrm-stage8-test activity-ci` | exit 0; 228 верхнеуровневых Go PASS, 3 helper SKIP, 0 FAIL; `-race`; UI 25 PASS / 0 SKIP | [Go log](activity-go.txt), [UI log](activity-ui.txt) |
+| `make ACTIVITY_TEST_PROJECT=amocrm-stage8-test activity-ci` | exit 0; 228 верхнеуровневых Go PASS, 3 helper SKIP, 0 FAIL; `-race`; UI 25 PASS / 0 SKIP | Go log (`activity-go.txt`), UI log (`activity-ui.txt`) |
 | Независимый review | 3 bug + 2 suggestion + 1 nit; координатор исправил | [review.md](review.md) |
 | Живой виджет / целевой сервер | не выполнялось | [qa-02.md](qa-02.md), [ops-03.md](ops-03.md) |
 

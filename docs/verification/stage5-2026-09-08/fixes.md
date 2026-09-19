@@ -29,21 +29,21 @@
 - Activity-сайт: обновлены src и штатно пересобран dist в
   `/Users/nikpeskov/Projects/sub-projects/amocrm-pro-activity-site`.
 - Проверены совпадения source/vendor, AMD/CSS, ZIP/widget и site src/dist.
-  [SHA-256 исходников и ZIP](fixes/source-manifest.json).
+  SHA-256 исходников и ZIP (`fixes/source-manifest.json`).
 
 ## Проверки
 
 До исправлений четыре сценария дали ожидаемые FAIL; сохранён
-[исходный лог ревью](fixes/review-failures.txt). Требование к концу дня
+исходный лог ревью (`fixes/review-failures.txt`). Требование к концу дня
 после ревью изменено владельцем на 23:59:50.
 
 Целевые проверки после исправлений:
 
 - Адаптер: **21 PASS / 0 SKIP**, включая operation fixture из прежнего gate.
-  [Лог](fixes/adapter.txt).
-- Сайт: `npm run check` — **32 PASS**, build PASS. [Лог](fixes/site.txt).
+  Лог (`fixes/adapter.txt`).
+- Сайт: `npm run check` — **32 PASS**, build PASS. Лог (`fixes/site.txt`).
 - Тестер: `npm run pack` со штатным check — **36 PASS**, ZIP создан.
-  [Лог](fixes/tester.txt).
+  Лог (`fixes/tester.txt`).
 
 Новые тесты проверяют конец пресетов и повторное обновление, восстановление
 сотрудников/отделов, повтор после 503, обновление открытой pending-карточки,
@@ -61,8 +61,8 @@ UI 21 PASS / 0 SKIP**. Operation-тесты в этом gate использую�
 embedded/gRPC и общий бюджет. Необязательная проверка с предыдущим API-бинарём
 пропущена: `COMPONENT_PROCESS_PREVIOUS_API_BINARY` не задан.
 
-Логи: [Go](fixes/activity-go.txt), [UI](fixes/activity-ui.txt),
-[Make/Compose](fixes/activity-ci.txt). `git diff --check` — PASS.
+Логи: Go (`fixes/activity-go.txt`), UI (`fixes/activity-ui.txt`),
+Make/Compose (`fixes/activity-ci.txt`). `git diff --check` — PASS.
 Тестовые контейнеры и volumes удалены штатным cleanup.
 
 ## Развёртывание

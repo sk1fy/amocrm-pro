@@ -48,12 +48,12 @@ payload равны null и `data.payloads_omitted=true`. Это указание
 
 | Проверка | Результат | Артефакт |
 | --- | --- | --- |
-| `make ... activity-ci` | exit 0; 115 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`, все обязательные owner/RPC/process случаи выполнены | [Go log](activity-go.txt) |
-| UI operation tests | 5 PASS, 0 SKIP | [UI log](activity-ui.txt) |
-| `make test` | exit 0; gofmt, vet, race suite и Docker-сборки; DB-зависимые cases этого gate отдельно покрыты Activity gate в его scope | [Make log](make-test.txt) |
+| `make ... activity-ci` | exit 0; 115 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`, все обязательные owner/RPC/process случаи выполнены | Go log (`activity-go.txt`) |
+| UI operation tests | 5 PASS, 0 SKIP | UI log (`activity-ui.txt`) |
+| `make test` | exit 0; gofmt, vet, race suite и Docker-сборки; DB-зависимые cases этого gate отдельно покрыты Activity gate в его scope | Make log (`make-test.txt`) |
 | Изолированный impact test | PASS без изменения порогов; idle P95 6.50 ms, loaded P95 5.95 ms; local fixture, не production SLO | Go log |
 
-[Сводка проверок](checks.json) и [SHA-256 manifest исходников](source-manifest.json)
+Сводка проверок (`checks.json`) и SHA-256 manifest исходников (`source-manifest.json`)
 позволяют связать результат с рабочим деревом. Три SKIP — helper entrypoints,
 которые запускаются их process controllers. Числа разных suite не складываются.
 `activity-ci` удалил собственные контейнеры/volumes; runtime-проект не менялся.

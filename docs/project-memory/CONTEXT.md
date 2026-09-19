@@ -6,18 +6,21 @@
 
 ## Snapshot
 
-- Проверено: 2026-08-31 (Europe/Moscow).
-- Branch: `main`.
-- `BUG-010` implementation commit: `53c78f5`.
-- Последнее изменение runtime-кода: capacity slice PR #54, merge commit `9e9d5ba`.
-- Предыдущий main CI: success, run `32957486277`; `BUG-010` CI:
-  run `33339274655`.
-- `BUG-010` Docker gate: unit/race, OpenAPI, PostgreSQL integration and
-  api/worker/migrate builds pass; real private-widget E2E pending.
+- Проверено по локальному `main`: 2026-09-19 (Europe/Moscow), commit `4a977a4`.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
-- Миграции: девять обратимых versioned migrations (включая fair job claiming).
-- Redis: отсутствует по ADR-0001.
-- Стадия: functional MVP реализован; production hardening не завершён.
+- Миграции разделены по владельцам: 16 Core, 4 Activity и 8 CRM Events `up`-миграций;
+  номер Core `000013` намеренно свободен.
+- Activity и CRM Events поддерживают embedded и отдельный gRPC deployment;
+  Core сохраняет durable outbox и управляет внешними amoCRM-вызовами.
+- Admin listener поддерживает внутренние чтение и durable commands, включая
+  Activity principal; он включается только парой `ADMIN_HTTP_ADDRESS` +
+  `ADMIN_API_TOKEN`.
+- Исходящий amoCRM API v4 бюджет ограничен по паре account/integration (7 rps,
+  burst 1) и суммарно по account (50 rps, burst 1); один Gateway остаётся
+  владельцем process-local limiter. См. [ADR-0029](../adr/0029-outbound-budget-account-scope.md).
+- Redis отсутствует по ADR-0001.
+- Стадия: functional MVP реализован; production hardening и проверка целевой
+  среды не завершены.
 
 ## Runtime boundaries
 
@@ -62,7 +65,8 @@ API и worker являются раздельными deployment units одно�
   повторного `401`;
 - allowlisted HTTPS account domains и redirect refusal;
 - специализированные API v4 методы account/users/leads/webhooks;
-- per-integration/per-account process-local outbound rate limiting.
+- process-local outbound rate limiting по паре account/integration с отдельным
+  потолком account и ограниченным ожиданием.
 
 ### Widget API
 

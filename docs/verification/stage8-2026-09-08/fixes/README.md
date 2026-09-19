@@ -64,9 +64,9 @@ negative cases. `RTO_LOCAL_SECONDS=1` относится только к син�
 Проверка с предыдущим API-бинарём не выполнялась: optional
 `COMPONENT_PROCESS_PREVIOUS_API_BINARY` не задан.
 
-Артефакты: [полный gate](activity-ci.txt), [Go](activity-go.txt),
-[UI](activity-ui.txt), [красные rules до исправления](alerts-before.txt),
-[целевой PASS rules](alerts-after.txt), [SHA-256 проверенных файлов](source-sha256.json).
+Артефакты: полный gate (`activity-ci.txt`), Go (`activity-go.txt`),
+UI (`activity-ui.txt`), красные rules до исправления (`alerts-before.txt`),
+целевой PASS rules (`alerts-after.txt`), SHA-256 проверенных файлов (`source-sha256.json`).
 `sh -n`, `git diff --check` и ссылки изменённых runbooks также проверены.
 
 Compose-проекты `amocrm-stage8-fixes-test` и `amocrm-stage8-backup-test` после

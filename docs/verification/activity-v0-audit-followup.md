@@ -35,14 +35,14 @@
 
 | Проверка | Результат и артефакт |
 | --- | --- |
-| `gofmt`, `go vet ./...`, `go test -race -count=1 -v -timeout=15m ./...` с тремя тестовыми DB | exit 0; 258 top-level PASS, 7 SKIP, 0 FAIL; [полный лог](activity-v0-audit-suite.txt) |
-| UI Node 22, ответ из `TestOperationSuccessContractPreservesCompletedStorage` | 5 PASS, 0 SKIP; scheduled/manual completion останавливает polling и refresh выполняется один раз; [лог](activity-v0-audit-ui.txt) |
-| `TestComponentProcessesAndModeSwitch` с текущими бинарями | PASS 85.41 s; embedded → grpc → embedded, DB CONNECT isolation, durable delivery, Core restart, реальный lead-status против synthetic upstream; [лог](activity-v0-audit-process.txt) |
-| `TestComponentOSProcessFaults` | PASS 67.82 s; четыре аварийных сценария; [лог](activity-v0-audit-faults.txt) |
-| Сохранённый Core API до исправлений + текущие Activity/Events | PASS 84.00 s; [лог](activity-v0-audit-version-skew.txt), [происхождение бинаря](activity-v0-pre-audit-api.json) |
-| Новые production Docker images: API/worker/Activity/Events | build exit 0; Compose smoke PASS; [HTTP-ответы, runtime catalog и image IDs](activity-v0-audit-health.txt) |
+| `gofmt`, `go vet ./...`, `go test -race -count=1 -v -timeout=15m ./...` с тремя тестовыми DB | exit 0; 258 top-level PASS, 7 SKIP, 0 FAIL; полный лог (`activity-v0-audit-suite.txt`) |
+| UI Node 22, ответ из `TestOperationSuccessContractPreservesCompletedStorage` | 5 PASS, 0 SKIP; scheduled/manual completion останавливает polling и refresh выполняется один раз; лог (`activity-v0-audit-ui.txt`) |
+| `TestComponentProcessesAndModeSwitch` с текущими бинарями | PASS 85.41 s; embedded → grpc → embedded, DB CONNECT isolation, durable delivery, Core restart, реальный lead-status против synthetic upstream; лог (`activity-v0-audit-process.txt`) |
+| `TestComponentOSProcessFaults` | PASS 67.82 s; четыре аварийных сценария; лог (`activity-v0-audit-faults.txt`) |
+| Сохранённый Core API до исправлений + текущие Activity/Events | PASS 84.00 s; лог (`activity-v0-audit-version-skew.txt`), происхождение бинаря (`activity-v0-pre-audit-api.json`) |
+| Новые production Docker images: API/worker/Activity/Events | build exit 0; Compose smoke PASS; HTTP-ответы, runtime catalog и image IDs (`activity-v0-audit-health.txt`) |
 
-Снимок итоговых исходников/конфигураций: [новый SHA-256 manifest](activity-v0-audit-source-manifest.json).
+Снимок итоговых исходников/конфигураций: новый SHA-256 manifest (`activity-v0-audit-source-manifest.json`).
 Старый manifest сохранён для исходного отчёта. Go suite выполнен до добавления
 опционального выбора сохранённого Core API в harness; этот выбор отдельно проверен
 последующим mixed-version прогоном. После сборки образов менялись только документация

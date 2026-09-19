@@ -29,11 +29,11 @@
 ## Проверки
 
 До исправления все четыре сценария воспроизведены:
-[исходные FAIL](fixes/review-failures.txt).
+исходные FAIL (`fixes/review-failures.txt`).
 
 Целевой прогон serviceapi/activity/crmevents с отдельными PostgreSQL owner DB
 и `-race -count=1 -p 1`: **81 PASS, 0 SKIP, 0 FAIL**.
-[Лог](fixes/targeted-tests.txt).
+Лог (`fixes/targeted-tests.txt`).
 
 Четыре новых регрессионных теста проверяют:
 
@@ -57,8 +57,8 @@ UI 5 PASS, 0 SKIP**. Проверены owner PostgreSQL, mTLS, реальные
 с прежним API-бинарём пропущена: `COMPONENT_PROCESS_PREVIOUS_API_BINARY`
 не задан. Тестовые контейнеры и volumes полного gate удалены штатным cleanup.
 
-Артефакты: [Go](fixes/activity-go.txt), [UI](fixes/activity-ui.txt),
-[Make/Compose](fixes/activity-ci.txt), [SHA-256 исходников](fixes/source-manifest.json).
+Артефакты: Go (`fixes/activity-go.txt`), UI (`fixes/activity-ui.txt`),
+Make/Compose (`fixes/activity-ci.txt`), SHA-256 исходников (`fixes/source-manifest.json`).
 `git diff --check` — PASS.
 
 ## Выпуск

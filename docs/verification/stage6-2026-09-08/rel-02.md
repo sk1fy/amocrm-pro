@@ -140,7 +140,7 @@ L-02 EXPLAIN выполняется на `many_employees` и `dense_day` (реа
 
 ## Результаты прогона
 
-Пороги выше **не пересматривались**. Прогон: `golang:1.25-alpine` linux/arm64, сеть `amocrm-stage6-rel02-test_default`, БД `events_components_test`. PostgreSQL 17.10, `shared_buffers=128MB`, `work_mem=4MB`. Opt-in test `TestStage6ReadMeasure` — PASS, 18.04 s, 25 samples после 3 warmup. Лог: [test.log](rel-02/test.log). Сводка: [summary.json](rel-02/summary.json). Стенд в контейнере: [stand.json](rel-02/stand.json).
+Пороги выше **не пересматривались**. Прогон: `golang:1.25-alpine` linux/arm64, сеть `amocrm-stage6-rel02-test_default`, БД `events_components_test`. PostgreSQL 17.10, `shared_buffers=128MB`, `work_mem=4MB`. Opt-in test `TestStage6ReadMeasure` — PASS, 18.04 s, 25 samples после 3 warmup. Лог: test.log (`rel-02/test.log`). Сводка: summary.json (`rel-02/summary.json`). Стенд в контейнере: stand.json (`rel-02/stand.json`).
 
 Промежуточный FAIL первого прогона (17.56 s) был из-за слишком жёсткого правила «любой Seq Scan по `crm_events` при ≥10k строк = FAIL». Те же EXPLAIN показали execution 2–20 ms при shared hit, без disk read. Правило теста выровнено с критерием: Seq Scan страницы `history-compact` — FAIL (индекс `crm_events_time` обязан работать); Seq Scan агрегатов/фильтров — наблюдение, FAIL только при превышении execution. Пороги не поднимались. Второй прогон: 0 failures.
 
@@ -162,11 +162,12 @@ Claim (long_backfill): P95 687 µs, P99 1.7 ms. Claim 5 установок (l01)
 
 JSON compact many_employees: 76 216 байт. RPC QueryResult (локальная копия `toQueryResult`, unexported в `servicerpc`): 24 771 байт. Пул `MaxConns=8`, empty_acquire=2, суммарный acquire 6.8 ms.
 
-Профили: [profiles/](rel-02/profiles/).
+Имена исходных профилей сохранены ниже; сами JSON-профили доступны в истории Git.
 
 ### Выводы EXPLAIN по запросам
 
-Артефакты: [explain/](rel-02/explain/). Цифры — `many_employees` (35 000 строк), если не указано иначе.
+Сырые EXPLAIN-файлы доступны в истории Git. Цифры — `many_employees`
+(35 000 строк), если не указано иначе.
 
 | Запрос | План | Execution | Буферы |
 | --- | --- | --- | --- |
@@ -192,9 +193,9 @@ JSON compact many_employees: 76 216 байт. RPC QueryResult (локальна�
 
 | ID | Статус | Доказательства |
 | --- | --- | --- |
-| L-01 | измерен | [l01.json](rel-02/l01.json), [profiles/l01_multi_install.json](rel-02/profiles/l01_multi_install.json), explain `l01_multi_install-claim-*.txt` |
-| L-02 | измерен | [explain/](rel-02/explain/), профили many_employees / dense_day / long_backfill |
-| L-03 | измерен | [l03.json](rel-02/l03.json), large_notes |
+| L-01 | измерен | l01.json (`rel-02/l01.json`), profiles/l01_multi_install.json (`rel-02/profiles/l01_multi_install.json`), explain `l01_multi_install-claim-*.txt` |
+| L-02 | измерен | сводка EXPLAIN выше, профили many_employees / dense_day / long_backfill |
+| L-03 | измерен | l03.json (`rel-02/l03.json`), large_notes |
 
 **L-01.** 5 installation. Очередь: 20 queued jobs, возраст 2040 s (синтетический `created_at`). Collector lag snapshot 2100 s; `SyncStatus.LagSeconds` = 420, 840, 1260, 1680, 2100. Enrichment: pending 56, ready 112, retry 56, unavailable 56; возраст 5880 s. Claimable 224, refreshable ready 56, доля refresh **0.25**, event_payload 56. Карточка many_employees P95 144 µs; Claim P95 525 µs; ClaimEnrichment P95 1.2 ms. Пороги не превышены — отдельный индекс/агрегат по L-01 не нужен.
 

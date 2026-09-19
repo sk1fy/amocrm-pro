@@ -39,11 +39,11 @@
 
 ## Доказательства и команды
 
-- [Падающие A-01](a01-before.txt), [падающие A-02](a02-before.txt), [падающие A-03/A-04](ui-before.txt).
-- [PostgreSQL после A-01](a01-after.txt), [task→note и ранняя настройка сквозного теста](ab-targeted.txt), [исправленный сквозной harness](cards-targeted.txt), [рендер HTTP-карточек](ui-cards.txt).
-- [Штатные команды, exit codes и длительности](checks.json); каждый лог назван по проверке. Runner останавливается на первой ошибке, коды не скрываются через tee.
-- [Сайт](site.txt): 34 PASS; [тестер](tester.txt): 37 PASS, [проверка содержимого артефактов](client-artifact-verification.txt), [состав ZIP](zip-contents.txt).
-- [Старый Core с новыми сервисами](version-skew.txt): отдельный `TestComponentProcessesAndModeSwitch`, `-race`, exit 0. Старый бинарь SHA-256 `4eb3091a8e53c05d6600a74bc3d150d6efa3169436ced4960409cf63a4f80f6e`, Go 1.25.12, Linux arm64. Его точный Git SHA неизвестен; проверено только это сочетание со свежими Activity/CRM Events и синтетическим Gateway, не произвольные старые peers.
+- Падающие A-01 (`a01-before.txt`), падающие A-02 (`a02-before.txt`), падающие A-03/A-04 (`ui-before.txt`).
+- PostgreSQL после A-01 (`a01-after.txt`), task→note и ранняя настройка сквозного теста (`ab-targeted.txt`), исправленный сквозной harness (`cards-targeted.txt`), рендер HTTP-карточек (`ui-cards.txt`).
+- Штатные команды, exit codes и длительности (`checks.json`); каждый лог назван по проверке. Runner останавливается на первой ошибке, коды не скрываются через tee.
+- Сайт (`site.txt`): 34 PASS; тестер (`tester.txt`): 37 PASS, проверка содержимого артефактов (`client-artifact-verification.txt`), состав ZIP (`zip-contents.txt`).
+- Старый Core с новыми сервисами (`version-skew.txt`): отдельный `TestComponentProcessesAndModeSwitch`, `-race`, exit 0. Старый бинарь SHA-256 `4eb3091a8e53c05d6600a74bc3d150d6efa3169436ced4960409cf63a4f80f6e`, Go 1.25.12, Linux arm64. Его точный Git SHA неизвестен; проверено только это сочетание со свежими Activity/CRM Events и синтетическим Gateway, не произвольные старые peers.
 
 Ранние логи сохранены как есть: в A-02 исправлено ошибочное тестовое имя типа
 контрольного responsible-события; в первом сквозном harness расширено окно
@@ -61,9 +61,9 @@ benchmark и требуют FAIR_CLAIM_BENCHMARK=true. Они не выдают�
 
 После полного прогона добавлена группировка enum-подписей сверх 16 блоков.
 Окончательный presenter и его публичный путь повторно проверены на Go 1.25.12:
-[5 PASS / 0 FAIL / 0 SKIP, -race](final-presentation.txt), включая новый тест
-на 40 вариантов. Финальная сборка образа включает эту доработку. [Локальный
-пакетный прогон](enum-overflow.txt) имеет один ожидаемый SKIP
+5 PASS / 0 FAIL / 0 SKIP, -race (`final-presentation.txt`), включая новый тест
+на 40 вариантов. Финальная сборка образа включает эту доработку. Локальный
+пакетный прогон (`enum-overflow.txt`) имеет один ожидаемый SKIP
 TestPostgresSettingsReceiptSurvivesResponseLoss без ACTIVITY_TEST_DATABASE_URL;
 этот же тест прошёл с PostgreSQL в полном Activity CI. Дополнительно выполнен
 vet затронутого пакета. Окончательные результаты перечислены в `results.json`.
@@ -78,8 +78,8 @@ Backend Tester 2: **0.5.2**, локальный `dist/widget.zip`, SHA-256
 
 Оба клиента находятся в standalone-каталогах, не закоммиченных в родительский
 Git-репозиторий. Поэтому Git SHA родителя не указан как их ревизия.
-[Хеши файлов](clients.json) идентифицируют результат; патчи исходников рядом:
-[сайт](amocrm-pro-activity-site.patch), [тестер](amocrm-pro-service-2.patch).
+Хеши файлов (`clients.json`) идентифицируют результат; патчи исходников рядом:
+сайт (`amocrm-pro-activity-site.patch`), тестер (`amocrm-pro-service-2.patch`).
 Локальные резервные копии затронутых клиентских файлов и ZIP сохранены в
 `tmp/final-audit-client-backup/`. Полный release manifest — `release-manifest.json`.
 

@@ -36,9 +36,9 @@
   примеры для каждого маршрута.
 - `TestDeliverySkipsExhaustedBeyondCleanupBatch` проверяет оба состояния outbox.
 
-[До исправления](before.txt): оба теста FAIL на ожидаемое правильное поведение.
-[После исправления, целевые пакеты](targeted.txt): PASS с `-race`.
-[OpenAPI и варианты ошибок](contract.txt): PASS с `-race`.
+До исправления (`before.txt`): оба теста FAIL на ожидаемое правильное поведение.
+После исправления, целевые пакеты (`targeted.txt`): PASS с `-race`.
+OpenAPI и варианты ошибок (`contract.txt`): PASS с `-race`.
 
 ## Границы
 
@@ -52,14 +52,14 @@
 
 - `make TEST_COMPOSE_PROJECT=amocrm-audit-followup-gate-test integration-test`:
   **PASS, 221 верхнеуровневый тест, 2 штатных opt-in performance SKIP**.
-  Включает down/up и конкурентные миграции. [Лог](integration-test.txt).
+  Включает down/up и конкурентные миграции. Лог (`integration-test.txt`).
 - `make test`: **PASS**, сборки бинарей, gofmt, `go vet ./...`,
-  `go test -race -count=1 ./...` в Docker. [Лог](make-test.txt).
+  `go test -race -count=1 ./...` в Docker. Лог (`make-test.txt`).
 - Целевые пакеты: 30 PASS; контракт: 3 PASS. Полный Activity CI повторно
   не запускался: owner/schema/protobuf/UI не менялись. Результаты предыдущего
   Activity CI не выдаются за новый прогон.
-- Исходники совпадают с [SHA-256 manifest](source-manifest.json).
-  [Машиночитаемые результаты](checks.json). `git diff --check` — PASS.
+- Исходники совпадают с SHA-256 manifest (`source-manifest.json`).
+  Машиночитаемые результаты (`checks.json`). `git diff --check` — PASS.
 - Отдельные тестовые Compose-проекты и cache volume удалены;
-  [cleanup целевого прогона](targeted-cleanup.txt), полный gate использовал
+  cleanup целевого прогона (`targeted-cleanup.txt`), полный gate использовал
   штатный trap. Ни миграции, ни тестовые reset не направлялись в runtime.

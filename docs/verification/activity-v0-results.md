@@ -8,7 +8,7 @@
 Актуальное задание — архитектурный summary **v2**. Результаты ниже относятся к
 локальному Docker-стенду и тестовым данным, не к серверу или production cutover.
 
-Снимок исходников и конфигураций: [SHA-256 manifest](activity-v0-source-manifest.json),
+Снимок исходников и конфигураций: SHA-256 manifest (`activity-v0-source-manifest.json`),
 идентификатор набора `529cbbeb44622ac7342bbb4dc874801cd2c048733612b9b045f7f4ec9eaa640f`.
 
 ## Реализовано
@@ -141,7 +141,7 @@ burst 7 + 7 rps с оговорённым допуском планирован�
 Пределы зафиксированы в [плане](activity-v0-plan.md) до запуска. Эти цифры —
 локальный bounded fixture benchmark. Они не доказывают production SLO, полную
 физическую изоляцию или latency при произвольной production-нагрузке.
-Полный stdout: [process evidence](activity-v0-process.txt). Воспроизведение:
+Полный stdout: process evidence (`activity-v0-process.txt`). Воспроизведение:
 
 ```sh
 docker run --rm --network amocrm-activity_default \

@@ -36,10 +36,10 @@ sidecar state/reason_code.
 ## Проверки
 
 До исправления наличие трёх проблем подтверждено тестами:
-[лог наблюдений](before-fixes.txt). PASS в этом старом логе означает
+лог наблюдений (`before-fixes.txt`). PASS в этом старом логе означает
 подтверждение дефекта, а не отсутствие ошибок.
 
-После исправлений [целевые тесты](targeted.txt) прошли с `-race -p 1`:
+После исправлений целевые тесты (`targeted.txt`) прошли с `-race -p 1`:
 serviceapi, CRM Events с PostgreSQL, Gateway, amoCRM и protobuf round-trip.
 Новые сценарии проверяют медленное восстановление, отсутствие раннего повтора,
 атомарность claim, восстановление истёкшего lease и отказ старому worker,
@@ -60,8 +60,8 @@ UI 21 PASS / 0 SKIP**. Проверены owner PostgreSQL, mTLS, реальны
 с предыдущим API-бинарём пропущена: COMPONENT_PROCESS_PREVIOUS_API_BINARY не
 задан. Тестовый проект и volumes удалены штатным cleanup.
 
-Артефакты: [Go](activity-go.txt), [UI](activity-ui.txt), [Make/Compose](activity-ci.txt),
-[SHA-256 исходников](source-manifest.json), [машинная сводка](checks.json).
+Артефакты: Go (`activity-go.txt`), UI (`activity-ui.txt`), Make/Compose (`activity-ci.txt`),
+SHA-256 исходников (`source-manifest.json`), машинная сводка (`checks.json`).
 `git diff --check` — PASS.
 
 ## Выпуск и ограничения

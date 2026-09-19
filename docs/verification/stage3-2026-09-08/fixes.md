@@ -27,12 +27,12 @@
 ## Проверки
 
 Исходные три дефекта воспроизведены отдельными тестами до исправления:
-[три ожидаемых FAIL](fixes/review-failures.txt).
+три ожидаемых FAIL (`fixes/review-failures.txt`).
 
 После исправлений прошёл пакет CRM Events с PostgreSQL и `-race`:
-[результат](fixes/owner-tests.txt). Дополнительно прошли пять новых
+результат (`fixes/owner-tests.txt`). Дополнительно прошли пять новых
 регрессионных тестов вместе с существующими enrichment-тестами:
-[результат](fixes/regression.txt).
+результат (`fixes/regression.txt`).
 
 Новые тесты проверяют восстановление после 403/404 и отсутствие раннего
 повтора, изоляцию двух исторических текстов от текущего примечания,
@@ -52,8 +52,8 @@ UI 5 PASS, 0 SKIP. Проверены owner PostgreSQL, mTLS, реальные �
 с предыдущим API-бинарём пропущен: `COMPONENT_PROCESS_PREVIOUS_API_BINARY`
 не задан. Тестовые контейнеры и volumes полного gate удалены штатным cleanup.
 
-Артефакты: [Go](fixes/activity-go.txt), [UI](fixes/activity-ui.txt),
-[Make/Compose](fixes/activity-ci.txt), [SHA-256 исходников](fixes/source-manifest.json).
+Артефакты: Go (`fixes/activity-go.txt`), UI (`fixes/activity-ui.txt`),
+Make/Compose (`fixes/activity-ci.txt`), SHA-256 исходников (`fixes/source-manifest.json`).
 `git diff --check` — PASS. Логи регрессионного прогона выше предшествуют
 упрощению SQL до одного общего предиката; окончательная форма проверена
 полным gate и соответствует manifest.

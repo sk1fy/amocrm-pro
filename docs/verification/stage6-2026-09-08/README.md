@@ -41,8 +41,8 @@ Retention: [rel-03.md](rel-03.md). Parity: [mod-02.md](mod-02.md).
 
 | Проверка | Результат | Артефакт |
 | --- | --- | --- |
-| `make ACTIVITY_TEST_PROJECT=amocrm-stage6-test activity-ci` | exit 0; 205 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 25 PASS / 0 SKIP | [Go log](activity-go.txt), [UI log](activity-ui.txt), [checks.json](checks.json) |
-| REL-02 полный объём | отдельный compose `amocrm-stage6-rel02-test`, `STAGE6_REL02_MEASURE=true`; не production load | [rel-02/](rel-02/) |
+| `make ACTIVITY_TEST_PROJECT=amocrm-stage6-test activity-ci` | exit 0; 205 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 25 PASS / 0 SKIP | Go log (`activity-go.txt`), UI log (`activity-ui.txt`), checks.json (`checks.json`) |
+| REL-02 полный объём | отдельный compose `amocrm-stage6-rel02-test`, `STAGE6_REL02_MEASURE=true`; не production load | итог в [`rel-02.md`](rel-02.md) |
 
 Compose-проект `amocrm-stage6-test`, БД `*_test`. Runtime-проект `amocrm-activity` не менялся.
 

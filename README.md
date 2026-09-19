@@ -31,8 +31,9 @@ Activity v0 подключается явно, с отдельными логи�
 - лимиты widget API, fair claiming и общий лимит leases по integration;
 - метрики backlog, ожидания и исполнения по ограниченному каталогу сервисов.
 
-Последний CI на текущем `main` прошёл успешно. Функциональный MVP существует,
-но production hardening и полный lifecycle интеграции ещё не завершены.
+Функциональный MVP существует, но production hardening и полный lifecycle
+интеграции ещё не завершены. Актуальный статус конкретной ревизии подтверждают
+её CI checks, а не сохранённые исторические логи в `docs`.
 Канонический backlog находится в
 [#12](https://github.com/sk1fy/amocrm-pro/issues/12) и phase Issues.
 

@@ -48,7 +48,7 @@ GET /api/v1/widget/activity/events/{eventID}
 
 | Проверка | Результат | Артефакт |
 | --- | --- | --- |
-| `make ... activity-ci` | exit 0; 153 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 5 PASS | [Go log](activity-go.txt), [UI log](activity-ui.txt) |
+| `make ... activity-ci` | exit 0; 153 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 5 PASS | Go log (`activity-go.txt`), UI log (`activity-ui.txt`) |
 
 Compose-проект `amocrm-stage3-test`, БД `*_test`. Runtime-проект не менялся.
 Первый прогон упал на сравнении GetEvent sidecar с историческим конвертом; исправлено через `HistoricalEvent`.

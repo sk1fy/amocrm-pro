@@ -48,9 +48,9 @@ CRM Events алгоритмы, тесты и ограничения подроб
 | Проверка | Фактический результат |
 | --- | --- |
 | `gofmt -l .`, `go vet ./...` в Docker Go 1.25 | exit 0 |
-| Полный `go test -race -p 1 -count=1 -v -timeout=15m ./...` с Core/Activity/Events test DB | 275 top-level PASS, 7 SKIP, 0 FAIL; [лог](activity-v0-hardening-go.txt) |
-| `make COMPOSE=docker-compose activity-ci` на свежем disposable PostgreSQL 17 | exit 0; 93 top-level PASS, 3 helper SKIP, 0 FAIL; [компоненты](activity-v0-hardening-components.txt) |
-| Node 22 UI с operation JSON, записанным настоящим PostgreSQL receiver test | 5 PASS, 0 SKIP; [лог](activity-v0-hardening-ui.txt) |
+| Полный `go test -race -p 1 -count=1 -v -timeout=15m ./...` с Core/Activity/Events test DB | 275 top-level PASS, 7 SKIP, 0 FAIL; лог (`activity-v0-hardening-go.txt`) |
+| `make COMPOSE=docker-compose activity-ci` на свежем disposable PostgreSQL 17 | exit 0; 93 top-level PASS, 3 helper SKIP, 0 FAIL; компоненты (`activity-v0-hardening-components.txt`) |
+| Node 22 UI с operation JSON, записанным настоящим PostgreSQL receiver test | 5 PASS, 0 SKIP; лог (`activity-v0-hardening-ui.txt`) |
 | `git diff --check` и Compose configuration | exit 0 |
 
 Полный Go suite пропускает два opt-in process controllers, три subprocess helpers

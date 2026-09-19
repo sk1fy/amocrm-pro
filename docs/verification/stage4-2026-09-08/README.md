@@ -49,7 +49,7 @@ GET /api/v1/widget/activity/events/{eventID}
 
 | Проверка | Результат | Артефакт |
 | --- | --- | --- |
-| `make ... activity-ci` | exit 0; 170 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 5 PASS / 0 SKIP | [Go log](activity-go.txt), [UI log](activity-ui.txt) |
+| `make ... activity-ci` | exit 0; 170 верхнеуровневых Go PASS, 3 штатных helper SKIP; `-race`; UI 5 PASS / 0 SKIP | Go log (`activity-go.txt`), UI log (`activity-ui.txt`) |
 
 Compose-проект `amocrm-stage4-test`, БД `*_test`. Runtime-проект не менялся.
 Первый прогон упал: default panel стал включать неизвестных авторов (27→29

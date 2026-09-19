@@ -11,6 +11,8 @@ handoff-файлы не являются текущим backlog.
 - [`project-memory/BUGS.md`](project-memory/BUGS.md) — открытые и исправленные дефекты.
 - [`adr/`](adr/) — принятые архитектурные решения.
 - [`runbooks/`](runbooks/) — operator и integration runbooks.
+- [`specs/`](specs/README.md) — действующие продуктовые и интеграционные контракты.
+- [`fixtures/`](fixtures/) — небольшие синтетические примеры для спецификаций и тестов.
 - [`../deploy/observability/server/README.md`](../deploy/observability/server/README.md) —
   развёртывание и проверка server-observability стека.
 - [`../api/openapi.yaml`](../api/openapi.yaml) — публичный HTTP-контракт.
@@ -20,6 +22,12 @@ handoff-файлы не являются текущим backlog.
 
 - [`archive/`](archive/) — исходные планы и session checkpoints.
 - [`audits/`](audits/) — датированные аудиты конкретных ревизий.
+- [`plans/`](plans/) — завершённые датированные планы реализации; это не backlog.
+- [`verification/`](verification/) — исторические итоговые отчёты по проверкам.
+
+Сырые логи команд, временные JSON-снимки, патчи и checksum-манифесты в Git не
+хранятся: итог и существенные ограничения должны быть записаны в Markdown-отчёте,
+а воспроизводимые проверки — в тестах и CI.
 
 При расхождении источников приоритет такой:
 

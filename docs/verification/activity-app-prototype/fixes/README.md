@@ -46,9 +46,9 @@ Activity согласованно. Старые viewer delegation без вер�
 - Целевые Go regression-тесты: PASS; их исправления затем проверены общим gate.
 - `git diff --check`, gofmt и ссылки отчёта проверены.
 
-Артефакты: [Activity gate](activity-ci.txt), [Go](activity-go.txt),
-[UI](activity-ui.txt), [целевые тесты](targeted.txt), [сайт](site-check.txt),
-[общий make test](make-test.txt), [SHA-256 исходников](source-sha256.json).
+Артефакты: Activity gate (`activity-ci.txt`), Go (`activity-go.txt`),
+UI (`activity-ui.txt`), целевые тесты (`targeted.txt`), сайт (`site-check.txt`),
+общий make test (`make-test.txt`), SHA-256 исходников (`source-sha256.json`).
 
 Тестовый Compose-проект очищен вместе с его БД. Runtime `amocrm-activity`
 не менялся. Команды для повторения:

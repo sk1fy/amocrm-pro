@@ -47,27 +47,27 @@ Refresh запрещён. Отмену до вызова Gateway и ошибку
 
 ## Проверки
 
-- До исправлений: [три регрессии](before-regressions.txt),
-  [uninstall с истёкшим token](before-uninstall.txt) — FAIL на требуемое
+- До исправлений: три регрессии (`before-regressions.txt`),
+  uninstall с истёкшим token (`before-uninstall.txt`) — FAIL на требуемое
   корректное поведение. После исправлений эти случаи перенесены в штатные тесты.
-- [Целевые пакеты с -race](targeted.txt) — PASS: OAuth, maintenance,
+- Целевые пакеты с -race (`targeted.txt`) — PASS: OAuth, maintenance,
   webhook и integrations CLI. Дополнительная проверка durable registration
-  intent и CLI: [PASS](final-targeted.txt).
+  intent и CLI: PASS (`final-targeted.txt`).
 - `make TEST_COMPOSE_PROJECT=amocrm-stage7-fix-test integration-test` — **PASS**,
   включая down/up, конкурентный migrate и штатный Core suite с -race.
   220 верхнеуровневых PASS, 2 ожидаемых opt-in performance SKIP.
-  [Полный лог](integration-test.txt).
+  Полный лог (`integration-test.txt`).
 - `make ACTIVITY_TEST_PROJECT=amocrm-stage7-fix-activity-test activity-ci` —
   **PASS: 215 Go PASS с -race, 3 служебных helper SKIP, UI 25 PASS**.
-  [Команда](activity-ci.txt), [Go](activity-go.txt), [UI](activity-ui.txt).
+  Команда (`activity-ci.txt`), Go (`activity-go.txt`), UI (`activity-ui.txt`).
   Process fault/mode switch выполнены. Необязательный предыдущий бинарь не
   задавался; actual old-binary сравнение не заявляется.
 - `make test` — **PASS**: сборки backend-бинарей, gofmt, `go vet ./...`,
-  `go test -race -count=1 ./...` в Docker. [Лог](make-test.txt).
+  `go test -race -count=1 ./...` в Docker. Лог (`make-test.txt`).
   DB-проверки этого gate не подменяют integration suite выше.
 
-Проверенные Go/SQL файлы: [SHA-256 manifest](source-manifest.json).
-Тестовые Compose-проекты удалены штатными traps; [Activity cleanup](activity-cleanup.txt).
+Проверенные Go/SQL файлы: SHA-256 manifest (`source-manifest.json`).
+Тестовые Compose-проекты удалены штатными traps; Activity cleanup (`activity-cleanup.txt`).
 
 Новые/обновлённые регрессии находятся в:
 

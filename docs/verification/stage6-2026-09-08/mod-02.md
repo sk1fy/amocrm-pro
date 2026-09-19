@@ -4,7 +4,7 @@
 
 Размещение меняет composition (embedded / gRPC), а не продуктовую логику. Вторая реализация Activity/Events не писалась: тесты гоняют `activity.New` и тот же owner-фикстурный порт через локальный вызов и `servicerpc`.
 
-Лог: [servicerpc-parity.txt](mod-02/servicerpc-parity.txt).
+Лог: servicerpc-parity.txt (`mod-02/servicerpc-parity.txt`).
 
 ## Существующее покрытие и добавленное
 

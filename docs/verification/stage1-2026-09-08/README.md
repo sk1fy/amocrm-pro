@@ -6,8 +6,8 @@
 
 | Задача | Результат | Доказательство |
 | --- | --- | --- |
-| BASE-01: исходники и локальный runtime | Проверены; целевой удалённый сервер пока не указан | Этот отчёт, [local-runtime.json](local-runtime.json) |
-| BASE-01: Issues | Прочитаны текущие статусы и checklist; составлено сопоставление | [issue-index.json](issue-index.json), таблица ниже |
+| BASE-01: исходники и локальный runtime | Проверены; целевой удалённый сервер пока не указан | Этот отчёт, local-runtime.json (`local-runtime.json`) |
+| BASE-01: Issues | Прочитаны текущие статусы и checklist; составлено сопоставление | issue-index.json (`issue-index.json`), таблица ниже |
 | BASE-01: живой виджет | Зафиксирован предел доказательств скриншотов и прежнего отчёта | Раздел о виджете ниже |
 | BASE-02: матрица и примеры | Результат находится в отдельной спецификации | [Матрица данных](../../specs/activity-data-contract.md), [синтетические fixtures](../../fixtures/activity-events-v1.json) |
 | BASE-03: продуктовые решения | Рабочий scope первой версии без изменения действующих настроек | Та же спецификация |
@@ -33,7 +33,7 @@
 | CRM Events | `amocrm-activity-crm-events-1` | healthy |
 | PostgreSQL | `amocrm-activity-postgres-1` | healthy, образ `postgres:17-alpine` |
 
-Точные image IDs, даты создания/старта, SHA-256 извлечённых бинарей и migration checksums сохранены в [local-runtime.json](local-runtime.json). У четырёх Go-бинарей build metadata сообщает `go1.25.12`, но не содержит VCS revision; OCI revision label также отсутствует. Поэтому точный исходный commit этих запущенных бинарей **не подтверждён**. Дата контейнера и его healthy не заменяют эту проверку.
+Точные image IDs, даты создания/старта, SHA-256 извлечённых бинарей и migration checksums сохранены в local-runtime.json (`local-runtime.json`). У четырёх Go-бинарей build metadata сообщает `go1.25.12`, но не содержит VCS revision; OCI revision label также отсутствует. Поэтому точный исходный commit этих запущенных бинарей **не подтверждён**. Дата контейнера и его healthy не заменяют эту проверку.
 
 | БД | Применено | Сравнение с исходниками |
 | --- | --- | --- |
@@ -64,7 +64,7 @@
 
 ## Что подтверждает существующий виджет
 
-Постоянный тестер: `/Users/nikpeskov/Projects/sub-projects/amocrm-pro-service-2`, package version `0.4.0`; контрольные суммы локальных assets записаны в [tester-source.json](tester-source.json). Выделенный commit этого клиентского каталога получить не удалось: он находится в родительском репозитории без доступного HEAD. Версия локальных файлов не доказывает версию установленного ZIP.
+Постоянный тестер: `/Users/nikpeskov/Projects/sub-projects/amocrm-pro-service-2`, package version `0.4.0`; контрольные суммы локальных assets записаны в tester-source.json (`tester-source.json`). Выделенный commit этого клиентского каталога получить не удалось: он находится в родительском репозитории без доступного HEAD. Версия локальных файлов не доказывает версию установленного ZIP.
 
 Предоставленные скриншоты показывают: открылась панель Activity, отображаются сотрудники/отделы, зарегистрированные события, состояние сборщика, verified frontier, последнее успешное чтение и отсутствие показанной ошибки. Это свидетельство работающего браузерного чтения в одном аккаунте; оно не доказывает сценарий sync до succeeded, reauth, независимый сбор после закрытия окна, failover или полноту всего account history.
 
@@ -76,7 +76,7 @@ JSON относится к другому аккаунту. Он использ�
 
 Правка ограничена тестом архитектурных границ и документацией/синтетическими примерами. Новые endpoints, сборщик, миграции и клиентский функционал здесь не реализуются.
 
-Итоговый целевой прогон в Docker `golang:1.25` завершился с exit 0: три верхнеуровневых теста, 16 подтестов, `-race`, без SKIP; затем `go vet ./internal/componentruntime` — exit 0. Лог: [boundaries.log](boundaries.log), сводка: [checks.json](checks.json).
+Итоговый целевой прогон в Docker `golang:1.25` завершился с exit 0: три верхнеуровневых теста, 16 подтестов, `-race`, без SKIP; затем `go vet ./internal/componentruntime` — exit 0. Лог: boundaries.log (`boundaries.log`), сводка: checks.json (`checks.json`).
 
 Проверены `TestDomainDependencyBoundaries`, `TestNewProductDirectoriesCannotBypassBoundaries`, `TestStandaloneRejectsForeignConfiguration`. Новый guard автоматически обходит продуктовые каталоги, оставляя явное исключение для Core `leadstatus`; различает собственный подпакет и чужой пакет с похожим префиксом, отвергает Core facilities, прямые HTTP/socket обращения и transport/config imports. Проверены как запрещённые, так и разрешённые зависимости. Это проверка прямых импортов; runtime mTLS/DB guards не заменяются ею.
 

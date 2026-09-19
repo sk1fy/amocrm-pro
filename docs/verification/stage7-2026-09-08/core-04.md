@@ -60,7 +60,7 @@ CORE-04 — исходящий HTTP, claim не переписывался.
 Повторный load test не запускался. Источник:
 [rel-02.md](../stage6-2026-09-08/rel-02.md),
 [fixes/README.md](../stage6-2026-09-08/fixes/README.md),
-[workers.json](../stage6-2026-09-08/fixes/rel-02/workers.json).
+workers.json (`../stage6-2026-09-08/fixes/rel-02/workers.json`).
 
 | Наблюдение | Вывод |
 | --- | --- |
