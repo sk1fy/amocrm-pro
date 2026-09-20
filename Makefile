@@ -44,7 +44,7 @@ vulncheck: ## Check reachable Go vulnerabilities against the official database
 
 .PHONY: help config build up down destroy restart ps logs migrate migrate-down test openapi-check integration-test queue-benchmark vet fmt fmt-check tidy db-shell activity-up activity-embedded activity-test activity-ci activity-backup-verify activity-transfer-verify
 
-.PHONY: activity-observability-test
+.PHONY: activity-observability-test server-dashboard-test
 PROMETHEUS_IMAGE ?= prom/prometheus:v2.55.1
 
 ACTIVITY_COMPOSE := $(COMPOSE) -p amocrm-activity -f docker-compose.activity.yml
@@ -76,9 +76,16 @@ activity-transfer-verify: ## Overlay config plus Events restore onto a second Po
 	python3 deploy/activity/test-verify-transfer.py
 	sh deploy/activity/verify-transfer.sh
 
-activity-observability-test: ## Validate Prometheus config and exercise pilot alert rules
+activity-observability-test: server-dashboard-test ## Validate Prometheus config and exercise pilot alert rules
 	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) check config /config/prometheus.yml
 	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/observability:/config:ro" $(PROMETHEUS_IMAGE) test rules /config/alerts.test.yml
+
+server-dashboard-test: ## Validate current Grafana cards and PromQL recovery/no-data behavior
+	@set -eu; mkdir -p "$(CURDIR)/tmp"; tests=$$(mktemp "$(CURDIR)/tmp/grafana-test.XXXXXX"); trap 'rm -f "$$tests"' EXIT INT TERM; \
+	$(DOCKER) run --rm -v "$(CURDIR)/deploy/observability/server/grafana:/grafana:ro" \
+		python:3.12-alpine python /grafana/test-dashboards.py > "$$tests"; \
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$$tests:/config/tests.json:ro" \
+		$(PROMETHEUS_IMAGE) test rules /config/tests.json
 
 activity-ci: activity-observability-test activity-backup-verify ## Run Activity verification with disposable PostgreSQL and automatic cleanup
 	@set -eu; \

@@ -20,21 +20,23 @@
       "id": 1,
       "type": "stat",
       "title": "Сервисы: цели не в норме",
-      "description": "Сколько целей Prometheus (scrape targets) недоступны прямо сейчас. Норма: 0. Если > 0 — откройте панель «Состояние целей» и проверьте нужный сервис и сеть.",
+      "description": "Сколько целей Prometheus (scrape targets) недоступны на конец выбранного периода. Норма: 0. При отсутствии рядов up — «Нет данных», а не ноль. Если > 0 — откройте панель «Состояние целей» и проверьте нужный сервис и сеть.",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "instant": true, "expr": "count(up) - sum(up)", "legendFormat": "down" }
+        { "refId": "A", "instant": true, "range": false, "expr": "count(up) - sum(up)", "legendFormat": "down" }
       ],
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "colorMode": "background",
-        "graphMode": "area",
+        "graphMode": "none",
         "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "noValue": "Нет данных",
+          "mappings": [ { "type": "special", "options": { "match": "null", "result": { "text": "Нет данных", "color": "gray" } } } ],
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
         },
         "overrides": []
