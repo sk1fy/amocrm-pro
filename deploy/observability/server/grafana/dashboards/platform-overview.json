@@ -7,27 +7,29 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }, "unit": "short" },
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }, "unit": "short", "noValue": "Нет данных", "mappings": [ { "type": "special", "options": { "match": "null", "result": { "text": "Нет данных", "color": "gray" } } } ] },
         "overrides": []
       },
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "id": 1,
       "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(up == 1)", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(up == bool 1)", "instant": true, "range": false, "refId": "A" } ],
       "title": "Targets up",
+      "description": "Доступные цели по последнему scrape на конец выбранного периода. История ниже — Scrape availability. Нет данных означает отсутствие рядов up, а не ноль доступных целей.",
       "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }, "unit": "short" },
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }, "unit": "short", "noValue": "Нет данных", "mappings": [ { "type": "special", "options": { "match": "null", "result": { "text": "Нет данных", "color": "gray" } } } ] },
         "overrides": []
       },
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "id": 2,
       "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(up == 0)", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(up == bool 0)", "instant": true, "range": false, "refId": "A" } ],
       "title": "Targets down",
+      "description": "Недоступные цели по последнему scrape на конец выбранного периода. Норма: 0. Прошлые сбои видны в Scrape availability. Нет данных означает отсутствие рядов up, а не исправность всех целей.",
       "type": "stat"
     },
     {
