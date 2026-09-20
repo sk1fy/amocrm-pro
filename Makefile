@@ -84,6 +84,7 @@ server-dashboard-test: ## Validate current Grafana cards and PromQL recovery/no-
 	@set -eu; mkdir -p "$(CURDIR)/tmp"; tests=$$(mktemp "$(CURDIR)/tmp/grafana-test.XXXXXX"); trap 'rm -f "$$tests"' EXIT INT TERM; \
 	$(DOCKER) run --rm -v "$(CURDIR)/deploy/observability/server/grafana:/grafana:ro" \
 		python:3.12-alpine python /grafana/test-dashboards.py > "$$tests"; \
+	chmod 644 "$$tests"; \
 	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$$tests:/config/tests.json:ro" \
 		$(PROMETHEUS_IMAGE) test rules /config/tests.json
 
