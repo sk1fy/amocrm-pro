@@ -32,6 +32,7 @@
 | [0029](0029-outbound-budget-account-scope.md) | Accepted | Бюджет по паре [аккаунт, интеграция] 7 rps и потолок аккаунта 50 rps, burst 1, ограниченное ожидание с отказом |
 | [0030](0030-go-vulnerability-check.md) | Accepted | Docker govulncheck и обновление уязвимой gRPC-зависимости |
 | [0031](0031-admin-sync-reconciliation.md) | Accepted | Обновление sync-квитанций перед транзакцией приёма admin-команды |
+| [0032](0032-lead-distribution-ownership-and-access.md) | Proposed | Распределение: владельцы данных, company/installation binding, права двух интерфейсов и технических операций |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product
