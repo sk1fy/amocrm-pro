@@ -1,0 +1,2355 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Core / TeamOS lead distribution — proposed bridge API
+  version: 0.1.0-proposed
+  description: Проект РС-02. Не смонтирован в runtime. Перед реализацией переносится в canonical
+    OpenAPI/protobuf владельца; текущие URL и контракты не изменены.
+x-contract-status: proposed
+servers:
+- url: https://distribution.example.invalid
+security:
+- serviceIdentity: []
+  delegation: []
+paths:
+  /internal/v1/distribution/events:
+    post:
+      operationId: distributionAcceptEvent
+      summary: 'Core → TeamOS: durable вход события'
+      x-authorization: Core delivery identity; signed scope/bindingRevision; independent consumer
+        dedup
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+    x-receiver: teamos-company
+  /internal/v1/distribution/results:
+    post:
+      operationId: distributionAcceptResult
+      summary: 'Core → TeamOS: push результата'
+      x-authorization: Core result identity; operation scope + monotonically increasing resultVersion
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResultEnvelope'
+    x-receiver: teamos-company
+  /internal/v1/distribution/bindings/confirm:
+    post:
+      operationId: distributionConfirmBinding
+      summary: 'Core → TeamOS: подтвердить intent'
+      x-authorization: Core verified live CRM admin context + valid TeamOS owner/admin link intent
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindingConfirmation'
+    x-receiver: teamos-company
+  /internal/v1/distribution/assignments:
+    post:
+      operationId: distributionAcceptAssignment
+      summary: 'TeamOS → Core: принять назначение'
+      x-authorization: TeamOS distribution principal; exact binding/capability/lead scope and fresh
+        policy
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentEnvelope'
+    x-receiver: amocrm-core
+  /internal/v1/distribution/operations/{operationId}:
+    parameters:
+    - name: operationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: distributionGetOperation
+      summary: 'TeamOS → Core: восстановить результат'
+      x-authorization: Exact service principal+company/account/installation/binding scope; no cross-actor
+        result disclosure
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+    x-receiver: amocrm-core
+  /internal/v1/distribution/operations/{operationId}/reconcile:
+    parameters:
+    - name: operationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: distributionReconcileOperation
+      summary: Повторная сверка неизвестного исхода
+      x-authorization: Scoped TeamOS service or Core operator permission; expectedResultVersion CAS;
+        no blind PATCH
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileInput'
+    x-receiver: amocrm-core
+  /api/v1/widget/distribution/connections:
+    get:
+      operationId: widgetDistributionListConnections
+      summary: Подключения текущей компании
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionPage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/connections/{bindingId}:
+    parameters:
+    - name: bindingId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: widgetDistributionGetConnection
+      summary: Состояние подключения
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connection'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/references/users:
+    get:
+      operationId: widgetDistributionListUsers
+      summary: Сотрудники, сопоставление и доступность
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: bindingId
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserReferencePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/references/pipelines:
+    get:
+      operationId: widgetDistributionListPipelines
+      summary: Воронки и этапы
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: bindingId
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineReferencePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/groups/overview:
+    get:
+      operationId: widgetDistributionListGroupOverview
+      summary: Новая пагинируемая проекция групп
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupOverviewPage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/rules:
+    get:
+      operationId: widgetDistributionListRules
+      summary: Правила компании
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: bindingId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    post:
+      operationId: widgetDistributionCreateRule
+      summary: Создать правило первой версии
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        TeamOS owner/admin; all group/member/binding IDs in current company
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleInput'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/rules/{ruleId}:
+    parameters:
+    - name: ruleId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: widgetDistributionGetRule
+      summary: Получить актуальную конфигурацию
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    put:
+      operationId: widgetDistributionReplaceRule
+      summary: Сохранить правило с CAS
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        TeamOS owner/admin; expectedRevision CAS; unsupported legacy algorithm rejected
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleInput'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/rules/{ruleId}/commands:
+    parameters:
+    - name: ruleId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: widgetDistributionCommandRule
+      summary: Пауза, возобновление или пересчёт
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        TeamOS owner/admin; expectedRevision checked at admission and execution
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleCommandInput'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/queue:
+    get:
+      operationId: widgetDistributionListQueue
+      summary: Очередь разрешённых сделок
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        TeamOS section distribution or owner/admin AND CanViewLead per row; scoped counts/cursor
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: ruleId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: bindingId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: leadId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CrmId'
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueState'
+          maxItems: 13
+          uniqueItems: true
+      - name: from
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - receivedAt.asc
+          - receivedAt.desc
+          default: receivedAt.asc
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/queue/{episodeId}:
+    parameters:
+    - name: episodeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: widgetDistributionGetEpisode
+      summary: Детали сделки и первые 100 событий истории
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        CanViewLead on resolved episode; no cross-tenant existence disclosure
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueDetails'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/queue/{episodeId}/commands:
+    parameters:
+    - name: episodeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: widgetDistributionCommandEpisode
+      summary: Отмена, сверка или безопасный повтор
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        TeamOS owner/admin AND CanViewLead; expectedRevision and current effect state
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EpisodeCommandInput'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/history:
+    get:
+      operationId: widgetDistributionListHistory
+      summary: История разрешённых решений
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        CanViewLead for each associated episode
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: episodeId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: from
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/stats:
+    get:
+      operationId: widgetDistributionGetStats
+      summary: Показатели по подтверждённым решениям
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        Same resource visibility as queue; range <=31 days and timezone from company
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: from
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /api/v1/widget/distribution/commands/{commandId}:
+    parameters:
+    - name: commandId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: widgetDistributionGetCommand
+      summary: Восстановить результат после timeout
+      x-authorization: Verified widget identity → binding → TeamOS identity and original policy.
+        Original actor + company scope; episode commands additionally CanViewLead; other actors need
+        explicit operator diagnostics permission
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      security:
+      - widgetJwt: []
+    x-receiver: amocrm-core-widget-facade
+  /admin/v1/installations/{installationId}/distribution:
+    get:
+      operationId: adminDistributionDiagnostics
+      summary: Внутренний scoped доступ распределения
+      security:
+      - adminBearer: []
+      x-authorization: Admin API live employee RBAC + Core operator action allowlist + installation
+        scope; no direct DB; command GET checks actor scope.
+      parameters:
+      - name: installationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: X-Admin-Actor
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^employee:[0-9a-f-]{36}$
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Observation or durable command receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Diagnostics'
+        default:
+          description: Текущий Core admin error envelope; безопасные code/message/request_id/retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminError'
+    x-receiver: amocrm-core-admin
+  /admin/v1/installations/{installationId}/distribution/commands:
+    post:
+      operationId: adminDistributionRecover
+      summary: Внутренний scoped доступ распределения
+      security:
+      - adminBearer: []
+      x-authorization: Admin API live employee RBAC + Core operator action allowlist + installation
+        scope; no direct DB; command GET checks actor scope.
+      parameters:
+      - name: installationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: X-Admin-Actor
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^employee:[0-9a-f-]{36}$
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Observation or durable command receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRecoveryReceipt'
+        default:
+          description: Текущий Core admin error envelope; безопасные code/message/request_id/retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminError'
+        '400':
+          $ref: '#/components/responses/AdminFailure'
+        '401':
+          $ref: '#/components/responses/AdminFailure'
+        '403':
+          $ref: '#/components/responses/AdminFailure'
+        '404':
+          $ref: '#/components/responses/AdminFailure'
+        '409':
+          $ref: '#/components/responses/AdminFailure'
+        '429':
+          $ref: '#/components/responses/AdminFailure'
+        '503':
+          $ref: '#/components/responses/AdminFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRecoveryInput'
+    x-receiver: amocrm-core-admin
+  /admin/v1/installations/{installationId}/distribution/commands/{commandId}:
+    get:
+      operationId: adminDistributionCommand
+      summary: Внутренний scoped доступ распределения
+      security:
+      - adminBearer: []
+      x-authorization: Admin API live employee RBAC + Core operator action allowlist + installation
+        scope; no direct DB; command GET checks actor scope.
+      parameters:
+      - name: installationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: X-Admin-Actor
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^employee:[0-9a-f-]{36}$
+      - $ref: '#/components/parameters/RequestId'
+      - name: commandId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Observation or durable command receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRecoveryReceipt'
+        default:
+          description: Текущий Core admin error envelope; безопасные code/message/request_id/retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminError'
+    x-receiver: amocrm-core-admin
+  /internal/v1/distribution/decisions/{decisionId}/validate:
+    x-receiver: teamos-company
+    parameters:
+    - name: decisionId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: distributionValidateDecision
+      summary: 'Core → TeamOS: live решение перед PATCH'
+      x-authorization: Core execution identity; exact operation/decision/tenant/revisions/fence;
+        no permit from browser
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionValidationInput'
+      responses:
+        '200':
+          description: Fresh policy decision for one dispatch attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionValidation'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /internal/v1/distribution/operations/{operationId}/cancel:
+    x-receiver: amocrm-core
+    parameters:
+    - name: operationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: distributionCancelOperation
+      summary: 'TeamOS → Core: запросить отмену'
+      x-authorization: Historical immutable operation scope; current grants permit cancellation/reconciliation
+        only; expectedResultVersion
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOperationInput'
+      responses:
+        '202':
+          description: Durable accepted receipt; not final outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+components:
+  securitySchemes:
+    serviceIdentity:
+      type: mutualTLS
+      description: Разрешённая identity Core или company; SAN/ACL проверяются.
+    delegation:
+      type: http
+      scheme: bearer
+      description: 'Короткая signed delegation: issuer/audience/action/scope; не пользовательский
+        JWT и не OAuth.'
+    widgetJwt:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: Disposable amoCRM JWT; exact issuer/audience/client/account/user, replay, capability;
+        actor/company не из browser body.
+    adminBearer:
+      type: http
+      scheme: bearer
+      description: Internal Core admin credential; browser never receives it. Admin API enforces
+        employee RBAC and passes X-Admin-Actor.
+  schemas:
+    Id:
+      type: string
+      format: uuid
+    CrmId:
+      type: string
+      pattern: ^[1-9][0-9]*$
+      maxLength: 19
+      description: Положительный CRM ID как decimal string; без float-конверсии и ведущих нулей.
+        Semantic bound <=9223372036854775807 обязателен в приложении и fixtures; regex не доказывает
+        upper bound.
+    Revision:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+      description: Safe JSON integer; proto uint64/DB bigint обязаны проверять тот же диапазон.
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC3339 UTC с Z; время наблюдения не равно времени факта источника.
+    OperationState:
+      type: string
+      enum:
+      - queued
+      - prechecking
+      - applying
+      - outcome_unknown
+      - confirming
+      - succeeded
+      - no_change
+      - rejected
+      - cancelled
+      - conflict
+    ExternalEffectState:
+      type: string
+      enum:
+      - no_attempt
+      - in_flight
+      - unknown
+      - settled
+    OperationOutcome:
+      type: string
+      enum:
+      - assigned
+      - kept
+      - already_target
+      - source_changed
+      - cancelled
+      - rejected
+      - conflict
+    ErrorCode:
+      type: string
+      enum:
+      - validation_failed
+      - unauthenticated
+      - permission_denied
+      - resource_not_found
+      - binding_not_active
+      - binding_mismatch
+      - mapping_required
+      - capability_revoked
+      - unsupported_algorithm
+      - stage_already_owned
+      - revision_conflict
+      - idempotency_conflict
+      - operation_unresolved
+      - invalid_transition
+      - cursor_invalid
+      - cursor_expired
+      - source_unavailable
+      - policy_unavailable
+      - reauth_required
+      - rate_limited
+      - internal_error
+      - distribution_rule_managed
+    Reason:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        retryable:
+          type: boolean
+        nextAttemptAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      required:
+      - code
+      - message
+      - retryable
+      additionalProperties: false
+    Scope:
+      type: object
+      properties:
+        companyId:
+          $ref: '#/components/schemas/Id'
+        accountId:
+          $ref: '#/components/schemas/CrmId'
+        integrationId:
+          $ref: '#/components/schemas/Id'
+        installationId:
+          $ref: '#/components/schemas/Id'
+        bindingId:
+          $ref: '#/components/schemas/Id'
+        bindingRevision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - companyId
+      - accountId
+      - integrationId
+      - installationId
+      - bindingId
+      - bindingRevision
+      additionalProperties: false
+    LeadSnapshot:
+      type: object
+      properties:
+        leadId:
+          $ref: '#/components/schemas/CrmId'
+        pipelineId:
+          $ref: '#/components/schemas/CrmId'
+        statusId:
+          $ref: '#/components/schemas/CrmId'
+        responsibleUserId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        sourceUpdatedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+      - leadId
+      - pipelineId
+      - statusId
+      - responsibleUserId
+      - observedAt
+      additionalProperties: false
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              minLength: 1
+              maxLength: 1000
+            status:
+              type: integer
+              minimum: 400
+              maximum: 599
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            requestId:
+              $ref: '#/components/schemas/Id'
+            details:
+              type: object
+              properties:
+                field:
+                  type: string
+                  maxLength: 120
+                currentRevision:
+                  $ref: '#/components/schemas/Revision'
+                operationId:
+                  $ref: '#/components/schemas/Id'
+                retryAfterSeconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 86400
+              required: []
+              additionalProperties: false
+          required:
+          - message
+          - status
+          - code
+          - requestId
+          additionalProperties: false
+      required:
+      - error
+      additionalProperties: false
+    Actor:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - user
+          - system
+          - operator
+        teamosUserId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        crmUserId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        operatorId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+      required:
+      - kind
+      additionalProperties: false
+      description: Actor из проверенного server context; не доверять значению browser payload.
+      allOf:
+      - if:
+          properties:
+            kind:
+              const: user
+        then:
+          required:
+          - teamosUserId
+          - crmUserId
+          properties:
+            teamosUserId:
+              $ref: '#/components/schemas/Id'
+            crmUserId:
+              $ref: '#/components/schemas/CrmId'
+      - if:
+          properties:
+            kind:
+              const: operator
+        then:
+          required:
+          - operatorId
+          properties:
+            operatorId:
+              $ref: '#/components/schemas/Id'
+    EventEnvelope:
+      type: object
+      properties:
+        schemaVersion: &id001
+          type: integer
+          const: 1
+        messageId: &id002
+          $ref: '#/components/schemas/Id'
+        scope: &id003
+          $ref: '#/components/schemas/Scope'
+        eventId: &id004
+          $ref: '#/components/schemas/Id'
+        sourceEventId: &id005
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 255
+          - type: 'null'
+        sourceOccurredAt: &id006
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        receivedAt: &id007
+          $ref: '#/components/schemas/Timestamp'
+        emittedAt: &id008
+          $ref: '#/components/schemas/Timestamp'
+        correlationId: &id009
+          $ref: '#/components/schemas/Id'
+        causationId: &id010
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        event:
+          type: object
+          properties:
+            kind:
+              type: string
+              enum:
+              - lead.created
+              - lead.status_changed
+              - lead.responsible_changed
+              - lead.deleted
+            leadId:
+              $ref: '#/components/schemas/CrmId'
+            entryFingerprint:
+              anyOf:
+              - type: string
+                minLength: 1
+                maxLength: 255
+              - type: 'null'
+            before:
+              anyOf:
+              - $ref: '#/components/schemas/LeadSnapshot'
+              - type: 'null'
+            after:
+              anyOf:
+              - $ref: '#/components/schemas/LeadSnapshot'
+              - type: 'null'
+          required:
+          - kind
+          - leadId
+          - entryFingerprint
+          - before
+          - after
+          additionalProperties: false
+      required:
+      - schemaVersion
+      - messageId
+      - scope
+      - eventId
+      - sourceEventId
+      - sourceOccurredAt
+      - receivedAt
+      - emittedAt
+      - correlationId
+      - causationId
+      - event
+      additionalProperties: false
+    AssignmentEnvelope:
+      type: object
+      properties:
+        schemaVersion: *id001
+        messageId: *id002
+        scope: *id003
+        eventId: *id004
+        sourceEventId: *id005
+        sourceOccurredAt: *id006
+        receivedAt: *id007
+        emittedAt: *id008
+        correlationId: *id009
+        causationId: *id010
+        command:
+          type: object
+          properties:
+            operationId:
+              $ref: '#/components/schemas/Id'
+            episodeId:
+              $ref: '#/components/schemas/Id'
+            decisionId:
+              $ref: '#/components/schemas/Id'
+            ruleId:
+              $ref: '#/components/schemas/Id'
+            ruleRevision:
+              $ref: '#/components/schemas/Revision'
+            decisionKind:
+              type: string
+              enum:
+              - assign
+              - keep
+            targetResponsibleUserId:
+              $ref: '#/components/schemas/CrmId'
+            expectedSnapshot:
+              $ref: '#/components/schemas/LeadSnapshot'
+            actor:
+              $ref: '#/components/schemas/Actor'
+            validUntil:
+              $ref: '#/components/schemas/Timestamp'
+            groupId: &id011
+              $ref: '#/components/schemas/Id'
+            availabilityRevision: &id012
+              $ref: '#/components/schemas/Revision'
+            claimRevision: &id013
+              $ref: '#/components/schemas/Revision'
+          required:
+          - operationId
+          - episodeId
+          - decisionId
+          - ruleId
+          - ruleRevision
+          - decisionKind
+          - targetResponsibleUserId
+          - expectedSnapshot
+          - actor
+          - validUntil
+          - groupId
+          - availabilityRevision
+          - claimRevision
+          additionalProperties: false
+          description: keep никогда не делает PATCH; target должен совпасть с expectedSnapshot.responsibleUserId.
+            При несовпадении source возвращается source_changed.
+      required:
+      - schemaVersion
+      - messageId
+      - scope
+      - eventId
+      - sourceEventId
+      - sourceOccurredAt
+      - receivedAt
+      - emittedAt
+      - correlationId
+      - causationId
+      - command
+      additionalProperties: false
+      description: System actor действует по binding/rule, user по свежим user checks. operationId
+        постоянен при retry. validUntil ограничивает admission/precheck, но не доказывает отсутствие
+        уже отправленного PATCH.
+    OperationError:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          maxLength: 1000
+        retryable:
+          type: boolean
+        terminal:
+          type: boolean
+        retryAfterSeconds:
+          anyOf:
+          - type: integer
+            minimum: 0
+            maximum: 86400
+          - type: 'null'
+      required:
+      - code
+      - message
+      - retryable
+      - terminal
+      - retryAfterSeconds
+      additionalProperties: false
+    ResolutionEvidence:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - no_request_sent
+          - response_and_observation
+          - observed_state_only
+          - operator_reconciliation
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        guardReleasable:
+          type: boolean
+        explanation:
+          type: string
+          maxLength: 1000
+      required:
+      - kind
+      - observedAt
+      - guardReleasable
+      - explanation
+      additionalProperties: false
+      description: observed_state_only не снимает late-PATCH uncertainty. settled+outcome описывают
+        результат раздельно; claim release требует evidence.
+      allOf:
+      - if:
+          properties:
+            kind:
+              const: observed_state_only
+        then:
+          properties:
+            guardReleasable:
+              const: false
+    Operation:
+      type: object
+      properties:
+        operationId:
+          $ref: '#/components/schemas/Id'
+        scope:
+          $ref: '#/components/schemas/Scope'
+        episodeId:
+          $ref: '#/components/schemas/Id'
+        decisionId:
+          $ref: '#/components/schemas/Id'
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        ruleRevision:
+          $ref: '#/components/schemas/Revision'
+        eventId:
+          $ref: '#/components/schemas/Id'
+        correlationId:
+          $ref: '#/components/schemas/Id'
+        state:
+          $ref: '#/components/schemas/OperationState'
+        externalEffectState:
+          $ref: '#/components/schemas/ExternalEffectState'
+        outcome:
+          anyOf:
+          - $ref: '#/components/schemas/OperationOutcome'
+          - type: 'null'
+        resultVersion:
+          $ref: '#/components/schemas/Revision'
+        confirmedSnapshot:
+          anyOf:
+          - $ref: '#/components/schemas/LeadSnapshot'
+          - type: 'null'
+        resolutionEvidence:
+          anyOf:
+          - $ref: '#/components/schemas/ResolutionEvidence'
+          - type: 'null'
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/OperationError'
+          - type: 'null'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        groupId: *id011
+        availabilityRevision: *id012
+        claimRevision: *id013
+        cancelRequestedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        targetResponsibleUserId:
+          $ref: '#/components/schemas/CrmId'
+      required:
+      - operationId
+      - scope
+      - episodeId
+      - decisionId
+      - ruleId
+      - ruleRevision
+      - eventId
+      - correlationId
+      - state
+      - externalEffectState
+      - outcome
+      - resultVersion
+      - confirmedSnapshot
+      - resolutionEvidence
+      - error
+      - acceptedAt
+      - updatedAt
+      - groupId
+      - availabilityRevision
+      - claimRevision
+      - targetResponsibleUserId
+      additionalProperties: false
+      description: 'succeeded/no_change требуют confirmedSnapshot. no_change+kept не расходует round-robin;
+        no_change+already_target расходует. Терминальные состояния запрещены при unknown/in_flight:
+        тогда сохраняется outcome_unknown/confirming и cancelRequested, guard удерживается.'
+      allOf:
+      - if:
+          properties:
+            state:
+              const: succeeded
+        then:
+          properties:
+            externalEffectState:
+              const: settled
+            outcome:
+              const: assigned
+            confirmedSnapshot:
+              $ref: '#/components/schemas/LeadSnapshot'
+            resolutionEvidence:
+              $ref: '#/components/schemas/ResolutionEvidence'
+      - if:
+          properties:
+            state:
+              const: no_change
+        then:
+          properties:
+            externalEffectState:
+              enum:
+              - no_attempt
+              - settled
+            outcome:
+              enum:
+              - kept
+              - already_target
+            confirmedSnapshot:
+              $ref: '#/components/schemas/LeadSnapshot'
+            resolutionEvidence:
+              $ref: '#/components/schemas/ResolutionEvidence'
+      - if:
+          properties:
+            state:
+              const: outcome_unknown
+        then:
+          properties:
+            externalEffectState:
+              const: unknown
+      - if:
+          properties:
+            externalEffectState:
+              enum:
+              - in_flight
+              - unknown
+        then:
+          properties:
+            resolutionEvidence:
+              anyOf:
+              - allOf:
+                - $ref: '#/components/schemas/ResolutionEvidence'
+                - properties:
+                    guardReleasable:
+                      const: false
+              - type: 'null'
+      - if:
+          properties:
+            state:
+              enum:
+              - rejected
+              - cancelled
+              - conflict
+        then:
+          properties:
+            externalEffectState:
+              enum:
+              - no_attempt
+              - settled
+            resolutionEvidence:
+              $ref: '#/components/schemas/ResolutionEvidence'
+            outcome:
+              enum:
+              - source_changed
+              - cancelled
+              - rejected
+              - conflict
+      - if:
+          properties:
+            state:
+              enum:
+              - succeeded
+              - no_change
+              - rejected
+              - cancelled
+              - conflict
+        then:
+          properties:
+            resolutionEvidence:
+              allOf:
+              - $ref: '#/components/schemas/ResolutionEvidence'
+              - properties:
+                  guardReleasable:
+                    const: true
+                  kind:
+                    enum:
+                    - no_request_sent
+                    - response_and_observation
+                    - operator_reconciliation
+      - if:
+          properties:
+            state:
+              const: succeeded
+        then:
+          properties:
+            resolutionEvidence:
+              properties:
+                kind:
+                  enum:
+                  - response_and_observation
+                  - operator_reconciliation
+      - if:
+          properties:
+            state:
+              const: no_change
+        then:
+          properties:
+            resolutionEvidence:
+              properties:
+                kind:
+                  const: no_request_sent
+    ResultEnvelope:
+      type: object
+      properties:
+        schemaVersion: *id001
+        messageId: *id002
+        scope: *id003
+        eventId: *id004
+        sourceEventId: *id005
+        sourceOccurredAt: *id006
+        receivedAt: *id007
+        emittedAt: *id008
+        correlationId: *id009
+        causationId: *id010
+        result:
+          $ref: '#/components/schemas/Operation'
+      required:
+      - schemaVersion
+      - messageId
+      - scope
+      - eventId
+      - sourceEventId
+      - sourceOccurredAt
+      - receivedAt
+      - emittedAt
+      - correlationId
+      - causationId
+      - result
+      additionalProperties: false
+    DeliveryReceipt:
+      type: object
+      properties:
+        messageId:
+          $ref: '#/components/schemas/Id'
+        receiptId:
+          $ref: '#/components/schemas/Id'
+        disposition:
+          type: string
+          enum:
+          - accepted
+          - duplicate
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+      - messageId
+      - receiptId
+      - disposition
+      - acceptedAt
+      additionalProperties: false
+      description: 202 означает inbox commit; duplicate без повторного применения.
+    OperationReceipt:
+      type: object
+      properties:
+        operationId:
+          $ref: '#/components/schemas/Id'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        state:
+          $ref: '#/components/schemas/OperationState'
+        resultVersion:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - operationId
+      - acceptedAt
+      - state
+      - resultVersion
+      additionalProperties: false
+    ReconcileInput:
+      type: object
+      properties:
+        expectedResultVersion:
+          $ref: '#/components/schemas/Revision'
+        actor:
+          $ref: '#/components/schemas/Actor'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - expectedResultVersion
+      - actor
+      - reason
+      additionalProperties: false
+      description: Только проверка факта/предусловий; не изменять targetResponsible или исходный
+        payload.
+    BindingConfirmation:
+      type: object
+      properties:
+        intentId:
+          $ref: '#/components/schemas/Id'
+        scope:
+          $ref: '#/components/schemas/Scope'
+        verifiedCrmUserId:
+          $ref: '#/components/schemas/CrmId'
+        confirmedAt:
+          $ref: '#/components/schemas/Timestamp'
+        messageId:
+          $ref: '#/components/schemas/Id'
+      required:
+      - intentId
+      - scope
+      - verifiedCrmUserId
+      - confirmedAt
+      - messageId
+      additionalProperties: false
+      description: Core проверил CRM admin; TeamOS сверяет owner/admin intent. Caller identity и
+        signed scope обязательны.
+    QueueState:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/QueueState
+    Freshness:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/Freshness
+    PermissionSet:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/PermissionSet
+    Person:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/Person
+    PlannedPerson:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/PlannedPerson
+    Connection:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/Connection
+    LinkIntentInput:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/LinkIntentInput
+    LinkIntent:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/LinkIntent
+    UserReference:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/UserReference
+    PipelineReference:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/PipelineReference
+    GroupOverview:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/GroupOverview
+    Rule:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/Rule
+    CreateRuleInput:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/CreateRuleInput
+    UpdateRuleInput:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/UpdateRuleInput
+    QueueItem:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/QueueItem
+    HistoryItem:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/HistoryItem
+    QueueDetails:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/QueueDetails
+    Stats:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/Stats
+    RuleCommandInput:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/RuleCommandInput
+    EpisodeCommandInput:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/EpisodeCommandInput
+    CommandReceipt:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/CommandReceipt
+    ConnectionPage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/ConnectionPage
+    UserReferencePage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/UserReferencePage
+    PipelineReferencePage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/PipelineReferencePage
+    GroupOverviewPage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/GroupOverviewPage
+    RulePage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/RulePage
+    QueuePage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/QueuePage
+    HistoryPage:
+      $ref: ./teamos-distribution.openapi.yaml#/components/schemas/HistoryPage
+    AdminObservation:
+      type: object
+      properties:
+        observed_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        freshness:
+          type: string
+          enum:
+          - fresh
+          - stale
+          - unknown
+          - unavailable
+      required:
+      - observed_at
+      - freshness
+      additionalProperties: false
+    Diagnostics:
+      type: object
+      properties:
+        installation_id:
+          $ref: '#/components/schemas/Id'
+        binding_id:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        capability_enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        binding_state:
+          anyOf:
+          - type: string
+            enum:
+            - pending
+            - active
+            - paused
+            - revoking
+            - revoked
+          - type: 'null'
+        last_event_received_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        last_event_delivered_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        pending_delivery_count:
+          anyOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        oldest_delivery_at:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        unknown_operation_count:
+          anyOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        observation:
+          $ref: '#/components/schemas/AdminObservation'
+      required:
+      - installation_id
+      - binding_id
+      - capability_enabled
+      - binding_state
+      - last_event_received_at
+      - last_event_delivered_at
+      - pending_delivery_count
+      - oldest_delivery_at
+      - unknown_operation_count
+      - observation
+      additionalProperties: false
+    AdminRecoveryInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - pause_module
+          - resume_module
+          - reconcile_subscription
+          - retry_delivery
+          - reconcile_operation
+        expected_revision:
+          $ref: '#/components/schemas/Revision'
+        target_id:
+          $ref: '#/components/schemas/Id'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - kind
+      - expected_revision
+      - target_id
+      - reason
+      additionalProperties: false
+      description: 'Технические действия существующего operator; expected_revision scope зависит
+        от kind: binding revision для pause/resume, delivery revision для retry_delivery, resultVersion
+        для reconcile_operation, subscription intent revision для reconcile_subscription. target_id
+        должен принадлежать installation пути.'
+    AdminRecoveryReceipt:
+      type: object
+      properties:
+        command_id:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - rejected
+        installation_id:
+          $ref: '#/components/schemas/Id'
+        accepted_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        reason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+      required:
+      - command_id
+      - state
+      - installation_id
+      - accepted_at
+      - updated_at
+      - reason
+      additionalProperties: false
+    AdminError:
+      type: object
+      required:
+      - error
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          - request_id
+          - retryable
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+              - unauthenticated
+              - invalid_argument
+              - not_found
+              - conflict
+              - permission_denied
+              - backend_unavailable
+              - internal
+            message:
+              type: string
+              minLength: 1
+            request_id:
+              type: string
+            retryable:
+              type: boolean
+    DecisionValidationInput:
+      type: object
+      properties:
+        scope:
+          $ref: '#/components/schemas/Scope'
+        operationId:
+          $ref: '#/components/schemas/Id'
+        episodeId:
+          $ref: '#/components/schemas/Id'
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        ruleRevision:
+          $ref: '#/components/schemas/Revision'
+        availabilityRevision:
+          $ref: '#/components/schemas/Revision'
+        claimRevision:
+          $ref: '#/components/schemas/Revision'
+        targetResponsibleUserId:
+          $ref: '#/components/schemas/CrmId'
+        workerFence:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - scope
+      - operationId
+      - episodeId
+      - ruleId
+      - ruleRevision
+      - availabilityRevision
+      - claimRevision
+      - targetResponsibleUserId
+      - workerFence
+      additionalProperties: false
+    DecisionValidation:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        decisionId:
+          $ref: '#/components/schemas/Id'
+        operationId:
+          $ref: '#/components/schemas/Id'
+        workerFence:
+          $ref: '#/components/schemas/Revision'
+        checkedAt:
+          $ref: '#/components/schemas/Timestamp'
+        validUntil:
+          $ref: '#/components/schemas/Timestamp'
+        reason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+      required:
+      - allowed
+      - decisionId
+      - operationId
+      - workerFence
+      - checkedAt
+      - validUntil
+      - reason
+      additionalProperties: false
+      description: Fresh single-attempt policy snapshot valid <=5 seconds; no persistent/cross-request
+        cache. allowed=false for paused/cancelled/stale revisions/inactive mapping. Failure=503.
+        Not a remote transaction lock; change after approval marks cancellation_requested for in-flight
+        operation.
+    CancelOperationInput:
+      type: object
+      properties:
+        expectedResultVersion:
+          $ref: '#/components/schemas/Revision'
+        actor:
+          $ref: '#/components/schemas/Actor'
+        requestedAt:
+          $ref: '#/components/schemas/Timestamp'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - expectedResultVersion
+      - actor
+      - requestedAt
+      - reason
+      additionalProperties: false
+      description: Запрос отмены сохраняется до ACK. no_attempt можно завершить cancelled; после
+        possible PATCH только cancellation_requested, исход сверяется. Старый immutable scope разрешает
+        cleanup после binding revoke, но не новое назначение.
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 2048
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        $ref: '#/components/schemas/Id'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+      description: Повтор после timeout использует тот же ключ и payload; lookup namespace — stable
+        bindingId+action; public requests дополнительно actor; revision/installation в immutable
+        payload hash.
+  responses:
+    Failure:
+      description: 'Безопасная ошибка: message/status/code/requestId. HTTP status совпадает с error.status.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+      headers:
+        Retry-After:
+          description: Только для 429/503 с известной задержкой; секунды.
+          schema:
+            type: integer
+            minimum: 0
+    AdminFailure:
+      description: Core admin error; без секретов, с retryable и request_id.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminError'

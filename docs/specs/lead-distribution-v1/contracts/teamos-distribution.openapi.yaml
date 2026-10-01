@@ -1,0 +1,1826 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: TeamOS lead distribution — proposed additive API
+  version: 0.1.0-proposed
+  description: Проект РС-02. Не смонтирован в runtime. Перед реализацией переносится в canonical
+    OpenAPI/protobuf владельца; текущие URL и контракты не изменены.
+x-contract-status: proposed
+servers:
+- url: https://distribution.example.invalid
+security:
+- bearerAuth: []
+paths:
+  /api/v1/distribution/connections:
+    get:
+      operationId: distributionListConnections
+      summary: Подключения текущей компании
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - &id001
+        $ref: '#/components/parameters/Cursor'
+      - &id002
+        $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionPage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/connections/{bindingId}:
+    parameters:
+    - name: bindingId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: distributionGetConnection
+      summary: Состояние подключения
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connection'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/connections/link-intents:
+    post:
+      operationId: distributionCreateLinkIntent
+      summary: Инициировать подтверждение связи
+      x-authorization: TeamOS owner/admin; company из verified session; CRM-side confirmation отдельно
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkIntent'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkIntentInput'
+  /api/v1/distribution/references/users:
+    get:
+      operationId: distributionListUsers
+      summary: Сотрудники, сопоставление и доступность
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - *id001
+      - *id002
+      - name: bindingId
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserReferencePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/references/pipelines:
+    get:
+      operationId: distributionListPipelines
+      summary: Воронки и этапы
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - *id001
+      - *id002
+      - name: bindingId
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineReferencePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/groups/overview:
+    get:
+      operationId: distributionListGroupOverview
+      summary: Новая пагинируемая проекция групп
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - *id001
+      - *id002
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 120
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupOverviewPage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/rules:
+    get:
+      operationId: distributionListRules
+      summary: Правила компании
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - *id001
+      - *id002
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: bindingId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+    post:
+      operationId: distributionCreateRule
+      summary: Создать правило первой версии
+      x-authorization: TeamOS owner/admin; all group/member/binding IDs in current company
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleInput'
+  /api/v1/distribution/rules/{ruleId}:
+    parameters:
+    - name: ruleId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: distributionGetRule
+      summary: Получить актуальную конфигурацию
+      x-authorization: distribution:view
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+    put:
+      operationId: distributionReplaceRule
+      summary: Сохранить правило с CAS
+      x-authorization: TeamOS owner/admin; expectedRevision CAS; unsupported legacy algorithm rejected
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleInput'
+  /api/v1/distribution/rules/{ruleId}/commands:
+    parameters:
+    - name: ruleId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: distributionCommandRule
+      summary: Пауза, возобновление или пересчёт
+      x-authorization: TeamOS owner/admin; expectedRevision checked at admission and execution
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleCommandInput'
+  /api/v1/distribution/queue:
+    get:
+      operationId: distributionListQueue
+      summary: Очередь разрешённых сделок
+      x-authorization: TeamOS section distribution or owner/admin AND CanViewLead per row; scoped
+        counts/cursor
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - *id001
+      - *id002
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: ruleId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: bindingId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: leadId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CrmId'
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueState'
+          maxItems: 13
+          uniqueItems: true
+      - name: from
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - receivedAt.asc
+          - receivedAt.desc
+          default: receivedAt.asc
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuePage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/queue/{episodeId}:
+    parameters:
+    - name: episodeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: distributionGetEpisode
+      summary: Детали сделки и первые 100 событий истории
+      x-authorization: CanViewLead on resolved episode; no cross-tenant existence disclosure
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueDetails'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/queue/{episodeId}/commands:
+    parameters:
+    - name: episodeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    post:
+      operationId: distributionCommandEpisode
+      summary: Отмена, сверка или безопасный повтор
+      x-authorization: TeamOS owner/admin AND CanViewLead; expectedRevision and current effect state
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Принято после durable commit; ещё не выполнено. Повтор key+payload возвращает
+            тот же receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EpisodeCommandInput'
+  /api/v1/distribution/history:
+    get:
+      operationId: distributionListHistory
+      summary: История разрешённых решений
+      x-authorization: CanViewLead for each associated episode
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - *id001
+      - *id002
+      - name: episodeId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: from
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/stats:
+    get:
+      operationId: distributionGetStats
+      summary: Показатели по подтверждённым решениям
+      x-authorization: Same resource visibility as queue; range <=31 days and timezone from company
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - name: groupId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: from
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      - name: to
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Timestamp'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+  /api/v1/distribution/commands/{commandId}:
+    parameters:
+    - name: commandId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    get:
+      operationId: distributionGetCommand
+      summary: Восстановить результат после timeout
+      x-authorization: Original actor + company scope; episode commands additionally CanViewLead;
+        other actors need explicit operator diagnostics permission
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '429':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+        '500':
+          $ref: '#/components/responses/Failure'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: TeamOS access JWT
+  schemas:
+    Id:
+      type: string
+      format: uuid
+    CrmId:
+      type: string
+      pattern: ^[1-9][0-9]*$
+      maxLength: 19
+      description: Положительный CRM ID как decimal string; без float-конверсии и ведущих нулей.
+        Semantic bound <=9223372036854775807 обязателен в приложении и fixtures; regex не доказывает
+        upper bound.
+    Revision:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+      description: Safe JSON integer; proto uint64/DB bigint обязаны проверять тот же диапазон.
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC3339 UTC с Z; время наблюдения не равно времени факта источника.
+    QueueState:
+      type: string
+      enum:
+      - checking
+      - waiting_shift
+      - needs_configuration
+      - paused
+      - waiting_previous_operation
+      - assigning
+      - outcome_unknown
+      - assigned
+      - kept
+      - unchanged
+      - cancelled
+      - error
+    OperationState:
+      type: string
+      enum:
+      - queued
+      - prechecking
+      - applying
+      - outcome_unknown
+      - confirming
+      - succeeded
+      - no_change
+      - rejected
+      - cancelled
+      - conflict
+    ExternalEffectState:
+      type: string
+      enum:
+      - no_attempt
+      - in_flight
+      - unknown
+      - settled
+    OperationOutcome:
+      type: string
+      enum:
+      - assigned
+      - kept
+      - already_target
+      - source_changed
+      - cancelled
+      - rejected
+      - conflict
+    ErrorCode:
+      type: string
+      enum:
+      - validation_failed
+      - unauthenticated
+      - permission_denied
+      - resource_not_found
+      - binding_not_active
+      - binding_mismatch
+      - mapping_required
+      - capability_revoked
+      - unsupported_algorithm
+      - stage_already_owned
+      - revision_conflict
+      - idempotency_conflict
+      - operation_unresolved
+      - invalid_transition
+      - cursor_invalid
+      - cursor_expired
+      - source_unavailable
+      - policy_unavailable
+      - reauth_required
+      - rate_limited
+      - internal_error
+      - distribution_rule_managed
+    Freshness:
+      type: string
+      enum:
+      - fresh
+      - stale
+      - unknown
+      - unavailable
+    Reason:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        retryable:
+          type: boolean
+        nextAttemptAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+      required:
+      - code
+      - message
+      - retryable
+      additionalProperties: false
+    Scope:
+      type: object
+      properties:
+        companyId:
+          $ref: '#/components/schemas/Id'
+        accountId:
+          $ref: '#/components/schemas/CrmId'
+        integrationId:
+          $ref: '#/components/schemas/Id'
+        installationId:
+          $ref: '#/components/schemas/Id'
+        bindingId:
+          $ref: '#/components/schemas/Id'
+        bindingRevision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - companyId
+      - accountId
+      - integrationId
+      - installationId
+      - bindingId
+      - bindingRevision
+      additionalProperties: false
+    PermissionSet:
+      type: array
+      items:
+        type: string
+        enum:
+        - view
+        - manage
+        - pause
+        - resume
+        - recalculate
+        - cancel
+        - reconcile
+        - retry
+      uniqueItems: true
+    LeadSnapshot:
+      type: object
+      properties:
+        leadId:
+          $ref: '#/components/schemas/CrmId'
+        pipelineId:
+          $ref: '#/components/schemas/CrmId'
+        statusId:
+          $ref: '#/components/schemas/CrmId'
+        responsibleUserId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        sourceUpdatedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+      - leadId
+      - pipelineId
+      - statusId
+      - responsibleUserId
+      - observedAt
+      additionalProperties: false
+    Person:
+      type: object
+      properties:
+        userId:
+          $ref: '#/components/schemas/Id'
+        crmUserId:
+          $ref: '#/components/schemas/CrmId'
+        displayName:
+          type: string
+          maxLength: 255
+      required:
+      - userId
+      - displayName
+      additionalProperties: false
+    PlannedPerson:
+      type: object
+      properties:
+        userId:
+          $ref: '#/components/schemas/Id'
+        crmUserId:
+          $ref: '#/components/schemas/CrmId'
+        displayName:
+          type: string
+          maxLength: 255
+        isTentative:
+          const: true
+      required:
+      - userId
+      - displayName
+      - isTentative
+      additionalProperties: false
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              minLength: 1
+              maxLength: 1000
+            status:
+              type: integer
+              minimum: 400
+              maximum: 599
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            requestId:
+              $ref: '#/components/schemas/Id'
+            details:
+              type: object
+              properties:
+                field:
+                  type: string
+                  maxLength: 120
+                currentRevision:
+                  $ref: '#/components/schemas/Revision'
+                operationId:
+                  $ref: '#/components/schemas/Id'
+                retryAfterSeconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 86400
+              required: []
+              additionalProperties: false
+          required:
+          - message
+          - status
+          - code
+          - requestId
+          additionalProperties: false
+      required:
+      - error
+      additionalProperties: false
+    Connection:
+      type: object
+      properties:
+        bindingId:
+          $ref: '#/components/schemas/Id'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        accountId:
+          $ref: '#/components/schemas/CrmId'
+        installationId:
+          $ref: '#/components/schemas/Id'
+        integrationId:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum:
+          - pending
+          - active
+          - paused
+          - revoking
+          - revoked
+        accountName:
+          type: string
+          maxLength: 255
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+        reason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+        allowedActions:
+          $ref: '#/components/schemas/PermissionSet'
+      required:
+      - bindingId
+      - revision
+      - state
+      - observedAt
+      - freshness
+      - allowedActions
+      additionalProperties: false
+    LinkIntentInput:
+      type: object
+      properties:
+        accountId:
+          $ref: '#/components/schemas/CrmId'
+      required:
+      - accountId
+      additionalProperties: false
+    LinkIntent:
+      type: object
+      properties:
+        intentId:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum:
+          - pending
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        verificationUrl:
+          type: string
+          format: uri
+          description: Одноразовый переход без OAuth/client secrets; серверный allowlist origin.
+      required:
+      - intentId
+      - state
+      - expiresAt
+      - verificationUrl
+      additionalProperties: false
+    UserReference:
+      type: object
+      properties:
+        userId:
+          $ref: '#/components/schemas/Id'
+        crmUserId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        displayName:
+          type: string
+          maxLength: 255
+        active:
+          type: boolean
+        mappingState:
+          type: string
+          enum:
+          - verified
+          - unavailable
+          - ambiguous
+        availableNow:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        nextShiftAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        reason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - userId
+      - crmUserId
+      - displayName
+      - active
+      - mappingState
+      - availableNow
+      - nextShiftAt
+      - reason
+      - observedAt
+      - freshness
+      additionalProperties: false
+    PipelineReference:
+      type: object
+      properties:
+        pipelineId:
+          $ref: '#/components/schemas/CrmId'
+        name:
+          type: string
+          maxLength: 255
+        statuses:
+          type: array
+          items:
+            type: object
+            properties:
+              statusId:
+                $ref: '#/components/schemas/CrmId'
+              name:
+                type: string
+                maxLength: 255
+            required:
+            - statusId
+            - name
+            additionalProperties: false
+          maxItems: 1000
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+      - pipelineId
+      - name
+      - statuses
+      - observedAt
+      additionalProperties: false
+    GroupOverview:
+      type: object
+      properties:
+        groupId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+        ruleId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        ruleRevision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        state:
+          type: string
+          enum:
+          - unconfigured
+          - enabled
+          - paused
+          - needs_configuration
+        waitingCount:
+          anyOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        errorCount:
+          anyOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        availableMemberCount:
+          anyOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+        allowedActions:
+          $ref: '#/components/schemas/PermissionSet'
+        groupUpdatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+      - groupId
+      - name
+      - ruleId
+      - ruleRevision
+      - state
+      - observedAt
+      - freshness
+      - allowedActions
+      - groupUpdatedAt
+      additionalProperties: false
+    Rule:
+      type: object
+      properties:
+        groupId: &id003
+          $ref: '#/components/schemas/Id'
+        bindingId: &id004
+          $ref: '#/components/schemas/Id'
+        pipelineId: &id005
+          $ref: '#/components/schemas/CrmId'
+        statusId: &id006
+          $ref: '#/components/schemas/CrmId'
+        algorithm: &id007
+          type: string
+          enum:
+          - round_robin
+        timezone: &id008
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Проверенный IANA timezone.
+        keepCurrentAvailableResponsible: &id009
+          type: boolean
+          default: true
+        enabled: &id010
+          type: boolean
+        memberIds: &id011
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          minItems: 1
+          maxItems: 1000
+          uniqueItems: true
+        disabledMemberIds: &id012
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          maxItems: 1000
+          uniqueItems: true
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        allowedActions:
+          $ref: '#/components/schemas/PermissionSet'
+        state:
+          type: string
+          enum:
+          - draft
+          - active
+          - paused
+          - archived
+      required:
+      - groupId
+      - bindingId
+      - pipelineId
+      - statusId
+      - algorithm
+      - timezone
+      - keepCurrentAvailableResponsible
+      - enabled
+      - memberIds
+      - disabledMemberIds
+      - ruleId
+      - revision
+      - createdAt
+      - updatedAt
+      - allowedActions
+      - state
+      additionalProperties: false
+      description: enabled является (state == active); archived не изменяется. memberIds возвращают
+        текущую версию snapshot атомарно с rule revision.
+    CreateRuleInput:
+      type: object
+      properties:
+        groupId: *id003
+        bindingId: *id004
+        pipelineId: *id005
+        statusId: *id006
+        algorithm: *id007
+        timezone: *id008
+        keepCurrentAvailableResponsible: *id009
+        enabled: *id010
+        memberIds: *id011
+        disabledMemberIds: *id012
+        expectedGroupUpdatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+      - groupId
+      - bindingId
+      - pipelineId
+      - statusId
+      - algorithm
+      - timezone
+      - keepCurrentAvailableResponsible
+      - enabled
+      - memberIds
+      - disabledMemberIds
+      - expectedGroupUpdatedAt
+      additionalProperties: false
+      description: Группа существует в компании. Участники сохраняются атомарно с rule revision;
+        external mapping проверяется. Создание enabled rule с legacy algorithm != round_robin отклоняется,
+        silent fallback запрещён. expectedGroupUpdatedAt получен из GroupOverview.groupUpdatedAt.
+        После подключения rule старые PATCH/DELETE этой группы получают distribution_rule_managed;
+        несвязанные legacy группы не меняются.
+    UpdateRuleInput:
+      type: object
+      properties:
+        groupId: *id003
+        bindingId: *id004
+        pipelineId: *id005
+        statusId: *id006
+        algorithm: *id007
+        timezone: *id008
+        keepCurrentAvailableResponsible: *id009
+        enabled: *id010
+        memberIds: *id011
+        disabledMemberIds: *id012
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - groupId
+      - bindingId
+      - pipelineId
+      - statusId
+      - algorithm
+      - timezone
+      - keepCurrentAvailableResponsible
+      - enabled
+      - memberIds
+      - disabledMemberIds
+      - expectedRevision
+      additionalProperties: false
+      description: Полная замена конфигурации; CAS+idempotency. Членство группы и revision изменяются
+        в одной owner-транзакции. archived rule отклоняется; enabled=false переводит в paused, не
+        удаляет очередь; source tuple меняется только после сверки операций старого scope.
+    QueueItem:
+      type: object
+      properties:
+        episodeId:
+          $ref: '#/components/schemas/Id'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        groupId:
+          $ref: '#/components/schemas/Id'
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        ruleRevision:
+          $ref: '#/components/schemas/Revision'
+        bindingId:
+          $ref: '#/components/schemas/Id'
+        leadId:
+          $ref: '#/components/schemas/CrmId'
+        leadName:
+          type: string
+          maxLength: 255
+        leadUrl:
+          type: string
+          format: uri
+        state:
+          $ref: '#/components/schemas/QueueState'
+        reason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+        pausedReason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+        currentResponsible:
+          anyOf:
+          - $ref: '#/components/schemas/Person'
+          - type: 'null'
+        plannedResponsible:
+          anyOf:
+          - $ref: '#/components/schemas/PlannedPerson'
+          - type: 'null'
+        nextAttemptAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        receivedAt:
+          $ref: '#/components/schemas/Timestamp'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+        operationId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        allowedActions:
+          $ref: '#/components/schemas/PermissionSet'
+      required:
+      - episodeId
+      - revision
+      - groupId
+      - ruleId
+      - ruleRevision
+      - bindingId
+      - leadId
+      - state
+      - reason
+      - currentResponsible
+      - plannedResponsible
+      - nextAttemptAt
+      - receivedAt
+      - observedAt
+      - freshness
+      - allowedActions
+      additionalProperties: false
+      description: Выдаётся только после CanViewLead. pausedReason хранит причину до паузы; nextAttemptAt
+        advisory, пауза блокирует исполнение.
+    HistoryItem:
+      type: object
+      properties:
+        historyId:
+          $ref: '#/components/schemas/Id'
+        episodeId:
+          $ref: '#/components/schemas/Id'
+        decisionId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        operationId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        type:
+          type: string
+          enum:
+          - received
+          - waiting
+          - decision
+          - command_accepted
+          - result
+          - paused
+          - resumed
+          - cancelled
+          - reconciled
+          - error
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        actorKind:
+          type: string
+          enum:
+          - user
+          - system
+          - operator
+        actorDisplayName:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+        message:
+          type: string
+          maxLength: 1000
+        ruleRevision:
+          $ref: '#/components/schemas/Revision'
+        correlationId:
+          $ref: '#/components/schemas/Id'
+      required:
+      - historyId
+      - episodeId
+      - decisionId
+      - operationId
+      - type
+      - at
+      - actorKind
+      - actorDisplayName
+      - message
+      - ruleRevision
+      - correlationId
+      additionalProperties: false
+    QueueDetails:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/QueueItem'
+        snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/LeadSnapshot'
+          - type: 'null'
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+          maxItems: 100
+        historyNextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - item
+      - snapshot
+      - history
+      - historyNextCursor
+      additionalProperties: false
+    Stats:
+      type: object
+      properties:
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+        timezone:
+          type: string
+          maxLength: 64
+        assignedCount:
+          type: integer
+          minimum: 0
+        keptCount:
+          type: integer
+          minimum: 0
+        waitingCount:
+          type: integer
+          minimum: 0
+        errorCount:
+          type: integer
+          minimum: 0
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+        unchangedCount:
+          type: integer
+          minimum: 0
+        actualChangedCount:
+          type: integer
+          minimum: 0
+      required:
+      - from
+      - to
+      - timezone
+      - assignedCount
+      - keptCount
+      - waitingCount
+      - errorCount
+      - observedAt
+      - freshness
+      - unchangedCount
+      - actualChangedCount
+      additionalProperties: false
+      description: Только доступные actor ресурсы. assignedCount=подтверждённые ходы RR (assigned+already_target);
+        unchangedCount=already_target; actualChangedCount=подтверждённые фактические смены; keptCount
+        не расходует ход. Источник actualChangedCount — доказанный эффект, не один GET.
+    RuleCommandInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - pause
+          - resume
+          - recalculate
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - kind
+      - expectedRevision
+      additionalProperties: false
+    EpisodeCommandInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - cancel
+          - reconcile
+          - retry
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - kind
+      - expectedRevision
+      additionalProperties: false
+      description: retry только settled/retryable result. outcome_unknown требует reconcile. cancel
+        может остановить ожидание, но не освобождает uncertain lead guard.
+    CommandReceipt:
+      type: object
+      properties:
+        commandId:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - rejected
+        targetId:
+          $ref: '#/components/schemas/Id'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        reason:
+          anyOf:
+          - $ref: '#/components/schemas/Reason'
+          - type: 'null'
+      required:
+      - commandId
+      - state
+      - targetId
+      - acceptedAt
+      - updatedAt
+      - revision
+      - reason
+      additionalProperties: false
+      description: 202 queued — только durable admission. completed — завершено действие управления,
+        а не гарантированно назначена CRM-сделка.
+    ConnectionPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Connection'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+    UserReferencePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserReference'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+    PipelineReferencePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineReference'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+    GroupOverviewPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupOverview'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+    RulePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+    QueuePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+    HistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+          maxItems: 100
+        nextCursor:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+      required:
+      - items
+      - nextCursor
+      - observedAt
+      - freshness
+      additionalProperties: false
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 2048
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        $ref: '#/components/schemas/Id'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+      description: Повтор после timeout использует тот же ключ и payload; lookup namespace — stable
+        bindingId+action+actor; revision/installation в immutable payload hash, не новый namespace.
+  responses:
+    Failure:
+      description: 'Безопасная ошибка: message/status/code/requestId. HTTP status совпадает с error.status.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+      headers:
+        Retry-After:
+          description: Только для 429/503 с известной задержкой; секунды.
+          schema:
+            type: integer
+            minimum: 0

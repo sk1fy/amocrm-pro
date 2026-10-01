@@ -1,0 +1,510 @@
+syntax = "proto3";
+
+package rakurs.distribution.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Proposed РС-02 contract; no runtime server or generated package is registered.
+// Copy compatible owner portions into canonical contracts during implementation.
+// UUIDs are lowercase canonical strings; CRM IDs are positive decimal strings.
+// CRM numeric value <=9223372036854775807; validate without float conversion.
+// Every uint64 revision is restricted to 1..9007199254740991 at application ingress.
+// REST adapters map enums to the lower_snake_case values in OpenAPI, not ProtoJSON.
+// All timestamp adapters output RFC3339 UTC. Unknown enums never mean allow/success.
+option go_package = "github.com/sk1fy/amocrm-pro/contracts/distribution/v1;distributionv1";
+
+message Scope {
+  string company_id = 1;
+  string account_id = 2;
+  string integration_id = 3;
+  string installation_id = 4;
+  string binding_id = 5;
+  uint64 binding_revision = 6;
+}
+
+// Auth data is per delivery and excluded from durable semantic payload hashes.
+// Caller identity also comes from mTLS; body scope never establishes authority.
+message Auth {
+  string delegation = 1;
+}
+
+message DeliveryMetadata {
+  uint32 schema_version = 1; // Exactly 1.
+  string message_id = 2;
+  Scope scope = 3;
+  string event_id = 4;
+  optional string source_event_id = 5;
+  google.protobuf.Timestamp source_occurred_at = 6;
+  google.protobuf.Timestamp received_at = 7;
+  google.protobuf.Timestamp emitted_at = 8;
+  string correlation_id = 9;
+  optional string causation_id = 10;
+}
+
+message Actor {
+  ActorKind kind = 1;
+  optional string teamos_user_id = 2;
+  optional string crm_user_id = 3;
+  optional string operator_id = 4;
+}
+
+enum ActorKind {
+  ACTOR_KIND_UNSPECIFIED = 0;
+  ACTOR_KIND_USER = 1;
+  ACTOR_KIND_SYSTEM = 2;
+  ACTOR_KIND_OPERATOR = 3;
+}
+
+enum QueueState {
+  QUEUE_STATE_UNSPECIFIED = 0;
+  QUEUE_STATE_CHECKING = 1;
+  QUEUE_STATE_WAITING_SHIFT = 2;
+  QUEUE_STATE_NEEDS_CONFIGURATION = 3;
+  QUEUE_STATE_PAUSED = 4;
+  QUEUE_STATE_WAITING_PREVIOUS_OPERATION = 5;
+  QUEUE_STATE_ASSIGNING = 6;
+  QUEUE_STATE_OUTCOME_UNKNOWN = 7;
+  QUEUE_STATE_ASSIGNED = 8;
+  QUEUE_STATE_KEPT = 9;
+  QUEUE_STATE_UNCHANGED = 10;
+  QUEUE_STATE_CANCELLED = 11;
+  QUEUE_STATE_ERROR = 12;
+}
+
+enum OperationState {
+  OPERATION_STATE_UNSPECIFIED = 0;
+  OPERATION_STATE_QUEUED = 1;
+  OPERATION_STATE_PRECHECKING = 2;
+  OPERATION_STATE_APPLYING = 3;
+  OPERATION_STATE_OUTCOME_UNKNOWN = 4;
+  OPERATION_STATE_CONFIRMING = 5;
+  OPERATION_STATE_SUCCEEDED = 6;
+  OPERATION_STATE_NO_CHANGE = 7;
+  OPERATION_STATE_REJECTED = 8;
+  OPERATION_STATE_CANCELLED = 9;
+  OPERATION_STATE_CONFLICT = 10;
+}
+
+enum ExternalEffectState {
+  EXTERNAL_EFFECT_STATE_UNSPECIFIED = 0;
+  EXTERNAL_EFFECT_STATE_NO_ATTEMPT = 1;
+  EXTERNAL_EFFECT_STATE_IN_FLIGHT = 2;
+  EXTERNAL_EFFECT_STATE_UNKNOWN = 3;
+  EXTERNAL_EFFECT_STATE_SETTLED = 4;
+}
+
+enum OperationOutcome {
+  OPERATION_OUTCOME_UNSPECIFIED = 0;
+  OPERATION_OUTCOME_ASSIGNED = 1;
+  OPERATION_OUTCOME_KEPT = 2;
+  OPERATION_OUTCOME_ALREADY_TARGET = 3;
+  OPERATION_OUTCOME_SOURCE_CHANGED = 4;
+  OPERATION_OUTCOME_CANCELLED = 5;
+  OPERATION_OUTCOME_REJECTED = 6;
+  OPERATION_OUTCOME_CONFLICT = 7;
+}
+
+message Reason {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+  google.protobuf.Timestamp next_attempt_at = 4;
+}
+
+message LeadSnapshot {
+  string lead_id = 1;
+  string pipeline_id = 2;
+  string status_id = 3;
+  optional string responsible_user_id = 4;
+  google.protobuf.Timestamp source_updated_at = 5;
+  google.protobuf.Timestamp observed_at = 6;
+}
+
+message LeadEvent {
+  EventKind kind = 1;
+  string lead_id = 2;
+  optional string entry_fingerprint = 3;
+  LeadSnapshot before = 4;
+  LeadSnapshot after = 5;
+}
+
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_LEAD_CREATED = 1;
+  EVENT_KIND_LEAD_STATUS_CHANGED = 2;
+  EVENT_KIND_LEAD_RESPONSIBLE_CHANGED = 3;
+  EVENT_KIND_LEAD_DELETED = 4;
+}
+
+message AcceptEventRequest {
+  Auth auth = 1;
+  string idempotency_key = 2;
+  DeliveryMetadata metadata = 3;
+  LeadEvent event = 4;
+}
+
+message DeliveryReceipt {
+  string message_id = 1;
+  string receipt_id = 2;
+  string disposition = 3; // accepted | duplicate
+  google.protobuf.Timestamp accepted_at = 4;
+}
+
+message AssignmentCommand {
+  string operation_id = 1;
+  string episode_id = 2;
+  string decision_id = 3;
+  string rule_id = 4;
+  uint64 rule_revision = 5;
+  string decision_kind = 6; // assign | keep
+  string target_responsible_user_id = 7;
+  LeadSnapshot expected_snapshot = 8;
+  Actor actor = 9;
+  google.protobuf.Timestamp valid_until = 10;
+  string group_id = 11;
+  uint64 availability_revision = 12;
+  uint64 claim_revision = 13;
+}
+
+message AcceptAssignmentRequest {
+  Auth auth = 1;
+  string idempotency_key = 2;
+  DeliveryMetadata metadata = 3;
+  AssignmentCommand command = 4;
+}
+
+message OperationError {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+  bool terminal = 4;
+  optional uint32 retry_after_seconds = 5;
+}
+
+message ResolutionEvidence {
+  string kind = 1;
+  google.protobuf.Timestamp observed_at = 2;
+  bool guard_releasable = 3;
+  string explanation = 4;
+}
+
+message Operation {
+  string operation_id = 1;
+  Scope scope = 2;
+  string episode_id = 3;
+  string decision_id = 4;
+  string rule_id = 5;
+  uint64 rule_revision = 6;
+  string event_id = 7;
+  string correlation_id = 8;
+  OperationState state = 9;
+  ExternalEffectState external_effect_state = 10;
+  OperationOutcome outcome = 11;
+  uint64 result_version = 12;
+  LeadSnapshot confirmed_snapshot = 13;
+  ResolutionEvidence resolution_evidence = 14;
+  OperationError error = 15;
+  google.protobuf.Timestamp accepted_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  string group_id = 18;
+  uint64 availability_revision = 19;
+  uint64 claim_revision = 20;
+  google.protobuf.Timestamp cancel_requested_at = 21;
+  string target_responsible_user_id = 22;
+}
+
+message OperationReceipt {
+  string operation_id = 1;
+  google.protobuf.Timestamp accepted_at = 2;
+  OperationState state = 3;
+  uint64 result_version = 4;
+}
+
+message AcceptResultRequest {
+  Auth auth = 1;
+  string idempotency_key = 2;
+  DeliveryMetadata metadata = 3;
+  Operation result = 4;
+}
+
+message GetOperationRequest {
+  Auth auth = 1;
+  Scope scope = 2;
+  string operation_id = 3;
+}
+
+message ReconcileOperationRequest {
+  Auth auth = 1;
+  Scope scope = 2;
+  string operation_id = 3;
+  string idempotency_key = 4;
+  uint64 expected_result_version = 5;
+  Actor actor = 6;
+  string reason = 7;
+}
+
+message ConfirmBindingRequest {
+  Auth auth = 1;
+  string idempotency_key = 2;
+  string message_id = 3;
+  string intent_id = 4;
+  Scope scope = 5;
+  string verified_crm_user_id = 6;
+  google.protobuf.Timestamp confirmed_at = 7;
+}
+
+message ValidateDecisionRequest {
+  Auth auth = 1;
+  string decision_id = 2;
+  Scope scope = 3;
+  string operation_id = 4;
+  string episode_id = 5;
+  string rule_id = 6;
+  uint64 rule_revision = 7;
+  uint64 availability_revision = 8;
+  uint64 claim_revision = 9;
+  string target_responsible_user_id = 10;
+  uint64 worker_fence = 11;
+}
+message DecisionValidation {
+  bool allowed = 1;
+  string decision_id = 2;
+  string operation_id = 3;
+  uint64 worker_fence = 4;
+  google.protobuf.Timestamp checked_at = 5;
+  google.protobuf.Timestamp valid_until = 6;
+  Reason reason = 7;
+}
+message CancelOperationRequest {
+  Auth auth = 1;
+  Scope scope = 2;
+  string operation_id = 3;
+  string idempotency_key = 4;
+  uint64 expected_result_version = 5;
+  Actor actor = 6;
+  google.protobuf.Timestamp requested_at = 7;
+  string reason = 8;
+}
+
+// Implemented only by the company owner. ACK means durable inbox, not assignment.
+service CompanyDeliveryService {
+  rpc AcceptEvent(AcceptEventRequest) returns (DeliveryReceipt);
+  rpc AcceptResult(AcceptResultRequest) returns (DeliveryReceipt);
+  rpc ConfirmBinding(ConfirmBindingRequest) returns (DeliveryReceipt);
+  rpc ValidateDecision(ValidateDecisionRequest) returns (DecisionValidation);
+}
+
+// Implemented only by Core; scopes and capability checked at every admission.
+service CoreAssignmentService {
+  rpc AcceptAssignment(AcceptAssignmentRequest) returns (OperationReceipt);
+  rpc GetOperation(GetOperationRequest) returns (Operation);
+  rpc ReconcileOperation(ReconcileOperationRequest) returns (OperationReceipt);
+  rpc CancelOperation(CancelOperationRequest) returns (OperationReceipt);
+}
+
+// Additive TeamOS gateway/company DTOs; existing group RPCs are unchanged.
+message PageInput {
+  optional string cursor = 1;
+  uint32 limit = 2; // Default 25, max 100; cursor is actor/filter/order scoped.
+}
+
+message Observation {
+  google.protobuf.Timestamp observed_at = 1;
+  string freshness = 2; // fresh | stale | unknown | unavailable
+}
+
+message Connection {
+  string binding_id = 1;
+  uint64 revision = 2;
+  optional string account_id = 3;
+  optional string installation_id = 4;
+  optional string integration_id = 5;
+  string state = 6;
+  optional string account_name = 7;
+  Observation observation = 8;
+  Reason reason = 9;
+  repeated string allowed_actions = 10;
+}
+
+message UserReference {
+  string user_id = 1;
+  optional string crm_user_id = 2;
+  string display_name = 3;
+  bool active = 4;
+  string mapping_state = 5;
+  optional bool available_now = 6;
+  google.protobuf.Timestamp next_shift_at = 7;
+  Reason reason = 8;
+  Observation observation = 9;
+}
+
+message PipelineStatus {
+  string status_id = 1;
+  string name = 2;
+}
+
+message PipelineReference {
+  string pipeline_id = 1;
+  string name = 2;
+  repeated PipelineStatus statuses = 3;
+  google.protobuf.Timestamp observed_at = 4;
+}
+
+message GroupOverview {
+  string group_id = 1;
+  string name = 2;
+  optional string description = 3;
+  optional string rule_id = 4;
+  optional uint64 rule_revision = 5;
+  string state = 6;
+  optional uint64 waiting_count = 7;
+  optional uint64 error_count = 8;
+  optional uint64 available_member_count = 9;
+  Observation observation = 10;
+  repeated string allowed_actions = 11;
+  google.protobuf.Timestamp group_updated_at = 12;
+}
+
+message RuleConfiguration {
+  string group_id = 1;
+  string binding_id = 2;
+  string pipeline_id = 3;
+  string status_id = 4;
+  string algorithm = 5; // Must be round_robin for v1; never fallback.
+  string timezone = 6;
+  bool keep_current_available_responsible = 7;
+  bool enabled = 8;
+  repeated string member_ids = 9;
+  repeated string disabled_member_ids = 10;
+}
+
+message Rule {
+  string rule_id = 1;
+  uint64 revision = 2;
+  RuleConfiguration configuration = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  repeated string allowed_actions = 6;
+  string state = 7; // draft | active | paused | archived
+}
+
+message Person {
+  string user_id = 1;
+  optional string crm_user_id = 2;
+  string display_name = 3;
+}
+
+message PlannedPerson {
+  Person person = 1;
+  bool is_tentative = 2; // Must be true before confirmed assignment.
+}
+
+message QueueItem {
+  string episode_id = 1;
+  uint64 revision = 2;
+  string group_id = 3;
+  string rule_id = 4;
+  uint64 rule_revision = 5;
+  string binding_id = 6;
+  string lead_id = 7;
+  optional string lead_name = 8;
+  optional string lead_url = 9;
+  QueueState state = 10;
+  Reason reason = 11;
+  Reason paused_reason = 12;
+  Person current_responsible = 13;
+  PlannedPerson planned_responsible = 14;
+  google.protobuf.Timestamp next_attempt_at = 15;
+  google.protobuf.Timestamp received_at = 16;
+  Observation observation = 17;
+  optional string operation_id = 18;
+  repeated string allowed_actions = 19;
+}
+
+message HistoryItem {
+  string history_id = 1;
+  string episode_id = 2;
+  optional string decision_id = 3;
+  optional string operation_id = 4;
+  string type = 5;
+  google.protobuf.Timestamp at = 6;
+  ActorKind actor_kind = 7;
+  optional string actor_display_name = 8;
+  string message = 9;
+  uint64 rule_revision = 10;
+  string correlation_id = 11;
+}
+
+message QueueDetails {
+  QueueItem item = 1;
+  LeadSnapshot snapshot = 2;
+  repeated HistoryItem history = 3;
+  optional string history_next_cursor = 4;
+}
+
+message Stats {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+  string timezone = 3;
+  uint64 assigned_count = 4;
+  uint64 kept_count = 5;
+  uint64 waiting_count = 6;
+  uint64 error_count = 7;
+  Observation observation = 8;
+  uint64 unchanged_count = 9;
+  uint64 actual_changed_count = 10;
+}
+
+// Trusted gateway actor metadata is validated by company, never taken from REST body.
+message UserContext {
+  string company_id = 1;
+  string user_id = 2;
+  string request_id = 3;
+}
+
+message ListConnectionsRequest { UserContext user = 1; PageInput page = 2; }
+message ListConnectionsResponse { repeated Connection items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message GetConnectionRequest { UserContext user = 1; string binding_id = 2; }
+message CreateLinkIntentRequest { UserContext user = 1; string account_id = 2; string idempotency_key = 3; }
+message LinkIntent { string intent_id = 1; string state = 2; google.protobuf.Timestamp expires_at = 3; string verification_url = 4; }
+message ListUsersRequest { UserContext user = 1; PageInput page = 2; string binding_id = 3; optional string q = 4; }
+message ListUsersResponse { repeated UserReference items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message ListPipelinesRequest { UserContext user = 1; PageInput page = 2; string binding_id = 3; }
+message ListPipelinesResponse { repeated PipelineReference items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message ListGroupOverviewRequest { UserContext user = 1; PageInput page = 2; optional string q = 3; }
+message ListGroupOverviewResponse { repeated GroupOverview items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message ListRulesRequest { UserContext user = 1; PageInput page = 2; optional string group_id = 3; optional string binding_id = 4; }
+message ListRulesResponse { repeated Rule items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message GetRuleRequest { UserContext user = 1; string rule_id = 2; }
+message CreateRuleRequest { UserContext user = 1; string idempotency_key = 2; RuleConfiguration configuration = 3; google.protobuf.Timestamp expected_group_updated_at = 4; }
+message ReplaceRuleRequest { UserContext user = 1; string rule_id = 2; string idempotency_key = 3; uint64 expected_revision = 4; RuleConfiguration configuration = 5; }
+message ListQueueRequest { UserContext user = 1; PageInput page = 2; optional string group_id = 3; optional string rule_id = 4; optional string binding_id = 5; optional string lead_id = 6; repeated QueueState state = 7; google.protobuf.Timestamp from = 8; google.protobuf.Timestamp to = 9; string order = 10; }
+message ListQueueResponse { repeated QueueItem items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message GetEpisodeRequest { UserContext user = 1; string episode_id = 2; }
+message ListHistoryRequest { UserContext user = 1; PageInput page = 2; optional string episode_id = 3; optional string group_id = 4; google.protobuf.Timestamp from = 5; google.protobuf.Timestamp to = 6; }
+message ListHistoryResponse { repeated HistoryItem items = 1; optional string next_cursor = 2; Observation observation = 3; }
+message GetStatsRequest { UserContext user = 1; optional string group_id = 2; google.protobuf.Timestamp from = 3; google.protobuf.Timestamp to = 4; }
+message RuleCommandRequest { UserContext user = 1; string rule_id = 2; string idempotency_key = 3; string kind = 4; uint64 expected_revision = 5; }
+message EpisodeCommandRequest { UserContext user = 1; string episode_id = 2; string idempotency_key = 3; string kind = 4; uint64 expected_revision = 5; }
+message GetCommandRequest { UserContext user = 1; string command_id = 2; }
+message CommandReceipt { string command_id = 1; string state = 2; string target_id = 3; google.protobuf.Timestamp accepted_at = 4; google.protobuf.Timestamp updated_at = 5; optional uint64 revision = 6; Reason reason = 7; }
+
+service CompanyDistributionService {
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+  rpc GetConnection(GetConnectionRequest) returns (Connection);
+  rpc CreateLinkIntent(CreateLinkIntentRequest) returns (LinkIntent);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc ListPipelines(ListPipelinesRequest) returns (ListPipelinesResponse);
+  rpc ListGroupOverview(ListGroupOverviewRequest) returns (ListGroupOverviewResponse);
+  rpc ListRules(ListRulesRequest) returns (ListRulesResponse);
+  rpc GetRule(GetRuleRequest) returns (Rule);
+  rpc CreateRule(CreateRuleRequest) returns (Rule);
+  rpc ReplaceRule(ReplaceRuleRequest) returns (Rule);
+  rpc ListQueue(ListQueueRequest) returns (ListQueueResponse);
+  rpc GetEpisode(GetEpisodeRequest) returns (QueueDetails);
+  rpc ListHistory(ListHistoryRequest) returns (ListHistoryResponse);
+  rpc GetStats(GetStatsRequest) returns (Stats);
+  rpc CommandRule(RuleCommandRequest) returns (CommandReceipt);
+  rpc CommandEpisode(EpisodeCommandRequest) returns (CommandReceipt);
+  rpc GetCommand(GetCommandRequest) returns (CommandReceipt);
+}
