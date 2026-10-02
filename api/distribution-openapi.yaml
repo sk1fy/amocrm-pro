@@ -2,10 +2,9 @@ openapi: 3.1.0
 info:
   title: Core lead distribution private runtime API
   version: 1.0.0
-  description: Implemented RS-04/RS-05 private Core worker listener contract including observations and bounded recovery. Current TeamOS
-    decision registry is not implemented yet and production ValidateDecision fails
-    closed. Operators cannot release ambiguous guards through this API; no public
-    ingress exposure.
+  description: Implemented RS-04/RS-05/RS-06 private Core worker contract including observations, bounded recovery and fresh TeamOS decision authorization.
+    Assignment requires a configured TeamOS registry, exact durable decision and service capabilities; missing or stale authority fails closed.
+    Operators cannot release ambiguous guards through this API; no public ingress exposure.
 servers:
 - url: /
 paths:

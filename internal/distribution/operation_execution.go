@@ -182,6 +182,17 @@ func transition(ctx context.Context, tx pgx.Tx, op Operation, state, effect, out
 	return emit(ctx, tx, current)
 }
 func (s *Store) FinishJob(ctx context.Context, job jobs.Job, id uuid.UUID, state, effect, outcome, code string, snapshot *Snapshot, terminal bool, evidence string) (Operation, error) {
+	return s.finishJob(ctx, job, id, state, effect, outcome, code, snapshot, terminal, evidence, nil)
+}
+
+// FinishNoChange settles a confirmed business turn without a CRM effect. The
+// short TeamOS grant must still be valid after waiting for database locks; an
+// expired grant cannot advance TeamOS's round-robin cursor through a result.
+func (s *Store) FinishNoChange(ctx context.Context, job jobs.Job, id uuid.UUID, outcome string, snapshot *Snapshot, permissionExpires time.Time) (Operation, error) {
+	return s.finishJob(ctx, job, id, "no_change", "no_attempt", outcome, "", snapshot, true, "no_request_sent", &permissionExpires)
+}
+
+func (s *Store) finishJob(ctx context.Context, job jobs.Job, id uuid.UUID, state, effect, outcome, code string, snapshot *Snapshot, terminal bool, evidence string, permissionExpires *time.Time) (Operation, error) {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return Operation{}, e
@@ -203,6 +214,32 @@ func (s *Store) FinishJob(ctx context.Context, job jobs.Job, id uuid.UUID, state
 	}
 	if op.FinishedAt != nil {
 		return op, tx.Commit(ctx)
+	}
+	if permissionExpires != nil {
+		if e = services.RequireEnabled(ctx, tx, op.Scope.InstallationID, services.LeadDistribution, true); e != nil {
+			return op, e
+		}
+		var active bool
+		if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM distribution_bindings WHERE id=$1 AND company_id=$2 AND installation_id=$3 AND integration_id=$4 AND account_id=$5 AND revision=$6 AND state='active')`, op.Scope.BindingID, op.Scope.CompanyID, op.Scope.InstallationID, op.Scope.IntegrationID, op.Scope.AccountID, op.Scope.BindingRevision).Scan(&active); e != nil {
+			return op, e
+		}
+		if !active {
+			return op, ErrDenied
+		}
+		var holder uuid.UUID
+		if e = tx.QueryRow(ctx, `SELECT operation_id FROM distribution_lead_guards WHERE account_id=$1 AND lead_id=$2 FOR UPDATE`, op.Scope.AccountID, op.Assignment.Command.Expected.LeadID).Scan(&holder); e != nil {
+			return op, e
+		}
+		if holder != op.OperationID {
+			return op, ErrOperationUnresolved
+		}
+		if e = lease(ctx, tx, job, op); e != nil {
+			return op, e
+		}
+		now := time.Now()
+		if op.CancelRequestedAt != nil || !op.Assignment.Command.ValidUntil.After(now) || !permissionExpires.After(now) || permissionExpires.After(now.Add(5*time.Second)) || ctx.Err() != nil {
+			return op, ErrStaleDecision
+		}
 	}
 	if terminal {
 		if e = terminalProof(ctx, tx, id, state, evidence, snapshot); e != nil {

@@ -165,15 +165,16 @@ func (w *AssignmentWorker) Handler(ctx context.Context, job jobs.Job) (json.RawM
 		return finish("rejected", "no_attempt", "rejected", "policy_unavailable", &observation, true, "no_request_sent")
 	}
 	if c.DecisionKind == "keep" || c.TargetResponsibleUserID == observation.ResponsibleUserID {
-		// No-effect decisions still require current capability, binding and lease.
-		if e = w.Store.Require(ctx, op.Scope.Binding()); e != nil {
-			return finish("rejected", "no_attempt", "rejected", "capability_revoked", nil, true, "no_request_sent")
-		}
+		// No-effect business turns require the same fresh grant after DB waits.
 		outcome := "already_target"
 		if c.DecisionKind == "keep" {
 			outcome = "kept"
 		}
-		return finish("no_change", "no_attempt", outcome, "", &observation, true, "no_request_sent")
+		result, err := w.Store.FinishNoChange(ctx, job, op.OperationID, outcome, &observation, permission.ValidUntil)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(result)
 	}
 	if e = w.Store.Dispatch(ctx, job, op, permission.ValidUntil); e != nil {
 		return nil, e

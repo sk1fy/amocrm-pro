@@ -495,3 +495,87 @@ func TestAssignmentKeyReceiptPrecedesGlobalOperationLookup(t *testing.T) {
 		}
 	}
 }
+
+// A no-PATCH result still confirms a business turn. SQL contention must not
+// turn a grant that expired at shift end into a cursor-advancing result.
+func TestAssignmentNoChangeSettlementRechecksGrantAndCancellation(t *testing.T) {
+	for _, kind := range []string{"expired_operation_lock", "expired_guard_lock", "cancel", "binding_revoked"} {
+		t.Run(kind, func(t *testing.T) {
+			f := assignmentFixture(t)
+			ctx := context.Background()
+			job := f.AdmitAndClaim(t)
+			tx, err := f.Pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback(ctx)
+			if kind == "expired_guard_lock" {
+				_, err = tx.Exec(ctx, `SELECT operation_id FROM distribution_lead_guards WHERE operation_id=$1 FOR UPDATE`, f.Assignment.Command.OperationID)
+			} else {
+				_, err = tx.Exec(ctx, `SELECT id FROM distribution_operations WHERE id=$1 FOR UPDATE`, f.Assignment.Command.OperationID)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind == "cancel" {
+				_, err = tx.Exec(ctx, `UPDATE distribution_operations SET cancel_requested_at=clock_timestamp() WHERE id=$1`, f.Assignment.Command.OperationID)
+			}
+			if kind == "binding_revoked" {
+				_, err = tx.Exec(ctx, `UPDATE distribution_bindings SET state='revoked' WHERE id=$1`, f.Assignment.Scope.BindingID)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			grant := time.Now().Add(150 * time.Millisecond)
+			if kind == "cancel" || kind == "binding_revoked" {
+				grant = time.Now().Add(3 * time.Second)
+			}
+			done := make(chan error, 1)
+			snapshot := snapshotOf(f.CRM.Lead, time.Now())
+			go func() {
+				_, err := f.Store.FinishNoChange(ctx, job, f.Assignment.Command.OperationID, "already_target", &snapshot, grant)
+				done <- err
+			}()
+			// Confirm the transaction reached a lock wait before releasing it. This
+			// ensures the regression exercises post-wait checks rather than admission.
+			deadline := time.Now().Add(2 * time.Second)
+			for {
+				var waiting bool
+				err = f.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%distribution_%')`).Scan(&waiting)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if waiting {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatal("settlement never waited for lock")
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+			if kind == "expired_operation_lock" || kind == "expired_guard_lock" {
+				time.Sleep(time.Until(grant.Add(30 * time.Millisecond)))
+			}
+			if err = tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+			err = <-done
+			want := ErrStaleDecision
+			if kind == "binding_revoked" {
+				want = ErrDenied
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("stale no-change result settled: %v want %v", err, want)
+			}
+			var results, outbox, guards int
+			err = f.Pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM distribution_operation_results),(SELECT count(*) FROM distribution_result_outbox),(SELECT count(*) FROM distribution_lead_guards)`).Scan(&results, &outbox, &guards)
+			if err != nil || results != 1 || outbox != 1 || guards != 1 {
+				t.Fatal("expired business turn emitted/released", results, outbox, guards, err)
+			}
+			op, err := f.Store.Operation(ctx, f.Scope, f.Assignment.Command.OperationID)
+			if err != nil || op.FinishedAt != nil || op.State != "queued" {
+				t.Fatal(op.State, err)
+			}
+		})
+	}
+}

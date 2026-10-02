@@ -129,3 +129,14 @@ compatibility, metrics и честные historical gaps. Runtime source evidenc
 подменяет бизнес-вход; решение/очередь и разрешение PATCH остаются закрытыми до
 РС-06. Итоговые Docker/Make baseline и targeted current-source checks зафиксированы
 в документе реализации. Live amoCRM pilot не выполнялся.
+
+## Реализация РС-06
+
+[Очередь, графики и выбор сотрудника](10-queue-implementation.md) — серверный
+TeamOS runtime, IANA availability, durable FIFO/claims, подтверждённый round-robin,
+keep/no-change, immutable decisions, реальные signed grants и Core проверка
+срока grant после SQL waits даже без PATCH. Состояние «не реализовано до РС-06»
+в документах РС-04/РС-05 описывает историческую границу тех этапов: теперь grant
+выдаёт только настроенный текущий TeamOS registry. Пропущенный opt-in bridge
+не считается приёмкой; парный профиль запускает реальные бэкенды с отдельными
+PostgreSQL и управляемым CRM источником. Live amoCRM и deployment pilot отсутствуют.

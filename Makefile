@@ -217,3 +217,7 @@ integration-current-test: ## Run current Core PostgreSQL suites using the previo
 	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml up --detach --wait postgres; \
 	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml run --rm migrate up; \
 	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml run --rm --no-deps --volume "$(CURDIR):/src" --workdir /src integration-test
+
+.PHONY: distribution-team-bridge-test
+distribution-team-bridge-test: ## Verify actual signed Core/TeamOS decision execution with separate disposable databases
+	sh scripts/distribution-team-bridge-test.sh

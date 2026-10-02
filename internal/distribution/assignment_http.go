@@ -170,8 +170,8 @@ func (h *Handler) reconcileOperation(w http.ResponseWriter, r *http.Request) {
 }
 
 // ValidateDecision asks the business owner for a fresh authorization bound to
-// this exact operation/decision/fence. Current TeamOS RS-04 seam fails closed
-// until the rule/episode/availability engine exists; it never fabricates grants.
+// this exact operation/decision/fence. TeamOS RS-06 validates its durable business
+// decision; missing/stale authority fails closed and is never fabricated here.
 func (h *Handler) ValidateDecision(ctx context.Context, op Operation, targetEmployee uuid.UUID, fence int) (DecisionAuthorization, error) {
 	var result DecisionAuthorization
 	if h.TeamOSURL == "" || h.Keys[h.TeamOSKeyID] == "" {
