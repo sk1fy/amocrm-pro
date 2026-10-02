@@ -39,3 +39,4 @@ in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product
 scope belongs in GitHub Issues.
 
 - [ADR-0033](0033-distribution-signed-http-connection.md) — Proposed: signed HTTPS bridge подключения распределения, scoped grants и worker listener.
+- [ADR-0034](0034-distribution-durable-assignment-evidence.md) — Proposed: durable assignment, global guard и доказательства внешнего результата.

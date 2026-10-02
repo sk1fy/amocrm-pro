@@ -33,6 +33,7 @@ func JobService(jobType string) (string, bool) {
 }
 
 var jobServices = map[string]string{
+	"distribution.assign_responsible":     LeadDistribution,
 	"widget.ping":                         "",
 	"workflow.lead.set_status":            LeadStatus,
 	"workflow.rule.lead_status.configure": LeadStatus,

@@ -147,6 +147,15 @@ func run() error {
 		"webhook.process_event": webhook.JobFailureObserver(webhookStore),
 	}
 	leadStatusModule.RegisterJobs(handlers, observers, amocrmAPI)
+	distributionConfig, err := distribution.LoadConfig()
+	if err != nil {
+		return err
+	}
+	distributionStore := distribution.NewStore(pool)
+	distributionPolicy := &distribution.Handler{Store: distributionStore, CRM: amocrmAPI, TeamOSURL: distributionConfig.TeamOSURL, TeamOSKeyID: distributionConfig.TeamOSKeyID, Keys: distributionConfig.Keys}
+	assignmentWorker := &distribution.AssignmentWorker{Store: distributionStore, CRM: amocrmAPI, Policy: distributionPolicy}
+	handlers[distribution.AssignmentJobType] = assignmentWorker.Handler
+	observers[distribution.AssignmentJobType] = distributionStore.AssignmentFailure
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
 	handlers[admincommand.CheckJobType] = adminExecutor.Handler
 	handlers[admincommand.UninstallJobType] = adminExecutor.Handler
@@ -198,10 +207,6 @@ func run() error {
 	}
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	healthServer := httpserver.New(cfg.HTTPAddress, router)
-	distributionConfig, err := distribution.LoadConfig()
-	if err != nil {
-		return err
-	}
 	var distributionServer *http.Server
 	if distributionConfig.Address != "" {
 		distributionRouter, err := distribution.Router(ctx, pool, keyRing, amocrmAPI, distributionConfig)

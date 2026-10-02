@@ -79,7 +79,9 @@ func TestServiceBacklogCollectorExactCountsAndOldestReady(t *testing.T) {
         ('workflow.lead.set_status','{}','queued',3,3,now()-interval '1 day',NULL,NULL),
         ('workflow.lead.set_status','{}','retry',1,3,now()+interval '1 hour',NULL,NULL),
         ('webhook.parse','{}','processing',1,3,now(),'worker',now()+interval '1 hour'),
-        ('widget.ping','{}','processing',1,3,now(),'worker',now()-interval '1 second');
+        ('widget.ping','{}','processing',1,3,now(),'worker',now()-interval '1 second'),
+ ('distribution.assign_responsible','{}','queued',0,3,now()-interval '90 seconds',NULL,NULL),
+ ('distribution.assign_responsible','{}','retry',1,3,now()+interval '1 hour',NULL,NULL);
         INSERT INTO jobs(type,payload,run_after)
         SELECT 'unknown.'||series,'{}',now()-interval '10 seconds' FROM generate_series(1,1000) series`); err != nil {
 		t.Fatal(err)
@@ -100,9 +102,9 @@ func TestServiceBacklogCollectorExactCountsAndOldestReady(t *testing.T) {
 			t.Fatalf("families=%d", len(families))
 		}
 		for _, family := range families {
-			wantSeries := 12
+			wantSeries := 16
 			if family.GetName() == "amocrm_jobs_service_oldest_ready_seconds" {
-				wantSeries = 3
+				wantSeries = 4
 			}
 			if len(family.Metric) != wantSeries {
 				t.Fatalf("%s series=%d", family.GetName(), len(family.Metric))
@@ -122,6 +124,10 @@ func TestServiceBacklogCollectorExactCountsAndOldestReady(t *testing.T) {
 				}
 				if kind == "" {
 					switch service {
+					case "lead-distribution":
+						if got < 90 || got > 95 {
+							t.Fatalf("distribution oldestready=%v want~90s", got)
+						}
 					case "lead-status":
 						if got < 60 || got > 65 {
 							t.Fatalf("oldest ready=%v,want ~60s", got)
@@ -141,7 +147,7 @@ func TestServiceBacklogCollectorExactCountsAndOldestReady(t *testing.T) {
 				switch service + ":" + kind {
 				case "lead-status:ready":
 					want = 2
-				case "lead-status:scheduled", "platform:processing", "platform:expired_lease":
+				case "lead-status:scheduled", "platform:processing", "platform:expired_lease", "lead-distribution:ready", "lead-distribution:scheduled":
 					want = 1
 				case "other:ready":
 					want = 1000

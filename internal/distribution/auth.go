@@ -116,7 +116,7 @@ func (a Auth) Middleware(next http.Handler) http.Handler {
 }
 func scopeFrom(r *http.Request) Scope { s, _ := r.Context().Value(scopeKey{}).(Scope); return s }
 func fail(w http.ResponseWriter, status int, code string) {
-	write(w, status, map[string]any{"error": map[string]string{"code": code, "message": "Запрос не выполнен. Проверьте подключение и права доступа."}})
+	write(w, status, map[string]any{"error": map[string]any{"code": code, "message": "Запрос не выполнен. Проверьте подключение и права доступа.", "status": status, "requestId": uuid.NewString()}})
 }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

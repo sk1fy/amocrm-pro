@@ -207,3 +207,13 @@ distribution-integration-test: ## Run current distribution transaction tests wit
 	$(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml up --detach --wait postgres; \
 	$(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml run --rm migrate up; \
 	$(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml run --rm --no-deps --entrypoint go --volume "$(CURDIR):/src" --workdir /src integration-test test -race -count=1 -v ./internal/distribution
+
+.PHONY: integration-current-test
+integration-current-test: ## Run current Core PostgreSQL suites using the previously built matching migrator/test images
+	@set -eu; \
+	cleanup() { $(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT INT TERM; \
+	cleanup; \
+	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml up --detach --wait postgres; \
+	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml run --rm migrate up; \
+	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml run --rm --no-deps --volume "$(CURDIR):/src" --workdir /src integration-test

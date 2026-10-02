@@ -77,6 +77,10 @@ func (h *Handler) RegisterService(router chi.Router, auth Auth) {
 	router.Route("/internal/v1/distribution", func(r chi.Router) {
 		r.Use(auth.Middleware)
 		r.Post("/bindings", h.bind)
+		r.Post("/assignments", h.admitAssignment)
+		r.Get("/operations/{operationId}", h.getOperation)
+		r.Post("/operations/{operationId}/cancel", h.cancelOperation)
+		r.Post("/operations/{operationId}/reconcile", h.reconcileOperation)
 		r.Get("/bindings/{bindingId}", h.getBinding)
 		r.Get("/bindings/{bindingId}/readiness", h.readiness)
 		r.Get("/bindings/{bindingId}/references", h.references)

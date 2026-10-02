@@ -89,3 +89,40 @@ integration/capability прекращают новые product calls. Истор
 Локальные проверки: `make distribution-test`, `make integration-test`, `make test`.
 Live OAuth reauthorization, installed widget JWT и deployment TLS evidence на
 тестовом аккаунте здесь не выполнены: требуются доступные аккаунт и окружение.
+
+## РС-04: private operation API и восстановление
+
+Текущий реализованный контракт: `api/distribution-openapi.yaml`. POST
+`/internal/v1/distribution/assignments` принимает AssignmentEnvelope с canonical
+UUID Idempotency-Key и возвращает **202 OperationReceipt** после durable commit.
+GET `/internal/v1/distribution/operations/{operationId}` возвращает Operation.
+POST `.../{operationId}/cancel` и `.../{operationId}/reconcile` принимают
+`{expectedResultVersion, actor, reason}` плюс UUID Idempotency-Key и возвращают
+**200 Operation**. Время запроса сохраняет сервер. Retry использует тот же
+operation/payload/key, новый только transport nonce. Чужие IDs не раскрываются.
+
+Перед production отправкой требуется TeamOS подписанный `validate-decision` с
+capability **decision-validation** (widget-access grant не подходит). Текущий seam
+проверяет scope/mapping/actor, но возвращает decision_not_ready до РС-06. Не обходить
+его синтетическим разрешением и не выдавать себя за существующий business registry.
+Подробности Core реализации и локальной приёмки — в спецификации 08.
+
+outcome_unknown означает, что PATCH мог дойти; guard account+lead не имеет TTL.
+Смена binding, рестарт worker, cancel, pause, matching GET или другой installation
+не разрешают повтор. Reconcile делает GET и добавляет observation; terminal успех
+возможен только по уже сохранённому valid ACK плюс новому GET после ACK с достаточно
+свежим source updated_at. Потерянный ACK, 5xx, transport timeout и malformed response
+остаются unknown. HTTP 401/403/404/429 тоже не служат автоматическим release proof;
+причина сохранена отдельно, PATCH повторять нельзя.
+
+После revoke/capoff исторический GET/cancel/reconcile остаётся доступным scoped
+service principal. При недоступном OAuth после disable/uninstall/reauth вернуть
+подключение штатным способом и повторить только GET/reconcile; не создавать новый
+operation. OAuth refresh с потерянным исходом восстанавливается существующим
+OAuth protocol. Публичного operator resolve с self-reported proof нет: проверяемое
+внешнее evidence требует будущего операторского механизма, а неизвестный guard
+до этого сохраняется. Не выполнять SQL DELETE guard/receipts/jobs как «исправление».
+
+Каждый resultVersion имеет атомарный outbox; отправка результатов будет реализована
+в РС-05. До этого проверять GET operation. Journals/jobs pinned, семидневный cleanup
+их не удаляет. Rollback migration19 с использованными operations запрещён.
