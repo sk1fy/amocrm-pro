@@ -16,7 +16,7 @@ func TestPrivateDistributionOperationContract(t *testing.T) {
 	if e = doc.Validate(context.Background()); e != nil {
 		t.Fatal(e)
 	}
-	if doc.Paths.Len() != 4 {
+	if doc.Paths.Len() != 9 {
 		t.Fatal("unexpectedprivatepaths", doc.Paths.Len())
 	}
 	for path, item := range doc.Paths.Map() {
@@ -24,7 +24,7 @@ func TestPrivateDistributionOperationContract(t *testing.T) {
 			if op.Security == nil || len(*op.Security) != 1 {
 				t.Fatal("missingprivateauth", method, path)
 			}
-			if method == "POST" {
+			if method == "POST" && (path == "/internal/v1/distribution/assignments" || path == "/internal/v1/distribution/operations/{operationId}/cancel" || path == "/internal/v1/distribution/operations/{operationId}/reconcile") {
 				found := false
 				for _, p := range op.Parameters {
 					if p.Value != nil && p.Value.Name == "Idempotency-Key" && p.Value.Required {

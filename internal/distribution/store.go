@@ -245,7 +245,7 @@ func (s *Store) Revoke(ctx context.Context, scope Scope, id uuid.UUID) error {
 func (s *Store) Readiness(ctx context.Context, b Binding) (map[string]any, error) {
 	var installation, webhook string
 	var creds, subscription bool
-	err := s.pool.QueryRow(ctx, `SELECT i.status,i.webhook_status,EXISTS(SELECT 1 FROM oauth_credentials o WHERE o.installation_id=i.id),i.webhook_status='active' AND i.webhook_settings ? 'add_lead' AND i.webhook_settings ? 'status_lead' FROM installations i WHERE i.id=$1 AND i.integration_id=$2 AND i.account_id=$3`, b.InstallationID, b.IntegrationID, b.AccountID).Scan(&installation, &webhook, &creds, &subscription)
+	err := s.pool.QueryRow(ctx, `SELECT i.status,i.webhook_status,EXISTS(SELECT 1 FROM oauth_credentials o WHERE o.installation_id=i.id),i.webhook_status='active' AND i.webhook_settings ? 'add_lead' AND i.webhook_settings ? 'status_lead' AND i.webhook_settings ? 'update_lead' AND i.webhook_settings ? 'responsible_lead' AND i.webhook_settings ? 'delete_lead' FROM installations i WHERE i.id=$1 AND i.integration_id=$2 AND i.account_id=$3`, b.InstallationID, b.IntegrationID, b.AccountID).Scan(&installation, &webhook, &creds, &subscription)
 	if err != nil {
 		return nil, err
 	}

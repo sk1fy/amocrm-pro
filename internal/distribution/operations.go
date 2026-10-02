@@ -95,6 +95,7 @@ type WireError struct {
 	RetryAfterSeconds *int   `json:"retryAfterSeconds"`
 }
 type Operation struct {
+	LeadID                  int64           `json:"leadId,string"`
 	OperationID             uuid.UUID       `json:"operationId"`
 	Scope                   AssignmentScope `json:"scope"`
 	EpisodeID               uuid.UUID       `json:"episodeId"`
@@ -298,6 +299,7 @@ func readOperation(ctx context.Context, q opReader, id uuid.UUID, lock bool) (Op
 		op.Error = &WireError{code, "Операция требует проверки подключения, решения или внешнего результата.", op.FinishedAt == nil, op.FinishedAt != nil, nil}
 	}
 	a, c := op.Assignment, op.Assignment.Command
+	op.LeadID = c.Expected.LeadID
 	op.Scope = a.Scope
 	op.EpisodeID = c.EpisodeID
 	op.DecisionID = c.DecisionID

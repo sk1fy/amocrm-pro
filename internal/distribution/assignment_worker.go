@@ -245,3 +245,10 @@ func (w *AssignmentWorker) Handler(ctx context.Context, job jobs.Job) (json.RawM
 }
 
 func retryAssignment(code string, e error) error { return jobs.Retryable(code, 5*time.Second, e) }
+
+// RegisterJobs keeps execution and exhaustion recovery in the same composition
+// step: omitting the observer would strand safe no-attempt operations.
+func (w *AssignmentWorker) RegisterJobs(handlers map[string]jobs.Handler, observers map[string]jobs.FailureObserver) {
+	handlers[AssignmentJobType] = w.Handler
+	observers[AssignmentJobType] = w.Store.AssignmentFailure
+}

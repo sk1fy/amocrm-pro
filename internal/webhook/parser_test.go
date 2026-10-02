@@ -65,3 +65,16 @@ func TestParseIgnoresUnsupportedEvents(t *testing.T) {
 		t.Fatalf("expected unsupported payload to be ignored, got %#v", events)
 	}
 }
+
+func TestDocumentedResponsibleScalarDeleteAndDateCreate(t *testing.T) {
+	id := uuid.New()
+	for _, raw := range []string{"leads[delete][0]=11", "leads[delete][0][id]=11", "leads[responsible][0][id]=11&leads[responsible][0][responsible_user_id]=12", "leads[add][0][id]=11&leads[add][0][date_create]=1710000000"} {
+		events, e := Parse(id, []byte(raw))
+		if e != nil || len(events) != 1 || events[0].EntityID == nil || *events[0].EntityID != 11 {
+			t.Fatal(raw, events, e)
+		}
+		if events[0].EventType == "add" && (events[0].EventAt == nil || events[0].EventAt.Unix() != 1710000000) {
+			t.Fatal("missing date_create")
+		}
+	}
+}

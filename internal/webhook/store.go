@@ -29,9 +29,10 @@ type Delivery struct {
 }
 
 type Store struct {
-	pool    *pgxpool.Pool
-	metrics *Metrics
-	routers map[string]services.EventRouter
+	pool      *pgxpool.Pool
+	metrics   *Metrics
+	routers   map[string]services.EventRouter
+	consumers map[string]map[string]ConsumerDescriptor
 }
 
 var ErrNotFound = errors.New("webhook object not found in installation scope")
@@ -41,7 +42,7 @@ func NewStore(pool *pgxpool.Pool, metricSets ...*Metrics) *Store {
 	if len(metricSets) > 0 {
 		metrics = metricSets[0]
 	}
-	return &Store{pool: pool, metrics: metrics, routers: make(map[string]services.EventRouter)}
+	return &Store{pool: pool, metrics: metrics, routers: make(map[string]services.EventRouter), consumers: make(map[string]map[string]ConsumerDescriptor)}
 }
 
 func (s *Store) SaveDeliveryAndEnqueue(
@@ -61,9 +62,16 @@ func (s *Store) SaveDeliveryAndEnqueue(
 	var deliveryID uuid.UUID
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO webhook_deliveries (
-			installation_id, request_id, content_type, event_settings, raw_body, body_sha256
+			installation_id, request_id, content_type, event_settings, raw_body, body_sha256, consumer_snapshot
 		)
-		SELECT installation.id, $2, $3, installation.webhook_settings, $4, $5
+		SELECT installation.id, $2, $3, installation.webhook_settings, $4, $5,
+          CASE WHEN EXISTS(SELECT 1 FROM integration_services ls JOIN integrations lp ON lp.id=ls.integration_id WHERE ls.integration_id=installation.integration_id AND ls.service_code='lead-status' AND ls.enabled AND lp.status='active' AND installation.status='active') THEN jsonb_build_array(jsonb_build_object('consumerId','core-lead-status-v1','scope',null)) ELSE '[]'::jsonb END ||
+          COALESCE((SELECT jsonb_agg(jsonb_build_object('consumerId','core-lead-distribution-v1','scope',jsonb_build_object(
+           'companyId',b.company_id,'bindingId',b.id,'bindingRevision',b.revision,'installationId',b.installation_id,
+           'integrationId',b.integration_id,'accountId',b.account_id::text)))
+           FROM distribution_bindings b JOIN integration_services c ON c.integration_id=b.integration_id AND c.service_code='lead-distribution' AND c.enabled
+           JOIN integrations p ON p.id=b.integration_id AND p.status='active'
+           WHERE b.installation_id=installation.id AND b.state='active' AND installation.status='active'),'[]'::jsonb)
 		FROM installations installation
 		WHERE installation.id = $1
 		RETURNING id`,
@@ -167,9 +175,10 @@ func (s *Store) SaveParsedEvents(ctx context.Context, delivery Delivery, events 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var status string
+	var consumerSnapshot []byte
 	if err := tx.QueryRow(ctx, `
-		SELECT parse_status FROM webhook_deliveries WHERE id = $1 FOR UPDATE`, delivery.ID,
-	).Scan(&status); err != nil {
+		SELECT parse_status,consumer_snapshot,received_at FROM webhook_deliveries WHERE id = $1 AND installation_id=$2 FOR UPDATE`, delivery.ID, delivery.InstallationID,
+	).Scan(&status, &consumerSnapshot, &delivery.ReceivedAt); err != nil {
 		return 0, fmt.Errorf("lock webhook delivery: %w", err)
 	}
 	if status == "parsed" || status == "invalid" {
@@ -183,6 +192,13 @@ func (s *Store) SaveParsedEvents(ctx context.Context, delivery Delivery, events 
 
 	inserted := 0
 	for _, event := range events {
+		var retained bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_consumer_receipts WHERE installation_id=$1 AND source_fingerprint=$2)`, delivery.InstallationID, event.DeduplicationKey).Scan(&retained); err != nil {
+			return 0, err
+		}
+		if retained {
+			continue
+		}
 		tombstone, err := tx.Exec(ctx, `
 			INSERT INTO webhook_event_tombstones (
 				installation_id, deduplication_key
@@ -231,6 +247,9 @@ func (s *Store) SaveParsedEvents(ctx context.Context, delivery Delivery, events 
 			INSERT INTO jobs (installation_id, type, priority, payload)
 			VALUES ($1, 'webhook.process_event', 20, $2)`, delivery.InstallationID, payload); err != nil {
 			return 0, fmt.Errorf("enqueue webhook event job: %w", err)
+		}
+		if err := s.freezeConsumers(ctx, tx, delivery, event, eventID, consumerSnapshot); err != nil {
+			return 0, err
 		}
 		inserted++
 	}
@@ -284,11 +303,15 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 		return tx.Commit(ctx)
 	}
 
-	route, err := s.routeEvent(ctx, tx, services.Event{
-		ID: eventID, InstallationID: installationID, EntityType: entityType,
-		EventType: eventType, EntityID: entityID, Payload: payload,
-		DeduplicationKey: deduplicationKey, ReceivedAt: deliveryReceivedAt,
-	})
+	var subscribed bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_consumer_receipts WHERE event_id=$1 AND consumer_id='core-lead-status-v1') OR EXISTS(SELECT 1 FROM webhook_deliveries d JOIN inbox_events e ON e.delivery_id=d.id WHERE e.id=$1 AND d.consumer_snapshot IS NULL)`, eventID).Scan(&subscribed); err != nil {
+		return err
+	}
+	route := services.EventRoute{Disposition: "consumer_not_subscribed"}
+	if subscribed {
+		route, err = s.routeEvent(ctx, tx, services.Event{ID: eventID, InstallationID: installationID, EntityType: entityType, EventType: eventType, EntityID: entityID, Payload: payload, DeduplicationKey: deduplicationKey, ReceivedAt: deliveryReceivedAt})
+	}
+
 	if err != nil {
 		return err
 	}
@@ -303,6 +326,10 @@ func (s *Store) ProcessEvent(ctx context.Context, eventID, expectedInstallationI
 		WHERE id = $1`, eventID, finalStatus, route.EffectID,
 	); err != nil {
 		return fmt.Errorf("mark inbox event processed: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE webhook_consumer_receipts SET state=$2,disposition=$3,finished_at=now() WHERE event_id=$1 AND consumer_id='core-lead-status-v1'`, eventID, finalStatus, route.Disposition); err != nil {
+		return err
 	}
 	metadata, err := json.Marshal(map[string]any{
 		"event_type":           eventType,
@@ -401,6 +428,20 @@ func (s *Store) RecordJobFailure(
 			return nil
 		}
 
+		if terminal {
+			if _, err := tx.Exec(ctx, `UPDATE webhook_consumer_receipts SET state='blocked',disposition=$2,finished_at=now() WHERE event_id=$1 AND consumer_id='core-lead-status-v1' AND state='pending'`, eventID, failure.Code); err != nil {
+				return err
+			}
+		}
+
+	case "distribution.normalize_event":
+		var p struct {
+			ReceiptID uuid.UUID `json:"receiptId"`
+		}
+		if json.Unmarshal(job.Payload, &p) == nil && (status == jobs.StatusFailed || status == jobs.StatusDead) {
+			_, err := tx.Exec(ctx, `UPDATE webhook_consumer_receipts SET state='blocked',disposition=$3,finished_at=now() WHERE id=$1 AND installation_id=$2 AND state='pending'`, p.ReceiptID, *job.InstallationID, failure.Code)
+			return err
+		}
 	}
 	return nil
 }
@@ -415,6 +456,7 @@ func (s *Store) RegisterEventRouter(entityType, eventType string, router service
 		panic("duplicate event router: " + key)
 	}
 	s.routers[key] = router
+	s.RegisterEventConsumer(entityType, eventType, ConsumerDescriptor{ID: LeadStatusConsumer, JobType: "webhook.process_event", Inline: true})
 }
 func (s *Store) routeEvent(ctx context.Context, tx pgx.Tx, event services.Event) (services.EventRoute, error) {
 	if router := s.routers[event.EntityType+":"+event.EventType]; router != nil {

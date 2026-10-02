@@ -310,6 +310,12 @@ func TestAssignmentExhaustedJobObserverPreservesOnlyPossibleEffects(t *testing.T
 		t.Run(fmtLead(int64(boolInt(attempted))), func(t *testing.T) {
 			f := assignmentFixture(t)
 			ctx := context.Background()
+			handlers := map[string]jobs.Handler{}
+			observers := map[string]jobs.FailureObserver{}
+			f.Worker().RegisterJobs(handlers, observers)
+			if handlers[AssignmentJobType] == nil || observers[AssignmentJobType] == nil {
+				t.Fatal("assignment execution/recovery registration missing")
+			}
 			job := f.AdmitAndClaim(t)
 			if attempted {
 				op, e := f.Store.Operation(ctx, f.Scope, f.Assignment.Command.OperationID)
@@ -323,7 +329,7 @@ func TestAssignmentExhaustedJobObserverPreservesOnlyPossibleEffects(t *testing.T
 			if _, e := f.Pool.Exec(ctx, `UPDATE jobs SET max_attempts=1,locked_until=clock_timestamp()-interval '1 second' WHERE id=$1`, job.ID); e != nil {
 				t.Fatal(e)
 			}
-			_, e := f.Jobs.ClaimWithObserver(ctx, "new-worker", 1, 100, time.Minute, f.Store.AssignmentFailure)
+			_, e := f.Jobs.ClaimWithObserver(ctx, "new-worker", 1, 100, time.Minute, observers[AssignmentJobType])
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -337,6 +343,10 @@ func TestAssignmentExhaustedJobObserverPreservesOnlyPossibleEffects(t *testing.T
 				}
 			} else if op.State != "rejected" || op.FinishedAt == nil {
 				t.Fatal("deadjobdidnotsafelyfinish", op.State)
+			}
+			var guarded bool
+			if e = f.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM distribution_lead_guards WHERE operation_id=$1)`, op.OperationID).Scan(&guarded); e != nil || guarded != attempted {
+				t.Fatal("registered observer guard disposition", guarded, attempted, e)
 			}
 			var versions, outbox int
 			if e = f.Pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM distribution_operation_results),(SELECT count(*) FROM distribution_result_outbox)`).Scan(&versions, &outbox); e != nil || versions != outbox || versions < 2 {

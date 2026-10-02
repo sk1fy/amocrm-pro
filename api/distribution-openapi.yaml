@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: Core lead distribution operation API
+  title: Core lead distribution private runtime API
   version: 1.0.0
-  description: Implemented RS-04 private Core worker listener contract. Current TeamOS
+  description: Implemented RS-04/RS-05 private Core worker listener contract including observations and bounded recovery. Current TeamOS
     decision registry is not implemented yet and production ValidateDecision fails
     closed. Operators cannot release ambiguous guards through this API; no public
     ingress exposure.
@@ -48,9 +48,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AssignmentEnvelope'
-      security:
+      security: &id001
       - distributionSignature: []
     x-receiver: amocrm-core
+    x-route-owner: worker
   /internal/v1/distribution/operations/{operationId}:
     parameters:
     - name: operationId
@@ -91,6 +92,7 @@ paths:
       security:
       - distributionSignature: []
     x-receiver: amocrm-core
+    x-route-owner: worker
   /internal/v1/distribution/operations/{operationId}/reconcile:
     parameters:
     - name: operationId
@@ -142,6 +144,7 @@ paths:
         expectedResultVersion, verified actor and reason; proposed requestedAt is
         not accepted in the implemented private DTO.
     x-receiver: amocrm-core
+    x-route-owner: worker
   /internal/v1/distribution/operations/{operationId}/cancel:
     x-receiver: amocrm-core
     parameters:
@@ -193,6 +196,143 @@ paths:
       description: Server records cancellation/request audit timestamp. Caller sends
         expectedResultVersion, verified actor and reason; proposed requestedAt is
         not accepted in the implemented private DTO.
+    x-route-owner: worker
+  /internal/v1/distribution/bindings/{bindingId}/leads/{leadId}:
+    get:
+      operationId: getDistributionLeadObservation
+      summary: Read an authorized current CRM observation
+      parameters:
+      - name: bindingId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: leadId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CrmId'
+      responses:
+        '200':
+          description: Documented absence remains distinct from proven deletion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadObservation'
+        '503':
+          description: CRM unavailable or undocumented 404
+      security: *id001
+    x-route-owner: worker
+  /internal/v1/distribution/bindings/{bindingId}/recovery-scans:
+    post:
+      operationId: startDistributionRecoveryScan
+      parameters:
+      - name: bindingId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '202':
+          description: Durably accepted or scoped current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanReceipt'
+        '409':
+          description: Cursor or scope conflict
+        '503':
+          description: Source unavailable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanInput'
+      security: *id001
+    x-route-owner: worker
+  /internal/v1/distribution/bindings/{bindingId}/recovery-scans/{scanId}:
+    get:
+      operationId: getDistributionRecoveryScan
+      parameters:
+      - name: bindingId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Durably accepted or scoped current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryScan'
+        '409':
+          description: Cursor or scope conflict
+        '503':
+          description: Source unavailable
+      security: *id001
+    x-route-owner: worker
+  /internal/v1/distribution/bindings/{bindingId}/recovery-scans/{scanId}/retry:
+    post:
+      operationId: retryDistributionRecoveryScan
+      parameters:
+      - name: bindingId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '202':
+          description: Durably accepted or scoped current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanReceipt'
+        '409':
+          description: Cursor or scope conflict
+        '503':
+          description: Source unavailable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRetryInput'
+      security: *id001
+    x-route-owner: worker
+  /internal/v1/distribution/bindings/{bindingId}/delivery-status:
+    get:
+      operationId: getDistributionDeliveryStatus
+      parameters:
+      - name: bindingId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Durably accepted or scoped current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryStatus'
+        '409':
+          description: Cursor or scope conflict
+        '503':
+          description: Source unavailable
+      security: *id001
+    x-route-owner: worker
 components:
   securitySchemes:
     distributionSignature:
@@ -466,11 +606,11 @@ components:
               $ref: '#/components/schemas/Actor'
             validUntil:
               $ref: '#/components/schemas/Timestamp'
-            groupId: &id001
+            groupId: &id002
               $ref: '#/components/schemas/Id'
-            availabilityRevision: &id002
+            availabilityRevision: &id003
               $ref: '#/components/schemas/Revision'
-            claimRevision: &id003
+            claimRevision: &id004
               $ref: '#/components/schemas/Revision'
           required:
           - operationId
@@ -609,14 +749,16 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
-        groupId: *id001
-        availabilityRevision: *id002
-        claimRevision: *id003
+        groupId: *id002
+        availabilityRevision: *id003
+        claimRevision: *id004
         cancelRequestedAt:
           anyOf:
           - $ref: '#/components/schemas/Timestamp'
           - type: 'null'
         targetResponsibleUserId:
+          $ref: '#/components/schemas/CrmId'
+        leadId:
           $ref: '#/components/schemas/CrmId'
       required:
       - operationId
@@ -640,6 +782,7 @@ components:
       - availabilityRevision
       - claimRevision
       - targetResponsibleUserId
+      - leadId
       additionalProperties: false
       description: 'succeeded/no_change требуют confirmedSnapshot. no_change+kept
         не расходует round-robin; no_change+already_target расходует. Терминальные
@@ -835,7 +978,7 @@ components:
           - $ref: '#/components/schemas/Id'
           - type: 'null'
         result:
-          $ref: '#/components/schemas/Operation'
+          $ref: '#/components/schemas/LegacyResultOperation'
       required:
       - schemaVersion
       - messageId
@@ -849,6 +992,492 @@ components:
       - causationId
       - result
       additionalProperties: false
+    SourceEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        pipelineId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        statusId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        oldPipelineId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        oldStatusId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+        responsibleUserId:
+          anyOf:
+          - $ref: '#/components/schemas/CrmId'
+          - type: 'null'
+      required:
+      - pipelineId
+      - statusId
+      - oldPipelineId
+      - oldStatusId
+      - responsibleUserId
+    SourceEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          enum:
+          - lead.created
+          - lead.status_changed
+          - lead.responsible_changed
+          - lead.deleted
+          - lead.snapshot_reconciled
+        leadId:
+          $ref: '#/components/schemas/CrmId'
+        entryFingerprint:
+          type: 'null'
+        before:
+          anyOf:
+          - $ref: '#/components/schemas/LeadSnapshot'
+          - type: 'null'
+        after:
+          anyOf:
+          - $ref: '#/components/schemas/LeadSnapshot'
+          - type: 'null'
+        observationRevision:
+          $ref: '#/components/schemas/Revision'
+        sourceEvidence:
+          anyOf:
+          - $ref: '#/components/schemas/SourceEvidence'
+          - type: 'null'
+      required:
+      - kind
+      - leadId
+      - entryFingerprint
+      - before
+      - after
+      - observationRevision
+      - sourceEvidence
+    EventEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        scope:
+          $ref: '#/components/schemas/Scope'
+        messageId:
+          $ref: '#/components/schemas/Id'
+        eventId:
+          $ref: '#/components/schemas/Id'
+        receivedAt:
+          $ref: '#/components/schemas/Timestamp'
+        emittedAt:
+          $ref: '#/components/schemas/Timestamp'
+        correlationId:
+          $ref: '#/components/schemas/Id'
+        event:
+          $ref: '#/components/schemas/SourceEvent'
+        schemaVersion:
+          const: 1
+        sourceEventId:
+          type:
+          - string
+          - 'null'
+        sourceOccurredAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        causationId:
+          anyOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+      required:
+      - scope
+      - messageId
+      - eventId
+      - receivedAt
+      - emittedAt
+      - correlationId
+      - event
+      - schemaVersion
+      - sourceEventId
+      - sourceOccurredAt
+      - causationId
+    DeliveryReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        messageId:
+          $ref: '#/components/schemas/Id'
+        receiptId:
+          $ref: '#/components/schemas/Id'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        disposition:
+          enum:
+          - accepted
+          - duplicate
+      required:
+      - messageId
+      - receiptId
+      - acceptedAt
+      - disposition
+    LeadObservation:
+      type: object
+      additionalProperties: false
+      properties:
+        scope:
+          $ref: '#/components/schemas/Scope'
+        leadId:
+          $ref: '#/components/schemas/CrmId'
+        snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/LeadSnapshot'
+          - type: 'null'
+        absent:
+          type: boolean
+        deleted:
+          type: boolean
+        absenceReason:
+          enum:
+          - null
+          - not_found_or_deleted
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        observationRevision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - scope
+      - leadId
+      - snapshot
+      - absent
+      - deleted
+      - absenceReason
+      - observedAt
+      - observationRevision
+    LegacyResultOperation:
+      type: object
+      properties:
+        operationId:
+          $ref: '#/components/schemas/Id'
+        scope:
+          $ref: '#/components/schemas/Scope'
+        episodeId:
+          $ref: '#/components/schemas/Id'
+        decisionId:
+          $ref: '#/components/schemas/Id'
+        ruleId:
+          $ref: '#/components/schemas/Id'
+        ruleRevision:
+          $ref: '#/components/schemas/Revision'
+        eventId:
+          $ref: '#/components/schemas/Id'
+        correlationId:
+          $ref: '#/components/schemas/Id'
+        state:
+          $ref: '#/components/schemas/OperationState'
+        externalEffectState:
+          $ref: '#/components/schemas/ExternalEffectState'
+        outcome:
+          anyOf:
+          - $ref: '#/components/schemas/OperationOutcome'
+          - type: 'null'
+        resultVersion:
+          $ref: '#/components/schemas/Revision'
+        confirmedSnapshot:
+          anyOf:
+          - $ref: '#/components/schemas/LeadSnapshot'
+          - type: 'null'
+        resolutionEvidence:
+          anyOf:
+          - $ref: '#/components/schemas/ResolutionEvidence'
+          - type: 'null'
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/OperationError'
+          - type: 'null'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        groupId:
+          $ref: '#/components/schemas/Id'
+        availabilityRevision:
+          $ref: '#/components/schemas/Revision'
+        claimRevision:
+          $ref: '#/components/schemas/Revision'
+        cancelRequestedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        targetResponsibleUserId:
+          $ref: '#/components/schemas/CrmId'
+        leadId:
+          $ref: '#/components/schemas/CrmId'
+      required:
+      - operationId
+      - scope
+      - episodeId
+      - decisionId
+      - ruleId
+      - ruleRevision
+      - eventId
+      - correlationId
+      - state
+      - externalEffectState
+      - outcome
+      - resultVersion
+      - confirmedSnapshot
+      - resolutionEvidence
+      - error
+      - acceptedAt
+      - updatedAt
+      - groupId
+      - availabilityRevision
+      - claimRevision
+      - targetResponsibleUserId
+      additionalProperties: false
+      description: 'succeeded/no_change требуют confirmedSnapshot. no_change+kept
+        не расходует round-robin; no_change+already_target расходует. Терминальные
+        состояния запрещены при unknown/in_flight: тогда сохраняется outcome_unknown/confirming
+        и cancelRequested, guard удерживается.'
+      allOf:
+      - if:
+          properties:
+            state:
+              const: succeeded
+        then:
+          properties:
+            externalEffectState:
+              const: settled
+            outcome:
+              const: assigned
+            confirmedSnapshot:
+              $ref: '#/components/schemas/LeadSnapshot'
+            resolutionEvidence:
+              $ref: '#/components/schemas/ResolutionEvidence'
+      - if:
+          properties:
+            state:
+              const: no_change
+        then:
+          properties:
+            externalEffectState:
+              enum:
+              - no_attempt
+              - settled
+            outcome:
+              enum:
+              - kept
+              - already_target
+            confirmedSnapshot:
+              $ref: '#/components/schemas/LeadSnapshot'
+            resolutionEvidence:
+              $ref: '#/components/schemas/ResolutionEvidence'
+      - if:
+          properties:
+            state:
+              const: outcome_unknown
+        then:
+          properties:
+            externalEffectState:
+              const: unknown
+      - if:
+          properties:
+            externalEffectState:
+              enum:
+              - in_flight
+              - unknown
+        then:
+          properties:
+            resolutionEvidence:
+              anyOf:
+              - allOf:
+                - $ref: '#/components/schemas/ResolutionEvidence'
+                - properties:
+                    guardReleasable:
+                      const: false
+              - type: 'null'
+      - if:
+          properties:
+            state:
+              enum:
+              - rejected
+              - cancelled
+              - conflict
+        then:
+          properties:
+            externalEffectState:
+              enum:
+              - no_attempt
+              - settled
+            resolutionEvidence:
+              $ref: '#/components/schemas/ResolutionEvidence'
+            outcome:
+              enum:
+              - source_changed
+              - cancelled
+              - rejected
+              - conflict
+      - if:
+          properties:
+            state:
+              enum:
+              - succeeded
+              - no_change
+              - rejected
+              - cancelled
+              - conflict
+        then:
+          properties:
+            resolutionEvidence:
+              allOf:
+              - $ref: '#/components/schemas/ResolutionEvidence'
+              - properties:
+                  guardReleasable:
+                    const: true
+                  kind:
+                    enum:
+                    - no_request_sent
+                    - response_and_observation
+                    - operator_reconciliation
+      - if:
+          properties:
+            state:
+              const: succeeded
+        then:
+          properties:
+            resolutionEvidence:
+              properties:
+                kind:
+                  enum:
+                  - response_and_observation
+                  - operator_reconciliation
+      - if:
+          properties:
+            state:
+              const: no_change
+        then:
+          properties:
+            resolutionEvidence:
+              properties:
+                kind:
+                  const: no_request_sent
+    ScanInput:
+      type: object
+      additionalProperties: false
+      properties:
+        scanId:
+          $ref: '#/components/schemas/Id'
+        windowFrom:
+          $ref: '#/components/schemas/Timestamp'
+        windowTo:
+          $ref: '#/components/schemas/Timestamp'
+        maxPages:
+          type: integer
+          minimum: 1
+          maximum: 20
+      required:
+      - scanId
+      - windowFrom
+      - windowTo
+      - maxPages
+    ScanReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        scanId:
+          $ref: '#/components/schemas/Id'
+        state:
+          const: persisted
+      required:
+      - scanId
+      - state
+    RecoveryScan:
+      type: object
+      additionalProperties: false
+      properties:
+        scanId:
+          $ref: '#/components/schemas/Id'
+        scope:
+          $ref: '#/components/schemas/Scope'
+        windowFrom:
+          $ref: '#/components/schemas/Timestamp'
+        windowTo:
+          $ref: '#/components/schemas/Timestamp'
+        cursorPage:
+          type: integer
+          minimum: 1
+          maximum: 21
+        itemCursor:
+          type: integer
+          minimum: 0
+          maximum: 250
+        maxPages:
+          type: integer
+          minimum: 1
+          maximum: 20
+        state:
+          enum:
+          - pending
+          - scanning
+          - completed
+          - blocked
+        gapReason:
+          enum:
+          - historical_transitions_unrecoverable
+          - scan_page_limit
+        errorCode:
+          type:
+          - string
+          - 'null'
+      required:
+      - scanId
+      - scope
+      - windowFrom
+      - windowTo
+      - cursorPage
+      - itemCursor
+      - maxPages
+      - state
+      - gapReason
+      - errorCode
+    ScanRetryInput:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedCursorPage:
+          type: integer
+          minimum: 1
+          maximum: 20
+        expectedItemCursor:
+          type: integer
+          minimum: 0
+          maximum: 250
+      required:
+      - expectedCursorPage
+      - expectedItemCursor
+    DeliveryStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        events:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        results:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        historicalGaps:
+          type: integer
+          minimum: 0
+      required:
+      - events
+      - results
+      - historicalGaps
   parameters:
     RequestId:
       name: X-Request-ID

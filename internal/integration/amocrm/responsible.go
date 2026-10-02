@@ -12,22 +12,40 @@ import (
 	"github.com/google/uuid"
 )
 
+var ErrLeadAbsent = errors.New("amoCRM lead absent (documented204)")
+var ErrLeadDeleted = errors.New("amoCRM lead explicitly deleted")
+
+type leadSnapshotWire struct {
+	ID                *int64  `json:"id"`
+	Name              *string `json:"name"`
+	PipelineID        *int64  `json:"pipeline_id"`
+	StatusID          *int64  `json:"status_id"`
+	ResponsibleUserID *int64  `json:"responsible_user_id"`
+	UpdatedAt         *int64  `json:"updated_at"`
+	IsDeleted         *bool   `json:"is_deleted"`
+	absent            bool
+}
+
+func (v *leadSnapshotWire) NoContent() { v.absent = true }
+
 // GetLeadSnapshot reads the complete distribution precondition without making
 // older leadstatus callers require the new fields in GetLeadState.
 func (c *Client) GetLeadSnapshot(ctx context.Context, installationID uuid.UUID, leadID int64) (LeadState, error) {
 	if leadID <= 0 {
 		return LeadState{}, errors.New("amoCRM lead id must be positive")
 	}
-	var raw struct {
-		ID                *int64  `json:"id"`
-		Name              *string `json:"name"`
-		PipelineID        *int64  `json:"pipeline_id"`
-		StatusID          *int64  `json:"status_id"`
-		ResponsibleUserID *int64  `json:"responsible_user_id"`
-		UpdatedAt         *int64  `json:"updated_at"`
-	}
+	var raw leadSnapshotWire
 	if err := c.DoJSON(ctx, installationID, http.MethodGet, fmt.Sprintf("/api/v4/leads/%d", leadID), nil, &raw); err != nil {
 		return LeadState{}, err
+	}
+	if raw.absent {
+		return LeadState{}, ErrLeadAbsent
+	}
+	if raw.IsDeleted != nil && *raw.IsDeleted {
+		if raw.ID == nil || *raw.ID != leadID {
+			return LeadState{}, ErrIncompleteResponse
+		}
+		return LeadState{}, ErrLeadDeleted
 	}
 	if raw.ID == nil || *raw.ID != leadID || raw.Name == nil || raw.PipelineID == nil || *raw.PipelineID <= 0 || raw.StatusID == nil || *raw.StatusID <= 0 || raw.ResponsibleUserID == nil || *raw.ResponsibleUserID <= 0 || raw.UpdatedAt == nil || *raw.UpdatedAt <= 0 {
 		return LeadState{}, ErrIncompleteResponse

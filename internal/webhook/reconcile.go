@@ -93,6 +93,21 @@ func (s *ReconcileStore) load(ctx context.Context, installationID uuid.UUID) (su
 	if err := json.Unmarshal(settingsJSON, &result.Settings); err != nil {
 		return subscription{}, fmt.Errorf("decode webhook settings: %w", err)
 	}
+	var enabled bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM integration_services c JOIN installations i ON i.integration_id=c.integration_id WHERE i.id=$1 AND c.service_code='lead-distribution' AND c.enabled AND i.status='active')`, installationID).Scan(&enabled); err != nil {
+		return result, err
+	}
+	if enabled {
+		seen := map[string]bool{}
+		for _, v := range result.Settings {
+			seen[v] = true
+		}
+		for _, v := range []string{"add_lead", "update_lead", "status_lead", "responsible_lead", "delete_lead"} {
+			if !seen[v] {
+				result.Settings = append(result.Settings, v)
+			}
+		}
+	}
 	return result, nil
 }
 

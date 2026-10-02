@@ -119,3 +119,13 @@ workers, установка виджета и live E2E относятся к р�
 Core API, leases/fencing, неопределённые эффекты, восстановление и ограничения.
 Production разрешение на отправку остаётся закрытым до decision registry РС-06;
 результаты сохраняются в outbox для доставки РС-05.
+
+## Реализация РС-05
+
+[Доставка и восстановление](09-delivery-implementation.md) описывает ingress
+consumer snapshot, independent durable jobs, signed HTTPS inbox/outbox ACK,
+source observation revision, bounded scan/page/item cursor, legacy result
+compatibility, metrics и честные historical gaps. Runtime source evidence не
+подменяет бизнес-вход; решение/очередь и разрешение PATCH остаются закрытыми до
+РС-06. Итоговые Docker/Make baseline и targeted current-source checks зафиксированы
+в документе реализации. Live amoCRM pilot не выполнялся.

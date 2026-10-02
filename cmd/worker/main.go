@@ -154,8 +154,18 @@ func run() error {
 	distributionStore := distribution.NewStore(pool)
 	distributionPolicy := &distribution.Handler{Store: distributionStore, CRM: amocrmAPI, TeamOSURL: distributionConfig.TeamOSURL, TeamOSKeyID: distributionConfig.TeamOSKeyID, Keys: distributionConfig.Keys}
 	assignmentWorker := &distribution.AssignmentWorker{Store: distributionStore, CRM: amocrmAPI, Policy: distributionPolicy}
-	handlers[distribution.AssignmentJobType] = assignmentWorker.Handler
-	observers[distribution.AssignmentJobType] = distributionStore.AssignmentFailure
+	assignmentWorker.RegisterJobs(handlers, observers)
+	sourceWorker := &distribution.SourceWorker{Store: distributionStore, Webhooks: webhookStore, CRM: amocrmAPI}
+	sourceWorker.RegisterEvents(webhookStore, handlers)
+	observers[distribution.NormalizeEventJobType] = webhook.JobFailureObserver(webhookStore)
+	if distributionConfig.Address != "" {
+		deliveryWorker := &distribution.DeliveryWorker{Store: distributionStore, URL: distributionConfig.TeamOSURL, KeyID: distributionConfig.TeamOSKeyID, Keys: distributionConfig.Keys, OnError: func(code string) { logger.Error("distribution delivery tick failed", "code", code) }}
+		recoveryWorker := &distribution.RecoveryWorker{Store: distributionStore, CRM: amocrmAPI, OnError: func(code string) { logger.Error("distribution recovery tick failed", "code", code) }}
+		go func() { _ = deliveryWorker.Run(ctx) }()
+		go func() { _ = recoveryWorker.Run(ctx) }()
+	}
+	registry.MustRegister(distribution.NewDeliveryCollector(pool))
+
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
 	handlers[admincommand.CheckJobType] = adminExecutor.Handler
 	handlers[admincommand.UninstallJobType] = adminExecutor.Handler
