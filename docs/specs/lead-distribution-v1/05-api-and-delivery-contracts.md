@@ -360,3 +360,17 @@ cancel после possible PATCH; независимый fanout; snapshot target
 | [РС-02.2.1](https://app.clickup.com/t/869fapt1e) | TeamOS OpenAPI, CompanyDistributionService proto, §2–4, ошибки/пагинация/CAS и план canonical generation |
 | [РС-02.2.2](https://app.clickup.com/t/869fapt1k) | Core OpenAPI, delivery/assignment RPC, §5–7, envelope/result recovery и schema/semantic fixtures |
 | [РС-02.2](https://app.clickup.com/t/869fapt1b) | Единый proposed пакет для реализации; текущая функциональность не объявлена готовой |
+
+## Реализованное уточнение РС-03 (02.10.2026)
+
+Для подключения и проверки доступа implemented transport — signed HTTPS HTTP
+bridge с durable nonce и scoped key/company/installation grants, а не proposed
+mTLS/RPC этого пакета. [ADR-0033](../../adr/0033-distribution-signed-http-connection.md)
+и [runtime runbook](../../runbooks/lead-distribution-connection.md) фиксируют точные
+методы, порядок подписания, ротацию и отличия. Canonical public widget paths
+добавлены в `api/openapi.yaml`; они проксируются на private listener Core worker,
+который разделяет existing Gateway budget. Service full mappings snapshot имеет
+отдельную mappingRevision и hash. Binding intent требует expiresAt и может быть
+отозван до confirm; tombstone запрещает позднее подтверждение. CRM IDs передаются
+decimal strings, revisions — bounded safe integers. Очередь/assignment контракты
+остаются проектными до соответствующих этапов.

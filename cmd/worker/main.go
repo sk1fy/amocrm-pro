@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/maintenance"
@@ -197,10 +198,29 @@ func run() error {
 	}
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	healthServer := httpserver.New(cfg.HTTPAddress, router)
+	distributionConfig, err := distribution.LoadConfig()
+	if err != nil {
+		return err
+	}
+	var distributionServer *http.Server
+	if distributionConfig.Address != "" {
+		distributionRouter, err := distribution.Router(ctx, pool, keyRing, amocrmAPI, distributionConfig)
+		if err != nil {
+			return err
+		}
+		distributionServer = httpserver.New(distributionConfig.Address, distributionRouter)
+	}
 
-	errChannel := make(chan error, 3)
+	errChannel := make(chan error, 4)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if distributionServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- httpserver.Run(ctx, distributionServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	go func() {
 		defer processes.Done()
 		errChannel <- httpserver.Run(ctx, healthServer, logger, cfg.ShutdownTimeout)

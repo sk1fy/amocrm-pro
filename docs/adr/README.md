@@ -37,3 +37,5 @@
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product
 scope belongs in GitHub Issues.
+
+- [ADR-0033](0033-distribution-signed-http-connection.md) — Proposed: signed HTTPS bridge подключения распределения, scoped grants и worker listener.
