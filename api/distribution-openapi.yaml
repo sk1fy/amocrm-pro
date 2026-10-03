@@ -1125,6 +1125,11 @@ components:
       type: object
       additionalProperties: false
       properties:
+        leadName:
+          type: string
+        leadUrl:
+          type: string
+          format: uri
         scope:
           $ref: '#/components/schemas/Scope'
         leadId:

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -52,6 +53,8 @@ type EventEnvelope struct {
 	Event            SourceEvent     `json:"event"`
 }
 type LeadObservation struct {
+	LeadName            *string         `json:"leadName,omitempty"`
+	LeadURL             *string         `json:"leadUrl,omitempty"`
 	Scope               AssignmentScope `json:"scope"`
 	LeadID              int64           `json:"leadId,string"`
 	Snapshot            *Snapshot       `json:"snapshot"`
@@ -97,6 +100,10 @@ func (s *Store) ObserveLead(ctx context.Context, crm SourceCRM, scope Assignment
 		}
 		snap := snapshotOf(l, o.ObservedAt)
 		o.Snapshot = &snap
+		if l.Name != "" {
+			name := l.Name
+			o.LeadName = &name
+		}
 	}
 	raw, e := json.Marshal(o.Snapshot)
 	if e != nil {
@@ -274,6 +281,15 @@ func (h *Handler) liveLead(w http.ResponseWriter, r *http.Request) {
 	if e = h.Store.Require(r.Context(), b); e != nil {
 		h.resultError(w, e)
 		return
+	}
+	if o.Snapshot != nil {
+		var domain string
+		if e = h.Store.pool.QueryRow(r.Context(), `SELECT account_domain FROM installations WHERE id=$1 AND integration_id=$2 AND account_id=$3 AND status='active'`, b.InstallationID, b.IntegrationID, b.AccountID).Scan(&domain); e == nil {
+			if base, e := amocrm.AccountBaseURL(domain); e == nil {
+				u := base.ResolveReference(&url.URL{Path: "/leads/detail/" + strconv.FormatInt(id, 10)}).String()
+				o.LeadURL = &u
+			}
+		}
 	}
 	write(w, 200, o)
 }
