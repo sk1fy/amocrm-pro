@@ -8,6 +8,7 @@ mkdir -p "$core_repo/tmp"
 bridge_dir=$(mktemp -d "$core_repo/tmp/distribution-bridge.XXXXXX")
 project="amocrm-pro-distribution-bridge-$$"
 core_name="$project-core"
+team_name="$project-team"
 compose() {
  if command -v docker-compose >/dev/null 2>&1; then
   docker-compose -p "$project" -f "$core_repo/docker-compose.test.yml" "$@"
@@ -18,6 +19,10 @@ compose() {
 cleanup() {
  original_status=$?
  trap - EXIT INT TERM
+ touch "$bridge_dir/backup-stop"
+ if [ -n "${backup_pid:-}" ]; then wait "$backup_pid" || true; fi
+ docker stop "$team_name" >/dev/null 2>&1 || true
+ docker rm "$team_name" >/dev/null 2>&1 || true
  docker stop "$core_name" >/dev/null 2>&1 || true
  docker rm "$core_name" >/dev/null 2>&1 || true
  compose down --volumes --remove-orphans >/dev/null 2>&1 || true
@@ -50,16 +55,29 @@ for step in $(seq 1 120); do
  sleep 1
 done
 test -f "$bridge_dir/core.json"
+python3 "$core_repo/scripts/distribution-backup-fixture.py" "$bridge_dir" "$pg_id" "$project" > "$bridge_dir/backup.log" 2>&1 &
+backup_pid=$!
 # VM host networking gives both test processes the same loopback namespace.
 # The socket mount is interpreted by the Docker daemon (also on Colima).
-docker run --rm --network host --entrypoint go \
+docker run --rm --name "$team_name" --network host --entrypoint go \
  -v "$team_repo:/src" -v "$bridge_dir:/bridge" \
  -v "${TEAMOS_GO_MOD_CACHE:-amocrm-go-mod}:/go/pkg/mod" \
  -v /var/run/docker.sock:/var/run/docker.sock -w /src/services/company \
- -e GOWORK=off -e DOCKER_HOST=unix:///var/run/docker.sock \
+ -e GOWORK=off -e DISTRIBUTION_BRIDGE_RUN_ID="$project" -e DOCKER_HOST=unix:///var/run/docker.sock \
  -e TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock \
  -e TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1 \
  -e DISTRIBUTION_BRIDGE_DIR=/bridge -e SSL_CERT_FILE=/bridge/core-ca.pem \
  amocrm-integration-test:local test -race -tags integration -count=1 -timeout=10m -v \
- -run '^TestRS06ActualCoreTeamSignedBridge$' ./internal/transport/distributionhttp > "$bridge_dir/team.log" 2>&1
+ -run '^TestRS06ActualCoreTeamSignedBridge$' ./internal/transport/distributionhttp > "$bridge_dir/team.log" 2>&1 &
+team_pid=$!
+while kill -0 "$team_pid" 2>/dev/null; do
+ if ! kill -0 "$core_pid" 2>/dev/null && [ ! -f "$bridge_dir/core-stopped" ]; then
+  docker stop "$team_name" >/dev/null 2>&1 || true
+  wait "$team_pid" || true
+  wait "$core_pid" || true
+  exit 1
+ fi
+ sleep 1
+done
+wait "$team_pid"
 wait "$core_pid"

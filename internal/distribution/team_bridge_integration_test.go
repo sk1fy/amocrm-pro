@@ -164,7 +164,45 @@ func TestDistributionTeamBridgeServer(t *testing.T) {
 		}
 		result := map[string]any{}
 		switch command.Action {
+		case "stats":
+			var operations, guards, jobsCount int
+			if err := f.Pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM distribution_operations),(SELECT count(*) FROM distribution_lead_guards),(SELECT count(*) FROM jobs WHERE type='distribution.assign_responsible')`).Scan(&operations, &guards, &jobsCount); err != nil {
+				t.Fatal(err)
+			}
+			result["operations"] = operations
+			result["guards"] = guards
+			result["assignmentJobs"] = jobsCount
+		case "pause", "resume":
+			tx, err := f.Pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var expected bool
+			if err := f.Pool.QueryRow(ctx, `SELECT paused FROM distribution_admin_pauses WHERE installation_id=$1`, f.Scope.InstallationID).Scan(&expected); err != nil {
+				t.Fatal(err)
+			}
+			_, err = AdminApplyTx(ctx, tx, f.Scope.InstallationID, "distribution-"+command.Action, AdminCommand{ExpectedPaused: &expected})
+			if err != nil {
+				_ = tx.Rollback(ctx)
+				t.Fatal("fixture owner pause failed", err)
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id) VALUES($1,'admin','employee:fixture-bridge',$2,'installation',$3)`, f.Scope.InstallationID, "distribution."+command.Action, f.Scope.InstallationID.String()); err != nil {
+				_ = tx.Rollback(ctx)
+				t.Fatal(err)
+			}
+			if err = tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+			result["paused"] = command.Action == "pause"
+
+		case "reconnect":
+			f.Pool.Reset()
+			worker = &AssignmentWorker{Store: NewStore(f.Pool), CRM: crm, Policy: h}
+			result["reconnected"] = true
 		case "stop":
+			if err := os.WriteFile(filepath.Join(dir, "core-stopped"), []byte("stopped"), 0600); err != nil {
+				t.Fatal(err)
+			}
 			writeBridgeFile(t, dir, fmt.Sprintf("reply-%d.json", sequence), map[string]any{"stopped": true})
 			return
 		case "crm":
@@ -308,4 +346,12 @@ func (c *teamBridgeCRM) Assign(_ context.Context, id, target int64) (amocrm.Lead
 		return amocrm.LeadResponsibleResult{}, &amocrm.ResponsibleDispatchError{Dispatched: true, Cause: context.DeadlineExceeded}
 	}
 	return amocrm.LeadResponsibleResult{HTTPStatus: 200, Accepted: true, UpdatedAt: lead.UpdatedAt}, nil
+}
+
+func (c *teamBridgeCRM) DistributionLead(ctx context.Context, installation uuid.UUID, id int64) (amocrm.DistributionLead, error) {
+	lead, e := c.GetLeadSnapshot(ctx, installation, id)
+	if e != nil {
+		return amocrm.DistributionLead{}, e
+	}
+	return amocrm.DistributionLead{ID: lead.ID, PipelineID: lead.PipelineID, StatusID: lead.StatusID, ResponsibleUserID: lead.ResponsibleUserID}, nil
 }
