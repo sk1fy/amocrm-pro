@@ -20,11 +20,18 @@ import (
 type Config struct {
 	JWTLeeway, JWTMaxLifetime       time.Duration
 	Address, TeamOSURL, TeamOSKeyID string
+	TeamOSPublicURL                 string
 	Keys                            map[string]string
 }
 
 func LoadConfig() (Config, error) {
-	c := Config{Address: os.Getenv("DISTRIBUTION_HTTP_ADDRESS"), TeamOSURL: strings.TrimRight(os.Getenv("DISTRIBUTION_TEAMOS_URL"), "/"), TeamOSKeyID: os.Getenv("DISTRIBUTION_TEAMOS_KEY_ID")}
+	c := Config{TeamOSPublicURL: strings.TrimRight(os.Getenv("DISTRIBUTION_TEAMOS_PUBLIC_URL"), "/"), Address: os.Getenv("DISTRIBUTION_HTTP_ADDRESS"), TeamOSURL: strings.TrimRight(os.Getenv("DISTRIBUTION_TEAMOS_URL"), "/"), TeamOSKeyID: os.Getenv("DISTRIBUTION_TEAMOS_KEY_ID")}
+	if c.TeamOSPublicURL != "" {
+		u, e := url.Parse(c.TeamOSPublicURL)
+		if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
+			return c, errors.New("DISTRIBUTION_TEAMOS_PUBLIC_URL must be an HTTPS origin")
+		}
+	}
 	if c.Address == "" {
 		if os.Getenv("DISTRIBUTION_SERVICE_KEYS") != "" || c.TeamOSURL != "" || c.TeamOSKeyID != "" {
 			return c, errors.New("distribution listener settings require DISTRIBUTION_HTTP_ADDRESS")
@@ -80,7 +87,7 @@ func routerWithHTTPClient(ctx context.Context, pool *pgxpool.Pool, keys *cryptox
 		return nil, err
 	}
 	store := NewStore(pool)
-	handler := &Handler{Store: store, CRM: crm, Verifier: authenticator, TeamOSURL: c.TeamOSURL, TeamOSKeyID: c.TeamOSKeyID, Keys: c.Keys, HTTP: httpClient}
+	handler := &Handler{Store: store, CRM: crm, Verifier: authenticator, TeamOSURL: c.TeamOSURL, TeamOSKeyID: c.TeamOSKeyID, Keys: c.Keys, HTTP: httpClient, TeamOSPublicURL: c.TeamOSPublicURL}
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

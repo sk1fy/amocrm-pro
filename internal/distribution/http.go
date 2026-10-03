@@ -24,6 +24,7 @@ type Handler struct {
 	CRM                    CRM
 	Verifier               WidgetVerifier
 	TeamOSURL, TeamOSKeyID string
+	TeamOSPublicURL        string
 	Keys                   map[string]string
 	HTTP                   *http.Client
 }
@@ -308,7 +309,8 @@ func (h *Handler) permissions(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RegisterWidget(router chi.Router, protect func(http.Handler) http.Handler, cors func(http.Handler) http.Handler) {
 	router.Method("GET", "/api/v1/widget/distribution/bootstrap", protect(http.HandlerFunc(h.widgetBootstrap)))
 	router.Method("POST", "/api/v1/widget/distribution/permissions", protect(http.HandlerFunc(h.widgetPermissions)))
-	for _, path := range []string{"/api/v1/widget/distribution/bootstrap", "/api/v1/widget/distribution/permissions"} {
+	router.Method("POST", "/api/v1/widget/distribution/runtime", protect(http.HandlerFunc(h.widgetRuntime)))
+	for _, path := range []string{"/api/v1/widget/distribution/bootstrap", "/api/v1/widget/distribution/permissions", "/api/v1/widget/distribution/runtime"} {
 		router.Method("OPTIONS", path, cors(http.NotFoundHandler()))
 	}
 }
@@ -371,27 +373,6 @@ func (h *Handler) localAccess(ctx context.Context, b Binding, p widgetauth.Princ
 		return false, e
 	}
 	return true, nil
-}
-func (h *Handler) widgetBootstrap(w http.ResponseWriter, r *http.Request) {
-	b, p, e := h.widgetBinding(r)
-	if e != nil {
-		h.resultError(w, e)
-		return
-	}
-	allowed, e := h.localAccess(r.Context(), b, p, 0)
-	if e != nil {
-		h.resultError(w, e)
-		return
-	}
-	if !allowed {
-		fail(w, 403, "permission_denied")
-		return
-	}
-	if e = h.Store.Require(r.Context(), b); e != nil {
-		h.resultError(w, e)
-		return
-	}
-	write(w, 200, map[string]any{"binding": b, "userId": strconv.FormatInt(p.UserID, 10), "state": b.State})
 }
 func (h *Handler) widgetPermissions(w http.ResponseWriter, r *http.Request) {
 	b, p, e := h.widgetBinding(r)

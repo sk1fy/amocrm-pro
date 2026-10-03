@@ -82,12 +82,16 @@ func (s *Store) Get(ctx context.Context, scope Scope, id uuid.UUID) (Binding, er
 }
 func (s *Store) ForPrincipal(ctx context.Context, p widgetauth.Principal) (Binding, error) {
 	var company, id uuid.UUID
-	err := s.pool.QueryRow(ctx, `SELECT id,company_id FROM distribution_bindings WHERE installation_id=$1 AND integration_id=$2 AND account_id=$3 AND state='active'`, p.InstallationID, p.IntegrationID, p.AccountID).Scan(&id, &company)
+	var count int64
+	err := s.pool.QueryRow(ctx, `SELECT id,company_id,count(*) OVER () FROM distribution_bindings WHERE installation_id=$1 AND integration_id=$2 AND account_id=$3 AND state='active'`, p.InstallationID, p.IntegrationID, p.AccountID).Scan(&id, &company, &count)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Binding{}, ErrNotFound
 	}
 	if err != nil {
 		return Binding{}, err
+	}
+	if count != 1 {
+		return Binding{}, ErrConflict
 	}
 	return s.Get(ctx, Scope{CompanyID: company, InstallationID: p.InstallationID}, id)
 }

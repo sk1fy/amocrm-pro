@@ -77,6 +77,7 @@ type Principal struct {
 	Issuer           string
 	TokenID          string
 	TokenRetainUntil time.Time
+	TokenExpiresAt   time.Time
 }
 
 // UsedToken returns the durable replay record for this verified principal.

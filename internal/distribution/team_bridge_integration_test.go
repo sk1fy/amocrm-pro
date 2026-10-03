@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -17,9 +18,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
+	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
+	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
+	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
+	"github.com/sk1fy/amocrm-pro/internal/widgetlimit"
 )
 
 // This opt-in test process supplies the actual Core private API/store/worker to
@@ -49,6 +55,45 @@ func TestDistributionTeamBridgeServer(t *testing.T) {
 	h := &Handler{Store: f.Store, CRM: crm, TeamOSKeyID: f.Scope.KeyID, Keys: map[string]string{f.Scope.KeyID: secret}}
 	router := chi.NewRouter()
 	h.RegisterService(router, Auth{Keys: h.Keys, Store: f.Store})
+	// Real production SDK authentication/CORS pipeline; only CRM remains a fixture.
+	widgetSecret := []byte("synthetic-rs08-widget-only-secret")
+	widgetClient := uuid.NewString()
+	ring, e := cryptox.NewKeyRing(map[int][]byte{1: bytes.Repeat([]byte{0x42}, cryptox.KeySize)}, 1)
+	if e != nil {
+		t.Fatal(e)
+	}
+	encrypted, version, e := ring.Seal(widgetSecret, cryptox.IntegrationSecretAAD(f.Assignment.Scope.IntegrationID))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.Pool.Exec(ctx, "UPDATE integrations SET client_id=$1,client_secret_ciphertext=$2,client_secret_key_version=$3 WHERE id=$4", widgetClient, encrypted, version, f.Assignment.Scope.IntegrationID); e != nil {
+		t.Fatal(e)
+	}
+	authenticator, e := widgetauth.NewAuthenticator(widgetauth.NewStore(f.Pool), ring)
+	if e != nil {
+		t.Fatal(e)
+	}
+	cors := widgetcors.Middleware(widgetcors.NewPostgresAuthorizer(f.Pool))
+	limiter, e := widgetlimit.New(widgetlimit.Config{IntegrationRate: 10, IntegrationBurst: 10, InstallationRate: 5, InstallationBurst: 5, InactiveTTL: 5 * time.Minute, MaxEntries: 10000}, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	go limiter.Run(ctx)
+	protect := func(next http.Handler) http.Handler {
+		return cors(widgetauth.VerificationMiddleware(authenticator)(widgetcors.BindPrincipalIssuer(limiter.Middleware(widgetauth.ConsumptionMiddleware(authenticator)(next)))))
+	}
+	h.RegisterWidget(router, protect, cors)
+	user := f.CRM.users[2]
+	user.Rights.IsAdmin = true
+	f.CRM.users[2] = user
+	widgetToken := func() string {
+		now := time.Now()
+		token, e := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iss": "https://test.amocrm.ru", "aud": "https://service.test", "jti": uuid.NewString(), "iat": now.Add(-time.Minute).Unix(), "nbf": now.Add(-time.Minute).Unix(), "exp": now.Add(5 * time.Minute).Unix(), "account_id": 123, "user_id": 2, "client_uuid": widgetClient}).SignedString(widgetSecret)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return token
+	}
 	server := httptest.NewUnstartedServer(router)
 	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
@@ -150,6 +195,9 @@ func TestDistributionTeamBridgeServer(t *testing.T) {
 				time.Sleep(time.Duration(command.Milliseconds) * time.Millisecond)
 				_ = tx.Rollback(context.Background())
 			}()
+		case "widget_token":
+			writeBridgeFile(t, dir, fmt.Sprintf("reply-%d.json", sequence), map[string]any{"widgetToken": widgetToken()})
+			continue
 		case "job_ready":
 			if _, err := f.Pool.Exec(ctx, `UPDATE jobs SET run_after=clock_timestamp() WHERE status='retry' AND type=$1`, AssignmentJobType); err != nil {
 				t.Fatal(err)

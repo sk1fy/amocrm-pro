@@ -3,6 +3,7 @@ package distribution
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
@@ -52,8 +53,31 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 	localAllowed.Store(true)
 	var localUnavailable atomic.Bool
 	var callbackCount atomic.Int32
+	var runtimeCount atomic.Int32
+	var revokeAfterDispatch atomic.Bool
 	callback := httptest.NewTLSServer(Auth{Keys: map[string]string{key: serverSecret}, Store: NewStore(pool)}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callbackCount.Add(1)
+		if r.URL.Path == "/internal/v1/distribution/widget-runtime" {
+			var in map[string]json.RawMessage
+			if decode(r, &in) != nil {
+				w.WriteHeader(400)
+				return
+			}
+			var c, i, u string
+			_ = json.Unmarshal(in["companyId"], &c)
+			_ = json.Unmarshal(in["installationId"], &i)
+			_ = json.Unmarshal(in["userId"], &u)
+			if c != company.String() || i != install.String() || u != "1" {
+				w.WriteHeader(403)
+				return
+			}
+			runtimeCount.Add(1)
+			if revokeAfterDispatch.Load() {
+				localAllowed.Store(false)
+			}
+			write(w, 200, map[string]any{"items": []any{map[string]any{"id": "fixture"}}})
+			return
+		}
 		if r.URL.Path != "/internal/v1/distribution/widget-access" {
 			t.Error("unexpected callback", r.URL)
 		}
@@ -94,6 +118,7 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 		}
 		return token
 	}
+	runtimeBody := []byte(`{"kind":"groups"}`)
 	call := func(method, path, origin, token string, want int) *httptest.ResponseRecorder {
 		t.Helper()
 		// These are authentication assertions; space requests beyond the production 5rps refill.
@@ -101,6 +126,9 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 		raw := []byte{}
 		if method == "POST" {
 			raw = []byte(`{"leadId":"10"}`)
+			if strings.HasSuffix(path, "/runtime") {
+				raw = runtimeBody
+			}
 		}
 		r := httptest.NewRequest(method, path, bytes.NewReader(raw))
 		r.Header.Set("X-Auth-Token", token)
@@ -143,6 +171,42 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 	call("GET", bootstrap, origin, sign(), 503)
 	localUnavailable.Store(false)
 	localAllowed.Store(true)
+	runtimePath := "/api/v1/widget/distribution/runtime"
+	out = call("POST", runtimePath, origin, sign(), 200)
+	if !strings.Contains(out.Body.String(), "fixture") {
+		t.Fatal("runtime bridge missing")
+	}
+	runtimeBody = []byte(`{"kind":"groups","companyId":"forged"}`)
+	beforeRuntime := runtimeCount.Load()
+	call("POST", runtimePath, origin, sign(), 400)
+	if runtimeCount.Load() != beforeRuntime {
+		t.Fatal("browser scope reached TeamOS")
+	}
+	runtimeBody = []byte(`{"kind":"rule","write":true,"requestId":"` + uuid.NewString() + `","payload":{"expectedRevision":1,"active":false,"keepCurrentResponsible":true}}`)
+	call("POST", runtimePath, origin, sign(), 403)
+	user := f.users[1]
+	user.Rights.IsAdmin = true
+	f.users[1] = user
+	call("POST", runtimePath, origin, sign(), 200)
+	revokeAfterDispatch.Store(true)
+	out = call("POST", runtimePath, origin, sign(), 503)
+	if !strings.Contains(out.Body.String(), "outcome_unknown") {
+		t.Fatal("postdispatch denial falsely definite", out.Body)
+	}
+	revokeAfterDispatch.Store(false)
+	localAllowed.Store(true)
+	runtimeBody = []byte(`{"kind":"lead","leadId":"10"}`)
+	user.Rights.IsAdmin = false
+	user.Rights.Leads = map[string]string{"view": "D"}
+	f.users[1] = user
+	beforeRuntime = runtimeCount.Load()
+	call("POST", runtimePath, origin, sign(), 403)
+	if runtimeCount.Load() != beforeRuntime {
+		t.Fatal("CRM denied lead reached private runtime")
+	}
+	user.Rights.Leads = map[string]string{"view": "A"}
+	f.users[1] = user
+	call("POST", runtimePath, origin, sign(), 200)
 	if _, e := pool.Exec(ctx, `UPDATE integration_services SET enabled=false WHERE integration_id=$1 AND service_code='lead-distribution'`, integration); e != nil {
 		t.Fatal(e)
 	}
