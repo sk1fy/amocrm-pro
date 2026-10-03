@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	"net/http"
 	"net/url"
 	"time"
@@ -118,7 +119,7 @@ func (s *Store) Execute(ctx context.Context, actor, key string, request Request)
 		if err := domainTx.Commit(ctx); err != nil {
 			return Receipt{}, err
 		}
-		if req.Command == "check" || req.Command == "uninstall" || req.Command == "activity-sync" {
+		if req.Command == "check" || req.Command == "uninstall" || req.Command == "activity-sync" || req.Command == "distribution-reconcile" {
 			state, outcome = "pending", ""
 		} else if jobID != nil || req.TargetType == "delivery" {
 			outcome = "queued"
@@ -207,6 +208,18 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 			return nil, nil, installationID, err
 		}
 		switch req.Command {
+		case "distribution-pause", "distribution-resume", "distribution-delivery-retry", "distribution-reconcile":
+			input := distribution.AdminCommand{Kind: p.Kind, MessageID: p.MessageID, OperationID: p.OperationID, ExpectedAttempts: p.ExpectedAttempts, ExpectedPaused: p.ExpectedPaused, ExpectedResultVersion: p.ExpectedResultVersion}
+			result, err := distribution.AdminApplyTx(ctx, tx, id, req.Command, input)
+			if err != nil {
+				return nil, nil, installationID, err
+			}
+			if req.Command == "distribution-reconcile" {
+				payload := map[string]any{"receipt_id": receiptID.String(), "operation_id": p.OperationID, "expected_result_version": *p.ExpectedResultVersion}
+				job, err := s.jobs.EnqueueTx(ctx, tx, jobs.EnqueueParams{InstallationID: &id, Type: DistributionReconcileJobType, ActorType: "admin", ActorID: actor, ResourceType: "admin_command", ResourceID: receiptID.String(), Payload: payload, MaxAttempts: 1})
+				return result, &job.ID, installationID, err
+			}
+			return result, nil, installationID, nil
 		case "check":
 			if status == "disabled" || status == "uninstalled" || integrationStatus != "active" {
 				return nil, nil, installationID, integrations.ErrInvalidState
@@ -523,6 +536,16 @@ func auditReceipt(ctx context.Context, tx jobs.TxExecutor, id uuid.UUID, actor, 
 }
 
 func classify(err error) *Error {
+	if errors.Is(err, distribution.ErrConflict) || errors.Is(err, distribution.ErrOperationUnresolved) {
+		return conflict("distribution precondition changed; reread the object")
+	}
+	if errors.Is(err, distribution.ErrNotFound) {
+		return notFound()
+	}
+	if errors.Is(err, distribution.ErrDenied) {
+		return &Error{Code: "permission_denied", Message: "distribution action is not permitted", Status: 403}
+	}
+
 	var api *Error
 	if errors.As(err, &api) {
 		return api

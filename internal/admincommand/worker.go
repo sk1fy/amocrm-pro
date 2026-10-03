@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/oauth"
@@ -20,13 +21,14 @@ import (
 )
 
 type WorkerExecutor struct {
-	pool       *pgxpool.Pool
-	Check      func(context.Context, uuid.UUID) error
-	Unregister func(context.Context, uuid.UUID) error
+	pool         *pgxpool.Pool
+	Check        func(context.Context, uuid.UUID) error
+	Unregister   func(context.Context, uuid.UUID) error
+	Distribution *distribution.AssignmentWorker
 }
 
 func NewWorkerExecutor(pool *pgxpool.Pool, client *amocrm.Client, keys *cryptox.KeyRing, gateway oauth.OAuthGateway) *WorkerExecutor {
-	return &WorkerExecutor{pool: pool,
+	return &WorkerExecutor{pool: pool, Distribution: &distribution.AssignmentWorker{Store: distribution.NewStore(pool), CRM: client},
 		Check: func(ctx context.Context, id uuid.UUID) error {
 			var account struct {
 				ID int64 `json:"id"`
@@ -64,9 +66,9 @@ func (w *WorkerExecutor) Handler(ctx context.Context, job jobs.Job) (json.RawMes
 	if job.InstallationID == nil || job.ActorType == nil || *job.ActorType != "admin" || job.ResourceID == nil || job.ResourceType == nil || *job.ResourceType != "admin_command" {
 		return nil, jobs.Permanent("invalid_admin_job", errors.New("invalid admin job scope"))
 	}
-	var command, state string
+	var command, state, actor string
 	var receiptID uuid.UUID
-	err := w.pool.QueryRow(ctx, `SELECT id,command,state FROM admin_commands WHERE job_id=$1 AND installation_id=$2 AND id::text=$3`, job.ID, job.InstallationID, *job.ResourceID).Scan(&receiptID, &command, &state)
+	err := w.pool.QueryRow(ctx, `SELECT id,command,state,actor_id FROM admin_commands WHERE job_id=$1 AND installation_id=$2 AND id::text=$3`, job.ID, job.InstallationID, *job.ResourceID).Scan(&receiptID, &command, &state, &actor)
 	if err != nil {
 		return nil, jobs.Permanent("invalid_admin_job", errors.New("admin command receipt not found"))
 	}
@@ -75,6 +77,21 @@ func (w *WorkerExecutor) Handler(ctx context.Context, job jobs.Job) (json.RawMes
 	}
 	result := executionResult{State: "succeeded", Outcome: "completed", Result: map[string]any{}}
 	switch {
+	case command == "distribution-reconcile" && job.Type == DistributionReconcileJobType:
+		var input struct {
+			OperationID uuid.UUID `json:"operation_id"`
+			Version     int64     `json:"expected_result_version"`
+			ReceiptID   uuid.UUID `json:"receipt_id"`
+		}
+		if json.Unmarshal(job.Payload, &input) != nil || input.ReceiptID != receiptID || input.OperationID == uuid.Nil || input.Version < 1 || job.ActorID == nil || *job.ActorID != actor || w.Distribution == nil {
+			return nil, jobs.Permanent("invalid_admin_job", errors.New("invalid distribution reconciliation"))
+		}
+		op, err := w.Distribution.AdminReconcile(ctx, *job.InstallationID, input.OperationID, receiptID, input.Version, *job.ActorID)
+		if err != nil {
+			return nil, jobs.Permanent("distribution_verification_unavailable", errors.New("existing assignment result was not verified; inspect the operation"))
+		}
+		result.Outcome = "observed"
+		result.Result = map[string]any{"operation_id": op.OperationID, "assignment_state": op.State, "result_version": op.ResultVersion, "external_effect_state": op.ExternalEffectState, "evidence": op.ResolutionEvidence.Kind, "observed_at": time.Now().UTC()}
 	case command == "check" && job.Type == CheckJobType:
 		err := w.Check(ctx, *job.InstallationID)
 		classification, retryAfter := classifyCheck(err)

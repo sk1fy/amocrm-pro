@@ -102,6 +102,8 @@ var (
 	AdminActivityEmployees = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/employees"}
 	AdminLeadStatusRules   = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/lead-status/rules"}
 	AdminLeadStatusRuns    = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/lead-status/runs"}
+	AdminDistribution      = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/distribution"}
+	AdminDistributionTrace = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/distribution/trace"}
 	AdminStats             = Route{Method: http.MethodGet, Path: "/admin/v1/stats"}
 	AdminStatsAccounts     = Route{Method: http.MethodGet, Path: "/admin/v1/stats/accounts"}
 
@@ -128,6 +130,8 @@ var (
 		AdminJobsSummary,
 		AdminJob,
 		AdminAudit,
+		AdminDistribution,
+		AdminDistributionTrace,
 		AdminStats,
 		AdminStatsAccounts,
 	}

@@ -8,16 +8,16 @@ import (
 )
 
 type DeliveryCollector struct {
-	pool                                             *pgxpool.Pool
-	count, age, gap, available, operations, receipts *prometheus.Desc
+	pool                                                     *pgxpool.Pool
+	count, age, gap, available, operations, receipts, errors *prometheus.Desc
 }
 
 func NewDeliveryCollector(pool *pgxpool.Pool) *DeliveryCollector {
-	return &DeliveryCollector{pool: pool, count: prometheus.NewDesc("amocrm_distribution_delivery_messages", "Durable outbox messages by bounded kind/state", []string{"kind", "state"}, nil), age: prometheus.NewDesc("amocrm_distribution_delivery_oldest_seconds", "Age of oldest unacknowledged message", []string{"kind"}, nil), gap: prometheus.NewDesc("amocrm_distribution_recovery_gaps", "Scans carrying an irrecoverable historical transition gap", []string{"state"}, nil), available: prometheus.NewDesc("amocrm_distribution_delivery_collection_available", "Whether the bounded durable delivery query succeeded", nil, nil), operations: prometheus.NewDesc("amocrm_distribution_unfinished_operations", "Unfinished durable operations by bounded state", []string{"state"}, nil), receipts: prometheus.NewDesc("amocrm_distribution_consumer_receipts", "Durable consumer dispositions including blocked normalization", []string{"consumer", "state"}, nil)}
+	return &DeliveryCollector{pool: pool, count: prometheus.NewDesc("amocrm_distribution_delivery_messages", "Durable outbox messages by bounded kind/state", []string{"kind", "state"}, nil), age: prometheus.NewDesc("amocrm_distribution_delivery_oldest_seconds", "Age of oldest unacknowledged message", []string{"kind"}, nil), gap: prometheus.NewDesc("amocrm_distribution_recovery_gaps", "Scans carrying an irrecoverable historical transition gap", []string{"state"}, nil), available: prometheus.NewDesc("amocrm_distribution_delivery_collection_available", "Whether the bounded durable delivery query succeeded", nil, nil), operations: prometheus.NewDesc("amocrm_distribution_unfinished_operations", "Unfinished durable operations by bounded state", []string{"state"}, nil), errors: prometheus.NewDesc("amocrm_distribution_operation_errors", "Durable operations with a safe bounded error classification", []string{"class"}, nil), receipts: prometheus.NewDesc("amocrm_distribution_consumer_receipts", "Durable consumer dispositions including blocked normalization", []string{"consumer", "state"}, nil)}
 
 }
 func (c *DeliveryCollector) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range []*prometheus.Desc{c.count, c.age, c.gap, c.available, c.operations, c.receipts} {
+	for _, d := range []*prometheus.Desc{c.count, c.age, c.gap, c.available, c.operations, c.receipts, c.errors} {
 		ch <- d
 	}
 }
@@ -35,6 +35,7 @@ func (c *DeliveryCollector) Collect(ch chan<- prometheus.Metric) {
 		var kind, state string
 		var count, age float64
 		if e = rows.Scan(&kind, &state, &count, &age); e != nil {
+			ch <- prometheus.MustNewConstMetric(c.available, prometheus.GaugeValue, 0)
 			return
 		}
 		ch <- prometheus.MustNewConstMetric(c.count, prometheus.GaugeValue, count, kind, state)
@@ -94,6 +95,32 @@ func (c *DeliveryCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	err = receiptRows.Err()
 	receiptRows.Close()
+	if err != nil {
+		ch <- prometheus.MustNewConstMetric(c.available, prometheus.GaugeValue, 0)
+		return
+	}
+	errorRows, err := c.pool.Query(ctx, `SELECT CASE
+ WHEN error_code IN('reauth_required','permission_denied','capability_revoked','mapping_required') THEN 'authorization'
+ WHEN error_code IN('source_unavailable','policy_unavailable','rate_limited') THEN 'availability'
+ WHEN error_code='external_outcome_unproven' THEN 'unknown_effect'
+ WHEN error_code IN('source_changed','manual_change_after_response','decision_expired') THEN 'precondition'
+ ELSE 'other' END,count(*) FROM distribution_operations WHERE error_code IS NOT NULL GROUP BY 1`)
+	if err != nil {
+		ch <- prometheus.MustNewConstMetric(c.available, prometheus.GaugeValue, 0)
+		return
+	}
+	for errorRows.Next() {
+		var class string
+		var n float64
+		if err = errorRows.Scan(&class, &n); err != nil {
+			break
+		}
+		ch <- prometheus.MustNewConstMetric(c.errors, prometheus.GaugeValue, n, class)
+	}
+	if err == nil {
+		err = errorRows.Err()
+	}
+	errorRows.Close()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(c.available, prometheus.GaugeValue, 0)
 		return

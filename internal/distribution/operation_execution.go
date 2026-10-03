@@ -93,6 +93,9 @@ func (s *Store) Dispatch(ctx context.Context, job jobs.Job, op Operation, permis
 	if current.CancelRequestedAt != nil || current.FinishedAt != nil || !current.Assignment.Command.ValidUntil.After(time.Now()) || !permissionExpires.After(time.Now()) || permissionExpires.After(time.Now().Add(5*time.Second)) {
 		return ErrStaleDecision
 	}
+	if e = requireAdmission(ctx, tx, current.Scope.InstallationID, true); e != nil {
+		return e
+	}
 	if e = services.RequireEnabled(ctx, tx, current.Scope.InstallationID, services.LeadDistribution, true); e != nil {
 		return e
 	}
@@ -216,6 +219,9 @@ func (s *Store) finishJob(ctx context.Context, job jobs.Job, id uuid.UUID, state
 		return op, tx.Commit(ctx)
 	}
 	if permissionExpires != nil {
+		if e = requireAdmission(ctx, tx, op.Scope.InstallationID, true); e != nil {
+			return op, e
+		}
 		if e = services.RequireEnabled(ctx, tx, op.Scope.InstallationID, services.LeadDistribution, true); e != nil {
 			return op, e
 		}
@@ -456,6 +462,12 @@ func (s *Store) ObservationStart(ctx context.Context) (time.Time, error) {
 }
 
 func (s *Store) DispatchGate(ctx context.Context, job jobs.Job, id uuid.UUID, permissionExpires time.Time) error {
+	if job.InstallationID == nil {
+		return ErrDenied
+	}
+	if e := requireAdmission(ctx, s.pool, *job.InstallationID, false); e != nil {
+		return e
+	}
 	if !permissionExpires.After(time.Now()) || ctx.Err() != nil {
 		return ErrStaleDecision
 	}

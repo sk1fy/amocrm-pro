@@ -59,7 +59,11 @@ func saveActionReceipt(ctx context.Context, tx pgx.Tx, op Operation, scope Scope
 		return e
 	}
 	actor, _ := json.Marshal(info.Body.Actor)
-	_, e = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,'service',$2,$3,'distribution_operation',$4,jsonb_build_object('actor',$5::jsonb,'reason',$6::text,'result_version',$7::bigint))`, op.Scope.InstallationID, scope.KeyID, "distribution."+info.Action, op.OperationID.String(), actor, info.Body.Reason, op.ResultVersion)
+	actorType := "service"
+	if info.Body.Actor.Kind == "operator" {
+		actorType = "admin"
+	}
+	_, e = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,$8,$2,$3,'distribution_operation',$4,jsonb_build_object('actor',$5::jsonb,'reason',$6::text,'result_version',$7::bigint))`, op.Scope.InstallationID, scope.KeyID, "distribution."+info.Action, op.OperationID.String(), actor, info.Body.Reason, op.ResultVersion, actorType)
 	return e
 }
 func (s *Store) ActionReplay(ctx context.Context, scope Scope, id uuid.UUID, action, key string, body operationAction) (Operation, bool, error) {

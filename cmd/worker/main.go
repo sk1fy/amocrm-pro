@@ -167,6 +167,8 @@ func run() error {
 	registry.MustRegister(distribution.NewDeliveryCollector(pool))
 
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
+	handlers[admincommand.DistributionReconcileJobType] = adminExecutor.Handler
+	observers[admincommand.DistributionReconcileJobType] = admincommand.FailReceipt
 	handlers[admincommand.CheckJobType] = adminExecutor.Handler
 	handlers[admincommand.UninstallJobType] = adminExecutor.Handler
 	observers[admincommand.CheckJobType] = admincommand.FailReceipt
@@ -186,8 +188,9 @@ func run() error {
 	}, handlers, observers)
 	worker.SetMetrics(jobMetrics)
 	worker.SetCompletionObservers(map[string]jobs.CompletionObserver{
-		admincommand.CheckJobType:     admincommand.CompleteReceipt,
-		admincommand.UninstallJobType: admincommand.CompleteReceipt,
+		admincommand.CheckJobType:                 admincommand.CompleteReceipt,
+		admincommand.DistributionReconcileJobType: admincommand.CompleteReceipt,
+		admincommand.UninstallJobType:             admincommand.CompleteReceipt,
 	})
 	cleanupScheduler, err := maintenance.NewScheduler(
 		maintenance.NewStore(pool), logger, maintenance.SchedulerConfig{

@@ -10,6 +10,7 @@ handoff-файлы не являются текущим backlog.
 - [`project-memory/ROADMAP.md`](project-memory/ROADMAP.md) — phase mapping и recovery protocol.
 - [`project-memory/BUGS.md`](project-memory/BUGS.md) — открытые и исправленные дефекты.
 - [`adr/`](adr/) — принятые архитектурные решения.
+- [`runbooks/lead-distribution-admin.md`](runbooks/lead-distribution-admin.md) — локальная диагностика и безопасное восстановление распределения.
 - [`runbooks/`](runbooks/) — operator и integration runbooks.
 - [`specs/`](specs/README.md) — действующие продуктовые и интеграционные контракты.
 - [`fixtures/`](fixtures/) — небольшие синтетические примеры для спецификаций и тестов.

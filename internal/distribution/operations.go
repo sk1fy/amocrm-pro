@@ -212,6 +212,9 @@ func (s *Store) Admit(ctx context.Context, identity Scope, key string, a Assignm
 	if !a.Command.ValidUntil.After(time.Now()) || a.Command.ValidUntil.After(time.Now().Add(15*time.Minute)) {
 		return Receipt{}, false, ErrStaleDecision
 	}
+	if err = requireAdmission(ctx, tx, a.Scope.InstallationID, true); err != nil {
+		return Receipt{}, false, err
+	}
 	if err = services.RequireEnabled(ctx, tx, a.Scope.InstallationID, services.LeadDistribution, true); err != nil {
 		return Receipt{}, false, err
 	}
