@@ -10,6 +10,7 @@ handoff-файлы не являются текущим backlog.
 - [`project-memory/ROADMAP.md`](project-memory/ROADMAP.md) — phase mapping и recovery protocol.
 - [`project-memory/BUGS.md`](project-memory/BUGS.md) — открытые и исправленные дефекты.
 - [`adr/`](adr/) — принятые архитектурные решения.
+- [`specs/lead-distribution-v1/12-independent-review.md`](specs/lead-distribution-v1/12-independent-review.md) — независимое ревью РС-03–РС-10 и исправления перед PR.
 - [`specs/lead-distribution-v1/11-local-acceptance.md`](specs/lead-distribution-v1/11-local-acceptance.md) — локальная матрица РС-10 и оставшиеся live-проверки.
 - [`runbooks/lead-distribution-pilot.md`](runbooks/lead-distribution-pilot.md) — наблюдение, остановка, согласованное восстановление и подготовка пилота.
 - [`runbooks/lead-distribution-admin.md`](runbooks/lead-distribution-admin.md) — локальная диагностика и безопасное восстановление распределения.

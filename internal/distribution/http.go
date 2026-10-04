@@ -79,6 +79,7 @@ func (h *Handler) RegisterService(router chi.Router, auth Auth) {
 		r.Use(auth.Middleware)
 		r.Post("/bindings", h.bind)
 		r.Post("/assignments", h.admitAssignment)
+		r.Post("/assignments/expire", h.expireAssignment)
 		r.Get("/operations/{operationId}", h.getOperation)
 		r.Post("/operations/{operationId}/cancel", h.cancelOperation)
 		r.Post("/operations/{operationId}/reconcile", h.reconcileOperation)

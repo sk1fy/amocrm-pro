@@ -141,6 +141,12 @@ func TestAssignmentPreconditionsAndLeaseFence(t *testing.T) {
 			if f.CRM.Calls != 0 {
 				t.Fatal("unexpected PATCH")
 			}
+			if kind == "recipient" {
+				op, err := f.Store.Operation(ctx, f.Scope, f.Assignment.Command.OperationID)
+				if err != nil || op.Error == nil || op.Error.Code != "recipient_unavailable" || !op.ResolutionEvidence.GuardReleasable {
+					t.Fatal("recipient rejection lost recalculation evidence", op, err)
+				}
+			}
 		})
 	}
 	f := assignmentFixture(t)

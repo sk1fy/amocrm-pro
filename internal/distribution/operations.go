@@ -151,6 +151,22 @@ func (a Assignment) Validate() error {
 	return nil
 }
 func (s *Store) Admit(ctx context.Context, identity Scope, key string, a Assignment) (Receipt, bool, error) {
+	return s.admit(ctx, identity, key, a, false)
+}
+
+// ExpireAssignment fences a frozen intent that was never admitted. It shares
+// both admission locks and request identity with Admit, so a delayed original
+// request can only replay the terminal receipt. Existing effects are unchanged.
+func (s *Store) ExpireAssignment(ctx context.Context, identity Scope, key string, a Assignment) (Operation, bool, error) {
+	receipt, replayed, err := s.admit(ctx, identity, key, a, true)
+	if err != nil {
+		return Operation{}, false, err
+	}
+	op, err := s.Operation(ctx, identity, receipt.OperationID)
+	return op, replayed, err
+}
+
+func (s *Store) admit(ctx context.Context, identity Scope, key string, a Assignment, expire bool) (Receipt, bool, error) {
 	keyID, keyErr := uuid.Parse(key)
 	if keyErr != nil || keyID == uuid.Nil || keyID.String() != key {
 		return Receipt{}, false, ErrDenied
@@ -209,38 +225,61 @@ func (s *Store) Admit(ctx context.Context, identity Scope, key string, a Assignm
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Receipt{}, false, err
 	}
-	if !a.Command.ValidUntil.After(time.Now()) || a.Command.ValidUntil.After(time.Now().Add(15*time.Minute)) {
+	var expired bool
+	if err = tx.QueryRow(ctx, `SELECT $1::timestamptz <= clock_timestamp()`, a.Command.ValidUntil).Scan(&expired); err != nil {
+		return Receipt{}, false, err
+	}
+	if expire != expired || !expire && a.Command.ValidUntil.After(time.Now().Add(15*time.Minute)) {
 		return Receipt{}, false, ErrStaleDecision
 	}
-	if err = requireAdmission(ctx, tx, a.Scope.InstallationID, true); err != nil {
-		return Receipt{}, false, err
-	}
-	if err = services.RequireEnabled(ctx, tx, a.Scope.InstallationID, services.LeadDistribution, true); err != nil {
-		return Receipt{}, false, err
+	if !expire {
+		if err = requireAdmission(ctx, tx, a.Scope.InstallationID, true); err != nil {
+			return Receipt{}, false, err
+		}
+		if err = services.RequireEnabled(ctx, tx, a.Scope.InstallationID, services.LeadDistribution, true); err != nil {
+			return Receipt{}, false, err
+		}
 	}
 	var marker int
-	err = tx.QueryRow(ctx, `SELECT 1 FROM distribution_bindings WHERE id=$1 AND company_id=$2 AND installation_id=$3 AND integration_id=$4 AND account_id=$5 AND revision=$6 AND state='active' FOR SHARE`, a.Scope.BindingID, a.Scope.CompanyID, a.Scope.InstallationID, a.Scope.IntegrationID, a.Scope.AccountID, a.Scope.BindingRevision).Scan(&marker)
+	err = tx.QueryRow(ctx, `SELECT 1 FROM distribution_bindings WHERE id=$1 AND company_id=$2 AND installation_id=$3 AND integration_id=$4 AND account_id=$5 AND revision=$6 AND ($7 OR state='active') FOR SHARE`, a.Scope.BindingID, a.Scope.CompanyID, a.Scope.InstallationID, a.Scope.IntegrationID, a.Scope.AccountID, a.Scope.BindingRevision, expire).Scan(&marker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Receipt{}, false, ErrDenied
 	}
 	if err != nil {
 		return Receipt{}, false, err
 	}
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, strconv.FormatInt(a.Scope.AccountID, 10)+":"+strconv.FormatInt(a.Command.Expected.LeadID, 10)); err != nil {
-		return Receipt{}, false, err
-	}
-	var guarded bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM distribution_lead_guards WHERE account_id=$1 AND lead_id=$2)`, a.Scope.AccountID, a.Command.Expected.LeadID).Scan(&guarded); err != nil {
-		return Receipt{}, false, err
-	}
-	if guarded {
-		return Receipt{}, false, ErrOperationUnresolved
+	if !expire {
+		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, strconv.FormatInt(a.Scope.AccountID, 10)+":"+strconv.FormatInt(a.Command.Expected.LeadID, 10)); err != nil {
+			return Receipt{}, false, err
+		}
+		var guarded bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM distribution_lead_guards WHERE account_id=$1 AND lead_id=$2)`, a.Scope.AccountID, a.Command.Expected.LeadID).Scan(&guarded); err != nil {
+			return Receipt{}, false, err
+		}
+		if guarded {
+			return Receipt{}, false, ErrOperationUnresolved
+		}
+		// Binding/lead locks may outlive the original admission deadline.
+		if err = tx.QueryRow(ctx, `SELECT $1::timestamptz <= clock_timestamp()`, a.Command.ValidUntil).Scan(&expired); err != nil {
+			return Receipt{}, false, err
+		}
+		if expired {
+			return Receipt{}, false, ErrStaleDecision
+		}
 	}
 	job, err := jobs.NewStore(s.pool).EnqueueTx(ctx, tx, jobs.EnqueueParams{InstallationID: &a.Scope.InstallationID, Type: AssignmentJobType, ActorType: "integration", ActorID: a.Scope.InstallationID.String(), ResourceType: "lead", ResourceID: strconv.FormatInt(a.Command.Expected.LeadID, 10), Payload: map[string]any{"operationId": a.Command.OperationID}, MaxAttempts: 5})
 	if err != nil {
 		return Receipt{}, false, err
 	}
 	receipt := Receipt{a.Command.OperationID, time.Now().UTC(), "queued", 1}
+	if expire {
+		receipt.State = "rejected"
+		// Keep the existing operation/job audit relation, but never expose an
+		// executable job: cancellation and tombstone commit atomically.
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='cancelled',finished_at=now(),updated_at=now() WHERE id=$1`, job.ID); err != nil {
+			return Receipt{}, false, err
+		}
+	}
 	rr, _ := json.Marshal(receipt)
 	_, err = tx.Exec(ctx, `INSERT INTO distribution_operations(id,binding_id,company_id,installation_id,integration_id,account_id,binding_revision,decision_id,lead_id,key_hash,request_hash,command,receipt,job_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, a.Command.OperationID, a.Scope.BindingID, a.Scope.CompanyID, a.Scope.InstallationID, a.Scope.IntegrationID, a.Scope.AccountID, a.Scope.BindingRevision, a.Command.DecisionID, a.Command.Expected.LeadID, kh[:], hash[:], raw, rr, job.ID)
 	if err != nil {
@@ -250,8 +289,17 @@ func (s *Store) Admit(ctx context.Context, identity Scope, key string, a Assignm
 		}
 		return Receipt{}, false, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO distribution_lead_guards(account_id,lead_id,operation_id) VALUES($1,$2,$3)`, a.Scope.AccountID, a.Command.Expected.LeadID, a.Command.OperationID); err != nil {
-		return Receipt{}, false, err
+	if expire {
+		if _, err = tx.Exec(ctx, `UPDATE distribution_operations SET state='rejected',outcome='rejected',error_code='decision_expired',finished_at=now() WHERE id=$1`, a.Command.OperationID); err != nil {
+			return Receipt{}, false, err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,'service',$2,'distribution.assignment_expired','distribution_operation',$3,jsonb_build_object('evidence','no_request_sent','binding_id',$4::text))`, a.Scope.InstallationID, identity.KeyID, a.Command.OperationID.String(), a.Scope.BindingID.String()); err != nil {
+			return Receipt{}, false, err
+		}
+	} else {
+		if _, err = tx.Exec(ctx, `INSERT INTO distribution_lead_guards(account_id,lead_id,operation_id) VALUES($1,$2,$3)`, a.Scope.AccountID, a.Command.Expected.LeadID, a.Command.OperationID); err != nil {
+			return Receipt{}, false, err
+		}
 	}
 	op, err := readOperation(ctx, tx, a.Command.OperationID, false)
 	if err != nil {
@@ -365,7 +413,7 @@ type ResultEnvelope struct {
 
 func wireErrorCode(reason string) string {
 	switch reason {
-	case "capability_revoked", "permission_denied", "source_unavailable", "policy_unavailable", "mapping_required", "reauth_required", "resource_not_found", "rate_limited":
+	case "capability_revoked", "permission_denied", "source_unavailable", "policy_unavailable", "mapping_required", "reauth_required", "resource_not_found", "rate_limited", "decision_expired", "recipient_unavailable":
 		return reason
 	case "source_changed", "manual_change_after_response":
 		return "revision_conflict"

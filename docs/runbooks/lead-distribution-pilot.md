@@ -78,17 +78,24 @@ Pause не возвращает ответственного автоматич�
 
 ## Отрицательный lookup и истёкший frozen intent
 
-При Core 404 локальный worker повторно проверяет lease, current mode/epoch,
-active и срок решения. Истёкший intent остаётся
-`requires_configuration / expired_never_admitted`, с теми же operation/request
-IDs и claims. 404 не доказывает, что старый запрос не придёт/не commit позже.
-Не удалять frozen intent, не создавать replacement ID автоматически.
+Core 404 не доказывает, что старый запрос не придёт или не commit позже.
+До истечения срока TeamOS проверяет lease, mode/epoch и active перед повтором
+той же команды. После истечения вызывает private `POST assignments/expire`
+с исходными frozen body и Idempotency-Key. Core сериализует запрос с admission
+и сохраняет terminal rejected/no_attempt, если команды действительно нет.
+Поздний исходный POST получает эту же квитанцию без исполнения.
 
-Оператор проверяет точные существующие IDs и журналы обеих сторон, устраняет
-доступность источника и выясняет поздние admission/effects через владельца.
-Автоматическая retirement такого intent требует отдельного atomic negative
-admission/tombstone протокола; в текущем этапе она не реализована. Ожидание
-без такого доказательства — осознанное ограничение, а не успешное восстановление.
+Только проверенный terminal result разрешает снять claims сделки и группы,
+не продвигая round-robin. Существующая операция возвращается без изменений:
+реальный unknown после возможного PATCH сохраняет защиту. При старом Core,
+отказе связи, ошибке или ещё не истёкшем сроке по часам Core IDs/claims остаются.
+После обновления Core фоновые попытки продолжат безопасное завершение.
+Порядок выпуска: Core с новым endpoint, затем TeamOS backend. Откат Core
+останавливает такое завершение до восстановления совместимой версии.
+
+Не удалять guard/ledger SQL и не заменять frozen IDs. Сверять точные IDs,
+result version, evidence и аудит `distribution.assignment_expired`.
+См. [ADR-0036](../adr/0036-distribution-expired-admission.md).
 
 ## Согласованная резервная копия и восстановление
 

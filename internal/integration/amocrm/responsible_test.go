@@ -108,7 +108,7 @@ func TestPreparedResponsibleSendsOneNarrowPatchAndDoesNotRefresh401(t *testing.T
 	}
 }
 func TestResponsibleIncompleteAcknowledgementRemainsDispatched(t *testing.T) {
-	for _, body := range []string{"", `{`, `{}`, `{"_embedded":{"leads":[{"id":12,"updated_at":1}]}}`, `{"_embedded":{"leads":[{"id":11}]}}`, `{"_embedded":{"leads":[{"id":11,"updated_at":0}]}}`, strings.Repeat("x", maxAPIResponseBody+1)} {
+	for _, body := range []string{"", `{`, `{}`, `{"id":12,"updated_at":1}`, `{"id":11}`, `{"id":11,"updated_at":null}`, `{"id":11,"updated_at":0}`, `{"id":11,"updated_at":1,"_embedded":{"leads":[{"id":12,"updated_at":1}]}}`, `{"_embedded":{"leads":[{"id":12,"updated_at":1}]}}`, `{"_embedded":{"leads":[{"id":11}]}}`, `{"_embedded":{"leads":[{"id":11,"updated_at":0}]}}`, strings.Repeat("x", maxAPIResponseBody+1)} {
 		c, _ := responsibleTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }))
 		m, err := c.PrepareLeadResponsible(context.Background(), uuid.New())
 		if err != nil {
@@ -118,6 +118,27 @@ func TestResponsibleIncompleteAcknowledgementRemainsDispatched(t *testing.T) {
 		var dispatched *ResponsibleDispatchError
 		if result.Accepted || !errors.As(err, &dispatched) || !dispatched.Dispatched {
 			t.Fatalf("false confirmation %v %+v", err, result)
+		}
+	}
+}
+
+func TestResponsibleAcceptsSingleAndCollectionAcknowledgements(t *testing.T) {
+	for _, body := range []string{
+		`{"id":11,"updated_at":1790935200,"_links":{"self":{"href":"https://fixture.amocrm.test/api/v4/leads/11"}}}`,
+		`{"_embedded":{"leads":[{"id":11,"updated_at":1790935200}]}}`,
+	} {
+		var requests atomic.Int32
+		c, _ := responsibleTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			requests.Add(1)
+			_, _ = w.Write([]byte(body))
+		}))
+		m, err := c.PrepareLeadResponsible(context.Background(), uuid.New())
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := m.Assign(context.Background(), 11, 7)
+		if err != nil || !out.Accepted || out.UpdatedAt != 1790935200 || requests.Load() != 1 {
+			t.Fatalf("valid acknowledgement rejected: %+v %v calls %d", out, err, requests.Load())
 		}
 	}
 }

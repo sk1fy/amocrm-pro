@@ -43,7 +43,9 @@ COPY . .
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/distribution", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread", "./internal/admincommand"]
+# Packages share a resettable test database and a global advisory lock. Run
+# packages sequentially; concurrency/race scenarios inside each suite remain on.
+CMD ["-race", "-p=1", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/distribution", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread", "./internal/admincommand"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 

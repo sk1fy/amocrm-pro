@@ -170,6 +170,55 @@ paths:
             schema:
               $ref: '#/components/schemas/AssignmentEnvelope'
     x-receiver: amocrm-core
+  /internal/v1/distribution/assignments/expire:
+    post:
+      operationId: distributionExpireAssignment
+      summary: Зафиксировать отсутствие исполнения истёкшей команды
+      description: >-
+        Принимает исходный неизменённый AssignmentEnvelope и Idempotency-Key.
+        Под общими блокировками admission возвращает существующую операцию,
+        включая неизвестный исход, без изменений. Если операции нет и validUntil
+        истёк по часам Core DB, атомарно сохраняет rejected/no_attempt с
+        no_request_sent, terminal receipt и result outbox. Связанный job сразу
+        cancelled; исполнимый job, guard и CRM PATCH не создаются. Поздний POST
+        assignments получает тот же terminal receipt. Историческая binding
+        проверяется полностью; pause/revoked capability не мешают завершению.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentEnvelope'
+      responses:
+        '200':
+          description: Сохранённая операция; только terminal evidence разрешает освобождение защиты.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          description: invalid_transition до срока; idempotency_conflict при изменении intent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/Failure'
+      security:
+      - distributionSignature: []
+    x-receiver: amocrm-core
+    x-route-owner: worker
   /internal/v1/distribution/operations/{operationId}:
     parameters:
     - name: operationId
@@ -1284,6 +1333,8 @@ components:
     ErrorCode:
       type: string
       enum:
+      - decision_expired
+      - recipient_unavailable
       - validation_failed
       - unauthenticated
       - permission_denied

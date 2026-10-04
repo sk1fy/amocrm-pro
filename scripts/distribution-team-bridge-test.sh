@@ -49,12 +49,18 @@ docker run --name "$core_name" --network host --entrypoint go \
  amocrm-integration-test:local test -race -count=1 -timeout=12m -v \
  -run '^TestDistributionTeamBridgeServer$' ./internal/distribution > "$bridge_dir/core.log" 2>&1 &
 core_pid=$!
-for step in $(seq 1 120); do
+# A cold race build after image/cache cleanup may take several minutes on a
+# small Docker VM. Keep startup bounded, but do not mistake compilation for a
+# failing HTTP bridge. The test binary retains its own execution deadline.
+for step in $(seq 1 600); do
  if [ -f "$bridge_dir/core.json" ]; then break; fi
  if ! kill -0 "$core_pid" 2>/dev/null; then wait "$core_pid"; exit 1; fi
  sleep 1
 done
-test -f "$bridge_dir/core.json"
+if [ ! -f "$bridge_dir/core.json" ]; then
+ printf 'Core bridge did not start within 600 seconds; inspect %s/core.log.\n' "$bridge_dir" >&2
+ exit 1
+fi
 python3 "$core_repo/scripts/distribution-backup-fixture.py" "$bridge_dir" "$pg_id" "$project" > "$bridge_dir/backup.log" 2>&1 &
 backup_pid=$!
 # VM host networking gives both test processes the same loopback namespace.

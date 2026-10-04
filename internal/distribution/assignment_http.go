@@ -55,6 +55,28 @@ func operationID(r *http.Request) (uuid.UUID, error) {
 	}
 	return id, nil
 }
+
+func (h *Handler) expireAssignment(w http.ResponseWriter, r *http.Request) {
+	var a Assignment
+	key := single(r, "Idempotency-Key")
+	if decode(r, &a) != nil || a.Validate() != nil {
+		fail(w, 400, "validation_failed")
+		return
+	}
+	if id, err := uuid.Parse(key); err != nil || id == uuid.Nil || id.String() != key {
+		fail(w, 400, "validation_failed")
+		return
+	}
+	op, replayed, err := h.Store.ExpireAssignment(r.Context(), scopeFrom(r), key, a)
+	if err != nil {
+		h.operationError(w, err)
+		return
+	}
+	if replayed {
+		w.Header().Set("Idempotency-Replayed", "true")
+	}
+	write(w, 200, op)
+}
 func (h *Handler) getOperation(w http.ResponseWriter, r *http.Request) {
 	id, e := operationID(r)
 	if e != nil {

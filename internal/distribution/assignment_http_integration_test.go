@@ -44,7 +44,7 @@ func (h *signedAssignmentHTTP) call(t *testing.T, scope Scope, method, path, key
 	}
 	if body != nil && want != 400 {
 		name := "ReconcileInput"
-		if path == "/internal/v1/distribution/assignments" {
+		if path == "/internal/v1/distribution/assignments" || path == "/internal/v1/distribution/assignments/expire" {
 			name = "AssignmentEnvelope"
 		}
 		validateRuntimeResponse(t, name, raw)

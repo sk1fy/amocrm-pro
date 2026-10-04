@@ -65,8 +65,11 @@ Company PG дополнительно проверяет default-off, отсут
 рабочего RR, приватность, failed permission source, fresh epoch/floor,
 неизменяемость истории, запрет flip с незавершённой очередью, две очередности
 rule/admission locks и защиту point edit при pending observation job.
-Отрицательный Core lookup не удаляет frozen intent или claims: истёкший запрос
-остаётся `requires_configuration / expired_never_admitted`.
+Отрицательный Core lookup сам не удаляет frozen intent или claims. После
+независимого ревью добавлен private `assignments/expire`: только сохранённое
+Core доказательство `rejected/no_attempt/no_request_sent` освобождает claims.
+Недоступный или старый Core сохраняет IDs/claims для последующей проверки;
+реальный unknown после возможного PATCH остаётся защищённым.
 
 ## Ограничения допуска
 

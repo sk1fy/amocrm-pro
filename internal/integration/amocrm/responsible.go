@@ -146,24 +146,33 @@ func (m *preparedLeadResponsibleMutation) Assign(ctx context.Context, leadID, ta
 		}
 		return dispatched(classified)
 	}
-	// Official PATCH response: collection of changed lead IDs and updated_at.
-	// A 200 alone is not proof; even a valid acknowledgement is confirmed by the
-	// worker using a fresh GET, rather than treated as final success here.
+	// A single-entity PATCH returns the changed model (id, updated_at); the
+	// collection form is also accepted for compatibility. A 200 alone is not
+	// proof: the worker still confirms this acknowledgement with a fresh GET.
+	type changedLead struct {
+		ID        *int64 `json:"id"`
+		UpdatedAt *int64 `json:"updated_at"`
+	}
 	var ack struct {
+		changedLead
 		Embedded *struct {
-			Leads []struct {
-				ID        *int64 `json:"id"`
-				UpdatedAt *int64 `json:"updated_at"`
-			} `json:"leads"`
+			Leads []changedLead `json:"leads"`
 		} `json:"_embedded"`
 	}
 	if err = json.Unmarshal(response, &ack); err != nil {
 		return dispatched(fmt.Errorf("decode responsible acknowledgement: %w", ErrIncompleteResponse))
 	}
-	if ack.Embedded == nil || len(ack.Embedded.Leads) != 1 || ack.Embedded.Leads[0].ID == nil || *ack.Embedded.Leads[0].ID != leadID || ack.Embedded.Leads[0].UpdatedAt == nil || *ack.Embedded.Leads[0].UpdatedAt <= 0 {
+	changed := ack.changedLead
+	if ack.Embedded != nil {
+		if changed.ID != nil || changed.UpdatedAt != nil || len(ack.Embedded.Leads) != 1 {
+			return dispatched(ErrIncompleteResponse)
+		}
+		changed = ack.Embedded.Leads[0]
+	}
+	if changed.ID == nil || *changed.ID != leadID || changed.UpdatedAt == nil || *changed.UpdatedAt <= 0 {
 		return dispatched(ErrIncompleteResponse)
 	}
 	result.Accepted = true
-	result.UpdatedAt = *ack.Embedded.Leads[0].UpdatedAt
+	result.UpdatedAt = *changed.UpdatedAt
 	return result, nil
 }

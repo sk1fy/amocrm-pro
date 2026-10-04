@@ -42,3 +42,4 @@ scope belongs in GitHub Issues.
 - [ADR-0034](0034-distribution-durable-assignment-evidence.md) — Proposed: durable assignment, global guard и доказательства внешнего результата.
 
 - [ADR-0035](0035-distribution-admin-diagnostics.md) — Accepted locally: safe scoped diagnostics, owner recovery and installation pause.
+- [ADR-0036](0036-distribution-expired-admission.md) — Accepted locally: завершение истёкшего intent через атомарную фиксацию отсутствия исполнения.
