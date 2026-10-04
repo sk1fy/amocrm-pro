@@ -57,7 +57,9 @@ CAS с ручным изменением amoCRM.
   и воспроизводимость ZIP — PASS.
 - Paired Core↔TeamOS HTTP/HMAC, две owner DB: 13 сценариев — PASS,
   включая новый expiry fence, no second PATCH и согласованный backup/restore.
-- Core полный PostgreSQL и Admin: проверяются.
+- Core `make integration-test`: полный PostgreSQL-набор, миграции
+  up/down и конкурентные миграторы — PASS; новые expiry/guard/lock tests — PASS.
+- Admin: полный итог проверок ожидается.
 
 После очистки Docker первое выполнение выявило ограничения тестового запуска:
 120 секунд на холодную компиляцию paired и параллельные пакеты с общей reset DB
