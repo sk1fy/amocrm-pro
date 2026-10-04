@@ -59,7 +59,12 @@ CAS с ручным изменением amoCRM.
   включая новый expiry fence, no second PATCH и согласованный backup/restore.
 - Core `make integration-test`: полный PostgreSQL-набор, миграции
   up/down и конкурентные миграторы — PASS; новые expiry/guard/lock tests — PASS.
-- Admin: полный итог проверок ожидается.
+- Admin: Go fmt/vet/race, golangci без замечаний, frontend lint/tsc,
+  133 unit, PostgreSQL/up-down, 39 E2E, 11 safety tests, docs и govulncheck
+  без достижимых уязвимостей — PASS. Составляющие `make check` выполнены
+  отдельно; единого успешного агрегированного запуска не заявляется.
+  Pinned linter использован с timeout 15m после медленной холодной загрузки;
+  правила проверок не менялись.
 
 После очистки Docker первое выполнение выявило ограничения тестового запуска:
 120 секунд на холодную компиляцию paired и параллельные пакеты с общей reset DB
@@ -75,3 +80,47 @@ CRM/SDK и браузерные данные — синтетические fixt
 Живые зависимости РС-03.1.2, РС-08.3.2, РС-10.2.1/10.2.2/10.3.1 остаются
 отдельной приёмкой. OAuth, установленный ZIP/SDK, настоящий PATCH и остановка
 старого writer не выполнены этим ревью. Гейты G1–G6 сохраняются.
+
+## Дополнительные исправления по GitHub CI
+
+- В исходном main TeamOS backend были достижимые уязвимости gRPC и
+  OpenTelemetry. Отдельный commit `8839e30` согласованно обновляет gRPC до
+  1.83.2 и OTel до 1.45.0 без смены major/toolchain. Unit, lint, contract и
+  все затронутые govulncheck прошли на точном CI Go 1.25.13; все десять
+  GitHub vulncheck jobs после обновления — PASS.
+- Прежний MinIO image для backend smoke больше не доступен в публичных
+  registry. Commit `e37f4b7` добавляет только CI override со сборкой того же
+  официального RELEASE.2025-04-22T22-12-26Z, commit
+  `0d7408fc9969caf07de6a8c3a84f9fbb10a6739e`, с проверкой SHA256 исходников
+  и pinned multiarch digests builder/runtime. Exact Dockerfile build,
+  `minio --version`, live/ready HTTP 200 — PASS. Base/production compose
+  и поставщик хранилища не менялись.
+- В Admin четыре ссылки предполагали соседний checkout Core. Теперь они
+  указывают на неизменяемую опубликованную ревизию; isolated docs-check — PASS.
+  Общий изменяемый E2E fixture stack проверяется одним Playwright worker;
+  тест sync ждёт receipt именно запущенной операции, а diagnostic fixture
+  проверяет HTTP 200/202 до обработки тела. Финальные 39 E2E и 11 safety
+  checks — PASS (`bfe8fd0`). Runtime-проверки конкуренции не отключались.
+
+Core GitHub CI на `42c47d2` прошёл все 26 checks, включая Activity owner DB,
+RPC, процессы, UI и сборки образов. TeamOS UI CI также прошёл. Актуальный
+статус последующих documentation/CI commits доступен в PR ниже.
+
+## PR и порядок приёмки
+
+Все пять веток сверены с актуальным `origin/main`; он входит в их историю.
+В Admin разрешены три документационных конфликта при merge main. Рабочая
+копия TeamOS изолирована; пользовательские незакоммиченные изменения не включены.
+
+| Проект | PR | Назначение |
+| --- | --- | --- |
+| Core | [#60](https://github.com/sk1fy/amocrm-pro/pull/60) | Подключение, CRM-команда, события, widget/admin API и исправления восстановления |
+| TeamOS backend | [#35](https://github.com/sk1fy/team-os-backend/pull/35) | Правила, графики, очередь, общий UI API и принятие expiry evidence |
+| TeamOS | [#9](https://github.com/sk1fy/team-os/pull/9) | Правила, очередь, наблюдение и безопасное восстановление UI |
+| Виджет | [#1](https://github.com/sk1fy/rakurs-widgets-new/pull/1) | SDK оболочка, общие настройки, история, polling и права |
+| Admin | [#12](https://github.com/sk1fy/amocrm-pro-admin/pull/12) | Операторская диагностика и аудируемые действия восстановления |
+
+PR подготовлены как draft. После code review порядок выпуска остаётся
+Core → TeamOS backend → интерфейсы; live gate из runbook не заменяется merge.
+ClickUp использован только для чтения: 81 успешный HTTP-запрос, одна начальная
+сетевая ошибка. Статусы и комментарии не изменялись.
