@@ -3,6 +3,7 @@ package admincommand
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -36,7 +37,7 @@ func Register(router chi.Router, store *Store) {
 			return
 		}
 		status := http.StatusOK
-		if receipt.State == "pending" || receipt.State == "running" {
+		if receipt.State == "pending" || receipt.State == "running" || strings.HasPrefix(receipt.Command, "distribution-") {
 			status = http.StatusAccepted
 		}
 		writeJSON(w, status, receipt)

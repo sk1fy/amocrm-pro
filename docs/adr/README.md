@@ -32,7 +32,14 @@
 | [0029](0029-outbound-budget-account-scope.md) | Accepted | Бюджет по паре [аккаунт, интеграция] 7 rps и потолок аккаунта 50 rps, burst 1, ограниченное ожидание с отказом |
 | [0030](0030-go-vulnerability-check.md) | Accepted | Docker govulncheck и обновление уязвимой gRPC-зависимости |
 | [0031](0031-admin-sync-reconciliation.md) | Accepted | Обновление sync-квитанций перед транзакцией приёма admin-команды |
+| [0032](0032-lead-distribution-ownership-and-access.md) | Proposed | Распределение: владельцы данных, company/installation binding, права двух интерфейсов и технических операций |
 
 ADR records a decision and its consequences. Runtime implementation gaps belong
 in [`../project-memory/BUGS.md`](../project-memory/BUGS.md); remaining product
 scope belongs in GitHub Issues.
+
+- [ADR-0033](0033-distribution-signed-http-connection.md) — Proposed: signed HTTPS bridge подключения распределения, scoped grants и worker listener.
+- [ADR-0034](0034-distribution-durable-assignment-evidence.md) — Proposed: durable assignment, global guard и доказательства внешнего результата.
+
+- [ADR-0035](0035-distribution-admin-diagnostics.md) — Accepted locally: safe scoped diagnostics, owner recovery and installation pause.
+- [ADR-0036](0036-distribution-expired-admission.md) — Accepted locally: завершение истёкшего intent через атомарную фиксацию отсутствия исполнения.

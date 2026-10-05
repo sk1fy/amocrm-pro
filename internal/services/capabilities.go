@@ -13,14 +13,17 @@ import (
 )
 
 const (
-	LeadStatus = "lead-status"
-	Activity   = "activity"
-	CRMEvents  = "crm-events"
+	LeadStatus       = "lead-status"
+	LeadDistribution = "lead-distribution"
+	Activity         = "activity"
+	CRMEvents        = "crm-events"
 )
 
 var ErrNotEnabled = errors.New("service is not enabled")
 
-func Known(code string) bool { return code == LeadStatus || code == Activity }
+func Known(code string) bool {
+	return code == LeadStatus || code == Activity || code == LeadDistribution
+}
 
 // JobService deliberately rejects unknown jobs. Infrastructure ping needs no
 // product capability; all product jobs must have an explicit catalog entry.
@@ -30,6 +33,8 @@ func JobService(jobType string) (string, bool) {
 }
 
 var jobServices = map[string]string{
+	"distribution.assign_responsible":     LeadDistribution,
+	"distribution.normalize_event":        LeadDistribution,
 	"widget.ping":                         "",
 	"workflow.lead.set_status":            LeadStatus,
 	"workflow.rule.lead_status.configure": LeadStatus,

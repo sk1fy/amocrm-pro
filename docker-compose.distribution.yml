@@ -1,0 +1,14 @@
+# Opt-in overlay. Requires a private TLS ingress for the worker listener.
+# Do not add host ports here: only the trusted proxy/TeamOS private network may
+# reach this listener. No key value is stored in this file.
+services:
+  worker:
+    environment:
+      DISTRIBUTION_HTTP_ADDRESS: ':8084'
+      DISTRIBUTION_TLS_PROXY: 'true'
+      DISTRIBUTION_SERVICE_KEYS: '${DISTRIBUTION_SERVICE_KEYS:?set scoped server keys in deployment secrets}'
+      DISTRIBUTION_TEAMOS_KEY_ID: '${DISTRIBUTION_TEAMOS_KEY_ID:?set outbound key ID}'
+      DISTRIBUTION_TEAMOS_URL: '${DISTRIBUTION_TEAMOS_URL:?set TeamOS HTTPS origin}'
+      DISTRIBUTION_TEAMOS_PUBLIC_URL: '${DISTRIBUTION_TEAMOS_PUBLIC_URL:-}'
+    expose:
+      - '8084'

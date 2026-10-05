@@ -43,7 +43,9 @@ COPY . .
 FROM test-base AS integration-test
 
 ENTRYPOINT ["go", "test"]
-CMD ["-race", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread", "./internal/admincommand"]
+# Packages share a resettable test database and a global advisory lock. Run
+# packages sequentially; concurrency/race scenarios inside each suite remain on.
+CMD ["-race", "-p=1", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/distribution", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/platform/migrations", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread", "./internal/admincommand"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
@@ -128,6 +130,7 @@ ARG BUILD_REVISION=unknown
 
 RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/crm-events ./cmd/crm-events \
+    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/distribution-grant ./cmd/distribution-grant \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity-control ./cmd/activity-control \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/service-certs ./cmd/service-certs
 
@@ -148,6 +151,10 @@ ENTRYPOINT ["/usr/local/bin/service-certs"]
 FROM runtime AS activity-control
 COPY --from=component-build --chown=app:app /out/activity-control /usr/local/bin/activity-control
 ENTRYPOINT ["/usr/local/bin/activity-control"]
+
+FROM runtime AS distribution-grant
+COPY --from=component-build --chown=app:app /out/distribution-grant /usr/local/bin/distribution-grant
+ENTRYPOINT ["/usr/local/bin/distribution-grant"]
 
 FROM test-base AS test
 

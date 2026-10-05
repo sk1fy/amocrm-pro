@@ -18,6 +18,8 @@ import (
 
 var eventFieldPattern = regexp.MustCompile(`^([^\[]+)\[([^\]]+)\]\[(\d+)\]\[(.+)\]$`)
 
+var scalarDeletePattern = regexp.MustCompile(`^(leads)\[(delete)\]\[(\d+)\]$`)
+
 var ErrNoEvents = errors.New("webhook payload contains no supported events")
 
 var ErrPayloadComplexity = errors.New("webhook payload exceeds event complexity limits")
@@ -30,7 +32,7 @@ const (
 )
 
 var defaultAllowedEvents = []string{
-	"add_lead", "update_lead", "status_lead", "delete_lead",
+	"add_lead", "update_lead", "status_lead", "delete_lead", "responsible_lead",
 	"add_contact", "update_contact",
 }
 
@@ -98,6 +100,13 @@ func ParseAllowed(installationID uuid.UUID, raw []byte, allowedEvents []string) 
 	sawCandidate := false
 	for key, formValues := range values {
 		matches := eventFieldPattern.FindStringSubmatch(key)
+		// amoCRM deletion records can be scalar IDs rather than objects.
+		if len(matches) != 5 {
+			scalar := scalarDeletePattern.FindStringSubmatch(key)
+			if len(scalar) == 4 {
+				matches = append(scalar, "id")
+			}
+		}
 		if len(matches) != 5 || matches[1] == "account" {
 			continue
 		}
@@ -196,7 +205,7 @@ func positiveInt64(value any) *int64 {
 }
 
 func eventTime(fields map[string]any) *time.Time {
-	for _, field := range []string{"last_modified", "updated_at", "created_at", "timestamp"} {
+	for _, field := range []string{"last_modified", "updated_at", "created_at", "date_create", "timestamp"} {
 		value := positiveInt64(fields[field])
 		if value == nil {
 			continue

@@ -95,6 +95,10 @@ func (h *handler) routeHandler(route apicontract.Route) http.HandlerFunc {
 		return h.listLeadStatusRules
 	case apicontract.AdminLeadStatusRuns.Path:
 		return h.listLeadStatusRuns
+	case apicontract.AdminDistribution.Path:
+		return h.getDistribution
+	case apicontract.AdminDistributionTrace.Path:
+		return h.distributionTrace
 	case apicontract.AdminStats.Path:
 		return h.stats
 	case apicontract.AdminStatsAccounts.Path:

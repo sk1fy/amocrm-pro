@@ -1,0 +1,81 @@
+openapi: 3.1.0
+info:
+  title: Core distribution widget API
+  version: 1.0.0
+  description: Verified amoCRM SDK X-Auth-Token; tenant, company, binding and employee are server-derived. Current CRM admin plus TeamOS owner/admin required for settings writes. TeamOS owns all rules and queue decisions.
+servers:
+  - url: /
+security:
+  - widgetToken: []
+paths:
+  /api/v1/widget/distribution/bootstrap:
+    get:
+      operationId: distributionWidgetBootstrap
+      responses:
+        '200':
+          description: Active binding and permissions or minimal not_connected state. teamOSUrl is nullable deployment-configured HTTPS link.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [state, accountId, userId, canManage, teamOSUrl]
+                properties:
+                  state: {type: string, enum: [active, not_connected, ambiguous]}
+                  accountId: {type: string, pattern: '^[1-9][0-9]*$'}
+                  userId: {type: string, pattern: '^[1-9][0-9]*$'}
+                  canManage: {type: boolean}
+                  teamOSUrl: {type: [string, 'null']}
+                  binding: {type: object}
+        default: {$ref: '#/components/responses/Failure'}
+  /api/v1/widget/distribution/runtime:
+    post:
+      operationId: distributionWidgetRuntime
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuntimeRequest'
+      responses:
+        '200':
+          description: Shared TeamOS DTO or replayed confirmed request result. lead and history require live CRM CanViewLead; references expose only verified company employee id/name.
+          content:
+            application/json:
+              schema: {type: object}
+        '202':
+          description: Durable pending receipt. Outcome unknown; retrying the same full envelope only checks receipt, never repeats mutation. Do not display successful completion or create a new request ID automatically.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [requestId, state, retryAllowed]
+                properties:
+                  requestId: {type: string, format: uuid}
+                  state: {type: string, enum: [outcome_unknown]}
+                  retryAllowed: {type: boolean, const: false}
+        default: {$ref: '#/components/responses/Failure'}
+components:
+  securitySchemes:
+    widgetToken: {type: apiKey, in: header, name: X-Auth-Token}
+  schemas:
+    RuntimeRequest:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind: {type: string, enum: [groups, settings, rules, references, availability, lead, history, observations, rule, group, action]}
+        id: {type: string, format: uuid}
+        leadId: {type: string, pattern: '^[1-9][0-9]*$'}
+        limit: {type: integer, minimum: 0, maximum: 100, default: 50}
+        offset: {type: integer, minimum: 0, maximum: 100000}
+        write: {type: boolean, default: false}
+        requestId: {type: string, format: uuid}
+        payload:
+          type: object
+          description: Writes only rules/create, rule/update, group/configuration, action. Rule creation/update accepts executionMode=live|observe (default live with active=false on create). Rule update requires expectedRevision, active and keepCurrentResponsible. Rules expose executionEpoch and nullable liveStartedAt; observations are immutable plans without operation IDs or effects. Lead reads include nullable latestObservation and currentLead (leadId, responsibleUserId/name nullable, observedAt, leadName/url nullable, deleted, absent); the saved plan is distinct from the freshly observed actual owner. Group configuration requires expectedRevision, name, memberIds, disabledMemberIds, active, algorithm=round_robin. Action requires action, requestId (matching envelope), expectedUpdatedAt. No browser binding/company/employee authority fields.
+  responses:
+    Failure:
+      description: Current authority, source or revision rejected. 503 after write dispatch is an uncertain outcome; preserve request ID and draft for explicit recovery.
+      content:
+        application/json:
+          schema: {type: object}

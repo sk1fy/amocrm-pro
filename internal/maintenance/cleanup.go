@@ -249,6 +249,7 @@ func (s *Store) Cleanup(ctx context.Context, policy Policy) (Result, error) {
 				  )
 				  AND NOT EXISTS (SELECT 1 FROM idempotency_keys k WHERE k.job_id=job.id)
 				  AND NOT EXISTS (SELECT 1 FROM lead_status_workflow_rule_configurations c WHERE c.job_id=job.id)
+ AND NOT EXISTS (SELECT 1 FROM distribution_operations o WHERE o.job_id=job.id)
 				ORDER BY job.finished_at, job.ctid
 				FOR UPDATE OF job SKIP LOCKED
 				LIMIT $2

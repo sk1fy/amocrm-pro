@@ -248,6 +248,8 @@ var adminCapabilities = []string{
 	"activity_panels",
 	"lead_status",
 	"stats",
+	"distribution-read",
+	"distribution-commands",
 }
 
 type ActivitySettingsResponse struct {

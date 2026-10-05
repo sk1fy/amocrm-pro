@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; base-uri 'none'"
+    />
+    <title>Распределение · макеты v1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="prototype.js" defer></script>
+  </head>
+  <body>
+    <header class="lab">
+      <div class="lab-title">
+        <strong>Распределение сделок / v1</strong
+        ><span class="lab-badge">ИНТЕРАКТИВНЫЙ МАКЕТ</span>
+      </div>
+      <p>
+        Вымышленные данные. Все действия меняют только этот макет, без запросов
+        и назначений в amoCRM.
+      </p>
+      <div class="controls">
+        <label
+          >Интерфейс<select id="surface">
+            <option value="team">TeamOS</option>
+            <option value="widget">Виджет amoCRM</option>
+            <option value="admin">Админка</option>
+          </select></label
+        >
+        <label
+          >Сценарий<select id="scenario">
+            <option value="day">Дневное назначение</option>
+            <option value="night">Ночное ожидание</option>
+            <option value="recovery">Уточнение после сбоя</option>
+          </select></label
+        >
+        <label
+          >Роль<select id="role">
+            <option value="manager">Руководитель / администратор</option>
+            <option value="employee">Сотрудник / наблюдатель</option>
+            <option value="operator">Оператор админки</option>
+          </select></label
+        >
+        <label
+          >Данные<select id="data">
+            <option value="ready">Актуальны</option>
+            <option value="loading">Загрузка</option>
+            <option value="empty">Пусто</option>
+            <option value="error">Источник недоступен</option>
+            <option value="stale">Устарели</option>
+            <option value="unknown">Нет наблюдения</option>
+          </select></label
+        >
+        <label
+          >Доступ к сделке<select id="access">
+            <option value="allow">Разрешён сервером</option>
+            <option value="deny">Нет доступа</option>
+            <option value="unavailable">Права не удалось проверить</option>
+          </select></label
+        >
+        <label
+          >Доказательство при сверке<select id="evidence">
+            <option value="unresolved">Только совпадение получателя</option>
+            <option value="settled">Завершение запроса доказано</option>
+          </select></label
+        >
+      </div>
+    </header>
+    <div id="app"></div>
+    <div id="announcement" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="detail">
+      <div id="dialog-body"></div>
+      <form method="dialog"><button>Закрыть</button></form>
+    </dialog>
+    <footer>
+      Макеты РС-02.3 · 01.10.2026 · состояние сохраняется только до перезагрузки
+      страницы
+    </footer>
+  </body>
+</html>

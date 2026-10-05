@@ -715,6 +715,73 @@ paths:
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFound'}
         '500': {$ref: '#/components/responses/InternalError'}
+  /admin/v1/installations/{id}/distribution:
+    get:
+      tags:
+      - Admin
+      operationId: getAdminDistribution
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - $ref: '#/components/parameters/AdminActor'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Safe distribution observation. Team queue is not observed by
+            Core.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionSummary'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/BackendUnavailable'
+  /admin/v1/installations/{id}/distribution/trace:
+    get:
+      tags:
+      - Admin
+      operationId: listAdminDistributionTrace
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      - $ref: '#/components/parameters/AdminActor'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: reference
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Safe distribution observation. Team queue is not observed by
+            Core.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionTraceResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/BackendUnavailable'
 components:
   securitySchemes:
     adminBearer:
@@ -771,11 +838,16 @@ components:
           description: UUID, or new for integration create.
         command:
           type: string
-          enum: [create, update, rotate-secret, enable, disable, set-service, revoke, uninstall, reconcile, check, pilot-enable, pilot-disable, retry, activity-configure, activity-sync, activity-panel-create, activity-panel-patch, activity-panel-rotate, lead-status-configure]
+          enum: [create, update, rotate-secret, enable, disable, set-service, revoke, uninstall, reconcile, check, pilot-enable, pilot-disable, retry, activity-configure, activity-sync, activity-panel-create, activity-panel-patch, activity-panel-rotate, lead-status-configure, distribution-pause, distribution-resume, distribution-delivery-retry, distribution-reconcile]
         payload:
           type: object
           additionalProperties: false
           properties:
+            operation_id: {type: string, format: uuid}
+            message_id: {type: string, format: uuid}
+            expected_result_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+            expected_attempts: {type: integer, minimum: 0, maximum: 1000000}
+            expected_paused: {type: boolean}
             installation_id: {type: string, format: uuid, description: Required owner assertion for delivery retry.}
             code: {type: string}
             client_id: {type: string, format: uuid}
@@ -788,7 +860,7 @@ components:
             initial_days: {type: integer}
             retention_days: {type: integer}
             expected_updated_at: {type: integer, format: int64}
-            kind: {type: string, enum: [enable, sync, backfill, disable]}
+            kind: {type: string, enum: [enable, sync, backfill, disable, events, results]}
             from: {type: integer, format: int64}
             to: {type: integer, format: int64}
             name: {type: string}
@@ -1087,6 +1159,226 @@ components:
         queues: {type: array, items: {type: object}}
         auth_problems_count: {type: [integer, 'null']}
         sync_problems_count: {type: [integer, 'null']}
+    DistributionSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - source
+      - observed_at
+      - installation_id
+      - module_enabled
+      - paused
+      - authorization_state
+      - webhook_state
+      - webhook_checked_at
+      - binding
+      - events
+      - results
+      - operations
+      - historical_gaps
+      - team_queue_state
+      properties:
+        source:
+          type: string
+          enum:
+          - core
+        observed_at:
+          type: string
+          format: date-time
+        installation_id:
+          type: string
+          format: uuid
+        module_enabled:
+          type: boolean
+        paused:
+          type: boolean
+        authorization_state:
+          type: string
+        webhook_state:
+          type: string
+        webhook_checked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        binding:
+          type:
+          - object
+          - 'null'
+          additionalProperties: false
+          required:
+          - id
+          - company_id
+          - state
+          - revision
+          - mapping_revision
+          - mapped_employees
+          - service_authorized
+          properties:
+            id:
+              type: string
+              format: uuid
+            company_id:
+              type: string
+              format: uuid
+            state:
+              type: string
+            revision:
+              type: integer
+              format: int64
+            mapping_revision:
+              type: integer
+              format: int64
+            mapped_employees:
+              type: integer
+              format: int64
+            service_authorized:
+              type: boolean
+        events: &id001
+          type: object
+          additionalProperties: false
+          required:
+          - states
+          - oldest_pending_at
+          properties:
+            states:
+              type: object
+              additionalProperties:
+                type: integer
+                minimum: 0
+            oldest_pending_at:
+              type:
+              - string
+              - 'null'
+              format: date-time
+        results: *id001
+        operations:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        historical_gaps:
+          type: integer
+          format: int64
+        team_queue_state:
+          type: string
+          enum:
+          - unknown
+    DistributionTraceItem:
+      type: object
+      additionalProperties: false
+      required:
+      - message_id
+      - kind
+      - id
+      - state
+      - created_at
+      - error_code
+      - event_id
+      - operation_id
+      - correlation_id
+      - causation_id
+      - lead_id
+      - result_version
+      - external_effect_state
+      - evidence
+      - attempts
+      properties:
+        message_id:
+          type: [string, "null"]
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - event
+          - operation
+          - result
+          - scan
+          - consumer
+        id:
+          type: string
+        state:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        error_code:
+          type:
+          - string
+          - 'null'
+        event_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        operation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        correlation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        causation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        lead_id:
+          type:
+          - string
+          - 'null'
+          pattern: ^[1-9][0-9]*$
+        result_version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        external_effect_state:
+          type:
+          - string
+          - 'null'
+        evidence:
+          type:
+          - string
+          - 'null'
+        attempts:
+          type:
+          - integer
+          - 'null'
+          format: int64
+    DistributionTraceResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - source
+      - observed_at
+      - items
+      - next_cursor
+      - total
+      properties:
+        source:
+          type: string
+          enum:
+          - core
+        observed_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DistributionTraceItem'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+        total:
+          type:
+          - integer
+          - 'null'
+
   responses:
     Conflict:
       description: Changed idempotent request or another command in flight for the target.

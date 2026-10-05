@@ -18,6 +18,7 @@ import (
 )
 
 const CheckJobType = "admin.connection_check"
+const DistributionReconcileJobType = "admin.distribution_reconcile"
 const UninstallJobType = "admin.webhook_unregister"
 
 type Request struct {
@@ -64,31 +65,36 @@ func notFound() *Error {
 }
 
 type commandPayload struct {
-	InstallationID    string                    `json:"installation_id"`
-	Code              string                    `json:"code"`
-	ClientID          string                    `json:"client_id"`
-	ClientSecret      string                    `json:"client_secret"`
-	RedirectURI       *string                   `json:"redirect_uri"`
-	WebhookEvents     *[]string                 `json:"webhook_events"`
-	Services          []string                  `json:"services"`
-	Service           string                    `json:"service"`
-	Enabled           *bool                     `json:"enabled"`
-	InitialDays       *int                      `json:"initial_days"`
-	RetentionDays     *int                      `json:"retention_days"`
-	ExpectedUpdatedAt *int64                    `json:"expected_updated_at"`
-	Kind              string                    `json:"kind"`
-	From              int64                     `json:"from"`
-	To                int64                     `json:"to"`
-	Name              string                    `json:"name"`
-	EmployeeIDs       []int64                   `json:"employee_ids"`
-	DisplayWindow     *serviceapi.DisplayWindow `json:"display_window"`
-	PanelID           string                    `json:"panel_id"`
-	Revision          *int64                    `json:"revision"`
-	SourcePipelineID  int64                     `json:"source_pipeline_id"`
-	SourceStatusID    int64                     `json:"source_status_id"`
-	TargetPipelineID  int64                     `json:"target_pipeline_id"`
-	TargetStatusID    int64                     `json:"target_status_id"`
-	ExpectedRevision  *int64                    `json:"expected_revision"`
+	OperationID           string                    `json:"operation_id"`
+	MessageID             string                    `json:"message_id"`
+	ExpectedResultVersion *int64                    `json:"expected_result_version"`
+	ExpectedAttempts      *int                      `json:"expected_attempts"`
+	ExpectedPaused        *bool                     `json:"expected_paused"`
+	InstallationID        string                    `json:"installation_id"`
+	Code                  string                    `json:"code"`
+	ClientID              string                    `json:"client_id"`
+	ClientSecret          string                    `json:"client_secret"`
+	RedirectURI           *string                   `json:"redirect_uri"`
+	WebhookEvents         *[]string                 `json:"webhook_events"`
+	Services              []string                  `json:"services"`
+	Service               string                    `json:"service"`
+	Enabled               *bool                     `json:"enabled"`
+	InitialDays           *int                      `json:"initial_days"`
+	RetentionDays         *int                      `json:"retention_days"`
+	ExpectedUpdatedAt     *int64                    `json:"expected_updated_at"`
+	Kind                  string                    `json:"kind"`
+	From                  int64                     `json:"from"`
+	To                    int64                     `json:"to"`
+	Name                  string                    `json:"name"`
+	EmployeeIDs           []int64                   `json:"employee_ids"`
+	DisplayWindow         *serviceapi.DisplayWindow `json:"display_window"`
+	PanelID               string                    `json:"panel_id"`
+	Revision              *int64                    `json:"revision"`
+	SourcePipelineID      int64                     `json:"source_pipeline_id"`
+	SourceStatusID        int64                     `json:"source_status_id"`
+	TargetPipelineID      int64                     `json:"target_pipeline_id"`
+	TargetStatusID        int64                     `json:"target_status_id"`
+	ExpectedRevision      *int64                    `json:"expected_revision"`
 }
 
 func ReceiptID(key string) uuid.UUID {
@@ -134,6 +140,12 @@ func normalize(req Request, key, actor string) (Request, commandPayload, [32]byt
 	case "installation":
 		switch req.Command {
 		case "enable", "disable", "revoke", "uninstall", "reconcile", "check", "pilot-enable", "pilot-disable":
+		case "distribution-pause", "distribution-resume":
+			allow("expected_paused")
+		case "distribution-delivery-retry":
+			allow("kind", "message_id", "expected_attempts")
+		case "distribution-reconcile":
+			allow("operation_id", "expected_result_version")
 		case "activity-configure":
 			allow("initial_days", "retention_days", "expected_updated_at")
 		case "activity-sync":
@@ -182,6 +194,22 @@ func normalize(req Request, key, actor string) (Request, commandPayload, [32]byt
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&p); err != nil {
 		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command payload")
+	}
+	if strings.HasPrefix(req.Command, "distribution-") {
+		switch req.Command {
+		case "distribution-pause", "distribution-resume":
+			if p.ExpectedPaused == nil {
+				return req, p, [32]byte{}, [32]byte{}, invalid("expected_paused is required")
+			}
+		case "distribution-delivery-retry":
+			if id, e := uuid.Parse(p.MessageID); e != nil || id == uuid.Nil || p.ExpectedAttempts == nil || *p.ExpectedAttempts < 0 || *p.ExpectedAttempts > 1000000 || (p.Kind != "events" && p.Kind != "results") {
+				return req, p, [32]byte{}, [32]byte{}, invalid("invalid delivery retry preconditions")
+			}
+		case "distribution-reconcile":
+			if id, e := uuid.Parse(p.OperationID); e != nil || id == uuid.Nil || p.ExpectedResultVersion == nil || *p.ExpectedResultVersion < 1 || *p.ExpectedResultVersion > 9007199254740991 {
+				return req, p, [32]byte{}, [32]byte{}, invalid("invalid operation reconciliation preconditions")
+			}
+		}
 	}
 	if req.Command == "set-service" && p.Enabled == nil {
 		return req, p, [32]byte{}, [32]byte{}, invalid("set-service requires enabled")
@@ -270,6 +298,9 @@ func normalize(req Request, key, actor string) (Request, commandPayload, [32]byt
 		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command payload")
 	}
 	body, err := json.Marshal(req)
+	if strings.HasPrefix(req.Command, "distribution-") {
+		body = append(body, []byte("\n"+actor)...)
+	}
 	if err != nil {
 		return req, p, [32]byte{}, [32]byte{}, invalid("invalid command request")
 	}

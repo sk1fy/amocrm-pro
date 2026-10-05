@@ -21,9 +21,12 @@ type UserAuthorization struct {
 }
 
 type LeadState struct {
-	ID         int64 `json:"id"`
-	PipelineID int64 `json:"pipeline_id"`
-	StatusID   int64 `json:"status_id"`
+	Name              string `json:"name"`
+	ResponsibleUserID int64  `json:"responsible_user_id"`
+	UpdatedAt         int64  `json:"updated_at"`
+	ID                int64  `json:"id"`
+	PipelineID        int64  `json:"pipeline_id"`
+	StatusID          int64  `json:"status_id"`
 }
 
 func (c *Client) GetUserAuthorization(

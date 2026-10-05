@@ -14,6 +14,8 @@ var (
 	OAuthStart                    = Route{Method: http.MethodGet, Path: "/oauth/amocrm/start"}
 	OAuthCallback                 = Route{Method: http.MethodGet, Path: "/oauth/amocrm/callback"}
 	WebhookReceive                = Route{Method: http.MethodPost, Path: "/hooks/amocrm/v1/{webhookKey}"}
+	DistributionBootstrap         = Route{Method: http.MethodGet, Path: "/api/v1/widget/distribution/bootstrap"}
+	DistributionPermissions       = Route{Method: http.MethodPost, Path: "/api/v1/widget/distribution/permissions"}
 	WidgetBootstrap               = Route{Method: http.MethodGet, Path: "/api/v1/widget/bootstrap"}
 	WidgetPing                    = Route{Method: http.MethodPost, Path: "/api/v1/widget/actions/ping"}
 	WidgetLeadSetStatus           = Route{Method: http.MethodPost, Path: "/api/v1/widget/actions/leads/set-status"}
@@ -43,6 +45,8 @@ var (
 		OAuthCallback,
 		WebhookReceive,
 		WidgetBootstrap,
+		DistributionBootstrap,
+		DistributionPermissions,
 		WidgetPing,
 		WidgetLeadSetStatus,
 		WidgetLeadStatusRuleConfigure,
@@ -98,6 +102,8 @@ var (
 	AdminActivityEmployees = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/employees"}
 	AdminLeadStatusRules   = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/lead-status/rules"}
 	AdminLeadStatusRuns    = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/lead-status/runs"}
+	AdminDistribution      = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/distribution"}
+	AdminDistributionTrace = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/distribution/trace"}
 	AdminStats             = Route{Method: http.MethodGet, Path: "/admin/v1/stats"}
 	AdminStatsAccounts     = Route{Method: http.MethodGet, Path: "/admin/v1/stats/accounts"}
 
@@ -124,6 +130,8 @@ var (
 		AdminJobsSummary,
 		AdminJob,
 		AdminAudit,
+		AdminDistribution,
+		AdminDistributionTrace,
 		AdminStats,
 		AdminStatsAccounts,
 	}

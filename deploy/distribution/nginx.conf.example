@@ -1,0 +1,19 @@
+# Include in a server with correctly configured TLS certificate and HTTPS.
+# Worker port 8084 must be reachable only from this proxy and private services.
+location = /api/v1/widget/distribution/bootstrap {
+    proxy_pass http://worker:8084;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+}
+location = /api/v1/widget/distribution/permissions {
+    client_max_body_size 64k;
+    proxy_pass http://worker:8084;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+}
+# Put this on a SEPARATE private TLS virtual host restricted to TeamOS networks.
+# Do not publish /internal/ or /components/ on the public widget host.
+# location /internal/v1/distribution/ {
+#     client_max_body_size 64k;
+#     proxy_pass http://worker:8084;
+# }

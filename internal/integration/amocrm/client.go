@@ -131,6 +131,11 @@ func (c *Client) DoJSON(
 			}
 			return classifyResponse(status, header, time.Now())
 		}
+		if status == http.StatusNoContent && len(response) == 0 {
+			if empty, ok := responseBody.(interface{ NoContent() }); ok {
+				empty.NoContent()
+			}
+		}
 		if responseBody != nil && len(response) > 0 {
 			if err := json.Unmarshal(response, responseBody); err != nil {
 				return fmt.Errorf("decode amoCRM API response: %w", err)

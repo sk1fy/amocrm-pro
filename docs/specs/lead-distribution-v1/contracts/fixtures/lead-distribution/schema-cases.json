@@ -1,0 +1,1199 @@
+[
+  {
+    "name": "event accepted",
+    "contract": "core",
+    "schema": "EventEnvelope",
+    "valid": true,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "event": {
+        "kind": "lead.status_changed",
+        "leadId": "2001",
+        "entryFingerprint": "fixture-entry-1",
+        "before": null,
+        "after": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5001",
+          "observedAt": "2026-10-01T12:00:00Z"
+        }
+      }
+    }
+  },
+  {
+    "name": "assignment admitted",
+    "contract": "core",
+    "schema": "AssignmentEnvelope",
+    "valid": true,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "command": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "decisionKind": "assign",
+        "targetResponsibleUserId": "5002",
+        "expectedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5001",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "actor": {
+          "kind": "system"
+        },
+        "validUntil": "2026-10-01T12:00:05Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1
+      }
+    }
+  },
+  {
+    "name": "confirmed assignment",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "settled",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "response_and_observation",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "rule round_robin",
+    "contract": "teamos",
+    "schema": "UpdateRuleInput",
+    "valid": true,
+    "value": {
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "bindingId": "00000000-0000-4000-8000-000000000004",
+      "pipelineId": "3001",
+      "statusId": "4001",
+      "algorithm": "round_robin",
+      "timezone": "Europe/Moscow",
+      "keepCurrentAvailableResponsible": true,
+      "enabled": true,
+      "memberIds": [
+        "00000000-0000-4000-8000-000000000030",
+        "00000000-0000-4000-8000-000000000031"
+      ],
+      "disabledMemberIds": [],
+      "expectedRevision": 1
+    }
+  },
+  {
+    "name": "same selected target consumes turn",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "no_change",
+      "externalEffectState": "no_attempt",
+      "outcome": "already_target",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "no_request_sent",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "keep current preserves turn",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "no_change",
+      "externalEffectState": "no_attempt",
+      "outcome": "kept",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "no_request_sent",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "unknown with cancel request stays unresolved",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "outcome_unknown",
+      "externalEffectState": "unknown",
+      "outcome": null,
+      "resultVersion": 2,
+      "confirmedSnapshot": null,
+      "resolutionEvidence": null,
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002",
+      "cancelRequestedAt": "2026-10-01T12:00:00Z"
+    }
+  },
+  {
+    "name": "terminal cannot be unknown",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "unknown",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "response_and_observation",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "cancel request is not terminal cancellation",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "cancelled",
+      "externalEffectState": "in_flight",
+      "outcome": "cancelled",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "response_and_observation",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "success requires confirmed snapshot",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "settled",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": null,
+      "resolutionEvidence": {
+        "kind": "response_and_observation",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "GET observation cannot release guard",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "settled",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "observed_state_only",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "success snapshot must match target",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "settled",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5003",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "response_and_observation",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "keep cannot mutate another target",
+    "contract": "core",
+    "schema": "AssignmentEnvelope",
+    "valid": false,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "command": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "decisionKind": "keep",
+        "targetResponsibleUserId": "5002",
+        "expectedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5001",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "actor": {
+          "kind": "system"
+        },
+        "validUntil": "2026-10-01T12:00:05Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1
+      }
+    }
+  },
+  {
+    "name": "CRM ID cannot exceed bigint",
+    "contract": "core",
+    "schema": "AssignmentEnvelope",
+    "valid": false,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "9223372036854775808",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "command": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "decisionKind": "assign",
+        "targetResponsibleUserId": "5002",
+        "expectedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5001",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "actor": {
+          "kind": "system"
+        },
+        "validUntil": "2026-10-01T12:00:05Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1
+      }
+    }
+  },
+  {
+    "name": "revision safe integer bound",
+    "contract": "core",
+    "schema": "AssignmentEnvelope",
+    "valid": false,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "command": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 9007199254740992,
+        "decisionKind": "assign",
+        "targetResponsibleUserId": "5002",
+        "expectedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5001",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "actor": {
+          "kind": "system"
+        },
+        "validUntil": "2026-10-01T12:00:05Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1
+      }
+    }
+  },
+  {
+    "name": "user actor requires verified mapping identities",
+    "contract": "core",
+    "schema": "AssignmentEnvelope",
+    "valid": false,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "command": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "decisionKind": "assign",
+        "targetResponsibleUserId": "5002",
+        "expectedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5001",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "actor": {
+          "kind": "user"
+        },
+        "validUntil": "2026-10-01T12:00:05Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1
+      }
+    }
+  },
+  {
+    "name": "no silent legacy algorithm fallback",
+    "contract": "teamos",
+    "schema": "UpdateRuleInput",
+    "valid": false,
+    "value": {
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "bindingId": "00000000-0000-4000-8000-000000000004",
+      "pipelineId": "3001",
+      "statusId": "4001",
+      "algorithm": "least_loaded",
+      "timezone": "Europe/Moscow",
+      "keepCurrentAvailableResponsible": true,
+      "enabled": true,
+      "memberIds": [
+        "00000000-0000-4000-8000-000000000030",
+        "00000000-0000-4000-8000-000000000031"
+      ],
+      "disabledMemberIds": [],
+      "expectedRevision": 1
+    }
+  },
+  {
+    "name": "ordered membership cannot contain duplicates",
+    "contract": "teamos",
+    "schema": "UpdateRuleInput",
+    "valid": false,
+    "value": {
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "bindingId": "00000000-0000-4000-8000-000000000004",
+      "pipelineId": "3001",
+      "statusId": "4001",
+      "algorithm": "round_robin",
+      "timezone": "Europe/Moscow",
+      "keepCurrentAvailableResponsible": true,
+      "enabled": true,
+      "memberIds": [
+        "00000000-0000-4000-8000-000000000030",
+        "00000000-0000-4000-8000-000000000030"
+      ],
+      "disabledMemberIds": [],
+      "expectedRevision": 1
+    }
+  },
+  {
+    "name": "disabled member must belong to group",
+    "contract": "teamos",
+    "schema": "UpdateRuleInput",
+    "valid": false,
+    "value": {
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "bindingId": "00000000-0000-4000-8000-000000000004",
+      "pipelineId": "3001",
+      "statusId": "4001",
+      "algorithm": "round_robin",
+      "timezone": "Europe/Moscow",
+      "keepCurrentAvailableResponsible": true,
+      "enabled": true,
+      "memberIds": [
+        "00000000-0000-4000-8000-000000000030",
+        "00000000-0000-4000-8000-000000000031"
+      ],
+      "disabledMemberIds": [
+        "00000000-0000-4000-8000-000000000032"
+      ],
+      "expectedRevision": 1
+    }
+  },
+  {
+    "name": "push result immutable scope",
+    "contract": "core",
+    "schema": "ResultEnvelope",
+    "valid": true,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "result": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "scope": {
+          "companyId": "00000000-0000-4000-8000-000000000001",
+          "accountId": "1001",
+          "integrationId": "00000000-0000-4000-8000-000000000002",
+          "installationId": "00000000-0000-4000-8000-000000000003",
+          "bindingId": "00000000-0000-4000-8000-000000000004",
+          "bindingRevision": 1
+        },
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "eventId": "00000000-0000-4000-8000-000000000011",
+        "correlationId": "00000000-0000-4000-8000-000000000012",
+        "state": "succeeded",
+        "externalEffectState": "settled",
+        "outcome": "assigned",
+        "resultVersion": 2,
+        "confirmedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5002",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "resolutionEvidence": {
+          "kind": "response_and_observation",
+          "observedAt": "2026-10-01T12:00:00Z",
+          "guardReleasable": true,
+          "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+        },
+        "error": null,
+        "acceptedAt": "2026-10-01T12:00:00Z",
+        "updatedAt": "2026-10-01T12:00:00Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1,
+        "targetResponsibleUserId": "5002"
+      }
+    }
+  },
+  {
+    "name": "envelope and operation scope cannot differ",
+    "contract": "core",
+    "schema": "ResultEnvelope",
+    "valid": false,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000099",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "result": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "scope": {
+          "companyId": "00000000-0000-4000-8000-000000000001",
+          "accountId": "1001",
+          "integrationId": "00000000-0000-4000-8000-000000000002",
+          "installationId": "00000000-0000-4000-8000-000000000003",
+          "bindingId": "00000000-0000-4000-8000-000000000004",
+          "bindingRevision": 1
+        },
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "eventId": "00000000-0000-4000-8000-000000000011",
+        "correlationId": "00000000-0000-4000-8000-000000000012",
+        "state": "succeeded",
+        "externalEffectState": "settled",
+        "outcome": "assigned",
+        "resultVersion": 2,
+        "confirmedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5002",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "resolutionEvidence": {
+          "kind": "response_and_observation",
+          "observedAt": "2026-10-01T12:00:00Z",
+          "guardReleasable": true,
+          "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+        },
+        "error": null,
+        "acceptedAt": "2026-10-01T12:00:00Z",
+        "updatedAt": "2026-10-01T12:00:00Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1,
+        "targetResponsibleUserId": "5002"
+      }
+    }
+  },
+  {
+    "name": "old binding result remains valid against stored operation",
+    "contract": "core",
+    "schema": "ResultEnvelope",
+    "valid": true,
+    "value": {
+      "schemaVersion": 1,
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "sourceEventId": "fixture-event-1",
+      "sourceOccurredAt": "2026-10-01T12:00:00Z",
+      "receivedAt": "2026-10-01T12:00:00Z",
+      "emittedAt": "2026-10-01T12:00:00Z",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "causationId": null,
+      "result": {
+        "operationId": "00000000-0000-4000-8000-000000000020",
+        "scope": {
+          "companyId": "00000000-0000-4000-8000-000000000001",
+          "accountId": "1001",
+          "integrationId": "00000000-0000-4000-8000-000000000002",
+          "installationId": "00000000-0000-4000-8000-000000000003",
+          "bindingId": "00000000-0000-4000-8000-000000000004",
+          "bindingRevision": 1
+        },
+        "episodeId": "00000000-0000-4000-8000-000000000021",
+        "decisionId": "00000000-0000-4000-8000-000000000022",
+        "ruleId": "00000000-0000-4000-8000-000000000023",
+        "ruleRevision": 1,
+        "eventId": "00000000-0000-4000-8000-000000000011",
+        "correlationId": "00000000-0000-4000-8000-000000000012",
+        "state": "succeeded",
+        "externalEffectState": "settled",
+        "outcome": "assigned",
+        "resultVersion": 2,
+        "confirmedSnapshot": {
+          "leadId": "2001",
+          "pipelineId": "3001",
+          "statusId": "4001",
+          "responsibleUserId": "5002",
+          "observedAt": "2026-10-01T12:00:00Z"
+        },
+        "resolutionEvidence": {
+          "kind": "response_and_observation",
+          "observedAt": "2026-10-01T12:00:00Z",
+          "guardReleasable": true,
+          "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+        },
+        "error": null,
+        "acceptedAt": "2026-10-01T12:00:00Z",
+        "updatedAt": "2026-10-01T12:00:00Z",
+        "groupId": "00000000-0000-4000-8000-000000000024",
+        "availabilityRevision": 1,
+        "claimRevision": 1,
+        "targetResponsibleUserId": "5002"
+      }
+    }
+  },
+  {
+    "name": "error envelope remains camelCase TeamOS",
+    "contract": "teamos",
+    "schema": "ErrorResponse",
+    "valid": true,
+    "value": {
+      "error": {
+        "message": "Настройки уже изменены",
+        "status": 409,
+        "code": "revision_conflict",
+        "requestId": "00000000-0000-4000-8000-000000000090",
+        "details": {
+          "currentRevision": 2
+        }
+      }
+    }
+  },
+  {
+    "name": "managed rule writer gets explicit conflict",
+    "contract": "teamos",
+    "schema": "ErrorResponse",
+    "valid": true,
+    "value": {
+      "error": {
+        "message": "Измените группу через настройки распределения",
+        "status": 409,
+        "code": "distribution_rule_managed",
+        "requestId": "00000000-0000-4000-8000-000000000091"
+      }
+    }
+  },
+  {
+    "name": "rule pause requires CAS",
+    "contract": "teamos",
+    "schema": "RuleCommandInput",
+    "valid": false,
+    "value": {
+      "kind": "pause"
+    }
+  },
+  {
+    "name": "reconcile unknown outcome",
+    "contract": "teamos",
+    "schema": "EpisodeCommandInput",
+    "valid": true,
+    "value": {
+      "kind": "reconcile",
+      "expectedRevision": 2
+    }
+  },
+  {
+    "name": "CRM ID is lossless string",
+    "contract": "core",
+    "schema": "LeadSnapshot",
+    "valid": false,
+    "value": {
+      "leadId": 2001,
+      "pipelineId": "3001",
+      "statusId": "4001",
+      "responsibleUserId": "5001",
+      "observedAt": "2026-10-01T12:00:00Z"
+    }
+  },
+  {
+    "name": "succeeded observed-only cannot be terminal even with guard=false",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "settled",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "observed_state_only",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": false,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "cancelled requires guard release evidence",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "cancelled",
+      "externalEffectState": "no_attempt",
+      "outcome": "cancelled",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "no_request_sent",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": false,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "succeeded requires actual effect evidence",
+    "contract": "core",
+    "schema": "Operation",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "episodeId": "00000000-0000-4000-8000-000000000021",
+      "decisionId": "00000000-0000-4000-8000-000000000022",
+      "ruleId": "00000000-0000-4000-8000-000000000023",
+      "ruleRevision": 1,
+      "eventId": "00000000-0000-4000-8000-000000000011",
+      "correlationId": "00000000-0000-4000-8000-000000000012",
+      "state": "succeeded",
+      "externalEffectState": "settled",
+      "outcome": "assigned",
+      "resultVersion": 2,
+      "confirmedSnapshot": {
+        "leadId": "2001",
+        "pipelineId": "3001",
+        "statusId": "4001",
+        "responsibleUserId": "5002",
+        "observedAt": "2026-10-01T12:00:00Z"
+      },
+      "resolutionEvidence": {
+        "kind": "no_request_sent",
+        "observedAt": "2026-10-01T12:00:00Z",
+        "guardReleasable": true,
+        "explanation": "Fixture: завершённый ответ запроса и подтверждённое состояние."
+      },
+      "error": null,
+      "acceptedAt": "2026-10-01T12:00:00Z",
+      "updatedAt": "2026-10-01T12:00:00Z",
+      "groupId": "00000000-0000-4000-8000-000000000024",
+      "availabilityRevision": 1,
+      "claimRevision": 1,
+      "targetResponsibleUserId": "5002"
+    }
+  },
+  {
+    "name": "verified CRM user ID also obeys bigint bound",
+    "contract": "core",
+    "schema": "BindingConfirmation",
+    "valid": false,
+    "value": {
+      "messageId": "00000000-0000-4000-8000-000000000080",
+      "intentId": "00000000-0000-4000-8000-000000000081",
+      "scope": {
+        "companyId": "00000000-0000-4000-8000-000000000001",
+        "accountId": "1001",
+        "integrationId": "00000000-0000-4000-8000-000000000002",
+        "installationId": "00000000-0000-4000-8000-000000000003",
+        "bindingId": "00000000-0000-4000-8000-000000000004",
+        "bindingRevision": 1
+      },
+      "verifiedCrmUserId": "9223372036854775808",
+      "confirmedAt": "2026-10-01T12:00:00Z"
+    }
+  }
+]

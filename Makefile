@@ -189,3 +189,35 @@ tidy: ## Run go mod tidy in Docker
 
 db-shell: ## Open psql in the PostgreSQL container
 	$(COMPOSE) exec postgres psql -U "$${POSTGRES_USER:-amocrm}" -d "$${POSTGRES_DB:-amocrm}"
+
+.PHONY: distribution-test
+distribution-test: ## Focused distribution auth, ACL and CRM adapter tests in Docker
+	$(DOCKER_GO) go test -count=1 ./internal/distribution ./internal/integration/amocrm ./api ./cmd/worker ./cmd/distribution-grant
+
+.PHONY: distribution-grant-build
+distribution-grant-build: ## Package the audited scoped distribution grant operator CLI
+	$(DOCKER) build --build-arg GO_VERSION=$(GO_VERSION) --target distribution-grant --tag amocrm-distribution-grant:local .
+
+.PHONY: distribution-integration-test
+distribution-integration-test: ## Run current distribution transaction tests with the previously built test images
+	@set -eu; \
+	cleanup() { $(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT INT TERM; \
+	cleanup; \
+	$(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml up --detach --wait postgres; \
+	$(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml run --rm migrate up; \
+	$(COMPOSE) -p amocrm-pro-distribution-test -f docker-compose.test.yml run --rm --no-deps --entrypoint go --volume "$(CURDIR):/src" --workdir /src integration-test test -race -count=1 -v ./internal/distribution
+
+.PHONY: integration-current-test
+integration-current-test: ## Run current Core PostgreSQL suites using the previously built matching migrator/test images
+	@set -eu; \
+	cleanup() { $(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml down --volumes --remove-orphans >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT INT TERM; \
+	cleanup; \
+	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml up --detach --wait postgres; \
+	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml run --rm migrate up; \
+	$(COMPOSE) -p amocrm-pro-current-test -f docker-compose.test.yml run --rm --no-deps --volume "$(CURDIR):/src" --workdir /src integration-test
+
+.PHONY: distribution-team-bridge-test
+distribution-team-bridge-test: ## Verify actual signed Core/TeamOS decision execution with separate disposable databases
+	sh scripts/distribution-team-bridge-test.sh

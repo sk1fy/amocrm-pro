@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   summary: HTTP contract for the amoCRM integration foundation.
   description: |
-    Current public contract implemented by `cmd/api`.
+    Current public contract implemented by `cmd/api`; distribution paths are served by the private Core worker listener through the TLS ingress proxy.
 
     Webhook bodies and widget responses can contain tenant data. Do not put
     production payloads, bearer tokens, OAuth codes, webhook keys or PII into
@@ -1318,6 +1318,92 @@ paths:
         '403': {$ref: '#/components/responses/ActivityShareError'}
         '429': {$ref: '#/components/responses/ActivityShareError'}
         '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/widget/distribution/bootstrap:
+    get:
+      tags: [Widget]
+      operationId: getDistributionBootstrap
+      summary: Confirm current company binding and mapped actor access.
+      description: Served by Core worker through explicit TLS ingress. Requires fresh disposable JWT and live TeamOS section access. No OAuth credentials returned.
+      security:
+        - widgetToken: []
+        - widgetBearer: []
+      responses:
+        '200':
+          description: Current binding and verified CRM actor.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [binding, userId, state]
+                properties:
+                  binding:
+                    $ref: '#/components/schemas/DistributionBinding'
+                  userId:
+                    type: string
+                    pattern: '^[1-9][0-9]{0,18}$'
+                  state:
+                    type: string
+        '401':
+          description: Invalid or replayed widget token.
+        '403':
+          description: Capability, mapping or section access denied.
+        '404':
+          description: No confirmed installation binding.
+        '429':
+          description: Widget admission budget exceeded.
+        '503':
+          description: Policy source unavailable; access not granted.
+  /api/v1/widget/distribution/permissions:
+    post:
+      tags: [Widget]
+      operationId: checkDistributionLeadPermission
+      summary: Check current CRM resource rights and TeamOS section access.
+      security:
+        - widgetToken: []
+        - widgetBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [leadId]
+              properties:
+                leadId:
+                  type: string
+                  pattern: '^[1-9][0-9]{0,18}$'
+      responses:
+        '200':
+          description: Current resource decision, with checkedAt and no lead data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, canViewLead, reason, checkedAt]
+                properties:
+                  userId:
+                    type: string
+                  canViewLead:
+                    type: boolean
+                  reason:
+                    type: string
+                  checkedAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid lead ID or body.
+        '401':
+          description: Invalid or replayed widget token.
+        '403':
+          description: Capability disabled.
+        '404':
+          description: No confirmed binding.
+        '429':
+          description: Widget admission budget exceeded.
+        '503':
+          description: Policy source unavailable; access not granted.
+
 components:
   securitySchemes:
     widgetToken:
@@ -1418,6 +1504,35 @@ components:
         type: string
         format: uuid
   schemas:
+    DistributionBinding:
+      type: object
+      required: [bindingId, companyId, installationId, integrationId, accountId, bindingRevision, intentId, state]
+      properties:
+        bindingId:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        installationId:
+          type: string
+          format: uuid
+        integrationId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+        bindingRevision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        intentId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [active, revoked, reauth_required, disabled]
     ActivityRateLimitError:
       description: Either the widget admission limiter or downstream capacity exhaustion.
       oneOf:

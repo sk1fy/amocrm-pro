@@ -19,6 +19,7 @@ type Event struct {
 	Payload          json.RawMessage
 	DeduplicationKey []byte
 	ReceivedAt       time.Time
+	EventAt          *time.Time
 }
 type EventRoute struct {
 	Workflow    string

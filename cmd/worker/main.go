@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/maintenance"
@@ -146,7 +147,28 @@ func run() error {
 		"webhook.process_event": webhook.JobFailureObserver(webhookStore),
 	}
 	leadStatusModule.RegisterJobs(handlers, observers, amocrmAPI)
+	distributionConfig, err := distribution.LoadConfig()
+	if err != nil {
+		return err
+	}
+	distributionStore := distribution.NewStore(pool)
+	distributionPolicy := &distribution.Handler{Store: distributionStore, CRM: amocrmAPI, TeamOSURL: distributionConfig.TeamOSURL, TeamOSKeyID: distributionConfig.TeamOSKeyID, Keys: distributionConfig.Keys}
+	assignmentWorker := &distribution.AssignmentWorker{Store: distributionStore, CRM: amocrmAPI, Policy: distributionPolicy}
+	assignmentWorker.RegisterJobs(handlers, observers)
+	sourceWorker := &distribution.SourceWorker{Store: distributionStore, Webhooks: webhookStore, CRM: amocrmAPI}
+	sourceWorker.RegisterEvents(webhookStore, handlers)
+	observers[distribution.NormalizeEventJobType] = webhook.JobFailureObserver(webhookStore)
+	if distributionConfig.Address != "" {
+		deliveryWorker := &distribution.DeliveryWorker{Store: distributionStore, URL: distributionConfig.TeamOSURL, KeyID: distributionConfig.TeamOSKeyID, Keys: distributionConfig.Keys, OnError: func(code string) { logger.Error("distribution delivery tick failed", "code", code) }}
+		recoveryWorker := &distribution.RecoveryWorker{Store: distributionStore, CRM: amocrmAPI, OnError: func(code string) { logger.Error("distribution recovery tick failed", "code", code) }}
+		go func() { _ = deliveryWorker.Run(ctx) }()
+		go func() { _ = recoveryWorker.Run(ctx) }()
+	}
+	registry.MustRegister(distribution.NewDeliveryCollector(pool))
+
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
+	handlers[admincommand.DistributionReconcileJobType] = adminExecutor.Handler
+	observers[admincommand.DistributionReconcileJobType] = admincommand.FailReceipt
 	handlers[admincommand.CheckJobType] = adminExecutor.Handler
 	handlers[admincommand.UninstallJobType] = adminExecutor.Handler
 	observers[admincommand.CheckJobType] = admincommand.FailReceipt
@@ -166,8 +188,9 @@ func run() error {
 	}, handlers, observers)
 	worker.SetMetrics(jobMetrics)
 	worker.SetCompletionObservers(map[string]jobs.CompletionObserver{
-		admincommand.CheckJobType:     admincommand.CompleteReceipt,
-		admincommand.UninstallJobType: admincommand.CompleteReceipt,
+		admincommand.CheckJobType:                 admincommand.CompleteReceipt,
+		admincommand.DistributionReconcileJobType: admincommand.CompleteReceipt,
+		admincommand.UninstallJobType:             admincommand.CompleteReceipt,
 	})
 	cleanupScheduler, err := maintenance.NewScheduler(
 		maintenance.NewStore(pool), logger, maintenance.SchedulerConfig{
@@ -197,10 +220,25 @@ func run() error {
 	}
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	healthServer := httpserver.New(cfg.HTTPAddress, router)
+	var distributionServer *http.Server
+	if distributionConfig.Address != "" {
+		distributionRouter, err := distribution.Router(ctx, pool, keyRing, amocrmAPI, distributionConfig)
+		if err != nil {
+			return err
+		}
+		distributionServer = httpserver.New(distributionConfig.Address, distributionRouter)
+	}
 
-	errChannel := make(chan error, 3)
+	errChannel := make(chan error, 4)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if distributionServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- httpserver.Run(ctx, distributionServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	go func() {
 		defer processes.Done()
 		errChannel <- httpserver.Run(ctx, healthServer, logger, cfg.ShutdownTimeout)
