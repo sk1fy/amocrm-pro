@@ -4,7 +4,7 @@
 `amocrm-pro`. Это отдельный Compose-проект `observability`, который **не**
 трогает контейнеры приложения и не перезапускает production-стек.
 
-Отдельный от [локального пилота](../../README.md): у пилота Prometheus в
+Отдельный от [локального пилота](../../../README.md): у пилота Prometheus в
 `tmpfs`, retention `6h`, нет Grafana/Loki/Alertmanager. Здесь — постоянные
 тома, retention, дашборды и доставка уведомлений.
 

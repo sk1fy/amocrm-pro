@@ -1,15 +1,16 @@
 # Current architecture
 
-Этот документ описывает фактически реализованную архитектуру `main`. Исходные
-design proposals сохранены в [`archive/`](archive/) и не являются runtime
-контрактом.
+Этот документ описывает реализованную архитектуру. При расхождении
+приоритет имеют текущий код, миграции и runtime-конфигурация.
+Исходные design proposals доступны в истории Git.
 
 Для Activity актуально задание v2 (2026-09-06) и
 [ADR-0010](adr/0010-activity-v0-service-ownership.md): отдельные logical DB Core,
 Activity, CRM Events; узкие local/gRPC порты; Core outbox и service-owned jobs.
 Ниже базовая топология Core; опциональный режим Activity и его проверенные границы
 описаны в [runbook](runbooks/activity-v0.md) и
-[отчёте](verification/activity-v0-results.md). Core не владеет историей CRM Events.
+[итоговой приёмке](verification/stages1-9-2026-09-12/README.md).
+Core не владеет историей CRM Events.
 
 ## Runtime topology
 

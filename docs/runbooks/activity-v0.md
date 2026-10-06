@@ -1,15 +1,13 @@
 # Activity v0: запуск, пилот и выделение процесса
 
-Архитектурное задание: редакция v2 от 2026-09-06. Владельцы и зависимости:
-[ADR-0010](../adr/0010-activity-v0-service-ownership.md). Этот runbook описывает
-реализованные команды, а результаты их исполнения — отдельный
-[отчёт проверки](../verification/activity-v0-results.md) и
-[дополнение после первого аудита](../verification/activity-v0-audit-followup.md) и
-[исправления второго аудита](../verification/activity-v0-hardening.md).
-Эксплуатация этапа 8: [наблюдаемость/SLO](activity-observability.md),
+Владельцы и зависимости: [ADR-0010](../adr/0010-activity-v0-service-ownership.md).
+Runbook описывает реализованные команды. Датированные результаты и
+незакрытые эксплуатационные проверки — в
+[итоговой приёмке](../verification/stages1-9-2026-09-12/README.md).
+
+Эксплуатация: [наблюдаемость/SLO](activity-observability.md),
 [backup/restore](activity-backup-restore.md),
-[перенос модуля](activity-module-transfer.md);
-локальные доказательства — [stage8](../verification/stage8-2026-09-08/README.md).
+[перенос модуля](activity-module-transfer.md).
 
 ## Топологии и подготовка
 

@@ -6,9 +6,11 @@
 
 ## Snapshot
 
-- Проверено по локальному `main`: 2026-09-19 (Europe/Moscow), commit `4a977a4`.
+- Исходный snapshot: 2026-09-19, commit `4a977a4`.
+- Структура документации и число миграций сверены 06.10.2026 по локальным
+  исходникам; эта сверка не подтверждает состояние развёрнутых процессов.
 - Runtime: Go 1.25, PostgreSQL 17 Alpine.
-- Миграции разделены по владельцам: 16 Core, 4 Activity и 8 CRM Events `up`-миграций;
+- Миграции разделены по владельцам: 22 Core, 4 Activity и 8 CRM Events `up`-миграций;
   номер Core `000013` намеренно свободен.
 - Activity и CRM Events поддерживают embedded и отдельный gRPC deployment;
   Core сохраняет durable outbox и управляет внешними amoCRM-вызовами.
@@ -114,11 +116,11 @@ API и worker являются раздельными deployment units одно�
 4. Target-environment Grafana/Alertmanager, production backup roles/keys and
    live widget pilot remain open. Local SLO contract, importable dashboard,
    alert rules and synthetic multi-owner restore are in
-   `docs/verification/stage8-2026-09-08/` (этап 8, 11.09.2026).
+   [runbooks](../runbooks/README.md) и deploy/activity.
    Follow-up fixes add behavioural Prometheus rule tests and restore preflight
    to `activity-ci`. Full restore requires a coordinated, quiesced backup set;
    accepted commands are not automatically replayed. Events cutover updates
-   both Core API and Activity clients. See stage8 `fixes/README.md`.
+   both Core API and Activity clients. See [backup/restore](../runbooks/activity-backup-restore.md).
 5. Widget settings UX beyond the current JSON error envelope remains a
    product/UI remainder, not a Core contract hole.
 
@@ -138,4 +140,4 @@ API и worker являются раздельными deployment units одно�
 - Phase mapping and recovery: [`ROADMAP.md`](ROADMAP.md)
 - Defects: [`BUGS.md`](BUGS.md)
 - Program status: [GitHub Issue #12](https://github.com/sk1fy/amocrm-pro/issues/12)
-- Historical evidence: [`../archive/checkpoints/`](../archive/checkpoints/)
+- Сохранённые результаты: [verification](../verification/README.md)

@@ -24,8 +24,8 @@
 - **PR** — реализация одного конкретного bounded slice и ссылки на закрываемые или обновляемые Issues.
 - **ADR** — принятое архитектурное решение, его контекст и последствия. Backlog решений ведётся в [#13](https://github.com/sk1fy/amocrm-pro/issues/13), но текст решения живёт в ADR.
 - **Checkpoint** — необязательное evidence/handoff конкретной сложной сессии.
-  Он не хранит backlog или собственный resume order. После merge исторический
-  checkpoint перемещается в [`../archive/checkpoints/`](../archive/checkpoints/).
+  Он не хранит backlog или собственный resume order. После merge необходимое evidence хранится в PR/Issue;
+  устаревшие checkpoints доступны в истории Git.
 - **README** — user-facing текущее состояние, запуск и использование. README не управляет backlog.
 - **CONTEXT.md** — устойчивые факты и ограничения проекта; не status board и не очередь работ.
 
@@ -54,6 +54,5 @@
    commit; его `Next` может быть устаревшим.
 5. Если GitHub checklists не отражают merged PR, сначала выполнить протокол синхронизации выше и только затем начинать новую реализацию.
 
-Исторические checkpoints сохраняются в
-[`../archive/checkpoints/`](../archive/checkpoints/) и не переписываются задним
-числом. Устаревший resume order в них игнорируется в пользу текущего Issue.
+Исторические checkpoints доступны в истории Git и не используются как
+текущий resume order. Для следующей работы использовать текущий Issue.

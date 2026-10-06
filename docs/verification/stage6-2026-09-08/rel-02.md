@@ -2,7 +2,7 @@
 
 **Дополнение аудита 10.09:** первоначальные L-01 snapshot и L-03 оценки
 сериализации не закрывали работу workers и реальный транспорт. Актуальные
-проверки: [fixes/README.md](fixes/README.md), [критерии](fixes/criteria.md).
+проверки: [fixes/README.md](fixes/README.md), критерии (`fixes/criteria.md`, история Git).
 Ниже сохранены исходные измерения и их ограничения. Новый read benchmark
 не копирует protobuf conversion; local Panel/EventCard измеряются сериями
 с JSON-сериализацией. L-01/L-03 выполняются отдельными тестами

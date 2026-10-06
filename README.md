@@ -9,7 +9,7 @@ Activity v0 подключается явно, с отдельными логи�
 адаптерами. Отдельные бинарники — `cmd/activity` и `cmd/crm-events`. Инструкции:
 [Activity runbook](docs/runbooks/activity-v0.md),
 [владельцы и границы](docs/adr/0010-activity-v0-service-ownership.md),
-[фактические проверки и ограничения](docs/verification/activity-v0-results.md).
+[фактические проверки и ограничения](docs/verification/stages1-9-2026-09-12/README.md).
 `make activity-up` запускает изолированный development-стек; обычный стек сохраняет
 `ACTIVITY_MODE=off` и прежние контракты lead-status.
 
@@ -184,7 +184,7 @@ docs/                     активная документация
 - [Known bugs](docs/project-memory/BUGS.md)
 - [ADRs](docs/adr/)
 - [Runbooks](docs/runbooks/)
-- [Historical archive](docs/archive/)
+- [Проверки и ограничения](docs/verification/README.md)
 - [Audits](docs/audits/)
 
 Исторические checkpoints не являются текущим backlog или resume order.

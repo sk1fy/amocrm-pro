@@ -16,5 +16,10 @@
 - [`activity-module-transfer.md`](activity-module-transfer.md) — moving Activity or CRM Events compute/DB without changing widget origin.
 - [`new-product-module.md`](new-product-module.md) — шаблон границ и подключения нового переносимого модуля.
 
+- [Подключение распределения](lead-distribution-connection.md).
+- [Виджет распределения](lead-distribution-widget.md).
+- [Диагностика распределения](lead-distribution-admin.md).
+- [Наблюдение и пилот распределения](lead-distribution-pilot.md).
+
 Runbooks must use sanitized examples and must not contain credentials,
 production payloads or environment-specific recovery secrets.
