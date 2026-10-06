@@ -26,21 +26,31 @@ type DistributionBacklog struct {
 	States          map[string]int64 `json:"states"`
 	OldestPendingAt *time.Time       `json:"oldest_pending_at"`
 }
+
+// DistributionDigitalPipeline reports the Digital Pipeline delivery channel:
+// the durable trigger inbox and the trigger events handed to TeamOS. It makes a
+// configured-but-silent DP trigger visible instead of failing quietly.
+type DistributionDigitalPipeline struct {
+	Inbox    DistributionBacklog `json:"inbox"`
+	Triggers DistributionBacklog `json:"triggers"`
+}
+
 type DistributionSummary struct {
-	Source             string               `json:"source"`
-	ObservedAt         time.Time            `json:"observed_at"`
-	InstallationID     uuid.UUID            `json:"installation_id"`
-	ModuleEnabled      bool                 `json:"module_enabled"`
-	Paused             bool                 `json:"paused"`
-	AuthorizationState string               `json:"authorization_state"`
-	WebhookState       string               `json:"webhook_state"`
-	WebhookCheckedAt   *time.Time           `json:"webhook_checked_at"`
-	Binding            *DistributionBinding `json:"binding"`
-	Events             DistributionBacklog  `json:"events"`
-	Results            DistributionBacklog  `json:"results"`
-	Operations         map[string]int64     `json:"operations"`
-	HistoricalGaps     int64                `json:"historical_gaps"`
-	TeamQueueState     string               `json:"team_queue_state"`
+	Source             string                      `json:"source"`
+	ObservedAt         time.Time                   `json:"observed_at"`
+	InstallationID     uuid.UUID                   `json:"installation_id"`
+	ModuleEnabled      bool                        `json:"module_enabled"`
+	Paused             bool                        `json:"paused"`
+	AuthorizationState string                      `json:"authorization_state"`
+	WebhookState       string                      `json:"webhook_state"`
+	WebhookCheckedAt   *time.Time                  `json:"webhook_checked_at"`
+	Binding            *DistributionBinding        `json:"binding"`
+	Events             DistributionBacklog         `json:"events"`
+	Results            DistributionBacklog         `json:"results"`
+	Operations         map[string]int64            `json:"operations"`
+	HistoricalGaps     int64                       `json:"historical_gaps"`
+	TeamQueueState     string                      `json:"team_queue_state"`
+	DigitalPipeline    DistributionDigitalPipeline `json:"digital_pipeline"`
 }
 
 func (h *handler) getDistribution(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +67,7 @@ func (h *handler) getDistribution(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := h.store.withTimeout(r.Context())
 	defer cancel()
-	out := DistributionSummary{Source: sourceCore, ObservedAt: observed, InstallationID: id, AuthorizationState: card.Authorization.State, WebhookState: card.Webhook.Status, WebhookCheckedAt: card.Webhook.CheckedAt, TeamQueueState: "unknown", Operations: map[string]int64{}, Events: DistributionBacklog{States: map[string]int64{}}, Results: DistributionBacklog{States: map[string]int64{}}}
+	out := DistributionSummary{Source: sourceCore, ObservedAt: observed, InstallationID: id, AuthorizationState: card.Authorization.State, WebhookState: card.Webhook.Status, WebhookCheckedAt: card.Webhook.CheckedAt, TeamQueueState: "unknown", Operations: map[string]int64{}, Events: DistributionBacklog{States: map[string]int64{}}, Results: DistributionBacklog{States: map[string]int64{}}, DigitalPipeline: DistributionDigitalPipeline{Inbox: DistributionBacklog{States: map[string]int64{}}, Triggers: DistributionBacklog{States: map[string]int64{}}}}
 	out.ModuleEnabled, e = services.NewStore(h.store.pool).IsEnabled(ctx, card.Installation.IntegrationID, id, services.LeadDistribution)
 	if e != nil {
 		h.queryFailed(w, r, distributionReadError(e))
@@ -135,7 +145,38 @@ func (h *handler) getDistribution(w http.ResponseWriter, r *http.Request) {
 		h.queryFailed(w, r, distributionReadError(e))
 		return
 	}
+	if e = h.scanBacklog(ctx, `SELECT state,count(*),min(created_at) FILTER(WHERE state<>'processed') FROM distribution_dp_inbox WHERE installation_id=$1 GROUP BY state`, id.String(), &out.DigitalPipeline.Inbox); e != nil {
+		h.queryFailed(w, r, distributionReadError(e))
+		return
+	}
+	if e = h.scanBacklog(ctx, `SELECT state,count(*),min(created_at) FILTER(WHERE state<>'acknowledged') FROM distribution_event_outbox WHERE scope->>'installationId'=$1 AND payload->'event'->>'kind'='lead.digital_pipeline_trigger' GROUP BY state`, id.String(), &out.DigitalPipeline.Triggers); e != nil {
+		h.queryFailed(w, r, distributionReadError(e))
+		return
+	}
 	writeJSON(w, 200, out)
+}
+
+// scanBacklog runs a "state,count,oldest" aggregate into a backlog, mirroring the
+// events/results loop above so every DP counter fails closed the same way.
+func (h *handler) scanBacklog(ctx context.Context, query, arg string, target *DistributionBacklog) error {
+	rows, e := h.store.pool.Query(ctx, query, arg)
+	if e != nil {
+		return e
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var state string
+		var n int64
+		var oldest *time.Time
+		if e = rows.Scan(&state, &n, &oldest); e != nil {
+			return e
+		}
+		target.States[state] = n
+		if oldest != nil && (target.OldestPendingAt == nil || oldest.Before(*target.OldestPendingAt)) {
+			target.OldestPendingAt = oldest
+		}
+	}
+	return rows.Err()
 }
 
 type DistributionTraceItem struct {

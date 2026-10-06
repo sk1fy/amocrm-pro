@@ -15,9 +15,22 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
+// widgetUpstreamTimeout bounds a single Core->TeamOS widget call. The browser
+// client budget is tighter than the public handler: widget client.js aborts at
+// 11s (ajax) with a 12s watchdog, and ~0.3s (SDK disposable-token + TLS) plus
+// ~1.5s of Core-side CanViewLead pre/post checks are spent outside this call.
+// So the upstream budget must stay well under 11s: 0.3 + 1.5 + 9 = 10.8s worst
+// case, i.e. Core always answers (200 or an honest 503) before the client gives
+// up - the 503 is no longer masked by a client timeout. TeamOS `lead` is a
+// 4-step fan-out (permission -> observation -> references -> permission) and
+// varies 4.7-11.6s; raising this constant further would only shift the failure
+// back into the browser. Auth/permission checks are unchanged.
+const widgetUpstreamTimeout = 9 * time.Second
+
 type widgetRuntimeRequest struct {
 	Kind      string          `json:"kind"`
 	ID        uuid.UUID       `json:"id"`
+	GroupID   uuid.UUID       `json:"groupId"`
 	LeadID    string          `json:"leadId"`
 	Limit     int32           `json:"limit"`
 	Offset    int32           `json:"offset"`
@@ -44,10 +57,10 @@ func (h *Handler) teamWidgetCall(ctx context.Context, b Binding, path string, pa
 	}
 	req.Header.Set("Content-Type", "application/json")
 	Sign(req, Scope{h.TeamOSKeyID, b.CompanyID, b.InstallationID}, h.Keys[h.TeamOSKeyID], raw)
-	client := &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: widgetUpstreamTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if h.HTTP != nil {
 		copy := *h.HTTP
-		copy.Timeout = 3 * time.Second
+		copy.Timeout = widgetUpstreamTimeout
 		copy.CheckRedirect = client.CheckRedirect
 		client = &copy
 	}
@@ -115,7 +128,7 @@ func (h *Handler) widgetRuntime(w http.ResponseWriter, r *http.Request) {
 	if maximum := time.Now().Add(15 * time.Minute); proofDeadline.After(maximum) {
 		proofDeadline = maximum
 	}
-	payload := map[string]any{"companyId": b.CompanyID, "bindingId": b.ID, "bindingRevision": b.Revision, "installationId": b.InstallationID, "integrationId": b.IntegrationID, "accountId": strconv.FormatInt(b.AccountID, 10), "userId": strconv.FormatInt(p.UserID, 10), "principalExpiresAt": proofDeadline, "kind": in.Kind, "id": in.ID, "leadId": in.LeadID, "limit": in.Limit, "offset": in.Offset, "write": in.Write, "requestId": in.RequestID, "payload": in.Payload}
+	payload := map[string]any{"companyId": b.CompanyID, "bindingId": b.ID, "bindingRevision": b.Revision, "installationId": b.InstallationID, "integrationId": b.IntegrationID, "accountId": strconv.FormatInt(b.AccountID, 10), "userId": strconv.FormatInt(p.UserID, 10), "principalExpiresAt": proofDeadline, "kind": in.Kind, "id": in.ID, "groupId": in.GroupID, "leadId": in.LeadID, "limit": in.Limit, "offset": in.Offset, "write": in.Write, "requestId": in.RequestID, "payload": in.Payload}
 	status, body, e := h.teamWidgetCall(r.Context(), b, "/internal/v1/distribution/widget-runtime", payload)
 	if e != nil {
 		h.resultError(w, e)

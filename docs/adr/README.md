@@ -43,3 +43,6 @@ scope belongs in GitHub Issues.
 
 - [ADR-0035](0035-distribution-admin-diagnostics.md) — Accepted locally: safe scoped diagnostics, owner recovery and installation pause.
 - [ADR-0036](0036-distribution-expired-admission.md) — Accepted locally: завершение истёкшего intent через атомарную фиксацию отсутствия исполнения.
+
+- [ADR-0037](0037-distribution-digital-pipeline.md) — Accepted: DP ingress,
+  ключ группы и повторное использование JWT для чтений.

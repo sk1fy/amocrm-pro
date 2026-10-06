@@ -55,6 +55,7 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 	var callbackCount atomic.Int32
 	var runtimeCount atomic.Int32
 	var revokeAfterDispatch atomic.Bool
+	var dpGroupSeen atomic.Value
 	callback := httptest.NewTLSServer(Auth{Keys: map[string]string{key: serverSecret}, Store: NewStore(pool)}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callbackCount.Add(1)
 		if r.URL.Path == "/internal/v1/distribution/widget-runtime" {
@@ -69,6 +70,19 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 			_ = json.Unmarshal(in["userId"], &u)
 			if c != company.String() || i != install.String() || u != "1" {
 				w.WriteHeader(403)
+				return
+			}
+			var kind, gid string
+			_ = json.Unmarshal(in["kind"], &kind)
+			_ = json.Unmarshal(in["groupId"], &gid)
+			if kind == "dp_settings" {
+				if gid == "" {
+					w.WriteHeader(400)
+					return
+				}
+				dpGroupSeen.Store(gid)
+				runtimeCount.Add(1)
+				write(w, 200, map[string]any{"state": "connected", "groupId": gid, "groupName": "Fixture group", "key": "dp_fixture_key_value_0000000000000000000000"})
 				return
 			}
 			runtimeCount.Add(1)
@@ -149,7 +163,9 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 	if !strings.Contains(out.Body.String(), binding.String()) {
 		t.Fatal("missingbinding", out.Body)
 	}
-	call("GET", bootstrap, origin, token, 401)
+	// Reads do not spend the disposable jti: the Web SDK legitimately reuses its
+	// cached token across bootstrap/runtime reads.
+	call("GET", bootstrap, origin, token, 200)
 	out = call("POST", permission, origin, sign(), 200)
 	if !strings.Contains(out.Body.String(), `"canViewLead":true`) {
 		t.Fatal("ordinaryemployee denied", out.Body)
@@ -187,7 +203,31 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 	user := f.users[1]
 	user.Rights.IsAdmin = true
 	f.users[1] = user
-	call("POST", runtimePath, origin, sign(), 200)
+	writeToken := sign()
+	call("POST", runtimePath, origin, writeToken, 200)
+	// Mutations stay single-use: replaying the consumed token is rejected.
+	call("POST", runtimePath, origin, writeToken, 401)
+	// dp_settings: admin-only write; the browser sends only the group, Core
+	// forwards the server-set scope + group and the write jti stays single-use.
+	dpGroup := uuid.New()
+	runtimeBody = []byte(`{"kind":"dp_settings","groupId":"` + dpGroup.String() + `","write":true,"requestId":"` + uuid.NewString() + `"}`)
+	user = f.users[1]
+	user.Rights.IsAdmin = false
+	f.users[1] = user
+	beforeRuntime = runtimeCount.Load()
+	call("POST", runtimePath, origin, sign(), 403)
+	if runtimeCount.Load() != beforeRuntime {
+		t.Fatal("nonadmin dp_settings reached private runtime")
+	}
+	user.Rights.IsAdmin = true
+	f.users[1] = user
+	dpToken := sign()
+	out = call("POST", runtimePath, origin, dpToken, 200)
+	if !strings.Contains(out.Body.String(), "dp_fixture") || dpGroupSeen.Load() != dpGroup.String() {
+		t.Fatalf("dp_settings response/group mismatch: %s %v", out.Body, dpGroupSeen.Load())
+	}
+	call("POST", runtimePath, origin, dpToken, 401)
+	runtimeBody = []byte(`{"kind":"rule","write":true,"requestId":"` + uuid.NewString() + `","payload":{"expectedRevision":1,"active":false,"keepCurrentResponsible":true}}`)
 	revokeAfterDispatch.Store(true)
 	out = call("POST", runtimePath, origin, sign(), 503)
 	if !strings.Contains(out.Body.String(), "outcome_unknown") {

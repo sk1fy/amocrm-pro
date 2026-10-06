@@ -1,0 +1,37 @@
+# TEMPLATE — private distribution listener + TLS bridge wiring for the Core worker.
+#
+# Replace every ${...} via your compose env / `.env` before use. Values that are
+# SECRETS are never written here; they are injected from the environment (see
+# VARIABLES.md). Structure, service name, dependencies and port bindings are
+# preserved from the staging override.
+#
+# The worker listens on :8084 inside the docker network only. Host loopback
+# publishes it so the host nginx TLS terminator (bound to the docker bridge
+# gateway) can reach it. A valid Let's Encrypt certificate for the distribution
+# domain is reused; the container maps that hostname to its own bridge gateway
+# via extra_hosts, so certificate verification succeeds while traffic never
+# leaves the host.
+#
+# Secrets come from the Core `.env` (chmod 0600).
+services:
+  worker:
+    environment:
+      # The distribution widget listener authenticates REAL amoCRM disposable
+      # JWTs. Keep the JWT policy identical to the api container, otherwise the
+      # worker falls back to the shorter default and rejects the documented
+      # 30m SDK token with 401 before any tenant/TeamOS call.
+      WIDGET_JWT_LEEWAY: '${WIDGET_JWT_LEEWAY:-5s}'
+      WIDGET_JWT_MAX_LIFETIME: '${WIDGET_JWT_MAX_LIFETIME:-30m}'
+      DISTRIBUTION_HTTP_ADDRESS: ':8084'
+      DISTRIBUTION_TLS_PROXY: 'true'
+      # SECRET (service keys) — injected from .env, never committed.
+      DISTRIBUTION_SERVICE_KEYS: '${DISTRIBUTION_SERVICE_KEYS}'
+      # Key id paired with the service keys (identifier, injected from .env).
+      DISTRIBUTION_TEAMOS_KEY_ID: '${DISTRIBUTION_TEAMOS_KEY_ID}'
+      # TeamOS company private callback over the host TLS bridge.
+      DISTRIBUTION_TEAMOS_URL: '${DISTRIBUTION_TEAMOS_URL}'
+    extra_hosts:
+      - '${DISTRIBUTION_DOMAIN}:${CORE_BRIDGE_GATEWAY}'
+    ports: !override
+      - '127.0.0.1:${WORKER_HEALTH_PORT:-8081}:8081'
+      - '127.0.0.1:${WORKER_DISTRIBUTION_PORT:-18084}:8084'

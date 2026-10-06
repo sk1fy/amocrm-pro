@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/services"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"io"
@@ -27,6 +28,7 @@ type Handler struct {
 	TeamOSPublicURL        string
 	Keys                   map[string]string
 	HTTP                   *http.Client
+	Cipher                 *cryptox.KeyRing
 }
 
 func decode(r *http.Request, v any) error {
@@ -94,6 +96,7 @@ func (h *Handler) RegisterService(router chi.Router, auth Auth) {
 		r.Put("/bindings/{bindingId}/mappings", h.mappings)
 		r.Post("/bindings/{bindingId}/revoke", h.revoke)
 		r.Post("/bindings/{bindingId}/permissions", h.permissions)
+		r.Post("/bindings/{bindingId}/dp-credentials", h.dpCredential)
 	})
 }
 func (h *Handler) bind(w http.ResponseWriter, r *http.Request) {

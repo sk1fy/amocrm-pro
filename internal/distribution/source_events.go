@@ -38,6 +38,8 @@ type SourceEvent struct {
 	Before              *Snapshot       `json:"before"`
 	After               *Snapshot       `json:"after"`
 	ObservationRevision int64           `json:"observationRevision"`
+	TriggerEvidence     json.RawMessage `json:"triggerEvidence,omitempty"`
+	TriggerGroupID      *uuid.UUID      `json:"triggerGroupId,omitempty"`
 }
 type EventEnvelope struct {
 	SchemaVersion    int             `json:"schemaVersion"`
