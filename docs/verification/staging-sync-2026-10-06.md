@@ -104,8 +104,8 @@ ready endpoints 200; image ID не изменились. Ничего не де�
 | rakurs-widgets-new | 5c815cc4e229f504793bb40c989ceb215e63410d |
 
 Отчёт и индекс ADR Core фиксируются отдельным коммитом документации.
-Ветки не опубликованы в GitHub; переключение серверных исходников не
-выполнено. Эти действия ожидают выбранного пользователем способа передачи.
+Ветки опубликованы в GitHub по запросу пользователя. Созданы пять PR;
+переключение серверных исходников и развёртывание не выполнялись.
 Исходники и работающие процессы — разные состояния: источник сервера
 повторно сверён с аудитом, но новый согласованный Git-комплект ещё не выложен.
 
@@ -113,3 +113,11 @@ ready endpoints 200; image ID не изменились. Ничего не де�
 обучения; в коммит распределения включены только два серверных файла.
 В Admin остались прежние root node_modules и package-lock.json.
 В widget repo остались прежние .DS_Store. Секреты и сборки не коммитились.
+
+## Pull requests
+
+- [amocrm-pro](https://github.com/sk1fy/amocrm-pro/pull/61)
+- [amocrm-pro-admin](https://github.com/sk1fy/amocrm-pro-admin/pull/13)
+- [team-os-backend](https://github.com/sk1fy/team-os-backend/pull/36)
+- [team-os](https://github.com/sk1fy/team-os/pull/10)
+- [rakurs-widgets-new](https://github.com/sk1fy/rakurs-widgets-new/pull/2)
