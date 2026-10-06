@@ -104,6 +104,19 @@ func TestAdminDistributionSummaryAndScopedChain(t *testing.T) {
 	if summary.Binding != nil || summary.Events.OldestPendingAt != nil || len(summary.Events.States) != 0 {
 		t.Fatal("empty falsely populated", empty.Body.String())
 	}
+	if len(summary.DigitalPipeline.Inbox.States) != 0 || summary.DigitalPipeline.Inbox.OldestPendingAt != nil {
+		t.Fatal("empty digital pipeline inbox falsely populated", empty.Body.String())
+	}
+	if _, e := pool.Exec(t.Context(), `INSERT INTO distribution_dp_inbox(id,dedup_key,installation_id,account_id,lead_id,pipeline_id,status_id,event_type,direction,group_id,occurred_at,payload) VALUES($1,$2,$3,1,1,1,1,1,'went_to_trigger',$4,1,$5)`, uuid.New(), []byte("dp-diagnostic-key"), installation, uuid.New(), json.RawMessage("{}")); e != nil {
+		t.Fatal(e)
+	}
+	response = adminGET(t, router, base)
+	summary = DistributionSummary{}
+	decodeJSON(t, response, &summary)
+	assertAdminResponseSchema(t, response.Code, response.Body.Bytes(), "DistributionSummary")
+	if summary.DigitalPipeline.Inbox.States["pending"] != 1 || summary.DigitalPipeline.Inbox.OldestPendingAt == nil {
+		t.Fatal("digital pipeline inbox not surfaced", response.Body.String())
+	}
 }
 func mustJSON(t *testing.T, v any) []byte {
 	t.Helper()

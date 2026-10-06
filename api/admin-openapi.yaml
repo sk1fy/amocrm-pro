@@ -1177,6 +1177,7 @@ components:
       - operations
       - historical_gaps
       - team_queue_state
+      - digital_pipeline
       properties:
         source:
           type: string
@@ -1264,6 +1265,15 @@ components:
           type: string
           enum:
           - unknown
+        digital_pipeline:
+          type: object
+          additionalProperties: false
+          required:
+          - inbox
+          - triggers
+          properties:
+            inbox: *id001
+            triggers: *id001
     DistributionTraceItem:
       type: object
       additionalProperties: false

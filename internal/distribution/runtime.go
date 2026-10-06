@@ -5,6 +5,8 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/installations"
+	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
@@ -87,7 +89,7 @@ func routerWithHTTPClient(ctx context.Context, pool *pgxpool.Pool, keys *cryptox
 		return nil, err
 	}
 	store := NewStore(pool)
-	handler := &Handler{Store: store, CRM: crm, Verifier: authenticator, TeamOSURL: c.TeamOSURL, TeamOSKeyID: c.TeamOSKeyID, Keys: c.Keys, HTTP: httpClient, TeamOSPublicURL: c.TeamOSPublicURL}
+	handler := &Handler{Store: store, CRM: crm, Verifier: authenticator, TeamOSURL: c.TeamOSURL, TeamOSKeyID: c.TeamOSKeyID, Keys: c.Keys, HTTP: httpClient, TeamOSPublicURL: c.TeamOSPublicURL, Cipher: keys}
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,9 +106,11 @@ func routerWithHTTPClient(ctx context.Context, pool *pgxpool.Pool, keys *cryptox
 	}
 	go limiter.Run(ctx)
 	protect := func(next http.Handler) http.Handler {
-		return cors(widgetauth.VerificationMiddleware(authenticator)(widgetcors.BindPrincipalIssuer(limiter.Middleware(widgetauth.ConsumptionMiddleware(authenticator)(next)))))
+		return cors(widgetauth.VerificationMiddleware(authenticator)(widgetcors.BindPrincipalIssuer(limiter.Middleware(widgetauth.ConsumptionMiddlewareWhen(authenticator, widgetRequestConsumesToken)(next)))))
 	}
 	handler.RegisterWidget(router, protect, cors)
+	dpReceiver := &DPReceiver{Pool: pool, Jobs: jobs.NewStore(pool), Installations: installations.NewStore(pool), Store: store, MaxBody: MaxBody}
+	router.Method("POST", "/api/v1/widget/distribution/dp", http.HandlerFunc(dpReceiver.Receive))
 	router.Get("/components/distribution/ready", func(w http.ResponseWriter, r *http.Request) {
 		if pool.Ping(r.Context()) != nil {
 			fail(w, 503, "source_unavailable")

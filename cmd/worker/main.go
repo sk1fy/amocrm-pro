@@ -157,6 +157,7 @@ func run() error {
 	assignmentWorker.RegisterJobs(handlers, observers)
 	sourceWorker := &distribution.SourceWorker{Store: distributionStore, Webhooks: webhookStore, CRM: amocrmAPI}
 	sourceWorker.RegisterEvents(webhookStore, handlers)
+	handlers[distribution.DPTriggerJobType] = (&distribution.DPTriggerWorker{Store: distributionStore, CRM: amocrmAPI}).Handler
 	observers[distribution.NormalizeEventJobType] = webhook.JobFailureObserver(webhookStore)
 	if distributionConfig.Address != "" {
 		deliveryWorker := &distribution.DeliveryWorker{Store: distributionStore, URL: distributionConfig.TeamOSURL, KeyID: distributionConfig.TeamOSKeyID, Keys: distributionConfig.Keys, OnError: func(code string) { logger.Error("distribution delivery tick failed", "code", code) }}

@@ -22,6 +22,9 @@ handoff-файлы не являются текущим backlog.
 - [`../api/openapi.yaml`](../api/openapi.yaml) — публичный HTTP-контракт.
 - [`../api/admin-openapi.yaml`](../api/admin-openapi.yaml) — внутренний контракт чтения и команд админки.
 
+- [`verification/staging-sync-2026-10-06.md`](verification/staging-sync-2026-10-06.md) —
+  перенос серверных исправлений, проверки и оставшиеся ограничения.
+
 ## Historical documentation
 
 - [`archive/`](archive/) — исходные планы и session checkpoints.
