@@ -51,6 +51,16 @@ Core применяет миграцию 000018 обычным owner migrator. R
 - GET `.../{bindingId}/references`: users и pipelines/statuses — полный ограниченный
   live snapshot, fetchedAt/freshUntil, state=fresh. На source failure — 503, демоданных нет.
   Users/subscriptions ограничены четырьмя страницами по 250; pipelines четырьмя по 50.
+  С РС-11 также возвращаются `timezone` и `timezoneFetchedAt`: часовой пояс из
+  `/api/v4/account?with=datetime_settings` после проверки ID аккаунта привязки и
+  IANA timezone. Пустое/неизвестное значение и `Local` дают 503; UTC не подставляется.
+  `accountDomain` — канонический hostname той же подтверждённой установки,
+  проверенный по allowlist amoCRM/Kommo; для ссылок на сделки TeamOS использует его
+  только после положительной проверки прав. Дополнительных CRM запросов для
+  получения домена каждой сделки не требуется.
+  TeamOS хранит последнее подтверждённое значение отдельно для каждой привязки.
+  Отсутствие этих полей у старой версии Core не подтверждает ручную настройку как
+  часовой пояс amoCRM. Временный сбой источника не должен стирать подтверждённый кэш.
 - PUT `.../{bindingId}/mappings`: mappingRevision и mappings[{employeeId,userId}].
   Same revision+same hash возвращает успех; старый или конфликтующий snapshot — 409.
 - POST `.../{bindingId}/permissions`: employeeId, userId, leadId.

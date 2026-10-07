@@ -16,7 +16,7 @@ func TestPrivateDistributionOperationContract(t *testing.T) {
 	if e = doc.Validate(context.Background()); e != nil {
 		t.Fatal(e)
 	}
-	if doc.Paths.Len() != 10 {
+	if doc.Paths.Len() != 11 {
 		t.Fatal("unexpectedprivatepaths", doc.Paths.Len())
 	}
 	for path, item := range doc.Paths.Map() {

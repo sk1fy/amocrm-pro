@@ -83,8 +83,34 @@ func TestHTTPBindingRecoveryMappingsAndCurrentPermissions(t *testing.T) {
 	snapshot["mappings"] = []Mapping{}
 	call("PUT", base+"/mappings", snapshot, 409)
 	out := call("GET", base+"/references", nil, 200)
-	if !strings.Contains(out.Body.String(), `"id":"1"`) || strings.Contains(out.Body.String(), "rights") {
+	if !strings.Contains(out.Body.String(), `"id":"1"`) || strings.Contains(out.Body.String(), "rights") || !strings.Contains(out.Body.String(), `"timezone":"UTC"`) || !strings.Contains(out.Body.String(), `"accountDomain":"test.amocrm.ru"`) {
 		t.Fatal("referenceprojection", out.Body)
+	}
+	var refs struct {
+		TimezoneFetchedAt time.Time `json:"timezoneFetchedAt"`
+	}
+	if err := json.Unmarshal(out.Body.Bytes(), &refs); err != nil || refs.TimezoneFetchedAt.IsZero() {
+		t.Fatal("timezone freshness is missing", err, out.Body)
+	}
+	f.timezone = "Europe/Moscow"
+	if out = call("GET", base+"/references", nil, 200); !strings.Contains(out.Body.String(), `"timezone":"Europe/Moscow"`) {
+		t.Fatal("account timezone change was not refreshed", out.Body)
+	}
+	f.timezone = "Local"
+	call("GET", base+"/references", nil, 503)
+	f.timezone = "UTC"
+	f.timezoneErr = ErrUnavailable
+	call("GET", base+"/references", nil, 503)
+	f.timezoneErr = nil
+	if _, err := pool.Exec(ctx, "UPDATE installations SET account_domain='https://attacker.invalid/' WHERE id=$1", install); err != nil {
+		t.Fatal(err)
+	}
+	call("GET", base+"/references", nil, 503)
+	if _, err := pool.Exec(ctx, "UPDATE installations SET account_domain='TEST.AMOCRM.RU' WHERE id=$1", install); err != nil {
+		t.Fatal(err)
+	}
+	if out = call("GET", base+"/references", nil, 200); !strings.Contains(out.Body.String(), `"accountDomain":"test.amocrm.ru"`) {
+		t.Fatal("account domain was not canonicalized", out.Body)
 	}
 	permission := map[string]any{"employeeId": employee, "userId": "1", "leadId": "10"}
 	out = call("POST", base+"/permissions", permission, 200)
