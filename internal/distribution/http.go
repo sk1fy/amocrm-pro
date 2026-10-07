@@ -187,6 +187,21 @@ func (h *Handler) referenceData(ctx context.Context, b Binding) (any, error) {
 		return nil, err
 	}
 	fetched := time.Now().UTC()
+	timezone, err := h.CRM.DistributionAccountTimezone(ctx, b.InstallationID, b.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if timezone == "" || timezone == "Local" || len(timezone) > 128 {
+		return nil, ErrUnavailable
+	}
+	if _, err = time.LoadLocation(timezone); err != nil {
+		return nil, ErrUnavailable
+	}
+	timezoneFetchedAt := time.Now().UTC()
+	domain, err := h.Store.referenceAccountDomain(ctx, b)
+	if err != nil {
+		return nil, err
+	}
 	users, err := h.CRM.DistributionUsers(ctx, b.InstallationID)
 	if err != nil {
 		return nil, err
@@ -214,7 +229,7 @@ func (h *Handler) referenceData(ctx context.Context, b Binding) (any, error) {
 		}
 		ps = append(ps, RefPipeline{p.ID, p.Name, st})
 	}
-	return map[string]any{"users": us, "pipelines": ps, "fetchedAt": fetched, "freshUntil": fetched.Add(5 * time.Minute), "state": "fresh"}, nil
+	return map[string]any{"users": us, "pipelines": ps, "fetchedAt": fetched, "freshUntil": fetched.Add(5 * time.Minute), "state": "fresh", "timezone": timezone, "timezoneFetchedAt": timezoneFetchedAt, "accountDomain": domain}, nil
 }
 func (h *Handler) references(w http.ResponseWriter, r *http.Request) {
 	b, e := h.binding(r)

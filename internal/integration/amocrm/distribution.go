@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
+	"time"
 )
 
 // DistributionUser carries current resource rights only inside Core. API
@@ -38,6 +39,33 @@ type DistributionLead struct {
 type Subscription struct {
 	SubscriberID int64  `json:"subscriber_id"`
 	Type         string `json:"type"`
+}
+
+// DistributionAccountTimezone reads the account behind the installation's
+// credentials and verifies its identity before exposing its time zone.
+func (c *Client) DistributionAccountTimezone(ctx context.Context, id uuid.UUID, accountID int64) (string, error) {
+	if accountID <= 0 {
+		return "", ErrIncompleteResponse
+	}
+	var account struct {
+		ID       int64 `json:"id"`
+		Embedded struct {
+			DateTime struct {
+				Timezone string `json:"timezone"`
+			} `json:"datetime_settings"`
+		} `json:"_embedded"`
+	}
+	if err := c.DoJSON(ctx, id, http.MethodGet, "/api/v4/account?with=datetime_settings", nil, &account); err != nil {
+		return "", err
+	}
+	tz := account.Embedded.DateTime.Timezone
+	if account.ID != accountID || tz == "" || tz == "Local" || len(tz) > 128 {
+		return "", ErrIncompleteResponse
+	}
+	if _, err := time.LoadLocation(tz); err != nil {
+		return "", ErrIncompleteResponse
+	}
+	return tz, nil
 }
 
 func (c *Client) DistributionUser(ctx context.Context, id uuid.UUID, userID int64) (DistributionUser, error) {

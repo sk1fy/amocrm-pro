@@ -9,12 +9,24 @@ import (
 )
 
 type crmFake struct {
-	users     map[int64]amocrm.DistributionUser
-	lead      amocrm.DistributionLead
-	role      amocrm.DistributionRights
-	subs      []amocrm.Subscription
-	err       error
-	pipelines []amocrm.Pipeline
+	users       map[int64]amocrm.DistributionUser
+	lead        amocrm.DistributionLead
+	role        amocrm.DistributionRights
+	subs        []amocrm.Subscription
+	err         error
+	pipelines   []amocrm.Pipeline
+	timezone    string
+	timezoneErr error
+}
+
+func (f *crmFake) DistributionAccountTimezone(context.Context, uuid.UUID, int64) (string, error) {
+	if f.timezoneErr != nil {
+		return "", f.timezoneErr
+	}
+	if f.timezone != "" {
+		return f.timezone, nil
+	}
+	return "UTC", f.err
 }
 
 func (f *crmFake) DistributionUser(_ context.Context, _ uuid.UUID, id int64) (amocrm.DistributionUser, error) {

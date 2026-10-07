@@ -381,6 +381,47 @@ paths:
           description: Source unavailable
       security: *id001
     x-route-owner: worker
+  /internal/v1/distribution/bindings/{bindingId}/references:
+    get:
+      operationId: distributionGetReferences
+      summary: Получить актуальные справочники и часовой пояс подключённого аккаунта
+      description: >-
+        Справочники и часовой пояс читаются из аккаунта подтверждённой установки.
+        Часовой пояс проверяется как IANA и не заменяется UTC при ошибке источника.
+        Новые timezone/timezoneFetchedAt необязательны для совместимости со старыми
+        версиями Core; их отсутствие не подтверждает часовой пояс аккаунта.
+      parameters:
+      - name: bindingId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: bindingRevision
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Revision'
+      responses:
+        '200':
+          description: Подтверждённый снимок аккаунта; без прав и секретов пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionReferences'
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+        '403':
+          $ref: '#/components/responses/Failure'
+        '404':
+          $ref: '#/components/responses/Failure'
+        '409':
+          $ref: '#/components/responses/Failure'
+        '503':
+          $ref: '#/components/responses/Failure'
+      security: *id001
+    x-route-owner: worker
 components:
   securitySchemes:
     distributionSignature:
@@ -390,6 +431,76 @@ components:
       description: Private HTTPS plus scoped HMAC key/company/installation/timestamp/nonce
         and exact body hash; signature alone is insufficient.
   schemas:
+    DistributionReferences:
+      type: object
+      additionalProperties: false
+      required: [users, pipelines, fetchedAt, freshUntil, state]
+      properties:
+        accountDomain:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Канонический hostname подтверждённой установки amoCRM/Kommo; без схемы, пути и credentials. Используется для ссылок только после проверки прав на сделку.
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Валидированный IANA timezone аккаунта amoCRM; Local запрещён.
+        timezoneFetchedAt:
+          $ref: '#/components/schemas/Timestamp'
+        fetchedAt:
+          $ref: '#/components/schemas/Timestamp'
+        freshUntil:
+          $ref: '#/components/schemas/Timestamp'
+        state:
+          type: string
+          enum: [fresh]
+        users:
+          type: array
+          maxItems: 1000
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name, isActive, groupId]
+            properties:
+              id:
+                $ref: '#/components/schemas/CrmId'
+              name:
+                type: string
+                maxLength: 512
+              isActive:
+                type: boolean
+              groupId:
+                anyOf:
+                - type: string
+                  pattern: ^[0-9]+$
+                - type: 'null'
+        pipelines:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name, statuses]
+            properties:
+              id:
+                $ref: '#/components/schemas/CrmId'
+              name:
+                type: string
+                maxLength: 512
+              statuses:
+                type: array
+                maxItems: 200
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [id, name]
+                  properties:
+                    id:
+                      $ref: '#/components/schemas/CrmId'
+                    name:
+                      type: string
+                      maxLength: 512
     Id:
       type: string
       format: uuid

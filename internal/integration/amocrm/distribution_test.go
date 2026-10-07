@@ -8,6 +8,45 @@ import (
 	"testing"
 )
 
+func TestDistributionAccountTimezoneUsesVerifiedAccount(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, want string
+	}{
+		{"valid", `{"id":42,"_embedded":{"datetime_settings":{"timezone":"Europe/Moscow"}}}`, "Europe/Moscow"},
+		{"explicit_utc", `{"id":42,"_embedded":{"datetime_settings":{"timezone":"UTC"}}}`, "UTC"},
+		{"foreign_account", `{"id":43,"_embedded":{"datetime_settings":{"timezone":"Europe/Moscow"}}}`, ""},
+		{"missing_identity", `{"_embedded":{"datetime_settings":{"timezone":"Europe/Moscow"}}}`, ""},
+		{"missing_timezone", `{"id":42,"_embedded":{"datetime_settings":{}}}`, ""},
+		{"unknown_timezone", `{"id":42,"_embedded":{"datetime_settings":{"timezone":"Unknown/Timezone"}}}`, ""},
+		{"server_timezone", `{"id":42,"_embedded":{"datetime_settings":{"timezone":"Local"}}}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v4/account" || r.URL.Query().Get("with") != "datetime_settings" {
+					t.Errorf("unexpected timezone request %s", r.URL)
+				}
+				fmt.Fprint(w, tc.body)
+			})
+			tz, err := c.DistributionAccountTimezone(context.Background(), uuid.New(), 42)
+			if tc.want == "" {
+				if err == nil || tz != "" {
+					t.Fatalf("unverified timezone accepted: %q, %v", tz, err)
+				}
+			} else if err != nil || tz != tc.want {
+				t.Fatalf("timezone %q, want %q: %v", tz, tc.want, err)
+			}
+		})
+	}
+	invalid := enrichmentClient(t, rejectIfCalled(t))
+	if _, err := invalid.DistributionAccountTimezone(context.Background(), uuid.New(), 0); err == nil {
+		t.Fatal("missing expected account accepted")
+	}
+	unavailable := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) })
+	if tz, err := unavailable.DistributionAccountTimezone(context.Background(), uuid.New(), 42); err == nil || tz != "" {
+		t.Fatal("unavailable account defaulted to a timezone", tz, err)
+	}
+}
+
 func TestDistributionUsersPaginationAndIncompleteSources(t *testing.T) {
 	for _, kind := range []string{"complete", "duplicate", "missing_active", "empty_next", "too_many_pages"} {
 		t.Run(kind, func(t *testing.T) {

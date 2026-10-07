@@ -7,6 +7,7 @@ import (
 )
 
 type CRM interface {
+	DistributionAccountTimezone(context.Context, uuid.UUID, int64) (string, error)
 	DistributionUser(context.Context, uuid.UUID, int64) (amocrm.DistributionUser, error)
 	DistributionRole(context.Context, uuid.UUID, int64) (amocrm.DistributionRights, error)
 	DistributionLead(context.Context, uuid.UUID, int64) (amocrm.DistributionLead, error)
