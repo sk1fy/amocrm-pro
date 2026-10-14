@@ -96,6 +96,7 @@ func (h *Handler) RegisterService(router chi.Router, auth Auth) {
 		r.Put("/bindings/{bindingId}/mappings", h.mappings)
 		r.Post("/bindings/{bindingId}/revoke", h.revoke)
 		r.Post("/bindings/{bindingId}/permissions", h.permissions)
+		r.Post("/bindings/{bindingId}/permissions/batch", h.permissionsBatch)
 		r.Post("/bindings/{bindingId}/dp-credentials", h.dpCredential)
 	})
 }
