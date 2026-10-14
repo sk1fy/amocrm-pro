@@ -52,3 +52,33 @@ capability и текущую binding перед mutation; модуль соед�
 
 - [amoCRM пользователи, роли и порядок расчёта прав](https://www.amocrm.ru/developers/content/crm_platform/users-api).
 - [amoCRM подписчики сущности](https://new.amocrm.ru/developers/content/crm_platform/subscriptions-api).
+
+## Пакетное чтение прав (исправление QA12, 14.10.2026)
+
+Private `POST /internal/v1/distribution/bindings/{bindingId}/permissions/batch`
+принимает actor из проверенного TeamOS mapping и до 100 уникальных lead ID.
+Нельзя передавать actor из браузера. Подпись и scope такие же, как у single-lead
+permissions; capability, active binding и mapping проверяются до и после чтения.
+Любой неизвестный источник закрывает всю страницу. Actor, role и lead snapshots
+повторно используются только внутри этого запроса и этой установки. Assignment
+worker продолжает отдельные свежие pre/post проверки, без такого reuse.
+
+Core читает actor и пакет lead snapshots параллельно. Пакет exact-ID использует
+[документированный filter[id]](https://www.amocrm.ru/developers/content/crm_platform/filters-api).
+На аккаунтах без фильтрации только явные HTTP 400/402/422 допускают возврат к
+точным single-lead GET с максимум четырьмя workers и тем же общим deadline.
+401/403/429, timeout, неполный ответ и чужие строки не вызывают fallback.
+Одна сделка читается обычным GET без требования фильтрации.
+
+TeamOS группирует страницу по binding/revision/account, дедуплицирует lead ID и
+проверяет локальные actor/access/mapping/revision fences после network call.
+Статистика и наблюдения сохраняют общий бюджет 3 секунды; неопределённость не
+становится нулевой статистикой. Detail использует метаданные того же CRM snapshot,
+на котором рассчитаны права, вместо дополнительного read+permission roundtrip.
+Никаких TTL-кэшей положительных прав между запросами нет.
+
+Развёртывать Core первым, затем TeamOS. Новый TeamOS поддерживает старый Core:
+только HTTP 404 отсутствующего batch endpoint запускает bounded single-lead
+fallback в том же бюджете; permission и transport errors не обходятся. Если CRM
+не поддерживает exact-ID фильтрацию, больших страниц при высокой latency всё ещё
+может не хватить на 3 секунды; источник остаётся явно unavailable и fail closed.

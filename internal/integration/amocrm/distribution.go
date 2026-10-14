@@ -2,9 +2,13 @@ package amocrm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
+	"net/url"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -31,10 +35,11 @@ type StatusRight struct {
 	Rights     map[string]string `json:"rights"`
 }
 type DistributionLead struct {
-	ID                int64 `json:"id"`
-	PipelineID        int64 `json:"pipeline_id"`
-	StatusID          int64 `json:"status_id"`
-	ResponsibleUserID int64 `json:"responsible_user_id"`
+	Name              string `json:"name"`
+	ID                int64  `json:"id"`
+	PipelineID        int64  `json:"pipeline_id"`
+	StatusID          int64  `json:"status_id"`
+	ResponsibleUserID int64  `json:"responsible_user_id"`
 }
 type Subscription struct {
 	SubscriberID int64  `json:"subscriber_id"`
@@ -226,3 +231,87 @@ type subscriptionPage struct {
 }
 
 func (p *subscriptionPage) NoContent() { p.Embedded.Subscriptions = []Subscription{} }
+
+// DistributionLeads reads only the requested IDs in one bounded CRM request.
+// Missing, duplicated or foreign rows never become positive permission evidence.
+func (c *Client) DistributionLeads(ctx context.Context, installation uuid.UUID, ids []int64) (map[int64]DistributionLead, error) {
+	if len(ids) == 0 || len(ids) > 100 {
+		return nil, ErrIncompleteResponse
+	}
+	requested := make(map[int64]bool, len(ids))
+	query := url.Values{"limit": {"100"}, "page": {"1"}}
+	for _, id := range ids {
+		if id <= 0 || requested[id] {
+			return nil, ErrIncompleteResponse
+		}
+		requested[id] = true
+		query.Add("filter[id][]", strconv.FormatInt(id, 10))
+	}
+	if len(ids) == 1 {
+		lead, err := c.DistributionLead(ctx, installation, ids[0])
+		if err != nil {
+			return nil, err
+		}
+		return map[int64]DistributionLead{ids[0]: lead}, nil
+	}
+	var result struct {
+		Embedded struct {
+			Leads []DistributionLead `json:"leads"`
+		} `json:"_embedded"`
+		Links struct {
+			Next struct {
+				Href string `json:"href"`
+			} `json:"next"`
+		} `json:"_links"`
+	}
+	if err := c.DoJSON(ctx, installation, http.MethodGet, "/api/v4/leads?"+query.Encode(), nil, &result); err != nil {
+		// Exact-ID filters are not enabled on all amoCRM accounts. Only explicit
+		// unsupported-filter/payment responses use the old exact-ID reads. Never
+		// retry an authorization failure, timeout, rate limit or incomplete response.
+		var api *APIError
+		if !errors.As(err, &api) || (api.StatusCode != 400 && api.StatusCode != 402 && api.StatusCode != 422) {
+			return nil, err
+		}
+		rows := make([]DistributionLead, len(ids))
+		errs := make([]error, len(ids))
+		jobs := make(chan int, len(ids))
+		for i := range ids {
+			jobs <- i
+		}
+		close(jobs)
+		var workers sync.WaitGroup
+		for n := 0; n < 4 && n < len(ids); n++ {
+			workers.Add(1)
+			go func() {
+				defer workers.Done()
+				for i := range jobs {
+					if e := ctx.Err(); e != nil {
+						errs[i] = e
+						continue
+					}
+					rows[i], errs[i] = c.DistributionLead(ctx, installation, ids[i])
+				}
+			}()
+		}
+		workers.Wait()
+		leads := make(map[int64]DistributionLead, len(ids))
+		for i, id := range ids {
+			if errs[i] != nil {
+				return nil, errs[i]
+			}
+			leads[id] = rows[i]
+		}
+		return leads, nil
+	}
+	if result.Embedded.Leads == nil || result.Links.Next.Href != "" || len(result.Embedded.Leads) > len(ids) {
+		return nil, ErrIncompleteResponse
+	}
+	leads := make(map[int64]DistributionLead, len(ids))
+	for _, lead := range result.Embedded.Leads {
+		if !requested[lead.ID] || leads[lead.ID].ID != 0 || lead.PipelineID <= 0 || lead.StatusID <= 0 || lead.ResponsibleUserID <= 0 {
+			return nil, ErrIncompleteResponse
+		}
+		leads[lead.ID] = lead
+	}
+	return leads, nil
+}

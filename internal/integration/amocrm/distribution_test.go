@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestDistributionAccountTimezoneUsesVerifiedAccount(t *testing.T) {
@@ -137,5 +139,82 @@ func TestDistributionMissingCollectionsFailClosed(t *testing.T) {
 	s, e := c.DistributionSubscriptions(context.Background(), uuid.New(), 9)
 	if e != nil || s == nil || len(s) != 0 {
 		t.Fatal("documented204", s, e)
+	}
+}
+
+func TestDistributionLeadsExactBoundedBatch(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		bad        bool
+	}{
+		{"complete", `{"_embedded":{"leads":[{"id":10,"pipeline_id":20,"status_id":30,"responsible_user_id":1},{"id":11,"pipeline_id":20,"status_id":30,"responsible_user_id":2}]}}`, false},
+		{"missing_is_unknown", `{"_embedded":{"leads":[]}}`, false},
+		{"foreign", `{"_embedded":{"leads":[{"id":12,"pipeline_id":20,"status_id":30,"responsible_user_id":1}]}}`, true},
+		{"duplicate", `{"_embedded":{"leads":[{"id":10,"pipeline_id":20,"status_id":30,"responsible_user_id":1},{"id":10,"pipeline_id":20,"status_id":30,"responsible_user_id":1}]}}`, true},
+		{"incomplete", `{"_embedded":{"leads":[{"id":10,"status_id":30,"responsible_user_id":1}]}}`, true},
+		{"unexpected_pagination", `{"_links":{"next":{"href":"https://evil.invalid/"}},"_embedded":{"leads":[]}}`, true},
+		{"missing_collection", `{}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				q := r.URL.Query()
+				if r.URL.Path != "/api/v4/leads" || q.Get("limit") != "100" || q.Get("page") != "1" || len(q["filter[id][]"]) != 2 || q["filter[id][]"][0] != "10" || q["filter[id][]"][1] != "11" {
+					t.Errorf("unbounded request %s", r.URL)
+				}
+				fmt.Fprint(w, tc.body)
+			})
+			leads, err := c.DistributionLeads(context.Background(), uuid.New(), []int64{10, 11})
+			if (err != nil) != tc.bad || calls != 1 {
+				t.Fatalf("%v %v calls=%d", leads, err, calls)
+			}
+		})
+	}
+	c := enrichmentClient(t, rejectIfCalled(t))
+	for _, ids := range [][]int64{nil, {0}, {10, 10}, make([]int64, 101)} {
+		if _, err := c.DistributionLeads(context.Background(), uuid.New(), ids); err == nil {
+			t.Fatal("invalid input accepted", ids)
+		}
+	}
+}
+
+func TestDistributionLeadsUnsupportedFilterFallbackOnly(t *testing.T) {
+	for _, status := range []int{400, 402, 422, 401, 403, 503} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			var singles atomic.Int32
+			client := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/v4/leads" {
+					w.WriteHeader(status)
+					return
+				}
+				singles.Add(1)
+				var id int64
+				if _, err := fmt.Sscanf(r.URL.Path, "/api/v4/leads/%d", &id); err != nil {
+					t.Error(r.URL)
+				}
+				fmt.Fprintf(w, `{"id":%d,"pipeline_id":20,"status_id":30,"responsible_user_id":1}`, id)
+			})
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			results, err := client.DistributionLeads(ctx, uuid.New(), []int64{10, 11})
+			fallback := status == 400 || status == 402 || status == 422
+			if fallback {
+				if err != nil || len(results) != 2 || singles.Load() != 2 {
+					t.Fatalf("fallback %v %v calls=%d", results, err, singles.Load())
+				}
+			} else if err == nil || singles.Load() != 0 {
+				t.Fatal("authorization/source error fallback", err, singles.Load())
+			}
+		})
+	}
+	client := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v4/leads/10" {
+			t.Error("one lead uses filter", r.URL)
+		}
+		fmt.Fprint(w, `{"id":10,"pipeline_id":20,"status_id":30,"responsible_user_id":1}`)
+	})
+	if _, err := client.DistributionLeads(context.Background(), uuid.New(), []int64{10}); err != nil {
+		t.Fatal(err)
 	}
 }
