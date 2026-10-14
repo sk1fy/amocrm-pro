@@ -52,8 +52,10 @@ services:
     volumes:
       - pilot-data:/var/lib/postgresql/data
       - ./deploy/activity/init-db.sh:/docker-entrypoint-initdb.d/010-owners.sh:ro
+    # The image starts a socket-only temporary server while running init scripts.
+    # Wait for the final TCP listener before migrations or test provisioning.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pilot_admin -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U pilot_admin -d postgres"]
       interval: 1s
       timeout: 3s
       retries: 30
