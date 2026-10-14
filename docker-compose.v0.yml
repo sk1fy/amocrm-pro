@@ -51,7 +51,7 @@ services:
       target: service-certs
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.25}"
+        GO_VERSION: "${GO_VERSION:-1.26.9}"
     user: "0:0"
     entrypoint: ["/bin/sh", "-ec"]
     command:
@@ -111,7 +111,7 @@ services:
       target: crm-events
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.25}"
+        GO_VERSION: "${GO_VERSION:-1.26.9}"
     init: true
     environment:
       APP_ENV: "${APP_ENV:-development}"
@@ -154,7 +154,7 @@ services:
       target: activity
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.25}"
+        GO_VERSION: "${GO_VERSION:-1.26.9}"
     init: true
     environment:
       APP_ENV: "${APP_ENV:-development}"
@@ -200,7 +200,7 @@ services:
       target: activity-control
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.25}"
+        GO_VERSION: "${GO_VERSION:-1.26.9}"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
     depends_on:
