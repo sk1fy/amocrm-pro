@@ -65,7 +65,7 @@ func TestCoreJWTGrantReplayAndInstallationGeneration(t *testing.T) {
 	}
 	token := func() string {
 		now := time.Now()
-		raw, e := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iss": "https://tenant.amocrm.ru", "aud": "https://core.example.test", "jti": uuid.NewString(), "iat": now.Add(-time.Second).Unix(), "nbf": now.Add(-time.Second).Unix(), "exp": now.Add(5 * time.Minute).Unix(), "account_id": 123, "user_id": 7, "client_uuid": client}).SignedString(secret)
+		raw, e := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iss": "https://tenant.amocrm.ru", "aud": "https://core.example.test", "jti": uuid.NewString(), "iat": now.Add(-time.Second).Unix(), "nbf": now.Add(-time.Second).Unix(), "exp": now.Add(30*time.Minute - time.Second).Unix(), "account_id": 123, "user_id": 7, "client_uuid": client}).SignedString(secret)
 		if e != nil {
 			t.Fatal(e)
 		}

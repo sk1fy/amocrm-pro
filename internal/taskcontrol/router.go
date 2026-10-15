@@ -8,12 +8,21 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
 	"github.com/sk1fy/amocrm-pro/internal/widgetlimit"
+	"log/slog"
 	"net/http"
 	"time"
 )
 
 func Router(ctx context.Context, pool *pgxpool.Pool, secrets *cryptox.KeyRing, crm CRMIdentity, c Config) (http.Handler, error) {
-	auth, err := widgetauth.NewAuthenticator(widgetauth.NewStore(pool), secrets)
+	// amoCRM disposable JWTs live for 30 minutes; handoff remains 60 seconds.
+	if c.JWTMaxLifetime == 0 {
+		c.JWTMaxLifetime = 30 * time.Minute
+	}
+	if c.JWTLeeway == 0 {
+		c.JWTLeeway = 5 * time.Second
+	}
+	auth, err := widgetauth.NewAuthenticator(widgetauth.NewStore(pool), secrets,
+		widgetauth.WithMaxLifetime(c.JWTMaxLifetime), widgetauth.WithLeeway(c.JWTLeeway), widgetauth.WithLogger(slog.Default()))
 	if err != nil {
 		return nil, err
 	}
