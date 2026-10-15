@@ -1,0 +1,6 @@
+# Append after the existing staging Core overlays and docker-compose.task-control.yml.
+# Host nginx needs loopback access; do not bind this port to 0.0.0.0.
+services:
+  worker:
+    ports:
+      - '127.0.0.1:18087:8087'

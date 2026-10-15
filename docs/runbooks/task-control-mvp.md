@@ -158,3 +158,41 @@ TeamOS увидит notInstalled после истечения status cache (д�
 ACK применения по вкладкам и расширенного мониторинга admin panel. Публикация означает сохранение
 серверной версии, не подтверждение её применения всеми браузерами. Эти задачи остаются в плане.
 Локальные проверки описаны в PR; приёмка с настоящим amoCRM после выкладки — отдельный шаг.
+
+## Проверенный тестовый сервер (read-only сверка с pi, 2026-10-15)
+
+Core публично доступен на `https://2-26-66-187.sslip.io`, с действующим сертификатом.
+TeamOS UI/gateway пока доступны только по SSH-forward; для пилота новый домен не нужен.
+В репозитории подготовлены фрагменты `deploy/task-control-staging/`:
+
+1. Сохранить текущие Core overlays: `docker-compose.yml`, `docker-compose.v0.yml`,
+   `/root/team-os-staging/core-distribution.local.yaml`. Добавить после них
+   `docker-compose.task-control.yml` и `deploy/task-control-staging/docker-compose.loopback.yml`.
+   Новый worker listener публикуется только как `127.0.0.1:18087:8087`.
+2. Добавить содержимое `public.locations.conf` внутрь существующего HTTPS server block
+   `/etc/nginx/sites-available/amocrm`. Это **три точных location**, не весь `/api/`.
+   auth → Core 18087; sessions/bootstrap → TeamOS 8180. Совпадение домена не означает
+   передачу правил через Core: nginx направляет запрос прямо в gateway TeamOS.
+3. Добавить `private.locations.conf` внутрь приватного server block
+   `/etc/nginx/sites-available/distribution-bridge` (`172.24.0.1:8443`). Сохранить его
+   allow/deny, TLS и остальные маршруты. `COMPANY_TASK_CONTROL_CORE_URL=https://2-26-66-187.sslip.io:8443`.
+   В company уже есть extra_hosts этого имени на `172.24.0.1`.
+4. TeamOS backend checkout `/root/team-os-backend`, project `teamos`; сохраняются
+   `deploy/docker-compose.yaml`, `deploy/docker-compose.ci.yaml`,
+   `/root/team-os-staging/docker-compose.staging-local.yaml` и прежний env-file.
+   Обновить company/gateway и применить миграции32/33. UI checkout `/root/team-os`,
+   статика `/var/www/teamos-staging`, API relative `/api/v1`; доступ через туннель8190.
+5. После сборки и проверки конфигурации выполнить `nginx -t`, затем штатный reload.
+   Проверить CORS/preflight и отсутствие внешнего доступа к 18087/8443. Только после
+   этого устанавливать пакет и включать режим TeamOS.
+
+Сборка ZIP для этого пилота:
+
+```sh
+TASK_CONTROL_CORE_ORIGIN=https://2-26-66-187.sslip.io \
+TASK_CONTROL_BACKEND_ORIGIN=https://2-26-66-187.sslip.io \
+sh scripts/build.sh
+```
+
+На момент сверки эти новые маршруты, env и миграции **не были развёрнуты**.
+Подготовка файлов в PR не меняет сервер. Админка не входит в эту поставку.
