@@ -46,3 +46,6 @@ scope belongs in GitHub Issues.
 
 - [ADR-0037](0037-distribution-digital-pipeline.md) — Accepted: DP ingress,
   ключ группы и повторное использование JWT для чтений.
+
+- [ADR-0038](0038-task-control-hybrid-integration.md) — Accepted (2026-10-15): Контроль задач,
+  правила напрямую из TeamOS backend; Core — установка и мониторинг; два режима.

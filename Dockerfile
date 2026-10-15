@@ -128,7 +128,8 @@ FROM source AS component-build
 # Declare in each build stage for classic Docker builder compatibility.
 ARG BUILD_REVISION=unknown
 
-RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity \
+RUN go build -trimpath -o /out/task-control-grant ./cmd/task-control-grant \
+    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/crm-events ./cmd/crm-events \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/distribution-grant ./cmd/distribution-grant \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity-control ./cmd/activity-control \
@@ -151,6 +152,10 @@ ENTRYPOINT ["/usr/local/bin/service-certs"]
 FROM runtime AS activity-control
 COPY --from=component-build --chown=app:app /out/activity-control /usr/local/bin/activity-control
 ENTRYPOINT ["/usr/local/bin/activity-control"]
+
+FROM runtime AS task-control-grant
+COPY --from=component-build --chown=app:app /out/task-control-grant /usr/local/bin/task-control-grant
+ENTRYPOINT ["/usr/local/bin/task-control-grant"]
 
 FROM runtime AS distribution-grant
 COPY --from=component-build --chown=app:app /out/distribution-grant /usr/local/bin/distribution-grant

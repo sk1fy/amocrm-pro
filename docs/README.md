@@ -26,6 +26,11 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 - [Диагностика админки](runbooks/lead-distribution-admin.md).
 - [Наблюдение и подготовка пилота](runbooks/lead-distribution-pilot.md).
 
+## Контроль задач
+
+- [ADR-0038](adr/0038-task-control-hybrid-integration.md) — Core проверяет JWT/установку; правила выдаёт TeamOS.
+- [КТ-01.03: настройка и проверки](../../team-os-backend/docs/integrations/task-control-connection.md).
+
 ## Проверки и ограничения
 
 - [Сохранённые результаты](verification/README.md).
@@ -42,3 +47,5 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 Отдельный отчёт сохранять, когда он содержит необходимые измерения,
 условия приёмки или ограничения, которых нет в действующей документации.
 Сырые логи, временные снимки, патчи и checksum-манифесты в `docs/` не хранить.
+
+- [Контроль задач: обновление сервера и приёмка MVP](runbooks/task-control-mvp.md)

@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	TaskControl      = "task-control"
 	LeadStatus       = "lead-status"
 	LeadDistribution = "lead-distribution"
 	Activity         = "activity"
@@ -22,7 +23,7 @@ const (
 var ErrNotEnabled = errors.New("service is not enabled")
 
 func Known(code string) bool {
-	return code == LeadStatus || code == Activity || code == LeadDistribution
+	return code == LeadStatus || code == Activity || code == LeadDistribution || code == TaskControl
 }
 
 // JobService deliberately rejects unknown jobs. Infrastructure ping needs no
