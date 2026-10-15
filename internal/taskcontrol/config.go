@@ -8,20 +8,39 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	AssertionKeyID string
-	AssertionKey   ed25519.PrivateKey
-	Address        string
-	Keys           map[string]string
+	JWTLeeway, JWTMaxLifetime time.Duration
+	AssertionKeyID            string
+	AssertionKey              ed25519.PrivateKey
+	Address                   string
+	Keys                      map[string]string
 }
 
 func LoadConfig() (Config, error) {
-	c := Config{Address: os.Getenv("TASK_CONTROL_HTTP_ADDRESS")}
+	c := Config{Address: os.Getenv("TASK_CONTROL_HTTP_ADDRESS"), JWTLeeway: 5 * time.Second, JWTMaxLifetime: 30 * time.Minute}
 	raw := os.Getenv("TASK_CONTROL_SERVICE_KEYS")
 	if c.Address == "" && raw == "" {
 		return c, nil
+	}
+	if raw := os.Getenv("WIDGET_JWT_LEEWAY"); raw != "" {
+		value, err := time.ParseDuration(raw)
+		if err != nil {
+			return c, errors.New("invalid WIDGET_JWT_LEEWAY")
+		}
+		c.JWTLeeway = value
+	}
+	if raw := os.Getenv("WIDGET_JWT_MAX_LIFETIME"); raw != "" {
+		value, err := time.ParseDuration(raw)
+		if err != nil {
+			return c, errors.New("invalid WIDGET_JWT_MAX_LIFETIME")
+		}
+		c.JWTMaxLifetime = value
+	}
+	if c.JWTLeeway <= 0 || c.JWTLeeway > time.Minute || c.JWTMaxLifetime <= 0 || c.JWTMaxLifetime > time.Hour || c.JWTMaxLifetime < c.JWTLeeway {
+		return c, errors.New("invalid task control widget JWT policy bounds")
 	}
 	if _, _, err := net.SplitHostPort(c.Address); err != nil {
 		return c, errors.New("invalid TASK_CONTROL_HTTP_ADDRESS")
