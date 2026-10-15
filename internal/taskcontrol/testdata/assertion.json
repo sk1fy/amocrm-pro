@@ -1,0 +1,20 @@
+{
+  "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+  "assertion": "fixture.eyJhdWQiOiJ0ZWFtb3MtdGFzay1jb250cm9sIiwianRpIjoiYTAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiaWF0IjoxOTAwMDAwMDAwLCJleHAiOjE5MDAwMDAwNjAsImNvbXBhbnlJZCI6ImEwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImluc3RhbGxhdGlvbklkIjoiYTAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAzIiwiaW50ZWdyYXRpb25JZCI6ImEwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNCIsImFjY291bnRJZCI6IjEyMyIsImFjdG9ySWQiOiI3IiwicHJvZHVjdCI6InRhc2stY29udHJvbCIsImdlbmVyYXRpb24iOjIsImFkbWluIjp0cnVlLCJwdXJwb3NlIjoibGluayIsInJlcXVlc3RJZCI6ImEwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNSJ9.F88aG7HKEGGhiwI-j1g_TDXBUUq8Cpd344mQM-UpfyPJ--eyhVpE6C8hD6bu8oPx385afaR7vfzy84gv7K8bCg",
+  "claims": {
+    "aud": "teamos-task-control",
+    "jti": "a0000000-0000-4000-8000-000000000001",
+    "iat": 1900000000,
+    "exp": 1900000060,
+    "companyId": "a0000000-0000-4000-8000-000000000002",
+    "installationId": "a0000000-0000-4000-8000-000000000003",
+    "integrationId": "a0000000-0000-4000-8000-000000000004",
+    "accountId": "123",
+    "actorId": "7",
+    "product": "task-control",
+    "generation": 2,
+    "admin": true,
+    "purpose": "link",
+    "requestId": "a0000000-0000-4000-8000-000000000005"
+  }
+}

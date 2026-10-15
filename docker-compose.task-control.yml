@@ -1,0 +1,27 @@
+# Optional Core boundary for Task Control. Apply alongside the main compose file.
+# The reverse proxy must expose only /api/v1/widget/task-control/auth publicly;
+# /internal/v1/task-control remains private and requires signed service grants.
+services:
+  worker:
+    environment:
+      TASK_CONTROL_HTTP_ADDRESS: ':8087'
+      TASK_CONTROL_TLS_PROXY: 'true'
+      TASK_CONTROL_SERVICE_KEYS: '${TASK_CONTROL_SERVICE_KEYS:?configure scoped status keys}'
+      TASK_CONTROL_ASSERTION_KEY_ID: '${TASK_CONTROL_ASSERTION_KEY_ID:?configure signing key id}'
+      TASK_CONTROL_ASSERTION_PRIVATE_KEY: '${TASK_CONTROL_ASSERTION_PRIVATE_KEY:?configure Ed25519 private key}'
+    expose:
+      - '8087'
+  task-control-grant:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: task-control-grant
+    environment:
+      APP_ENV: '${APP_ENV:-production}'
+      DATABASE_URL: '${DATABASE_URL:?configure Core database}'
+      ENCRYPTION_KEYS: '${ENCRYPTION_KEYS:?configure existing encryption keys}'
+      ACTIVE_ENCRYPTION_KEY_VERSION: '${ACTIVE_ENCRYPTION_KEY_VERSION:?configure existing key version}'
+    networks: [backend]
+    read_only: true
+    security_opt: [no-new-privileges:true]

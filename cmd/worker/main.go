@@ -26,6 +26,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/platform/logging"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
 	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
+	"github.com/sk1fy/amocrm-pro/internal/taskcontrol"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpserver"
 	"github.com/sk1fy/amocrm-pro/internal/webhook"
@@ -230,9 +231,28 @@ func run() error {
 		distributionServer = httpserver.New(distributionConfig.Address, distributionRouter)
 	}
 
-	errChannel := make(chan error, 4)
+	taskControlConfig, err := taskcontrol.LoadConfig()
+	if err != nil {
+		return err
+	}
+	var taskControlServer *http.Server
+	if taskControlConfig.Address != "" {
+		taskControlRouter, e := taskcontrol.Router(ctx, pool, keyRing, amocrmAPI, taskControlConfig)
+		if e != nil {
+			return e
+		}
+		taskControlServer = httpserver.New(taskControlConfig.Address, taskControlRouter)
+	}
+	errChannel := make(chan error, 5)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if taskControlServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- httpserver.Run(ctx, taskControlServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	if distributionServer != nil {
 		processes.Add(1)
 		go func() {

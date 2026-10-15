@@ -1,0 +1,5 @@
+DROP TRIGGER task_control_installation_changed ON installations;
+DROP FUNCTION task_control_installation_changed();
+DROP TABLE task_control_installation_versions;
+DROP TABLE task_control_service_nonces;
+DROP TABLE task_control_service_grants;
