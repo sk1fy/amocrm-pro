@@ -885,7 +885,7 @@ components:
         reconciliation_pending: {type: boolean}
         next_check_at: {type: string, format: date-time}
         evidence_code: {type: string, enum: [unknown, registry, disconnect_unverified, disconnect_confirmed]}
-        runtime_version: {type: string, enum: ['1.1.4', '1.2.0', '1.2.1', '1.2.2']}
+        runtime_version: {type: string, enum: ['1.1.4', '1.2.0', '1.2.1', '1.2.2', '1.2.3']}
         runtime_confirmed_at: {type: string, format: date-time}
         runtime_compatible:
           type: boolean

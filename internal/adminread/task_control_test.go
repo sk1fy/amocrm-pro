@@ -71,7 +71,7 @@ func TestTaskControlDiagnosticsSafeGenerationAndLifecycle(t *testing.T) {
 	if out := read("ready"); out.RuntimeVersion != "1.2.2" || !out.RuntimeCompatible || !out.DynamicRulesV2 {
 		t.Fatal(out)
 	}
-	for _, version := range []string{"1.1.4", "1.2.0", "1.2.1", "1.2.2"} {
+	for _, version := range []string{"1.1.4", "1.2.0", "1.2.1", "1.2.2", "1.2.3"} {
 		if _, err := pool.Exec(ctx, `UPDATE task_control_runtime_descriptors SET runtime_version=$2 WHERE installation_id=$1`, install, version); err != nil {
 			t.Fatal(err)
 		}

@@ -13,7 +13,7 @@
   "product_enabled": true,
   "reconciliation_pending": false,
   "evidence_code": "registry",
-  "runtime_version": "1.2.2",
+  "runtime_version": "1.2.3",
   "runtime_confirmed_at": "2026-10-16T09:59:00Z",
   "runtime_compatible": true,
   "dynamic_rules_v2": true,

@@ -98,12 +98,12 @@ func (h *handler) taskControlDiagnostics(w http.ResponseWriter, r *http.Request)
 	// active registry with confirmed evidence can advertise protocol compatibility.
 	if state == "active" && out.ProductEnabled && out.GrantEnabled && !out.ReconciliationPending && evidence == "registry" {
 		switch version {
-		case "1.1.4", "1.2.0", "1.2.1", "1.2.2":
+		case "1.1.4", "1.2.0", "1.2.1", "1.2.2", "1.2.3":
 			out.RuntimeVersion = version
 			out.RuntimeConfirmedAt = confirmed
 		}
 		out.RuntimeCompatible = out.RuntimeVersion != ""
-		out.DynamicRulesV2 = version == "1.2.0" || version == "1.2.1" || version == "1.2.2"
+		out.DynamicRulesV2 = version == "1.2.0" || version == "1.2.1" || version == "1.2.2" || version == "1.2.3"
 	}
 	out.Code = "installation_unconfirmed"
 	switch {
