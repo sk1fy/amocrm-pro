@@ -196,3 +196,19 @@ sh scripts/build.sh
 
 На момент сверки эти новые маршруты, env и миграции **не были развёрнуты**.
 Подготовка файлов в PR не меняет сервер. Админка не входит в эту поставку.
+
+## Общие справочники R03
+
+Примените миграцию 000026 перед запуском Core новой версии. Статусные grants
+не приобретают доступ к именам пользователей и групп. Для выбранной установки
+явно выполните `task-control-grant` с обычными scope/actor/enabled флагами и
+`--references true`; без этого флага references остаются запрещены.
+Команда записывает capability в audit_log, секретов не принимает и не выводит.
+
+Внутренний контракт: [task-control-openapi.yaml](../../api/task-control-openapi.yaml).
+Маршрут `/internal/task-control/accounts/{accountId}/references` использует те же
+service keys и TLS proxy, что installation transport. При reverse proxy разрешите
+новый точный путь только backend TeamOS; browser/runtime не получают ключи.
+403 — grant/installation fence, 413 — превышение лимита, 503 — incomplete/unavailable.
+`customers.availability=unknown` позволяет показывать справочники сделок, но не
+публиковать зависимые от customers правила. Core не меняет режим покупателей.

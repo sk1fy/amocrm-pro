@@ -20,6 +20,9 @@ const maxAPIResponseBody = 4 << 20
 
 var ErrTransport = errors.New("amoCRM transport failed")
 
+// ErrResponseTooLarge identifies the shared strict response body limit.
+var ErrResponseTooLarge = errors.New("amoCRM API response body exceeds limit")
+
 type transportError struct {
 	operation string
 	cause     error
@@ -197,7 +200,7 @@ func (c *Client) request(
 		return 0, nil, nil, transportError{operation: "read amoCRM API response", cause: err}
 	}
 	if len(contents) > maxAPIResponseBody {
-		return 0, nil, nil, errors.New("amoCRM API response body exceeds limit")
+		return 0, nil, nil, ErrResponseTooLarge
 	}
 	return response.StatusCode, response.Header.Clone(), contents, nil
 }

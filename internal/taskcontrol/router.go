@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/crmreferences"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
@@ -39,6 +40,9 @@ func Router(ctx context.Context, pool *pgxpool.Pool, secrets *cryptox.KeyRing, c
 		go lifecycle.Run(ctx)
 	}
 	router.Handle("/internal/v1/task-control/accounts/*", &Handler{Store: store, Keys: c.Keys})
+	if references, ok := crm.(crmreferences.Reader); ok {
+		router.Handle("/internal/task-control/accounts/*", &ReferencesHandler{Store: store, Keys: c.Keys, Provider: &crmreferences.Provider{}, CRM: references})
+	}
 	cors := widgetcors.Middleware(widgetcors.NewPostgresAuthorizer(pool))
 	handoff := &HandoffHandler{Store: store, CRM: crm, KeyID: c.AssertionKeyID, Key: c.AssertionKey}
 	router.Method("OPTIONS", "/api/v1/widget/task-control/auth", cors(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })))

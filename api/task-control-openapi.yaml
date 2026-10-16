@@ -1,0 +1,493 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Core TaskControl reference contract",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://core.internal"
+    }
+  ],
+  "paths": {
+    "/internal/task-control/accounts/{accountId}/references": {
+      "get": {
+        "operationId": "getTaskControlReferences",
+        "summary": "Read complete scoped CRM references",
+        "description": "Service-only exact TaskControl references grant and active installation required; no Distribution dependency. HMAC uses existing Signature transport, exact method+URI, +/-60 seconds and durable single-use nonce. Query and body forbidden. 30s deadline; refresh at age 120s; TTL <=5 min from fetchStartedAt; <=4 MiB. Unknown customer source is explicit and never equivalent to unsupported. Arrays sorted by numeric CRM IDs; revision SHA-256 JCS of scope/users/groups/pipelines/customers availability+statuses, excluding times and errorCode.",
+        "security": [
+          {
+            "TaskControlSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accountId",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CrmId"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Task-Control-Key-Id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Task-Control-Company",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Task-Control-Account",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CrmId"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Task-Control-Product",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "task-control"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Task-Control-Timestamp",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Task-Control-Nonce",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Complete fresh reference snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceSnapshotV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid signature or request shape",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied grant or installation generation fence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Reference limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Source unavailable or incomplete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "TaskControlSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Task-Control-Signature"
+      }
+    },
+    "schemas": {
+      "CrmId": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,15}$",
+        "description": "Canonical positive decimal ID <= 9007199254740991"
+      },
+      "Scope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "companyId",
+          "integrationId",
+          "installationId",
+          "accountId",
+          "generation",
+          "product"
+        ],
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "integrationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "installationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "$ref": "#/components/schemas/CrmId"
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "product": {
+            "type": "string",
+            "enum": [
+              "task-control"
+            ]
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "groupId"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CrmId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "groupId": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^[1-9][0-9]{0,15}$"
+          }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CrmId"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "sort",
+          "color"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CrmId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "color": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "LeadStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "sort",
+          "color",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CrmId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "color": {
+            "type": "string",
+            "nullable": true
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          }
+        }
+      },
+      "Pipeline": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "sort",
+          "statuses"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CrmId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "statuses": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/LeadStatus"
+            }
+          }
+        }
+      },
+      "Customers": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "availability",
+          "statuses",
+          "checkedAt",
+          "errorCode"
+        ],
+        "properties": {
+          "availability": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unsupported",
+              "unknown"
+            ]
+          },
+          "statuses": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/Status"
+            }
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ReferenceSnapshotV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "scope",
+          "revision",
+          "provenance",
+          "freshUntil",
+          "complete",
+          "users",
+          "groups",
+          "pipelines",
+          "customers"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "fetchedAt",
+              "fetchStartedAt"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "coreAmocrm"
+                ]
+              },
+              "fetchedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "fetchStartedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "freshUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "complete": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "users": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/Group"
+            }
+          },
+          "pipelines": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/Pipeline"
+            }
+          },
+          "customers": {
+            "$ref": "#/components/schemas/Customers"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "message",
+              "code"
+            ],
+            "properties": {
+              "status": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_signature",
+                  "references_denied",
+                  "references_incomplete",
+                  "references_too_large",
+                  "references_unavailable"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
