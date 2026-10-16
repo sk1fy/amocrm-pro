@@ -129,6 +129,7 @@ FROM source AS component-build
 ARG BUILD_REVISION=unknown
 
 RUN go build -trimpath -o /out/task-control-grant ./cmd/task-control-grant \
+    && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/task-control-runtime-descriptor ./cmd/task-control-runtime-descriptor \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/activity ./cmd/activity \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/crm-events ./cmd/crm-events \
     && go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/distribution-grant ./cmd/distribution-grant \
@@ -160,6 +161,10 @@ ENTRYPOINT ["/usr/local/bin/task-control-grant"]
 FROM runtime AS distribution-grant
 COPY --from=component-build --chown=app:app /out/distribution-grant /usr/local/bin/distribution-grant
 ENTRYPOINT ["/usr/local/bin/distribution-grant"]
+
+FROM runtime AS task-control-runtime-descriptor
+COPY --from=component-build --chown=app:app /out/task-control-runtime-descriptor /usr/local/bin/task-control-runtime-descriptor
+ENTRYPOINT ["/usr/local/bin/task-control-runtime-descriptor"]
 
 FROM test-base AS test
 

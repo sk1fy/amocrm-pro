@@ -1,5 +1,5 @@
 # Optional Core boundary for Task Control. Apply alongside the main compose file.
-# The reverse proxy must expose only /api/v1/widget/task-control/auth publicly;
+# Core exposes only auth and signed disconnect publicly;
 # /internal/v1/task-control remains private and requires signed service grants.
 services:
   worker:
@@ -17,6 +17,23 @@ services:
       context: .
       dockerfile: Dockerfile
       target: task-control-grant
+    environment:
+      APP_ENV: '${APP_ENV:-production}'
+      DATABASE_URL: '${DATABASE_URL:?configure Core database}'
+      ENCRYPTION_KEYS: '${ENCRYPTION_KEYS:?configure existing encryption keys}'
+      ACTIVE_ENCRYPTION_KEY_VERSION: '${ACTIVE_ENCRYPTION_KEY_VERSION:?configure existing key version}'
+    networks: [backend]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+  task-control-runtime-descriptor:
+    profiles: ["tools"]
+    image: '${TASK_CONTROL_DESCRIPTOR_IMAGE:-amocrm-task-control-runtime-descriptor:local}'
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: task-control-runtime-descriptor
+      args:
+        BUILD_REVISION: '${BUILD_REVISION:-unknown}'
     environment:
       APP_ENV: '${APP_ENV:-production}'
       DATABASE_URL: '${DATABASE_URL:?configure Core database}'
