@@ -1,0 +1,1 @@
+DROP TABLE task_control_runtime_descriptors;

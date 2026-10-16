@@ -212,3 +212,27 @@ service keys и TLS proxy, что installation transport. При reverse proxy �
 403 — grant/installation fence, 413 — превышение лимита, 503 — incomplete/unavailable.
 `customers.availability=unknown` позволяет показывать справочники сделок, но не
 публиковать зависимые от customers правила. Core не меняет режим покупателей.
+
+## R11: подтверждение runtime v2
+
+Динамические намерения и вычисленные снимки принадлежат company. Core хранит только
+подтверждение развёрнутого пакета, привязанное к installation + generation. Оно не
+выводится из browser version/capabilities, оплаты, heartbeat или факта OAuth.
+
+После проверки установки пакета **1.2.0** оператор с доступом к Core DB выполняет:
+
+```sh
+go run ./cmd/task-control-runtime-descriptor \
+  --installation-id INSTALLATION_UUID --generation CURRENT_GENERATION \
+  --runtime-version 1.2.0 --actor OPERATOR_ID
+```
+
+Команда требует active Task Control installation и точное текущее поколение;
+изменение и оператор записываются в audit_log. Применить Core migration 000027
+перед запуском новой версии Core. Подтверждённый 1.1.4 можно записать для учёта,
+но он **не** включает `dynamicRulesV2`: ему недостаёт negotiation и ACK из 1.2.0.
+Reinstall меняет generation; подтверждение предыдущего поколения не используется.
+Для отзыва подтверждения выполнить ту же команду с `--clear`, без runtime-version.
+Core installation response содержит runtimeVersion и, только для 1.2.0,
+`runtimeCapabilities:["dynamicRulesV2"]`. Company проверяет эти серверные поля
+перед активацией v2; пользовательские capabilities лишь выбирают совместимый протокол.

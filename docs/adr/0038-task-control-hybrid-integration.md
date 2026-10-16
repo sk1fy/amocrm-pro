@@ -210,3 +210,13 @@ references_too_large (413), references_incomplete/references_unavailable (503).
 только account customers_mode unavailable/disabled; auth/transport failures дают unknown.
 Источники CRM: [account](https://www.amocrm.ru/developers/content/crm_platform/account-info),
 [customer statuses](https://www.amocrm.ru/developers/content/crm_platform/customers-statuses-api).
+
+### R11: подтверждение совместимости пакета
+
+Core migration 000027 хранит операторское evidence о версии runtime для точной
+installation generation; команда `task-control-runtime-descriptor` проверяет
+активную установку и пишет аудит. Подтверждённый 1.2.0 разрешает capability
+`dynamicRulesV2` в подписанном служебном installation-status; 1.1.4 этого не разрешает.
+Клиентские version/capabilities не заменяют это evidence. Reinstall исключает
+старое evidence по generation. Правила, intent, resolver, org/mapping и runtime
+snapshots остаются в company, без нового бизнес-хранилища в Core.

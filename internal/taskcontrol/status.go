@@ -21,17 +21,19 @@ import (
 const Product = "task-control"
 
 type Status struct {
-	CompanyID      uuid.UUID  `json:"companyId"`
-	AccountID      string     `json:"accountId"`
-	InstallationID *uuid.UUID `json:"installationId,omitempty"`
-	IntegrationID  *uuid.UUID `json:"integrationId,omitempty"`
-	Product        string     `json:"product"`
-	State          string     `json:"state"`
-	Revision       int64      `json:"revision,omitempty"`
-	Generation     int64      `json:"generation,omitempty"`
-	CheckedAt      time.Time  `json:"checkedAt"`
-	FreshUntil     time.Time  `json:"freshUntil"`
-	ReasonCode     string     `json:"reasonCode,omitempty"`
+	RuntimeVersion      string     `json:"runtimeVersion,omitempty"`
+	RuntimeCapabilities []string   `json:"runtimeCapabilities,omitempty"`
+	CompanyID           uuid.UUID  `json:"companyId"`
+	AccountID           string     `json:"accountId"`
+	InstallationID      *uuid.UUID `json:"installationId,omitempty"`
+	IntegrationID       *uuid.UUID `json:"integrationId,omitempty"`
+	Product             string     `json:"product"`
+	State               string     `json:"state"`
+	Revision            int64      `json:"revision,omitempty"`
+	Generation          int64      `json:"generation,omitempty"`
+	CheckedAt           time.Time  `json:"checkedAt"`
+	FreshUntil          time.Time  `json:"freshUntil"`
+	ReasonCode          string     `json:"reasonCode,omitempty"`
 }
 type Reader interface {
 	Read(context.Context, string, uuid.UUID, int64, uuid.UUID, time.Time) (Status, error)
@@ -103,6 +105,19 @@ func (s *Store) Read(ctx context.Context, key string, company uuid.UUID, account
 		if state == "uninstalled" {
 			out.State = "notInstalled"
 			out.ReasonCode = "operator_uninstall"
+		}
+		if out.State == "installed" {
+			var version string
+			err = tx.QueryRow(ctx, `SELECT runtime_version FROM task_control_runtime_descriptors WHERE installation_id=$1 AND generation=$2`, install, out.Generation).Scan(&version)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return out, err
+			}
+			if err == nil && (version == "1.1.4" || version == "1.2.0") {
+				out.RuntimeVersion = version
+				if version == "1.2.0" {
+					out.RuntimeCapabilities = []string{"dynamicRulesV2"}
+				}
+			}
 		}
 	}
 	if out.ReasonCode == "" {
