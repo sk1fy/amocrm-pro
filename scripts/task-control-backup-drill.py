@@ -44,7 +44,9 @@ def fingerprints(database):
 try:
     docker("run", "-d", "--name", name, "-p", "127.0.0.1::5432", "-e", "POSTGRES_DB=r10_core_test", "-e", "POSTGRES_USER=r10", "-e", "POSTGRES_PASSWORD=r10-synthetic-only", "postgres:17-alpine")
     for attempt in range(30):
-        if docker("exec", name, "pg_isready", "-U", "r10", "-d", "r10_core_test", check=False).returncode == 0:
+        # The initdb temporary server accepts Unix sockets before its restart.
+        # Wait for the final TCP listener, which is the one reached by migrate.
+        if docker("exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "r10", "-d", "r10_core_test", check=False).returncode == 0:
             break
         time.sleep(1)
     else:
