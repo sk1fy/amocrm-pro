@@ -61,6 +61,8 @@ func (h *handler) routeHandler(route apicontract.Route) http.HandlerFunc {
 		return h.listInstallations
 	case apicontract.AdminInstallation.Path:
 		return h.getInstallation
+	case apicontract.AdminTaskControlDiagnostics.Path:
+		return h.taskControlDiagnostics
 	case apicontract.AdminInstallationJobs.Path:
 		return h.listInstallationJobs
 	case apicontract.AdminInstallationAudit.Path:

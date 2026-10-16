@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -57,5 +59,28 @@ func TestAdminOpenAPIContract(t *testing.T) {
 	}
 	if _, ok := document.Components.SecuritySchemes["widgetBearer"]; ok {
 		t.Fatal("admin OpenAPI must not define widgetBearer")
+	}
+}
+
+func TestTaskControlDiagnosticsExampleRejectsUnknownData(t *testing.T) {
+	document, err := openapi3.NewLoader().LoadFromFile("admin-openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("../docs/examples/task-control-diagnostics.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture map[string]any
+	if err = json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	schema := document.Components.Schemas["TaskControlDiagnostics"].Value
+	if err = schema.VisitJSON(fixture); err != nil {
+		t.Fatal(err)
+	}
+	fixture["unexpected_provider_payload"] = map[string]any{"token": "secret", "rules": []any{}}
+	if err = schema.VisitJSON(fixture); err == nil {
+		t.Fatal("diagnostic contract accepted unknown subtree")
 	}
 }

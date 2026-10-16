@@ -112,9 +112,9 @@ func (s *Store) Read(ctx context.Context, key string, company uuid.UUID, account
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return out, err
 			}
-			if err == nil && (version == "1.1.4" || version == "1.2.0" || version == "1.2.1") {
+			if err == nil && (version == "1.1.4" || version == "1.2.0" || version == "1.2.1" || version == "1.2.2" || version == "1.2.3") {
 				out.RuntimeVersion = version
-				if version == "1.2.0" || version == "1.2.1" {
+				if version == "1.2.0" || version == "1.2.1" || version == "1.2.2" || version == "1.2.3" {
 					out.RuntimeCapabilities = []string{"dynamicRulesV2"}
 				}
 			}

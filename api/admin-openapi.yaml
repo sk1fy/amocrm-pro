@@ -16,6 +16,44 @@ security:
 tags:
   - name: Admin
 paths:
+  /admin/v1/installations/{id}/task-control/diagnostics:
+    get:
+      tags: [Admin]
+      operationId: getAdminTaskControlDiagnostics
+      summary: Technical installation, grant and runtime deployment evidence.
+      description: |
+        Admin listener only. Read-only whitelist without rules, actors, company mappings,
+        key IDs, tokens, assertions or arbitrary registry/audit metadata. no-store.
+        Snapshot freshness is five minutes; pending disconnect checks are unknown,
+        and missing runtime activity never proves uninstall. Correlation ID is returned
+        in X-Request-ID and request_id. Query and body are forbidden.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Current technical evidence, never business configuration.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskControlDiagnostics'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /admin/v1/backend:
     get:
       tags: [Admin]
@@ -827,6 +865,35 @@ components:
         type: string
         format: uuid
   schemas:
+    TaskControlDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [source, observed_at, fresh_until, request_id, installation_id, integration_id, account_id, generation, revision, installation_state, grant_enabled, product_enabled, reconciliation_pending, evidence_code, runtime_compatible, dynamic_rules_v2, code]
+      properties:
+        source: {type: string, enum: [core]}
+        observed_at: {type: string, format: date-time}
+        fresh_until: {type: string, format: date-time}
+        request_id: {type: string, format: uuid}
+        installation_id: {type: string, format: uuid}
+        integration_id: {type: string, format: uuid}
+        account_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        generation: {type: integer, format: int64, minimum: 0}
+        revision: {type: integer, format: int64, minimum: 0}
+        installation_state: {type: string, enum: [unknown, active, disabled, uninstalled]}
+        grant_enabled: {type: boolean}
+        product_enabled: {type: boolean}
+        reconciliation_pending: {type: boolean}
+        next_check_at: {type: string, format: date-time}
+        evidence_code: {type: string, enum: [unknown, registry, disconnect_unverified, disconnect_confirmed]}
+        runtime_version: {type: string, enum: ['1.1.4', '1.2.0', '1.2.1', '1.2.2', '1.2.3']}
+        runtime_confirmed_at: {type: string, format: date-time}
+        runtime_compatible:
+          type: boolean
+          description: Confirmed package is supported by Core; does not assert compatibility with an unknown company schema or successful runtime application.
+        dynamic_rules_v2:
+          type: boolean
+          description: Confirmed package supports dynamicRulesV2; false for the supported legacy package 1.1.4.
+        code: {type: string, enum: [ready, operator_uninstall, disconnect_confirmed, product_disabled, grant_disabled, disconnect_unverified, installation_unconfirmed, runtime_unconfirmed, runtime_incompatible]}
     CommandRequest:
       type: object
       additionalProperties: false
