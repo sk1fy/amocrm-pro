@@ -251,3 +251,37 @@ Company migration 000038 добавляет durable originals/preview/draft back
 виджета читает same-origin amoCRM и отправляет результат прямо в TeamOS. Включение
 bridge — явное действие администратора, доступное до managed; новая автономная
 установка без этого действия не обращается к TeamOS.
+
+### R07: техническая диагностика Core
+
+На отдельном admin listener доступен `GET /admin/v1/installations/{id}/task-control/diagnostics`.
+Нужны существующие `Authorization: Bearer <ADMIN_API_TOKEN>` и `X-Admin-Actor`.
+Не передавайте эти заголовки в виджет. Используйте UUID `X-Request-ID` для
+сопоставления запроса и ответа; ответ также содержит `request_id`.
+Контракт: [admin-openapi.yaml](../../api/admin-openapi.yaml),
+[пример ответа](../examples/task-control-diagnostics.json).
+
+Ответ показывает только технические идентификаторы и allowlist состояния:
+реестр установки, текущий generation/revision, включённость продукта и grant,
+ожидающую проверку disconnect, подтверждённый пакет текущего поколения.
+Он не содержит бизнес-правила, company/key mappings, CRM-пользователей,
+содержимое настроек, actor оператора, OAuth/JWT/assertion/session или произвольную
+ошибку провайдера. Запрос не меняет grant/установку, не запускает reconciliation
+и не обращается к CRM. Проекция согласована одним SQL-запросом.
+`Cache-Control: no-store`; `fresh_until` ограничен пятью минутами от чтения.
+Повторно читайте endpoint после истечения срока; эта отметка не продлевает runtime lease.
+
+`ready` означает только совместимость инфраструктуры Core: runtime применение и ACK
+проверяются в TeamOS. `runtime_unconfirmed` требует подтверждения развёрнутого пакета
+оператором. Поддерживаемые пакеты 1.1.4/1.2.* имеют `runtime_compatible=true`;
+`dynamic_rules_v2=false` у 1.1.4 отличает поддерживаемый legacy runtime от пакетов
+1.2.* с dynamicRulesV2. Core не знает схему компании и не подтверждает этим полем
+совместимость её правил или факт их применения. Отсутствие heartbeat
+не является доказательством удаления установки. Pending disconnect остаётся
+`disconnect_unverified`; отсутствие telemetry не меняет реестр.
+
+Пакет R07 1.2.2 сохраняет `dynamicRulesV2`. Подтверждайте его штатной CLI
+`task-control-runtime-descriptor --runtime-version 1.2.2` с точным текущим поколением.
+Миграция 29 добавляет версию, сохраняя 1.1.4/1.2.0/1.2.1. Down отказывается откатывать
+схему, пока существуют записи evidence 1.2.2: сначала явно отзовите или замените
+подтверждение пакета, не подменяйте его номер версии автоматически.

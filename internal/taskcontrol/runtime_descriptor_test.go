@@ -67,6 +67,12 @@ func TestRuntimeDescriptorRequiresExactInstallationGeneration(t *testing.T) {
 	if out := read(); out.RuntimeVersion != "1.2.1" || len(out.RuntimeCapabilities) != 1 || out.RuntimeCapabilities[0] != "dynamicRulesV2" {
 		t.Fatal("migration package lost v2 capability", out)
 	}
+	if _, err := pool.Exec(ctx, `UPDATE task_control_runtime_descriptors SET runtime_version='1.2.2' WHERE installation_id=$1 AND generation=2`, install); err != nil {
+		t.Fatal(err)
+	}
+	if out := read(); out.RuntimeVersion != "1.2.2" || len(out.RuntimeCapabilities) != 1 {
+		t.Fatal("diagnostic runtime package lost capability", out)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM task_control_runtime_descriptors WHERE installation_id=$1`, install); err != nil {
 		t.Fatal(err)
 	}

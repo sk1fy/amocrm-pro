@@ -1,0 +1,21 @@
+{
+  "source": "core",
+  "observed_at": "2026-10-16T10:00:00Z",
+  "fresh_until": "2026-10-16T10:05:00Z",
+  "request_id": "d4edb265-57b0-4ff2-836e-ae63bb329bb8",
+  "installation_id": "0a20e398-737f-44c8-b968-d960db68ed0d",
+  "integration_id": "cc084943-2a4e-4fa3-9de6-624f78e433a2",
+  "account_id": "12345678",
+  "generation": 2,
+  "revision": 4,
+  "installation_state": "active",
+  "grant_enabled": true,
+  "product_enabled": true,
+  "reconciliation_pending": false,
+  "evidence_code": "registry",
+  "runtime_version": "1.2.2",
+  "runtime_confirmed_at": "2026-10-16T09:59:00Z",
+  "runtime_compatible": true,
+  "dynamic_rules_v2": true,
+  "code": "ready"
+}

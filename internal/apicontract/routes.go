@@ -81,6 +81,7 @@ var (
 	AdminAccount                = Route{Method: http.MethodGet, Path: "/admin/v1/accounts/{account_id}"}
 	AdminInstallations          = Route{Method: http.MethodGet, Path: "/admin/v1/installations"}
 	AdminInstallation           = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}"}
+	AdminTaskControlDiagnostics = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/task-control/diagnostics"}
 	AdminInstallationJobs       = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/jobs"}
 	AdminInstallationAudit      = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/audit"}
 	AdminInstallationDeliveries = Route{Method: http.MethodGet, Path: "/admin/v1/installations/{id}/activity/deliveries"}
@@ -113,6 +114,7 @@ var (
 		AdminAccount,
 		AdminInstallations,
 		AdminInstallation,
+		AdminTaskControlDiagnostics,
 		AdminInstallationJobs,
 		AdminInstallationAudit,
 		AdminInstallationDeliveries,
