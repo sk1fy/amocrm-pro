@@ -233,6 +233,21 @@ go run ./cmd/task-control-runtime-descriptor \
 но он **не** включает `dynamicRulesV2`: ему недостаёт negotiation и ACK из 1.2.0.
 Reinstall меняет generation; подтверждение предыдущего поколения не используется.
 Для отзыва подтверждения выполнить ту же команду с `--clear`, без runtime-version.
-Core installation response содержит runtimeVersion и, только для 1.2.0,
+Core installation response содержит runtimeVersion и, только для 1.2.0/1.2.1,
 `runtimeCapabilities:["dynamicRulesV2"]`. Company проверяет эти серверные поля
 перед активацией v2; пользовательские capabilities лишь выбирают совместимый протокол.
+
+## R04: пакет bridge 1.2.1
+
+Core migration 000028 разрешает подтверждённый пакет 1.2.1. CLI
+`task-control-runtime-descriptor --runtime-version 1.2.1` использует прежние
+обязательные installation/generation/actor. Подтверждения 1.2.0 продолжают работать;
+1.2.1 сохраняет `dynamicRulesV2`, а role/adminBridge подтверждается независимо
+свежим одноразовым assertion с live CRM admin, не строкой версии.
+
+Company migration 000038 добавляет durable originals/preview/draft backups для
+импорта. Core не хранит импортированные бизнес-правила и не читает каталог вместо
+браузера. Source API, проверка snapshot и draft CAS выполняются company. Bridge
+виджета читает same-origin amoCRM и отправляет результат прямо в TeamOS. Включение
+bridge — явное действие администратора, доступное до managed; новая автономная
+установка без этого действия не обращается к TeamOS.
