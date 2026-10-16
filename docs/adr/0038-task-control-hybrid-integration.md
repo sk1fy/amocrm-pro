@@ -220,3 +220,12 @@ installation generation; команда `task-control-runtime-descriptor` про
 Клиентские version/capabilities не заменяют это evidence. Reinstall исключает
 старое evidence по generation. Правила, intent, resolver, org/mapping и runtime
 snapshots остаются в company, без нового бизнес-хранилища в Core.
+
+### R04: исходники импорта и package 1.2.1
+
+Оригиналы каталога/runtime_config, preview и backup черновика хранятся в company.
+Admin bridge использует одноразовый Core proof purpose adminBridge с проверенной
+ролью CRM admin; runtime bearer не даёт право загружать источники. Core migration
+000028 лишь расширяет allowlist подтверждённых версий до 1.2.1, сохраняя generation
+fence и отдельное операторское подтверждение. Сопоставления сотрудников и бизнес-
+правила по-прежнему не принадлежат Core.
