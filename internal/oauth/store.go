@@ -307,6 +307,11 @@ func (s *Store) SaveInstallation(
 		return InstallationResult{}, fmt.Errorf("save OAuth credentials: %w", err)
 	}
 
+	// A new OAuth authorization fences Task Control even if a disconnect hook
+	// was lost and the registry still said active. Refresh does not use this path.
+	if _, err := tx.Exec(ctx, `UPDATE task_control_installation_versions SET generation=generation+1,revision=revision+1,evidence='registry',signal_pending=false WHERE installation_id=$1`, installationID); err != nil {
+		return InstallationResult{}, fmt.Errorf("fence task control authorization: %w", err)
+	}
 	payload, _ := json.Marshal(map[string]string{"installation_id": installationID.String()})
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO jobs (installation_id, type, priority, payload)

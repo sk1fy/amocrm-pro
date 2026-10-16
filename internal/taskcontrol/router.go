@@ -33,6 +33,11 @@ func Router(ctx context.Context, pool *pgxpool.Pool, secrets *cryptox.KeyRing, c
 	go limit.Run(ctx)
 	store := &Store{Pool: pool}
 	router := chi.NewRouter()
+	if api, ok := crm.(LifecycleCRM); ok {
+		lifecycle := &Lifecycle{Store: store, Keys: secrets, CRM: api}
+		router.Handle("/api/v1/widget/task-control/disconnect", lifecycle)
+		go lifecycle.Run(ctx)
+	}
 	router.Handle("/internal/v1/task-control/accounts/*", &Handler{Store: store, Keys: c.Keys})
 	cors := widgetcors.Middleware(widgetcors.NewPostgresAuthorizer(pool))
 	handoff := &HandoffHandler{Store: store, CRM: crm, KeyID: c.AssertionKeyID, Key: c.AssertionKey}
