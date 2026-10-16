@@ -193,3 +193,30 @@ Standalone runtime_config и каталог не перезаписываютс�
 восстановление UI и мониторинг админки остаются последующим объёмом. PR и локальные тесты
 не заменяют проверку установленного пакета в живом amoCRM. Инструкция:
 [выпуск MVP](../runbooks/task-control-mvp.md).
+
+## Реализация R03: контракт Core references
+
+`GET /internal/task-control/accounts/{accountId}/references` реализует строго
+ReferenceSnapshotV1 из R00 §3. Подпись X-Task-Control соответствует status transport,
+включает точный URI, запрос не содержит query/body. Capability `references_read`
+по умолчанию false; оператор явно включает `--references true` в task-control-grant.
+Кеш scoped по company/account/integration/installation/generation/product/schema,
+grant revision и OAuth identity; авторизация проверяется до и после каждого чтения.
+TTL 5 min от fetchStartedAt, синхронное bounded refresh при возрасте ≥120 s,
+30 s deadline и singleflight; максимум 256 cache scopes. Ошибки возвращаются
+в `{error:{status,message,code}}`: references_denied (403), invalid_signature (401),
+references_too_large (413), references_incomplete/references_unavailable (503).
+Неполный ответ не заменяет старый снимок. Customers unsupported подтверждается
+только account customers_mode unavailable/disabled; auth/transport failures дают unknown.
+Источники CRM: [account](https://www.amocrm.ru/developers/content/crm_platform/account-info),
+[customer statuses](https://www.amocrm.ru/developers/content/crm_platform/customers-statuses-api).
+
+### R11: подтверждение совместимости пакета
+
+Core migration 000027 хранит операторское evidence о версии runtime для точной
+installation generation; команда `task-control-runtime-descriptor` проверяет
+активную установку и пишет аудит. Подтверждённый 1.2.0 разрешает capability
+`dynamicRulesV2` в подписанном служебном installation-status; 1.1.4 этого не разрешает.
+Клиентские version/capabilities не заменяют это evidence. Reinstall исключает
+старое evidence по generation. Правила, intent, resolver, org/mapping и runtime
+snapshots остаются в company, без нового бизнес-хранилища в Core.
