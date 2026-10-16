@@ -43,6 +43,9 @@ jobs:
           cache-from: type=gha,scope=openapi
           cache-to: type=gha,mode=max,scope=openapi
 
+      - name: Verify Task Control staging proxy routes
+        run: python3 scripts/task-control-proxy-smoke.py
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -88,6 +91,7 @@ jobs:
           - worker
           - migrate
           - integrations
+          - task-control-runtime-descriptor
           - activity
           - crm-events
           - service-certs
