@@ -91,6 +91,14 @@ docker compose run --rm integrations uninstall \
 
 Команда допустима только после подтверждения реального удаления. Для восстановления —
 повторная OAuth-авторизация, active product/grant и явная новая привязка TeamOS.
+На тестовой приёмке 2026-10-16 native reinstall callback был отклонён из-за
+invalid/expired state. Надпись «Установлено» в amoCRM сама по себе не подтверждает
+новую авторизацию Core. Проверенный recovery: открыть `/oauth/amocrm/start` с
+`integration_code` конкретного виджета, выбрать тот же аккаунт, завершить обычный
+OAuth и проверить active/новую generation. Не отключать проверку state и не
+повторять старый authorization code. Затем получить свежий link proof, создать
+новую связь, опубликовать правила и отдельным mode proof включить managed.
+Подробности и границы живой проверки: [R06 acceptance](task-control-r06-acceptance.md).
 Если hook не настроен, реестр сам по heartbeat не узнает об удалении. Постоянный
 фоновый обход всех CRM аккаунтов в этой реализации не добавляется.
 Rollback бинарников возможен с сохранением аддитивной migration25; не выполнять down
