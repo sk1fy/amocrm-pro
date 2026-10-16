@@ -159,7 +159,10 @@ func (s *Store) AdmitAssertion(ctx context.Context, p widgetauth.Principal, admi
 		return out, e
 	}
 	var generation int64
-	e = tx.QueryRow(ctx, `SELECT generation FROM task_control_installation_versions WHERE installation_id=$1`, p.InstallationID).Scan(&generation)
+	e = tx.QueryRow(ctx, `SELECT generation FROM task_control_installation_versions WHERE installation_id=$1 AND NOT signal_pending AND evidence<>'disconnect_confirmed' FOR SHARE`, p.InstallationID).Scan(&generation)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return out, ErrDenied
+	}
 	if e != nil {
 		return out, e
 	}

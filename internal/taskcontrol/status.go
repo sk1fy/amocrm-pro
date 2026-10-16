@@ -31,6 +31,7 @@ type Status struct {
 	Generation     int64      `json:"generation,omitempty"`
 	CheckedAt      time.Time  `json:"checkedAt"`
 	FreshUntil     time.Time  `json:"freshUntil"`
+	ReasonCode     string     `json:"reasonCode,omitempty"`
 }
 type Reader interface {
 	Read(context.Context, string, uuid.UUID, int64, uuid.UUID, time.Time) (Status, error)
@@ -74,7 +75,9 @@ func (s *Store) Read(ctx context.Context, key string, company uuid.UUID, account
 		if err != nil {
 			return out, err
 		}
-		err = tx.QueryRow(ctx, `SELECT revision,generation FROM task_control_installation_versions WHERE installation_id=$1`, install).Scan(&out.Revision, &out.Generation)
+		var evidence string
+		var pending bool
+		err = tx.QueryRow(ctx, `SELECT revision,generation,evidence,signal_pending FROM task_control_installation_versions WHERE installation_id=$1`, install).Scan(&out.Revision, &out.Generation, &evidence, &pending)
 		if err != nil {
 			return out, err
 		}
@@ -85,6 +88,25 @@ func (s *Store) Read(ctx context.Context, key string, company uuid.UUID, account
 		} else if state == "active" && productState == "active" && enabled {
 			out.State = "installed"
 		}
+		out.ReasonCode = "registry_" + state
+		if !enabled || productState != "active" {
+			out.ReasonCode = "product_disabled"
+		}
+		if pending {
+			out.State = "unknown"
+			out.ReasonCode = "disconnect_unverified"
+		}
+		if evidence == "disconnect_confirmed" {
+			out.State = "notInstalled"
+			out.ReasonCode = evidence
+		}
+		if state == "uninstalled" {
+			out.State = "notInstalled"
+			out.ReasonCode = "operator_uninstall"
+		}
+	}
+	if out.ReasonCode == "" {
+		out.ReasonCode = "installation_unconfirmed"
 	}
 	// Bounded cleanup: replay rows outlive the entire signature window.
 	_, err = tx.Exec(ctx, `DELETE FROM task_control_service_nonces WHERE (key_id,nonce) IN (SELECT key_id,nonce FROM task_control_service_nonces WHERE expires_at<$1 LIMIT 100)`, now)
