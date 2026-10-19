@@ -70,6 +70,76 @@ type reconcileFixture struct {
 func TestReconcileJobHandlerIntegration(t *testing.T) {
 	pool := testkit.Postgres(t)
 
+	for _, settings := range []string{"[]"} {
+		t.Run("no requested events "+settings, func(t *testing.T) {
+			fixture := newReconcileFixture(t, pool)
+			if _, err := pool.Exec(t.Context(), `UPDATE installations SET webhook_settings=$2::jsonb, webhook_status='error', webhook_last_error='previous validation failure' WHERE id=$1`, fixture.installationID, settings); err != nil {
+				t.Fatal(err)
+			}
+			gateway := &fakeWebhookGateway{listed: []amocrm.Webhook{
+				{Destination: fixture.destination(), Settings: []string{"add_lead"}},
+				{Destination: "https://other.example.test/hooks/amocrm/v1/another-installation", Settings: []string{"add_lead"}},
+			}}
+			handler, err := ReconcileJobHandler(fixture.store, gateway, reconcilePublicBaseURL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for attempt := 0; attempt < 2; attempt++ {
+				result, err := handler(t.Context(), fixture.job(fixture.installationID))
+				if err != nil || string(result) != `{"status":"unregistered"}` {
+					t.Fatalf("empty settings did not converge: result=%s err=%v", result, err)
+				}
+			}
+			if len(gateway.registered) != 0 || len(gateway.deleted) != 1 || gateway.deleted[0] != fixture.destination() || len(gateway.listed) != 1 {
+				t.Fatalf("must only remove this installation's old hook: %#v", gateway)
+			}
+			fixture.assertWebhookState(t, "unregistered", "")
+			owned, err := fixture.store.ownedDestinations(t.Context(), fixture.installationID)
+			if err != nil || len(owned) != 0 {
+				t.Fatalf("ownership cleanup: %v %v", owned, err)
+			}
+		})
+	}
+
+	t.Run("distribution still requires events when configured list is empty", func(t *testing.T) {
+		fixture := newReconcileFixture(t, pool)
+		if _, err := pool.Exec(t.Context(), `UPDATE installations SET webhook_settings='[]' WHERE id=$1`, fixture.installationID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(t.Context(), `INSERT INTO integration_services(integration_id,service_code,enabled) VALUES($1,'lead-distribution',true)`, fixture.integrationID); err != nil {
+			t.Fatal(err)
+		}
+		gateway := &fakeWebhookGateway{}
+		handler, err := ReconcileJobHandler(fixture.store, gateway, reconcilePublicBaseURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := handler(t.Context(), fixture.job(fixture.installationID))
+		if err != nil || string(result) != `{"status":"active"}` || len(gateway.registered) != 1 {
+			t.Fatalf("distribution subscription lost: %s %v %#v", result, err, gateway)
+		}
+		if !sameSettings(gateway.registered[0].Settings, []string{"add_lead", "update_lead", "status_lead", "responsible_lead", "delete_lead"}) {
+			t.Fatalf("missing distribution events: %v", gateway.registered[0].Settings)
+		}
+		fixture.assertWebhookState(t, "active", "")
+	})
+
+	t.Run("failed empty-settings cleanup remains an error", func(t *testing.T) {
+		fixture := newReconcileFixture(t, pool)
+		if _, err := pool.Exec(t.Context(), `UPDATE installations SET webhook_settings='[]' WHERE id=$1`, fixture.installationID); err != nil {
+			t.Fatal(err)
+		}
+		gateway := &fakeWebhookGateway{listed: []amocrm.Webhook{{Destination: fixture.destination()}}, deleteErr: &amocrm.APIError{StatusCode: 503, Kind: amocrm.ErrorTemporary, Retryable: true}}
+		handler, err := ReconcileJobHandler(fixture.store, gateway, reconcilePublicBaseURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := handler(t.Context(), fixture.job(fixture.installationID)); err == nil {
+			t.Fatal("failed cleanup must not be reported as unregistered")
+		}
+		fixture.assertWebhookState(t, "error", "amoCRM API returned HTTP 503 (temporary)")
+	})
+
 	t.Run("already converged is a no-op", func(t *testing.T) {
 		fixture := newReconcileFixture(t, pool)
 		destination := fixture.destination()
