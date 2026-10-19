@@ -17,6 +17,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: task-control-grant
+      args:
+        BUILD_REVISION: '${BUILD_REVISION:-unknown}'
     environment:
       APP_ENV: '${APP_ENV:-production}'
       DATABASE_URL: '${DATABASE_URL:?configure Core database}'
