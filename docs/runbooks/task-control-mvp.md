@@ -302,3 +302,10 @@ Task Control может работать без webhook events: runtime чита
 не доказан. Доказан неверный запрос с пустыми settings; исправление и штатная
 повторная синхронизация должны подтвердить устранение проблемы на стенде.
 Официальный контракт: https://www.amocrm.ru/developers/content/crm_platform/webhooks-api.
+
+
+Runtime1.2.4 требует Core schema31: новая миграция расширяет CHECK descriptor,
+status/read и операторская CLI разрешают1.2.4 с dynamicRulesV2. Down31 отказывает,
+пока существует evidence1.2.4: нельзя молча переименовать установленную сборку.
+Подтверждать descriptor после установки ZIP, сохраняя installation/generation.
+Предыдущие результаты приёмки на schema30 относятся к1.2.3.

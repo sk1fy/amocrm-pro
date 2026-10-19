@@ -2,6 +2,8 @@ package taskcontrol
 
 import (
 	"context"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,6 +80,22 @@ func TestRuntimeDescriptorRequiresExactInstallationGeneration(t *testing.T) {
 	}
 	if out := read(); out.RuntimeVersion != "1.2.3" || len(out.RuntimeCapabilities) != 1 || out.RuntimeCapabilities[0] != "dynamicRulesV2" {
 		t.Fatal("release semantics package lost capability", out)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE task_control_runtime_descriptors SET runtime_version='1.2.4' WHERE installation_id=$1 AND generation=2`, install); err != nil {
+		t.Fatal(err)
+	}
+	if out := read(); out.RuntimeVersion != "1.2.4" || len(out.RuntimeCapabilities) != 1 || out.RuntimeCapabilities[0] != "dynamicRulesV2" {
+		t.Fatal("repeating reminders package lost v2 capability", out)
+	}
+	down, err := os.ReadFile("../../migrations/000031_task_control_runtime_1_2_4.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, string(down)); err == nil || !strings.Contains(err.Error(), "Runtime 1.2.4 descriptors exist") {
+		t.Fatalf("schema rollback must preserve current evidence: %v", err)
+	}
+	if out := read(); out.RuntimeVersion != "1.2.4" {
+		t.Fatal("failed rollback lost descriptor", out)
 	}
 	if _, err := pool.Exec(ctx, `DELETE FROM task_control_runtime_descriptors WHERE installation_id=$1`, install); err != nil {
 		t.Fatal(err)
