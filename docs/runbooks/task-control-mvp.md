@@ -10,8 +10,9 @@ TeamOS → пакет виджета**. Новый frontend TeamOS и экран
 Release manifest должен отдельно отражать незакрытые gates. Не считать старый
 happy path 1.1.3 подтверждением 1.2.3. [Живая R06](task-control-r06-acceptance.md)
 называет фактические прежние SHA, backup и восстановление; утверждение «ничего
-не развёрнуто» к прежнему стенду уже неприменимо. Текущее состояние сервера R10
-не проверялось и выкладка в этом этапе не выполнялась.
+не развёрнуто» к прежнему стенду уже неприменимо. Read-only аудит 19.10.2026 обнаружил на тестовом сервере прежние Core `759c4e3`
+(schema 25) и backend `39cf57a` (schema 33); candidate 1.2.3 там отсутствует.
+Bootstrap 200 относится к прежнему R06; новая выкладка в этом этапе не выполнялась.
 
 ## Согласованная поставка
 
@@ -246,3 +247,35 @@ Browser/mobile/API/другое устройство не покрыты пол�
 contracts/fixtures/task-control-*.json, docs/integrations/task-control-r09-acceptance.md,
 task-control-r10-release.md. Перед пилотом обязательны CI **финальных** SHA, R09 live,
 поддерживаемые браузеры и конкретные registry digests/ZIP с реальными origins.
+
+
+## Передача серверному агенту после merge (аудит 19.10.2026)
+
+Обновить Core, backend и widgets со согласованного main; записать полные SHA и CI.
+Создать **новый** candidate из этих checkout с фактическими HTTPS origins и OAuth
+UUID именно `task-control-widget`. `amocrm-pro-service` в тестовом аккаунте —
+Distribution, его installation и OAuth UUID не использовать для Контроля задач.
+Пакет на диске с manifest 1.1.2 и старые rollback-r06 images не доказывают наличие
+1.2.3 и совместимого rollback. Не назначать runtime descriptor до фактической
+установки и проверки конкретного ZIP на текущем generation.
+
+Core Compose tools передают BUILD_REVISION и показывают тот же OCI SHA, что API
+и worker. При обычном build передать `BUILD_REVISION=$(git rev-parse HEAD)`;
+при candidate-сборке его задаёт backend release tool. Закрепить candidate overrides
+последними, применять `up --no-build`, сохраняя действующие env/ключи и proxy.
+Миграции Core 25→30 и company 33→40 выполнять штатным up после backup/restore
+проверки; полный порядок обновления и условия отката приведены выше.
+
+В backend добавлен `scripts/task-control-deployment-audit.py`: read-only сравнение
+четырёх работающих образов и ZIP с candidate.json. Инструкция и ограничения —
+backend `docs/integrations/task-control-r10-release.md`. Это artifact check, не
+schema/live/rollout acceptance; он не выставляет releaseApproved.
+
+Отдельно проверить webhook error штатным reconcile и статусом задания. При
+expired state начать новую scoped OAuth-авторизацию: не отключать проверку state
+и не переиспользовать код. Recovery описан в [lifecycle](task-control-lifecycle.md).
+Снять свежие installation/generation, binding/epoch, publication/runtime revisions
+и received/applied ACK; истёкший snapshot и heartbeat не подтверждают свежесть.
+После этого выполнить R09 matrix и R10 full-stack rollout/restore/binary rollback
+с сохранением истории/draft и зафиксировать реальные результаты. До их выполнения
+R09/R10 не считать завершёнными. Новые PR не меняют эту границу приёмки.
