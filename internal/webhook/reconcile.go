@@ -189,9 +189,18 @@ func ReconcileJobHandler(
 			return nil, err
 		}
 		destination := webhookDestination(base, subscription.WebhookKey)
-		if err := store.synchronize(ctx, client, subscription, destination, false); err != nil {
+		// No requested events means no subscription. amoCRM rejects an empty
+		// settings array; do not invent events merely to make registration pass.
+		unregister := len(subscription.Settings) == 0
+		if err := store.synchronize(ctx, client, subscription, destination, unregister); err != nil {
 			recordReconcileError(store, subscription.InstallationID, err)
 			return nil, classifyReconcileError(err)
+		}
+		if unregister {
+			if err := store.MarkUnregistered(ctx, subscription.InstallationID); err != nil {
+				return nil, err
+			}
+			return json.RawMessage(`{"status":"unregistered"}`), nil
 		}
 		if err := store.MarkActive(ctx, subscription.InstallationID, subscription.Settings); err != nil {
 			return nil, err

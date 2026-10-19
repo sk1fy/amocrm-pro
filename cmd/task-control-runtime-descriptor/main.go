@@ -30,11 +30,11 @@ func run(args []string) error {
 	f := flag.NewFlagSet("task-control-runtime-descriptor", flag.ContinueOnError)
 	install := f.String("installation-id", "", "verified installation UUID")
 	generation := f.Int64("generation", 0, "current verified generation")
-	version := f.String("runtime-version", "", "operator-confirmed deployed package: 1.1.4|1.2.0|1.2.1|1.2.2|1.2.3; empty with --clear")
+	version := f.String("runtime-version", "", "operator-confirmed deployed package: 1.1.4|1.2.0|1.2.1|1.2.2|1.2.3|1.2.4; empty with --clear")
 	actor := f.String("actor", "", "operator identity for audit")
 	clear := f.Bool("clear", false, "withdraw deployment evidence")
-	if f.Parse(args) != nil || f.NArg() != 0 || *generation <= 0 || strings.TrimSpace(*actor) == "" || len(*actor) > 200 || (!*clear && *version != "1.1.4" && *version != "1.2.0" && *version != "1.2.1" && *version != "1.2.2" && *version != "1.2.3") || (*clear && *version != "") {
-		return errors.New("required: --installation-id --generation --runtime-version 1.1.4|1.2.0|1.2.1|1.2.2|1.2.3 --actor; or --clear without --runtime-version")
+	if f.Parse(args) != nil || f.NArg() != 0 || *generation <= 0 || strings.TrimSpace(*actor) == "" || len(*actor) > 200 || (!*clear && *version != "1.1.4" && *version != "1.2.0" && *version != "1.2.1" && *version != "1.2.2" && *version != "1.2.3" && *version != "1.2.4") || (*clear && *version != "") {
+		return errors.New("required: --installation-id --generation --runtime-version 1.1.4|1.2.0|1.2.1|1.2.2|1.2.3|1.2.4 --actor; or --clear without --runtime-version")
 	}
 	id, err := uuid.Parse(*install)
 	if err != nil || id == uuid.Nil {
