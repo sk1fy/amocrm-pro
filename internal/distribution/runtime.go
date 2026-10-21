@@ -8,9 +8,11 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/installations"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
 	"github.com/sk1fy/amocrm-pro/internal/widgetlimit"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -91,6 +93,9 @@ func routerWithHTTPClient(ctx context.Context, pool *pgxpool.Pool, keys *cryptox
 	store := NewStore(pool)
 	handler := &Handler{Store: store, CRM: crm, Verifier: authenticator, TeamOSURL: c.TeamOSURL, TeamOSKeyID: c.TeamOSKeyID, Keys: c.Keys, HTTP: httpClient, TeamOSPublicURL: c.TeamOSPublicURL, Cipher: keys}
 	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
+	router.Use(httpmiddleware.Recover(slog.Default()))
+	router.Use(httpmiddleware.AccessLog(slog.Default()))
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)

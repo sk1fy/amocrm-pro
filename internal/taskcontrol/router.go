@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/crmreferences"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"github.com/sk1fy/amocrm-pro/internal/widgetcors"
 	"github.com/sk1fy/amocrm-pro/internal/widgetlimit"
@@ -34,6 +35,9 @@ func Router(ctx context.Context, pool *pgxpool.Pool, secrets *cryptox.KeyRing, c
 	go limit.Run(ctx)
 	store := &Store{Pool: pool}
 	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
+	router.Use(httpmiddleware.Recover(slog.Default()))
+	router.Use(httpmiddleware.AccessLog(slog.Default()))
 	if api, ok := crm.(LifecycleCRM); ok {
 		lifecycle := &Lifecycle{Store: store, Keys: secrets, CRM: api}
 		router.Handle("/api/v1/widget/task-control/disconnect", lifecycle)

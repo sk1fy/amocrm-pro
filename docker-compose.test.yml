@@ -24,7 +24,7 @@ services:
       target: migrate
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.26.9}"
+        GO_VERSION: "${GO_VERSION:-1.26.10}"
     environment:
       DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
       MIGRATIONS_DIR: /migrations
@@ -44,7 +44,7 @@ services:
       target: integration-test
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.26.9}"
+        GO_VERSION: "${GO_VERSION:-1.26.10}"
     environment:
       TEST_DATABASE_URL: postgres://amocrm_test:amocrm_test@postgres:5432/amocrm_test?sslmode=disable
       TEST_DATABASE_RESET_ALLOWED: "true"

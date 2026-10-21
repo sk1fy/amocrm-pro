@@ -13,7 +13,7 @@ export BUILD_REVISION
 
 DOCKER ?= docker
 COMPOSE ?= docker-compose
-GO_VERSION ?= 1.26.9
+GO_VERSION ?= 1.26.10
 GO_IMAGE ?= golang:$(GO_VERSION)-alpine
 GOVULNCHECK_VERSION ?= v1.1.4
 TEST_COMPOSE_PROJECT ?= amocrm-pro-integration-test

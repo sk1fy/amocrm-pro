@@ -235,6 +235,27 @@ X-Admin-Actor на приватном admin listener; [пример](../examples
 Бизнес-состояние применения читается из TeamOS. Не создавать dashboard-значения,
 которых реальные endpoints/метрики не дают.
 
+На отдельных worker listeners Task Control и Distribution включены request ID,
+access log и recovery middleware. Для `503` искать по `request_id` сообщение
+`task control handoff unavailable`: `stage=crm_identity|assertion_store|assertion_signing`.
+`reason_code` различает deadline/cancel, CRM budget overload, HTTP/transport и
+неполный ответ; `upstream_status` содержит только числовой HTTP-код. Текст исходной
+ошибки, токены, URL и тела запросов не журналируются. Access log показывает route,
+status и duration; он не содержит query string, заголовков или тела запроса.
+
+В Distribution сообщение `distribution source unavailable` различает
+`crm_timezone|crm_users|crm_pipelines`, `teamos_widget_access|teamos_widget_runtime`
+и `teamos_widget_response`. Core передаёт request ID в TeamOS widget callbacks.
+Независимые CRM references читаются параллельно с прежним общим outbound limiter;
+обе проверки capability до/после чтения сохранены. Ошибка одного источника отменяет
+остальные и не возвращает частичный снимок. Предел Core→TeamOS остаётся 9 секунд;
+ускорение справочников не гарантирует отсутствие ошибок внешнего amoCRM.
+
+После выкладки воспроизвести авторизацию и открытие Distribution, сопоставить
+request ID между worker и company, проверить восстановление без перезагрузки.
+Если `503` повторяется, устранять установленный этап/код причины; не увеличивать
+таймауты, не кешировать права и не отключать проверки ради успешного ответа.
+
 Остановить расширение пилота при tenant/actor утечке, повреждённом checksum, двойной
 helper-записи, неразрешённом обходе прав, систематическом stale/outage, неуспешном
 restore backup или неопределённом confirmed mode. Сначала остановить изменение scope,
