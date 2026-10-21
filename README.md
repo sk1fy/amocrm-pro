@@ -86,6 +86,9 @@ API calls, workflow, retries, token refresh и cleanup выполняет worker
 
 Runtime: Go 1.26.10 и PostgreSQL 17 Alpine.
 
+Обновление существующего сервера с сохранением Task Control/Distribution overlays:
+[Core update runbook](docs/runbooks/core-update.md).
+
 ## Запуск
 
 Нужны Docker с Docker Compose и `make`. Host Go/PostgreSQL не являются
