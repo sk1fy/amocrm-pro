@@ -230,7 +230,12 @@ if [ "$DISTRIBUTION_OVERLAY" -eq 1 ]; then
 fi
 if [ "$TASK_CONTROL_OVERLAY" -eq 1 ]; then
     # Без JWT ожидается 401. Проверяет listener/маршрут, не полноценный auth-flow.
-    status=$("${COMPOSE_CMD[@]}" "${COMPOSE_FILES[@]}" exec -T worker wget -S -O /dev/null --post-data='' http://127.0.0.1:8087/api/v1/widget/task-control/auth 2>&1 | awk '/HTTP\// {print $2}' | tail -n1) || true
+    # BusyBox дописывает "wget: server returned error: HTTP/1.1 401 ...".
+    # Учитываем только строки HTTP-статуса, а не диагностический текст wget.
+    status=$("${COMPOSE_CMD[@]}" "${COMPOSE_FILES[@]}" exec -T worker wget -S -O /dev/null --post-data='' http://127.0.0.1:8087/api/v1/widget/task-control/auth 2>&1 |
+        awk '{sub(/\r$/, "")}
+             $1 ~ /^HTTP\/[0-9.]+$/ && $2 ~ /^[0-9][0-9][0-9]$/ {status=$2}
+             END {print status}') || true
     if [ "$status" != 401 ]; then log_error "Task Control auth: ожидался 401"; fail=1; fi
 fi
 
