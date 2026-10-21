@@ -84,7 +84,7 @@ API calls, workflow, retries, token refresh и cleanup выполняет worker
 | `integrations` | Operator CLI: provisioning, secrets, disable и service grants | нет |
 | `postgres` | System of record, inbox и очередь | `127.0.0.1:5432` |
 
-Runtime: Go 1.26.9 и PostgreSQL 17 Alpine.
+Runtime: Go 1.26.10 и PostgreSQL 17 Alpine.
 
 ## Запуск
 
