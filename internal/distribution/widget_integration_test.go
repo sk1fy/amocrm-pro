@@ -56,7 +56,11 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 	var runtimeCount atomic.Int32
 	var revokeAfterDispatch atomic.Bool
 	var dpGroupSeen atomic.Value
+	requestID := uuid.NewString()
 	callback := httptest.NewTLSServer(Auth{Keys: map[string]string{key: serverSecret}, Store: NewStore(pool)}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Request-ID") != requestID {
+			t.Error("Core request ID was not propagated to TeamOS callback")
+		}
 		callbackCount.Add(1)
 		if r.URL.Path == "/internal/v1/distribution/widget-runtime" {
 			var in map[string]json.RawMessage
@@ -145,11 +149,15 @@ func TestWidgetRoutesRealAuthBindingAndSignedTeamOSPolicy(t *testing.T) {
 			}
 		}
 		r := httptest.NewRequest(method, path, bytes.NewReader(raw))
+		r.Header.Set("X-Request-ID", requestID)
 		r.Header.Set("X-Auth-Token", token)
 		r.Header.Set("Origin", origin)
 		r.Header.Set("Content-Type", "application/json")
 		out := httptest.NewRecorder()
 		router.ServeHTTP(out, r)
+		if out.Header().Get("X-Request-ID") != requestID {
+			t.Fatal("distribution request ID missing from listener response")
+		}
 		if out.Code != want {
 			t.Fatalf("%s %s got%d want%d body%s", method, path, out.Code, want, out.Body)
 		}

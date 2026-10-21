@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -54,11 +56,12 @@ type CRMIdentity interface {
 	DistributionUser(context.Context, uuid.UUID, int64) (amocrm.DistributionUser, error)
 }
 type HandoffHandler struct {
-	Store *Store
-	CRM   CRMIdentity
-	KeyID string
-	Key   ed25519.PrivateKey
-	Now   func() time.Time
+	Store  *Store
+	CRM    CRMIdentity
+	KeyID  string
+	Key    ed25519.PrivateKey
+	Now    func() time.Time
+	Logger *slog.Logger
 }
 
 func (h *HandoffHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +84,7 @@ func (h *HandoffHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	user, err := h.CRM.DistributionUser(ctx, p.InstallationID, p.UserID)
 	if err != nil {
+		h.logUnavailable(r, in.Purpose, "crm_identity", err)
 		failure(w, 503)
 		return
 	}
@@ -98,17 +102,32 @@ func (h *HandoffHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		h.logUnavailable(r, in.Purpose, "assertion_store", err)
 		failure(w, 503)
 		return
 	}
 	token, err := SignAssertion(h.KeyID, h.Key, a)
 	if err != nil {
+		h.logUnavailable(r, in.Purpose, "assertion_signing", err)
 		failure(w, 503)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"assertion": token, "expiresAt": time.Unix(a.ExpiresAt, 0).UTC()})
+}
+
+// Log bounded diagnostic facts only: wrapped errors can contain CRM URLs,
+// credentials or SQL arguments and must never be logged verbatim.
+func (h *HandoffHandler) logUnavailable(r *http.Request, purpose, stage string, err error) {
+	reason, upstreamStatus := amocrm.FailureDiagnostic(err)
+	logger := h.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger.WarnContext(r.Context(), "task control handoff unavailable",
+		"request_id", httpmiddleware.RequestIDFromContext(r.Context()).String(),
+		"purpose", purpose, "stage", stage, "reason_code", reason, "upstream_status", upstreamStatus)
 }
 func (s *Store) AdmitAssertion(ctx context.Context, p widgetauth.Principal, admin bool, purpose string, requestID uuid.UUID, now time.Time) (Assertion, error) {
 	out := Assertion{}

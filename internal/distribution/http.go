@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/services"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"io"
 	"net/http"
@@ -188,26 +189,11 @@ func (h *Handler) referenceData(ctx context.Context, b Binding) (any, error) {
 		return nil, err
 	}
 	fetched := time.Now().UTC()
-	timezone, err := h.CRM.DistributionAccountTimezone(ctx, b.InstallationID, b.AccountID)
-	if err != nil {
-		return nil, err
-	}
-	if timezone == "" || timezone == "Local" || len(timezone) > 128 {
-		return nil, ErrUnavailable
-	}
-	if _, err = time.LoadLocation(timezone); err != nil {
-		return nil, ErrUnavailable
-	}
-	timezoneFetchedAt := time.Now().UTC()
 	domain, err := h.Store.referenceAccountDomain(ctx, b)
 	if err != nil {
 		return nil, err
 	}
-	users, err := h.CRM.DistributionUsers(ctx, b.InstallationID)
-	if err != nil {
-		return nil, err
-	}
-	pipelines, err := h.CRM.DistributionPipelines(ctx, b.InstallationID)
+	sources, err := readReferenceSources(ctx, h.CRM, b)
 	if err != nil {
 		return nil, err
 	}
@@ -217,20 +203,20 @@ func (h *Handler) referenceData(ctx context.Context, b Binding) (any, error) {
 	}
 	us := []RefUser{}
 	ps := []RefPipeline{}
-	for _, u := range users {
+	for _, u := range sources.users {
 		if u.Rights.IsActive == nil {
 			return nil, ErrUnavailable
 		}
 		us = append(us, RefUser{u.ID, u.Name, *u.Rights.IsActive, u.Rights.GroupID})
 	}
-	for _, p := range pipelines {
+	for _, p := range sources.pipelines {
 		st := []RefStatus{}
 		for _, s := range p.Statuses {
 			st = append(st, RefStatus{s.ID, s.Name})
 		}
 		ps = append(ps, RefPipeline{p.ID, p.Name, st})
 	}
-	return map[string]any{"users": us, "pipelines": ps, "fetchedAt": fetched, "freshUntil": fetched.Add(5 * time.Minute), "state": "fresh", "timezone": timezone, "timezoneFetchedAt": timezoneFetchedAt, "accountDomain": domain}, nil
+	return map[string]any{"users": us, "pipelines": ps, "fetchedAt": fetched, "freshUntil": fetched.Add(5 * time.Minute), "state": "fresh", "timezone": sources.timezone, "timezoneFetchedAt": sources.timezoneFetchedAt, "accountDomain": domain}, nil
 }
 func (h *Handler) references(w http.ResponseWriter, r *http.Request) {
 	b, e := h.binding(r)
@@ -365,6 +351,7 @@ func (h *Handler) localAccess(ctx context.Context, b Binding, p widgetauth.Princ
 		return false, e
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-ID", httpmiddleware.RequestIDFromContext(ctx).String())
 	Sign(req, Scope{h.TeamOSKeyID, b.CompanyID, b.InstallationID}, h.Keys[h.TeamOSKeyID], body)
 	client := h.HTTP
 	if client == nil {
@@ -372,6 +359,7 @@ func (h *Handler) localAccess(ctx context.Context, b Binding, p widgetauth.Princ
 	}
 	resp, e := client.Do(req)
 	if e != nil {
+		logSourceUnavailable(ctx, "teamos_widget_access", e)
 		return false, ErrUnavailable
 	}
 	defer resp.Body.Close()

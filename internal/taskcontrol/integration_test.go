@@ -74,10 +74,14 @@ func TestCoreJWTGrantReplayAndInstallationGeneration(t *testing.T) {
 	call := func(raw, purpose string) *httptest.ResponseRecorder {
 		body, _ := json.Marshal(map[string]any{"purpose": purpose, "requestId": uuid.NewString()})
 		r := httptest.NewRequest("POST", "/api/v1/widget/task-control/auth", bytes.NewReader(body))
+		r.Header.Set("X-Request-ID", uuid.NewString())
 		r.Header.Set("X-Auth-Token", raw)
 		r.Header.Set("Origin", "https://tenant.amocrm.ru")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, r)
+		if w.Header().Get("X-Request-ID") != r.Header.Get("X-Request-ID") {
+			t.Fatal("handoff request ID missing from listener response")
+		}
 		return w
 	}
 	raw := token()

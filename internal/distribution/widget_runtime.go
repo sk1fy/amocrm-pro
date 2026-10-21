@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -56,6 +59,7 @@ func (h *Handler) teamWidgetCall(ctx context.Context, b Binding, path string, pa
 		return 0, nil, e
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-ID", httpmiddleware.RequestIDFromContext(ctx).String())
 	Sign(req, Scope{h.TeamOSKeyID, b.CompanyID, b.InstallationID}, h.Keys[h.TeamOSKeyID], raw)
 	client := &http.Client{Timeout: widgetUpstreamTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if h.HTTP != nil {
@@ -65,12 +69,26 @@ func (h *Handler) teamWidgetCall(ctx context.Context, b Binding, path string, pa
 		client = &copy
 	}
 	resp, e := client.Do(req)
+	stage := "teamos_widget_runtime"
+	if path == "/internal/v1/distribution/widget-access" {
+		stage = "teamos_widget_access"
+	}
 	if e != nil {
+		logSourceUnavailable(ctx, stage, e)
 		return 0, nil, ErrUnavailable
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 500 {
+		slog.WarnContext(ctx, "distribution source unavailable",
+			"request_id", httpmiddleware.RequestIDFromContext(ctx).String(),
+			"stage", stage, "reason_code", "upstream_http_error", "upstream_status", resp.StatusCode)
+	}
 	body, e := io.ReadAll(io.LimitReader(resp.Body, 262145))
 	if e != nil || len(body) > 262144 || !json.Valid(body) {
+		if e == nil {
+			e = amocrm.ErrIncompleteResponse
+		}
+		logSourceUnavailable(ctx, "teamos_widget_response", e)
 		return 0, nil, ErrUnavailable
 	}
 	return resp.StatusCode, body, nil
