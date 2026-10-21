@@ -54,3 +54,32 @@ live/security/dynamic/browser-матрица остаются непроведё
 прогон всей матрицы R09. В серверном срезе pi received=25, applied=0 для 1.2.4;
 это не version rejection и не подтверждение полной application-приёмки. При schema 1
 отсутствие v2 ACK ожидаемо. Отдельно проверить applied на активной runtime-вкладке.
+
+## Private references route, 21.10.2026
+
+При продолжении живой R09 owner-сессия TeamOS на тестовом аккаунте получила
+`GET /api/v2/task-control/connections/{bindingId}/references` → HTTP 200,
+`state=error`, `crm=null`, `crm/references_unavailable`. Чтение installation
+той же сессией успешно: runtime 1.2.4, generation 3, revision 9. Режим, schema,
+draft и публикация при диагностике не изменялись.
+
+Серверная диагностика установила 404 на private nginx bridge: company вызывает
+`/internal/task-control/accounts/{accountId}/references`, а private include
+содержал только `/internal/v1/task-control/accounts/`. Запрос не доходил до Core.
+Grant включён с `references_read=true`; это не отказ grant и не CRM timeout.
+
+В private include добавлен только точный references route с числовым account ID.
+Upstream, Host и X-Forwarded-Proto совпадают с существующим private маршрутом.
+Он остаётся внутри прежнего private TLS vhost с прежними allow/deny и signed
+service-grant authentication; публичный include не расширен.
+
+Изолированный nginx smoke проверяет 17 публичных и 7 приватных путей: references
+доходит до Core stub только через private listener, публичный доступ и лишние
+суффиксы/операции получают 404. Это routing test, не живая приёмка TLS/ACL/CRM.
+Bounded startup retry дополнен обработкой закрытого до HTTP-ответа соединения.
+
+После merge оператору нужно сохранить backup private snippet, обновить его из
+main внутри существующего private TLS server, выполнить `nginx -t` и reload,
+сохранив ACL и закрытый 8443. Затем запустить штатный references refresh и проверить
+завершение операции/свежий CRM snapshot. SQL clearing/cache seed не нужны.
+Validate/publish, live v2 ACK и полная R09/R10 остаются открытыми до этих проверок.

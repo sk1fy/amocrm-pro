@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check the real staging nginx include with isolated loopback stub upstreams."""
+import http.client
 import json
 from pathlib import Path
 import subprocess
@@ -22,16 +23,22 @@ http {
     include /etc/nginx/task-control-public.conf;
     location / { return 404; }
   }
+  server { listen 8081;
+    include /etc/nginx/task-control-private.conf;
+    location / { return 404; }
+  }
 }
 ''')
     try:
-        subprocess.run(["docker", "create", "--name", name, "-p", "127.0.0.1::8080",
+        subprocess.run(["docker", "create", "--name", name, "-p", "127.0.0.1::8080", "-p", "127.0.0.1::8081",
                         "nginx:1.28-alpine"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["docker", "cp", str(config), name + ":/etc/nginx/nginx.conf"], check=True)
         subprocess.run(["docker", "cp", str(root / "deploy/task-control-staging/public.locations.conf"), name + ":/etc/nginx/task-control-public.conf"], check=True)
+        subprocess.run(["docker", "cp", str(root / "deploy/task-control-staging/private.locations.conf"), name + ":/etc/nginx/task-control-private.conf"], check=True)
         subprocess.run(["docker", "start", name], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["docker", "exec", name, "nginx", "-t"], check=True)
         port = subprocess.check_output(["docker", "port", name, "8080/tcp"], text=True).strip().rsplit(":", 1)[1]
+        private_port = subprocess.check_output(["docker", "port", name, "8081/tcp"], text=True).strip().rsplit(":", 1)[1]
         routes = {
             "/api/v1/widget/task-control/auth": 418,
             "/api/v1/widget/task-control/disconnect": 418,
@@ -48,25 +55,37 @@ http {
             "/api/v1/widget/task-control/source-requests/not-a-uuid/result": 404,
             "/api/v1/widget/task-control/source-requests/12345678-1234-1234-1234-123456789abc/result/extra": 404,
             "/internal/v1/task-control/accounts/123/installation": 404,
+            "/internal/task-control/accounts/31391206/references": 404,
+            "/admin/v1/installations/123/task-control/diagnostics": 404,
+        }
+        private_routes = {
+            "/internal/v1/task-control/accounts/31391206/installation": 418,
+            "/internal/task-control/accounts/31391206/references": 418,
+            "/internal/task-control/accounts/not-an-account/references": 404,
+            "/internal/task-control/accounts/31391206/references/extra": 404,
+            "/internal/task-control/accounts/31391206/other": 404,
+            "/api/v1/widget/task-control/auth": 404,
             "/admin/v1/installations/123/task-control/diagnostics": 404,
         }
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        for route, expected in routes.items():
+        checks = [(port, route, expected) for route, expected in routes.items()]
+        checks += [(private_port, route, expected) for route, expected in private_routes.items()]
+        for listener_port, route, expected in checks:
             for attempt in range(20):
                 try:
-                    response = opener.open(f"http://127.0.0.1:{port}{route}", timeout=3)
+                    response = opener.open(f"http://127.0.0.1:{listener_port}{route}", timeout=3)
                     actual = response.status
                     response.close()
                 except urllib.error.HTTPError as error:
                     actual = error.code
                     error.close()
-                except urllib.error.URLError:
+                except (urllib.error.URLError, http.client.RemoteDisconnected, ConnectionResetError):
                     if attempt == 19:
                         raise
                     time.sleep(0.1)
                     continue
                 break
-            assert actual == expected, (route, actual, expected)
-        print(json.dumps({"kind": "isolated-proxy-routing", "routes": len(routes), "result": "passed"}))
+            assert actual == expected, (listener_port, route, actual, expected)
+        print(json.dumps({"kind": "isolated-proxy-routing", "publicRoutes": len(routes), "privateRoutes": len(private_routes), "routes": len(checks), "result": "passed"}))
     finally:
         subprocess.run(["docker", "rm", "-fv", name], stdout=subprocess.DEVNULL, check=False)
