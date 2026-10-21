@@ -22,7 +22,7 @@ func (c *Client) CRMReferences(ctx context.Context, installation uuid.UUID, acco
 		CustomersMode string `json:"customers_mode"`
 		Embedded      struct {
 			Groups []struct {
-				ID   int64  `json:"id"`
+				ID   *int64 `json:"id"`
 				Name string `json:"name"`
 			} `json:"users_groups"`
 		} `json:"_embedded"`
@@ -36,8 +36,18 @@ func (c *Client) CRMReferences(ctx context.Context, installation uuid.UUID, acco
 	if len(account.Embedded.Groups) > 1000 {
 		return out, crmreferences.ErrTooLarge
 	}
+	seenGroups := map[int64]bool{}
 	for _, g := range account.Embedded.Groups {
-		out.Groups = append(out.Groups, crmreferences.Group{ID: strconv.FormatInt(g.ID, 10), Name: g.Name})
+		if g.ID == nil || *g.ID < 0 || *g.ID > 9007199254740991 || seenGroups[*g.ID] {
+			return out, crmreferences.ErrIncomplete
+		}
+		seenGroups[*g.ID] = true
+		// amoCRM's built-in group 0 is represented by groupId=null on users
+		// below. Only custom positive group IDs belong in this contract.
+		if *g.ID == 0 {
+			continue
+		}
+		out.Groups = append(out.Groups, crmreferences.Group{ID: strconv.FormatInt(*g.ID, 10), Name: g.Name})
 	}
 	users, err := c.CRMUsers(ctx, installation)
 	if err != nil {

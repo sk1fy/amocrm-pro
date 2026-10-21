@@ -8,10 +8,81 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/crmreferences"
 )
+
+// amoCRM includes the built-in group 0 in account.users_groups. The public
+// references contract represents those users with groupId=null, not group "0".
+func TestCRMReferencesDefaultGroupProducesCompleteSnapshot(t *testing.T) {
+	for _, fixture := range []struct {
+		name   string
+		groups string
+		custom bool
+	}{
+		{"default only", `[{"id":0,"name":"Отдел продаж"}]`, false},
+		{"default and custom", `[{"id":0,"name":"Отдел продаж"},{"id":10,"name":"Custom group"},{"id":11,"name":"Empty group"}]`, true},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/v4/account":
+					fmt.Fprintf(w, `{"id":123,"customers_mode":"disabled","_embedded":{"users_groups":%s}}`, fixture.groups)
+				case "/api/v4/users":
+					custom := ""
+					if fixture.custom {
+						custom = `,{"id":9,"name":"Custom user","rights":{"is_active":true,"group_id":10}}`
+					}
+					fmt.Fprintf(w, `{"_embedded":{"users":[{"id":7,"name":"Active user","rights":{"is_active":true,"group_id":0}},{"id":8,"name":"Inactive user","rights":{"is_active":false,"group_id":null}}%s]}}`, custom)
+				default:
+					if !referenceFixture(w, r, "disabled") {
+						t.Errorf("unexpected route %s", r.URL.Path)
+					}
+				}
+			})
+			scope := crmreferences.Scope{CompanyID: uuid.NewString(), AccountID: "123", IntegrationID: uuid.NewString(), InstallationID: uuid.NewString(), Generation: 3, Product: "task-control"}
+			p := &crmreferences.Provider{}
+			s, err := p.Get(context.Background(), "default-group", scope, c, func(context.Context) error { return nil })
+			if err != nil {
+				t.Fatal("valid amoCRM default group rejected", err)
+			}
+			wantUsers := 2
+			if fixture.custom {
+				wantUsers++
+			}
+			if !s.Complete || !s.FreshUntil.After(time.Now()) || len(s.Users) != wantUsers || s.Users[0].GroupID != nil || s.Users[1].GroupID != nil || !s.Users[0].IsActive || s.Users[1].IsActive {
+				t.Fatal("default-group users changed", s)
+			}
+			if fixture.custom && (len(s.Groups) != 2 || s.Groups[0].ID != "10" || s.Groups[1].ID != "11" || s.Users[2].GroupID == nil || *s.Users[2].GroupID != "10") || !fixture.custom && len(s.Groups) != 0 {
+				t.Fatal("custom empty group lost or default group leaked", s.Groups)
+			}
+			if s.Customers.Availability != "unsupported" || len(s.Pipelines) != 1 || len(s.Pipelines[0].Statuses) != 3 {
+				t.Fatal("other references changed", s)
+			}
+		})
+	}
+}
+
+func TestCRMReferencesRejectsMalformedGroups(t *testing.T) {
+	for _, groups := range []string{
+		`[{"name":"Missing ID"}]`, `[{"id":null}]`, `[{"id":-1}]`, `[{"id":9007199254740992}]`,
+		`[{"id":0},{"id":0}]`, `[{"id":10},{"id":10}]`,
+	} {
+		t.Run(groups, func(t *testing.T) {
+			c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v4/account" {
+					t.Errorf("malformed groups should stop CRM reads: %s", r.URL.Path)
+				}
+				fmt.Fprintf(w, `{"id":123,"customers_mode":"disabled","_embedded":{"users_groups":%s}}`, groups)
+			})
+			if _, err := c.CRMReferences(context.Background(), uuid.New(), 123); !errors.Is(err, crmreferences.ErrIncomplete) {
+				t.Fatal("malformed group was normalized", err)
+			}
+		})
+	}
+}
 
 func referenceFixture(w http.ResponseWriter, r *http.Request, mode string) bool {
 	switch r.URL.Path {
