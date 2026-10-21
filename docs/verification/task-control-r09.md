@@ -83,3 +83,27 @@ main внутри существующего private TLS server, выполни�
 сохранив ACL и закрытый 8443. Затем запустить штатный references refresh и проверить
 завершение операции/свежий CRM snapshot. SQL clearing/cache seed не нужны.
 Validate/publish, live v2 ACK и полная R09/R10 остаются открытыми до этих проверок.
+
+## amoCRM default group, 21.10.2026
+
+После применения PR76 серверный private route дошёл до Core, но штатный refresh
+вернул `503 references_incomplete`. В реальном account response присутствовала
+группа `id=0`; её возвращает и [официальный пример amoCRM](https://www.amocrm.ru/developers/content/crm_platform/account-info).
+Адаптер переносил её в snapshot, где контракт требует положительные ID групп.
+Пользовательский `rights.group_id=0` уже представлялся как `groupId=null`.
+
+Адаптер теперь исключает только стандартную группу 0, согласованно с этим
+представлением пользователей. Custom groups, включая пустые, и членство в них
+сохраняются. Missing/null/negative/unsafe IDs и дубли по-прежнему означают неполный
+ответ, а не превращаются в стандартную группу.
+
+Регрессия запускает настоящий HTTP adapter через snapshot Provider: на прежнем
+коде default group воспроизводит `references_incomplete`, после изменения
+получается полный snapshot. Дополнительно проверены default-only, custom/empty
+groups, active/inactive users и некорректные ID. Race-тесты amoCRM adapter,
+CRM references, Task Control и Distribution прошли. DB-backed сценарии проверяет
+отдельный integration CI; обычный unit run не заменяет их.
+
+Живые mode/schema/rules при диагностике не менялись. После merge и обновления
+worker нужен успешный штатный refresh, затем продолжение live v2 и R10; до этого
+приёмка не завершена.
