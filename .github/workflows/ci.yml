@@ -64,6 +64,11 @@ jobs:
           docker compose -f docker-compose.activity.yml -f docker-compose.activity-embedded.yml config --quiet
           docker compose -p activity-config-check --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml config --quiet
 
+      - name: Verify updater preserves widget listeners
+        run: |
+          bash -n update.sh
+          python3 scripts/test-update.py
+
       - name: Run formatting checks, vet, and tests
         uses: docker/build-push-action@v6
         with:
