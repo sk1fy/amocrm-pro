@@ -44,7 +44,10 @@ elif command == 'build' and os.environ.get('FAIL_BUILD') == '1':
 elif command == 'exec':
     if '--version' in a: print(os.environ['REVISION'])
     elif '--post-data=' in a:
-        print('  HTTP/1.1 401 Unauthorized', file=sys.stderr); sys.exit(1)
+        output = os.environ.get('MOCK_WGET_OUTPUT',
+            '  HTTP/1.1 401 Unauthorized\r\n'
+            'wget: server returned error: HTTP/1.1 401 Unauthorized')
+        print(output, file=sys.stderr); sys.exit(1)
 '''
 
 
@@ -126,6 +129,27 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([c["args"][0] for c in calls], ["version", "ps", "config"])
         self.assertFalse((self.repo / ".git/update-last-state").exists())
+
+    def test_gnu_wget_401_is_accepted(self):
+        self.env["MOCK_WGET_OUTPUT"] = (
+            "  HTTP/1.1 401 Unauthorized\r\n"
+            "2026-10-21 ERROR 401: Unauthorized.")
+        result, _ = self.run_update("main")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_http_error_is_not_overridden_by_diagnostic_text(self):
+        self.env["MOCK_WGET_OUTPUT"] = (
+            "  HTTP/1.1 503 Service Unavailable\r\n"
+            "wget: server returned error: HTTP/1.1 401 Unauthorized")
+        result, _ = self.run_update("main")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Task Control auth: ожидался 401", result.stdout)
+
+    def test_connection_failure_without_status_line_is_rejected(self):
+        self.env["MOCK_WGET_OUTPUT"] = "wget: can't connect to remote host: Connection refused"
+        result, _ = self.run_update("main")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Task Control auth: ожидался 401", result.stdout)
 
     def test_missing_overlay_aborts_before_mutation(self):
         (self.repo / FILES[-1]).unlink()
