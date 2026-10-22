@@ -2,13 +2,13 @@
 
 Шаблоны перенесены из серверного аудита 06.10.2026. Это дополнительные
 слои к основным compose-файлам, а не самостоятельный стек. Переменные
-описаны в VARIABLES.md; живые значения хранятся вне Git.
+описаны в [VARIABLES.md](VARIABLES.md); живые значения хранятся вне Git.
 
 Core использует docker-compose.yml, docker-compose.v0.yml и
-core-distribution.local.yaml. TeamOS использует deploy/docker-compose.yaml
-и docker-compose.staging-local.yaml с явным --env-file и именем проекта.
-Слой deploy/docker-compose.ci.yaml нужен только соответствующему тестовому
-стеку; он не является обязательной настройкой рабочего развёртывания.
+core-distribution.local.yaml. Здесь также хранятся публичный и приватный
+nginx-шаблоны. Настройка company и его compose-overlay описана в
+[TeamOS backend](https://github.com/sk1fy/team-os-backend/blob/main/deploy/distribution-staging/README.md).
+Каждый репозиторий документирует переменные своих шаблонов.
 
 Для nginx разрешено подставлять только перечисленные в VARIABLES.md
 переменные: без списка envsubst затронет собственные переменные nginx.

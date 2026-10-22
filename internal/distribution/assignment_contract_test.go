@@ -14,7 +14,7 @@ func runtimeContract(t *testing.T, name string) *jsonschema.Schema {
 	t.Helper()
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft2020)
-	paths := []string{"../../api/distribution-openapi.yaml", "../../docs/specs/lead-distribution-v1/contracts/teamos-distribution.openapi.yaml", "../../docs/specs/lead-distribution-v1/contracts/core-distribution.openapi.yaml"}
+	paths := []string{"../../api/distribution-openapi.yaml"}
 	base := ""
 	for _, p := range paths {
 		abs, e := filepath.Abs(p)

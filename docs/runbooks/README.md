@@ -21,5 +21,10 @@
 - [Диагностика распределения](lead-distribution-admin.md).
 - [Наблюдение и пилот распределения](lead-distribution-pilot.md).
 
+- [Обновление Core](core-update.md).
+- [Контроль задач: запуск и приёмка MVP](task-control-mvp.md).
+- [Контроль задач: lifecycle](task-control-lifecycle.md).
+- [Контроль задач: приёмка R06](task-control-r06-acceptance.md).
+
 Runbooks must use sanitized examples and must not contain credentials,
 production payloads or environment-specific recovery secrets.
