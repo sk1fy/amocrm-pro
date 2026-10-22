@@ -1,6 +1,6 @@
 # Template variables — what is set separately
 
-The four templates in this directory never contain live values. Render the
+The three templates in this directory never contain live values. Render the
 compose overlays by placing the variables in the corresponding `.env`
 (chmod 0600, never committed); render the nginx files with `envsubst`.
 
@@ -23,22 +23,12 @@ Put these in `/root/amocrm-pro/.env`:
 | `WORKER_HEALTH_PORT` | [C] | default `8081`, loopback |
 | `WORKER_DISTRIBUTION_PORT` | [C] | default `18084`, loopback |
 
-## docker-compose.staging-local.yaml  (TeamOS company stack overlay)
+## TeamOS company stack
 
-Put these in `/root/team-os-backend/.env`:
-
-| Variable | Kind | Meaning |
-|---|---|---|
-| `COMPANY_DISTRIBUTION_SERVICE_KEYS` | [S] | TeamOS side of the bridge key ring (must match Core) |
-| `COMPANY_DISTRIBUTION_KEY_ID` | [I] | key id matching the service keys |
-| `COMPANY_DISTRIBUTION_CORE_URL` | [C] | Core worker private listener URL over the bridge |
-| `DISTRIBUTION_DOMAIN` | [C] | public TLS domain |
-| `TEAMOS_BRIDGE_GATEWAY` | [C] | docker bridge gateway the company maps the domain to |
-| `POSTGRES_PORT` | [C] | default `5532`, loopback |
-| `NATS_MONITOR_PORT` | [C] | default `8223`, loopback |
-| `MINIO_PORT` / `MINIO_CONSOLE_PORT` | [C] | default `9100` / `9101`, loopback |
-| `COMPANY_DISTRIBUTION_HTTP_PORT` | [C] | default `18081`, loopback |
-| `GATEWAY_HOST_PORT` | [C] | default `8180`, loopback |
+The TeamOS compose overlay and its variables are maintained in
+[team-os-backend](https://github.com/sk1fy/team-os-backend/blob/main/deploy/distribution-staging/VARIABLES.md).
+`COMPANY_DISTRIBUTION_SERVICE_KEYS` must match the Core key ring and
+`COMPANY_DISTRIBUTION_KEY_ID` must identify the same active key.
 
 ## nginx-amocrm.conf  (public TLS entrypoint)
 

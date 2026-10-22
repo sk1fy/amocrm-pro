@@ -1,7 +1,7 @@
 # ADR-0034: сохраняемая операция назначения и доказательства внешнего результата
 
-Статус: Proposed. Дата: 02.10.2026. Реализованный runtime scope РС-04 описан в
-[спецификации 08](../specs/lead-distribution-v1/08-assignment-implementation.md).
+Статус: Proposed. Дата: 02.10.2026. Реализованный runtime scope описан в
+[контракте API](../../api/distribution-openapi.yaml).
 
 Core атомарно сохраняет command/receipt/job, глобальный account+lead guard и
 append-only result/outbox. Scheduler lease не является TTL внешнего guard.
