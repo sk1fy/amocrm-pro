@@ -49,3 +49,18 @@ scope belongs in GitHub Issues.
 
 - [ADR-0038](0038-task-control-hybrid-integration.md) — Accepted (2026-10-15): Контроль задач,
   правила напрямую из TeamOS backend; Core — установка и мониторинг; два режима.
+
+## ПВ-01: решения перехода SSD → Core на review
+
+[Обзор и передача в реализацию](../specs/widget-migration-pv01.md).
+Ни один из следующих ADR не подтверждает готовность runtime или боевой миграции.
+
+| ADR | Status | Decision |
+| --- | --- | --- |
+| [0039](0039-widget-migration-oauth-ownership.md) | Proposed | Интеграции, OAuth ownership, callback и безопасная передача credentials |
+| [0040](0040-product-routing-ownership.md) | Proposed | Владелец исполнения, epoch, durable fences и протокол переключения |
+| [0041](0041-core-ssd-installation-bridge.md) | Proposed | Проекция установки Core в SSD, три сценария и версионированный мост |
+| [0042](0042-core-ssd-billing-adapter.md) | Proposed | Обёртка оплаты, authoritative entitlement, cache и invalidation |
+| [0043](0043-hybrid-amocrm-outbound-budget.md) | Proposed | Общий исходящий бюджет Core + SSD без новой Redis-зависимости |
+| [0044](0044-product-cutover-and-rollback.md) | Proposed | Паспорт переноса, данные, relay поздних событий, возврат и приёмка |
+| [0045](0045-widget-product-placement.md) | Proposed | Два пути подключения и размещение 13 продуктов |
