@@ -41,21 +41,21 @@ flowchart LR
 | [ПВ-01.01](https://app.clickup.com/t/1amkccgbvhz) | [0039: OAuth](../adr/0039-widget-migration-oauth-ownership.md) | Существующие client_id сохраняются по умолчанию; новые интеграции — явное исключение. Передача credentials, callbacks и возврат не создают второго refresh-owner |
 | [ПВ-01.02](https://app.clickup.com/t/1amkccgbvj0) | [0040: исполнение](../adr/0040-product-routing-ownership.md) | Scope account+product, функции только для Activity, state machine, epochs, source fence и receipts, читатели и поведение при отказе |
 | [ПВ-01.03](https://app.clickup.com/t/1amkccgbvj1) | [0041: установки](../adr/0041-core-ssd-installation-bridge.md) | Три сценария, минимальная проекция SSD, версии состояния и метаданных, transport/state hashes, outbox/inbox, scoped signed HTTP |
-| [ПВ-01.04](https://app.clickup.com/t/1amkccgbvj2) | [0042: оплата](../adr/0042-core-ssd-billing-adapter.md) | SSD authoritative resolver, allowlist адаптера, typed entitlement, identity/generation, TTL/grace, invalidation с двумя revision |
-| [ПВ-01.05](https://app.clickup.com/t/1amkccgbvj4) | [0043: нагрузка](../adr/0043-hybrid-amocrm-outbound-budget.md) | Общий PostgreSQL coordinator, узкий TryAcquire, foreground/background, 429, отказ и процедура rollout |
+| [ПВ-01.04](https://app.clickup.com/t/1amkccgbvj2) | [0042: оплата](../adr/0042-core-ssd-billing-adapter.md) | SSD authoritative resolver, typed entitlement/диагностика, off/observe/enforce, identity/generation, TTL/grace, invalidation с двумя revision |
+| [ПВ-01.05](https://app.clickup.com/t/1amkccgbvj4) | [0043: нагрузка](../adr/0043-hybrid-amocrm-outbound-budget.md) | Пилот: static account partition и общие внутри платформ лимитеры; coordinator по измерениям следующих волн; retries, 429 и отказ |
 | [ПВ-01.06](https://app.clickup.com/t/1amkccgbvj5) | [0044: перенос и возврат](../adr/0044-product-cutover-and-rollback.md) | Паспорт волны, таблицы данных/операций, граница импорта, relay поздних событий, обратный перенос и критерии пилота |
-| [ПВ-01.07](https://app.clickup.com/t/1amkccgbvj6) | [0045: размещение](../adr/0045-widget-product-placement.md) | Два способа подключения и выбор владельца для каждой из 13 продуктовых позиций |
+| [ПВ-01.07](https://app.clickup.com/t/1amkccgbvj6) | [0045: размещение](../adr/0045-widget-product-placement.md) | Три способа подключения, критерии отдельного владельца и матрица 13 продуктовых позиций |
 
 ## Что нужно реализовать в следующих этапах
 
 | Потребитель | Обязательная реализация / уточнение объёма |
 | --- | --- |
 | ПВ-02, РС-12 | Общий loader/runtime/build; browser identity; совместимость старого UI/URLs; публичный callback отдельно от текущего state-based flow |
-| ПВ-03.01/.02 | Не только таблица и cache: transfer state machine, local durable fences всех исполнителей, source/target receipts, CAS и операторское восстановление |
+| ПВ-03.01/.02 | Не только таблица и cache: transfer state machine, local durable fences всех исполнителей, receipts, CAS и восстановление; SSD продолжает после TTL только с подтверждённым local grant и без fence/unknown, browser исключения не получает |
 | ПВ-03 — отдельный результат OAuth | Защищённый staging importer, credential-owner/epoch, ограждение refresh/callback, публичный intake journal, типизированные Gateway operations для остающихся функций. В текущем плане нет самостоятельной задачи реализации этого результата |
-| ПВ-03.03/.04/.05 | Технический путь записи без лишних model hooks; коммерческий intent отдельно; mirror inbox/outbox; account metadata revision; mixed-function display; generation и routing changes |
-| ПВ-03.06/.07 | Authoritative PaymentContext без legacy cache; типизированные причины; coverage всех коммерческих writers revision/outbox; cache invalidation и поколение grant |
-| ПВ-03 — отдельный результат бюджета | Общий TryAcquire и SSD transport-level adapter, включая retries/pagination/CLI; нагрузочный rollout. Одних правил или метрик ПВ-03.09 недостаточно; нужна самостоятельная реализация |
+| ПВ-03.03/.04/.05 | Технический путь без лишних hooks; first_install перенесённого продукта сохраняет trial/бесплатный срок, партнёра, контакт/условную сделку через идемпотентный commercial intent; новый продукт ждёт НП-01; mirror inbox/outbox, metadata revision, generation и routes |
+| ПВ-03.06/.07 | Authoritative PaymentContext, top_list/subscription_type, hourly/webhook/account writers revision/outbox, дефекты источника; off/observe/enforce и откат, cache invalidation/generation |
+| ПВ-03 — отдельный результат бюджета | Для пилота static partition, общие внутри платформ лимитеры и transport adapters с retries/pagination/CLI, handoff/drain и нагрузочной приёмкой. Coordinator — отдельная задача по измерениям следующих волн; одних метрик недостаточно |
 | ПВ-03.08/.09/.10 | Совместимый ingress, durable relay после границы импорта, сверка и ограниченные метрики; команды восстановления и наблюдаемое состояние оператора |
 | ПВ-04 / ПВ-05 | Заполненные паспорта конкретных продуктов, forward/reverse import, сохранение operation identity, сценарии старой вкладки/автоматизации, доказанный возврат |
 | ПВ-07 | Google OAuth/refresh и запись передаются владельцу Google-export вместе. Telegram может временно использовать SSD adapter; это не отключение SSD |
@@ -71,18 +71,34 @@ flowchart LR
 Это явно предложенные инженерные настройки, не согласованные тарифы/SLA:
 
 - route snapshot TTL: 60 секунд; локальный execution fence обязателен независимо
-  от свежести cache, target не активируется без source quiesce ACK;
+  от cache, target не активируется без quiesce ACK; SSD server может продолжать
+  по подтверждённому local grant без fence, browser expired route закрывает запуск;
 - billing TTL: 5 минут; grace до 24 часов от последнего authoritative allow,
   ограниченный известным сроком права; без прежнего allow — pending;
-- общий исходящий budget: 6 rps на account+client_id, 40 на account;
-  фон 1/5 rps; TryAcquire через Core PostgreSQL, без новой Redis-зависимости;
+- исходящий budget пилота: pair 6 rps, account Core 20 + SSD 20 rps,
+  фон пары 1, фон платформ по 2.5 rps; общий для workers limiter каждой платформы.
+  Общий TryAcquire через Core PostgreSQL — вариант следующих волн по измерениям;
 - доставка mirror: backoff до 5 минут, тревога после 15 минут; сверка пилота
   каждые 15 минут и полная суточная сверка;
 - наблюдение пилота: не менее двух рабочих дней и полного цикла самой редкой
   включённой автоматизации; измеренные SLO задаются паспортом продукта.
 
 Числа настраиваются при реализации/приёмке; изменение коммерческих правил
-не выводится из этих defaults. Тарифы, новый trial и модель подписки остаются НП-01.
+не выводится из этих defaults. Тарифы и trial нового Распределения остаются НП-01;
+first_install перенесённых продуктов сохраняет прежнюю коммерческую политику.
+
+## Короткий глоссарий
+
+| Термин | Значение в пакете |
+| --- | --- |
+| fence | Сохранённый локальный запрет начинать эффект; cache/TTL его не снимают |
+| quiesce | Закрытие admission и проверенное завершение/учёт in-flight работы источника |
+| receipt | Сохранённое подтверждение конкретной операции, scope и версии; повторно читается после потери ответа |
+| routing_epoch | Монотонное поколение владельца исполнения продукта/функции |
+| credential_epoch | Независимое поколение владельца OAuth пары account+integration |
+| intake_generation | Поколение публичного callback intake, захваченное до обмена code; не routing/credential epoch |
+| installation_generation | Поколение установки после подтверждённого reinstall; refresh/reauth его не увеличивают |
+| watermark | Наибольшая уже известная revision invalidation; ответ с меньшей версией не восстановит старый grant |
 
 ## Подтверждённые разрывы текущей реализации
 
@@ -94,8 +110,8 @@ flowchart LR
    Новый access grant нельзя получать простым парсингом ответа интерфейса.
 4. Старые SSD caches могут вернуть устаревшую оплату после очистки Core cache.
    Нужны authoritative reads и полный охват writers, включая mass updates.
-5. Независимые исходящие limiter Core и SSD не дают общего бюджета; retries
-   необходимо учитывать у фактического транспорта, не только у PHP callback.
+5. Текущие исходящие limiter не обеспечивают ни общий coordinator, ни безопасные
+   фиксированные доли всех workers; retries учитываются у фактического транспорта.
 
 Каждый факт имеет ссылку на код в соответствующем ADR. Код сверялся локально;
 production конфигурация, secrets и действующие клиентские установки не читались.

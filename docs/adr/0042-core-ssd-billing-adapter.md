@@ -34,11 +34,34 @@ shadow-сравнения нового решения с реальными lega
 как ошибка нового адаптера либо явное исправление legacy поведения с согласованной
 приёмкой. Нельзя объявлять совместимость только по совпавшей строке `paid_to`.
 
+## Режимы внедрения по продукту и когорте
+
+| Режим | Новый billing adapter | Решение об исполнении |
+| --- | --- | --- |
+| `off` | Не вызывается | Сохраняется явно выбранная прежняя проверка оплаты |
+| `observe` | Вызывается с ограниченным timeout; пишутся решение, версии и расхождение | Новый результат/сбой не блокирует; действует прежняя проверка |
+| `enforce` | Решение и cache/grace по этому ADR обязательны | allow допускает, deny/pending блокирует коммерчески закрытое действие |
+
+Off/observe не означают бесплатный доступ: у перенесённого продукта должен
+оставаться проверяемый legacy baseline. У нового Распределения такого baseline
+нет: без принятой политики НП-01 коммерчески закрытое live-исполнение остаётся
+pending; observe допустим в изолированном тесте, не как обход оплаты.
+Lifecycle, generation, actor/capability и owner fences обязательны во всех режимах.
+Режим — серверная версионированная настройка с audit/actor/scope, не browser flag.
+Переход off → observe → enforce требует fixtures, классификации расхождений,
+проверки всех writers/invalidation и принятого процесса оплаты. Перед enforce
+нужен свежий authoritative snapshot; старые observe-ответы не становятся grant.
+Откат enforce → observe/off разрешён оператором только при готовом прежнем
+baseline; иначе остаётся пауза. Смена режима не снимает fence и не повторяет jobs.
+Worker читает текущий режим перед эффектом; ревизия конфигурации и результаты
+обоих решений позволяют проверить, какой режим реально действовал.
+
 ## Разделение доступа
 
 Коммерческое решение — только один из входов Core. Итоговое исполнение требует
 активной установки, действующего OAuth/grant, разрешения пользователя, capability,
-текущего владельца/epoch и коммерческого allow. Paid не даёт прав на чужие данные.
+текущего владельца/epoch и коммерческого допуска: нового allow в enforce либо
+явного baseline в off/observe. Paid не даёт прав на чужие данные.
 OAuth revoked, uninstall, административный запрет и отзыв server grant закрывают
 исполнение независимо от billing cache/grace. Unpaid не удаляет OAuth или данные.
 
@@ -110,8 +133,13 @@ snapshot; старый grant не переносится. Время перед�
 Core не округляет дату самостоятельно. По окончании срока решение перестаёт быть
 allow даже без события invalidation.
 
-`reason_code`: `paid`, `subscription`, `partner`, `rakurs_bonus`, `free_product`,
-`unpaid`, `policy_pending`, `mirror_missing`, `source_incomplete`. Для первых пяти
+`reason_code`: `paid`, `top_list`, `subscription`, `partner`, `rakurs_bonus`,
+`free_product`, `unpaid`, `policy_pending`, `mirror_missing`, `source_incomplete`.
+Для subscription диагностика содержит `subscription_type=1|2|3` по
+[Subscription::TYPE](https://github.com/Filipp22/rakurs-ssd/blob/a3916751233f9a9389a264ff70909a5c555c0242/app/Models/Subscription.php):
+ручная / наш клиент / партнёрская; это происхождение права, не дополнительный grant.
+Для другой причины поле null; неизвестный тип сохраняется как диагностическая
+ошибка источника, а не подставляется 1. Для первых шести причин
 нужна доказанная существующая конфигурация. Если resolver не возвращает причину,
 SSD adapter добавляет типизированную диагностику в общей ветке расчёта; нельзя
 скопировать правила в независимую вторую реализацию. `decision_expires_at` —
@@ -133,7 +161,8 @@ SSD adapter добавляет типизированную диагностик
 коммерческая политика: positive/negative TTL 5 минут; максимальный grace 24 часа
 от последнего успешного authoritative allow. `fresh_until` ограничивается также
 сроком права; grace никогда не продлевает известный `decision_expires_at`.
-Для платёжных мутаций grace не применяется. В метриках/UI различаются:
+Для платёжных мутаций grace не применяется. В режиме enforce метрики/UI и
+исполнение различают состояния ниже; observe записывает их как shadow-результат:
 
 | Состояние Core | Поведение |
 | --- | --- |
@@ -162,6 +191,25 @@ invalidation; независимые in-memory кэши не могут снов
 полной цепочки invalidation Core. Очистить только Core cache недостаточно:
 следующий запрос может снова получить старое решение из SSD cache.
 
+Подтверждённые дефекты источника фиксируются отдельно от дефектов адаптера:
+
+- [AccountSubUpdateStatusCommand](https://github.com/Filipp22/rakurs-ssd/blob/a3916751233f9a9389a264ff70909a5c555c0242/app/Console/Commands/Account/AccountSubUpdateStatusCommand.php)
+  запускается [ежечасно](https://github.com/Filipp22/rakurs-ssd/blob/a3916751233f9a9389a264ff70909a5c555c0242/routes/console.php)
+  и делает updateOrCreate только по amo_account_id для accounts.status=2:
+  существующая ручная подписка может быть перезаписана type=2, apps и сроком
+  accounts.amostar_paid_till_at. Это один выбранный ряд на аккаунт в данном
+  writer, не доказательство DB unique constraint или отсутствия дублей.
+  [SubBonusUpdateAction](https://github.com/Filipp22/rakurs-ssd/blob/a3916751233f9a9389a264ff70909a5c555c0242/app/Actions/Account/SubBonusUpdateAction.php)
+  использует тот же ключ из
+  [RkrsService::clientChangeStatus](https://github.com/Filipp22/rakurs-ssd/blob/a3916751233f9a9389a264ff70909a5c555c0242/app/Actions/Service/RkrsService.php).
+- RKRS_TOP_LIST2 создаётся Cache::remember с null TTL; покупка/продление rkrs_top
+  может не попасть в legacy снимок до отдельного удаления/обновления cache.
+
+Authoritative loader обходит stale cache, но не восстанавливает уже затёртую
+подписку и не угадывает приоритет дублей. Такие случаи требуют отдельной правки
+источника/сверки и зафиксированного ожидаемого результата до enforce. Shadow
+отмечает source_defect с evidence, а не скрывает расхождение как успех.
+
 Для нового endpoint создаётся authoritative loader всех источников (подписка,
 партнёрская льгота, запись top-продукта, account bonus flags, каталог, индивидуальный
 срок), который передаёт данные существующему resolver без legacy кэшей. Loader
@@ -174,7 +222,13 @@ invalidation; независимые in-memory кэши не могут снов
    увеличивает `policy_revision` продукта и публикует product-wide invalidation.
 2. Все пути записи обязаны участвовать: оплата/возврат, ручное продление,
    subscription create/update/delete, top-list, partner `free_at`, account
-   `rakurs_status`, тариф/free flag, лимиты пользователей. Eloquent observer
+   `rakurs_status`, `status`, `amostar_paid_till_at`, тариф/free flag, лимиты
+   пользователей. Обязательны hourly AccountSubUpdateStatusCommand и
+   SubBonusUpdateAction из CRM webhook, включая выключение apps. Изменение
+   исходных account полей и производной подписки должно иметь согласованный
+   transactional writer; нельзя публиковать свежую revision поверх ещё старой
+   подписки type=2. До готовности пересчёта источник возвращает pending.
+   Eloquent observer
    недостаточен для SQL/mass updates; сначала инвентаризировать writers, затем
    общий transactional writer или эквивалентная DB гарантия. Пока путь может
    обойти revision/outbox, критерий готовности не выполнен.
@@ -211,11 +265,15 @@ TTL Core может ещё знать прежний коммерческий р
 - Fixtures и shadow-сравнение покрывают resolver precedence, free, null/expired
   paid date, пакет без продукта, удаление продукта из пакета, партнёра и бонус;
   bonus не публикуется как оплаченный год. Расхождения с legacy задокументированы.
+- Top-list, subscription_type 1/2/3, hourly/webhook writers и изменения account
+  status/amostar_paid_till_at проверены; затёртая подписка и stale top-list
+  распознаются как дефекты источника. Off не делает вызов; observe не меняет
+  baseline; enforce и управляемый откат соблюдают политику и текущий lifecycle.
 - Платёж, ручная правка, изменение/удаление подписки и каталога публикуют durable
   revision; искусственный crash между commit/ACK не теряет invalidation.
 - Переставленные события и гонка read 41/invalidate 42 не восстанавливают allow;
   stale SSD cache намеренно заполнен старым значением и не влияет на новый endpoint.
-- First install без SSD/политики остаётся pending; stale deny не становится allow;
+- First install нового продукта без SSD/политики остаётся pending; stale deny не становится allow;
   grace имеет конечную границу и не возобновляется повторным старым ответом.
 - Перед worker effect проверяется актуальный доступ; revoke/uninstall прерывает
   дальнейшее исполнение даже при fresh paid/grace. Уже отправленные запросы учитываются
