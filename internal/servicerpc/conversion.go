@@ -133,6 +133,9 @@ func toEvent(src serviceapi.Event) *pb.Event {
 	if src.View != nil {
 		out.View = toEventView(*src.View)
 	}
+	if src.CallFacts != nil {
+		out.CallFacts = toCallFacts(*src.CallFacts)
+	}
 	return out
 }
 func fromEvent(src *pb.Event) serviceapi.Event {
@@ -159,6 +162,33 @@ func fromEvent(src *pb.Event) serviceapi.Event {
 		view := fromEventView(src.View)
 		out.View = &view
 	}
+	if src.CallFacts != nil {
+		facts := fromCallFacts(src.CallFacts)
+		out.CallFacts = &facts
+	}
+	return out
+}
+func toCallFacts(src serviceapi.CallFacts) *pb.CallFacts {
+	out := new(pb.CallFacts)
+	out.Duration = src.Duration
+	out.Phone = src.Phone
+	out.Direction = src.Direction
+	out.Result = src.Result
+	out.Source = src.Source
+	out.Current = src.Current
+	return out
+}
+func fromCallFacts(src *pb.CallFacts) serviceapi.CallFacts {
+	var out serviceapi.CallFacts
+	if src == nil {
+		return out
+	}
+	out.Duration = src.Duration
+	out.Phone = src.Phone
+	out.Direction = src.Direction
+	out.Result = src.Result
+	out.Source = src.Source
+	out.Current = src.Current
 	return out
 }
 func toEventDetail(src serviceapi.EventDetail) *pb.EventDetail {

@@ -23,6 +23,9 @@ for name,body in messages.items():
    elif field in ('integration_id','installation_id','panel_id') or (name=='ManagedPanel' and field=='id'):
     out.append(f'{dst}={src}.String()' if direction=='to' else f'{dst}=parseUUID({src})')
    elif field=='expires_at' or (name=='ManagedPanel' and field=='updated_at'):out.append(f'{dst}={src}.Format(time.RFC3339Nano)' if direction=='to' else f'{dst}=parseTime({src})')
+   elif name=='Event' and field=='call_facts':
+    if direction=='to':out.append('if src.CallFacts != nil { out.CallFacts = toCallFacts(*src.CallFacts) }')
+    else:out.append('if src.CallFacts != nil { facts := fromCallFacts(src.CallFacts); out.CallFacts = &facts }')
    elif name=='Event' and field=='view':
     if direction=='to':out.append('if src.View != nil { out.View = toEventView(*src.View) }')
     else:out.append('if src.View != nil && (src.View.Category != "" || src.View.Title != "" || src.View.Summary != "" || len(src.View.Details) > 0) { view := fromEventView(src.View); out.View = &view }')

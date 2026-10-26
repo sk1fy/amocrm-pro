@@ -74,6 +74,11 @@ func (s *Postgres) Query(ctx context.Context, q serviceapi.Query, p serviceapi.P
 		result.Events = result.Events[:q.Limit]
 		result.NextCursor = encodeCursor(q, p, result.Events[len(result.Events)-1])
 	}
+	if !q.Compact {
+		if err = loadCallProjections(ctx, tx, p, result.Events); err != nil {
+			return result, err
+		}
+	}
 	rows, err = tx.Query(ctx, `SELECT e.created_by,count(*),coalesce(extract(epoch from min(e.created_at))::bigint,0),extract(epoch from max(e.created_at))::bigint,count(distinct (e.entity_type || ':' || e.entity_id::text)),count(*) FILTER (WHERE e.event_type='task_completed'),count(distinct e.entity_id) FILTER (WHERE e.event_type='task_completed')`+eventHistoryFrom+` GROUP BY e.created_by ORDER BY e.created_by LIMIT 101`, args...)
 	if err != nil {
 		return result, err
@@ -210,7 +215,7 @@ func (s *Postgres) GetEvent(ctx context.Context, p serviceapi.Principal, id stri
 }
 
 // LoadEventEnrichment attaches owner-local sidecar objects and catalog names.
-// Query never joins these bodies; list rows stay historical envelopes.
+// Query never joins these bodies; non-compact lists carry only call_facts.
 func (s *Postgres) LoadEventEnrichment(ctx context.Context, p serviceapi.Principal, event serviceapi.Event) (serviceapi.Event, error) {
 	rows, err := s.pool.Query(ctx, `SELECT o.object_kind,o.object_key,o.state,o.reason_code,o.source,coalesce(extract(epoch from o.fetched_at)::bigint,0),o.payload FROM event_enrichment_links l JOIN event_enrichment_objects o ON o.installation_id=l.installation_id AND o.object_kind=l.object_kind AND o.object_key=l.object_key WHERE l.installation_id=$1 AND l.event_id=$2 ORDER BY o.object_kind,o.object_key`, p.InstallationID, event.ID)
 	if err != nil {

@@ -425,6 +425,12 @@ func enrichmentTTL(kind string) time.Duration {
 }
 
 func attachSidecar(event serviceapi.Event, objects []serviceapi.EnrichmentObject) serviceapi.Event {
+	event.CallFacts = projectEmbeddedCall(event)
+	for _, object := range objects {
+		if event.CallFacts != nil && event.CallFacts.Source == "" && object.ObjectKind == serviceapi.ObjectNote && object.State == serviceapi.EnrichmentReady && object.Source != serviceapi.SourceEventPayload {
+			event.CallFacts = projectCallFacts(event.Type, jsonObject(object.Payload)["facts"], object.Source)
+		}
+	}
 	if len(objects) == 0 {
 		event.Enrichment = nil
 		event.Names = nil

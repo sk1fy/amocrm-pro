@@ -68,7 +68,11 @@ Events collector. `Run` calls `EnrichOnce` only when collection is idle.
 Enrichment uses object-level leases, never `event_sources.lease_token`. Gateway
 failures mark the object `retry`/`unavailable`/`error` and do not fail coverage
 or the collector source. `GetEvent` attaches current-state sidecar and names;
-`Query` does not. `CRM_EVENTS_ENRICHMENT=0` disables the worker.
+`Query` does not attach full sidecars. Non-compact pages include a bounded
+`call_facts` projection from embedded event data or ready stored Notes, in one
+additional owner-local query for the page. Unknown duration stays null; known
+zero stays zero. Compact pages retain their historical envelope. No Gateway
+calls happen on reads. `CRM_EVENTS_ENRICHMENT=0` disables the worker.
 
 `Collector()` exposes owner backlog/state, oldest job age, max source lag,
 enrichment object states and persisted processed/inserted/updated/deduplicated
@@ -86,7 +90,8 @@ collection idle (`!worked`). Enrichment uses its own object leases — never
 already present in `value_before`/`value_after` are projected on detail reads
 as `ready`, `source=event_payload`, `current=false` from that event only,
 without sharing historical payloads in the current-object cache. `GetEvent` attaches sidecar objects and current names
-from the owner store; `Query` list rows do not include enrichment bodies.
+from the owner store; `Query` list rows do not include enrichment bodies, only
+the allowlisted call projection on non-compact reads (see Activity panel C1).
 Ready notes/tasks refresh after 15 minutes, catalogs/entity names after five.
 Transient negatives expire after 15 minutes (not found) or one hour (permission).
 Full enriched objects have a separate 1 MiB owner bound; exceeding it produces

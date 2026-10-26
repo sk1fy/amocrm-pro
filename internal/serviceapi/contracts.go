@@ -127,6 +127,18 @@ type Event struct {
 	Enrichment          []EnrichmentObject `json:"enrichment,omitempty"`
 	Names               []CatalogName      `json:"names,omitempty"`
 	View                *EventView         `json:"view,omitempty"`
+	CallFacts           *CallFacts         `json:"call_facts,omitempty"`
+}
+
+// CallFacts is a bounded read projection, never part of the historical event.
+// Nil duration is unknown; a pointer to zero is a known unanswered call.
+type CallFacts struct {
+	Duration  *int64  `json:"duration"`
+	Phone     *string `json:"phone"`
+	Direction string  `json:"direction"`
+	Result    *string `json:"result"`
+	Source    string  `json:"source"`
+	Current   bool    `json:"current"`
 }
 type EventPageRequest struct {
 	Auth  Auth  `json:"auth"`

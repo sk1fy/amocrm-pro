@@ -194,5 +194,6 @@ func HistoricalEvent(e Event) Event {
 	e.Enrichment = nil
 	e.Names = nil
 	e.View = nil
+	e.CallFacts = nil
 	return e
 }
