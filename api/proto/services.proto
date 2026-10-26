@@ -10,7 +10,8 @@ message Grant { string audience = 1; string action = 2; }
 message IssueRequest { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; repeated Grant grants = 7; string kind = 8; string panel_id = 9;  int32 view_key_version = 10; }
 message ValidateRequest { Auth auth = 1; string audience = 2; string action = 3; }
 message Principal { string integration_id = 1; string installation_id = 2; int64 actor_id = 3; bool system = 4; string consumer = 5; string request_id = 6; string expires_at = 7; string kind = 8; string panel_id = 9;  int32 view_key_version = 10; }
-message Event { string id = 1; int64 created_at = 2; int64 created_by = 3; string type = 4; int64 entity_id = 5; string entity_type = 6; bytes value_before = 7; bytes value_after = 8; int64 linked_talk_contact_id = 9; repeated EnrichmentObject enrichment = 10; repeated CatalogName names = 11; EventView view = 12; }
+message Event { string id = 1; int64 created_at = 2; int64 created_by = 3; string type = 4; int64 entity_id = 5; string entity_type = 6; bytes value_before = 7; bytes value_after = 8; int64 linked_talk_contact_id = 9; repeated EnrichmentObject enrichment = 10; repeated CatalogName names = 11; EventView view = 12; CallFacts call_facts = 13; }
+message CallFacts { optional int64 duration = 1; optional string phone = 2; string direction = 3; optional string result = 4; string source = 5; bool current = 6; }
 message EventDetail { string key = 1; string label = 2; bytes before = 3; bytes after = 4; string text = 5; string source = 6; bool current = 7; }
 message EventView { string category = 1; string title = 2; string summary = 3; string detail_state = 4; string author_label = 5; string entity_label = 6; repeated EventDetail details = 7; string enrichment_state = 8; }
 message CategoryCount { string category = 1; int64 count = 2; }

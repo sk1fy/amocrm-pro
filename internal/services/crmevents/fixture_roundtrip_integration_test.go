@@ -130,6 +130,7 @@ func TestFixtureHTTPGatewayJSONBRoundTrip(t *testing.T) {
 			}
 			expected.ValueBefore, expected.ValueAfter = nil, nil
 			got.ValueBefore, got.ValueAfter = nil, nil
+			expected, got = serviceapi.HistoricalEvent(expected), serviceapi.HistoricalEvent(got)
 			if !reflect.DeepEqual(expected, got) {
 				t.Fatalf("typed envelope changed: got=%+v want=%+v", got, expected)
 			}

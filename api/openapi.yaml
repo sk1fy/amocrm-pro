@@ -1832,6 +1832,8 @@ components:
           description: Optional related chat contact from Events; zero/absent is omitted.
         value_before: {}
         value_after: {}
+        call_facts:
+          $ref: '#/components/schemas/ActivityCallFacts'
         enrichment:
           type: array
           maxItems: 32
@@ -1853,6 +1855,37 @@ components:
       - entity_type
       - value_before
       - value_after
+      additionalProperties: false
+    ActivityCallFacts:
+      type: object
+      description: >-
+        Bounded call projection on non-compact event lists and detail reads.
+        Present for incoming_call/outgoing_call even when facts are not loaded;
+        null duration is unknown, zero is a known unanswered call.
+        Embedded event facts take precedence over current Notes data.
+        No synchronous amoCRM requests; excludes note text and recording URLs.
+      properties:
+        duration:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        direction:
+          type: string
+          enum: [incoming, outgoing]
+        result:
+          type: string
+          nullable: true
+        source:
+          type: string
+          description: event_payload, notes_api, or empty when not loaded.
+        current:
+          type: boolean
+          description: True for current Notes data; false for event payload or unknown.
+      required: [duration, phone, direction, result, source, current]
       additionalProperties: false
     ActivityEventEnrichment:
       type: object
