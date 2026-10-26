@@ -15,6 +15,7 @@ for name,body in messages.items():
   else:out.append(f'func from{name}(src *pb.{name}) serviceapi.{name} {{ var out serviceapi.{name};if src==nil{{return out}}')
   for repeated,typ,field in fields:
    d=domain(field);p=camel(field)
+   if field=='crm_base_url': d='CRMBaseURL'
    dst,src=(f'out.{p}',f'src.{d}') if direction=='to' else (f'out.{d}',f'src.{p}')
    if repeated:
     if typ in messages:

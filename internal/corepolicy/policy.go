@@ -48,6 +48,10 @@ type LiveChecker interface {
 // installation, capability, pilot and reauthorization state on every call.
 // Check remains mandatory for every newly issued delegation. Legacy checkers
 // without this interface keep their more conservative full Check behavior.
+type EmployeeChecker interface {
+	CheckEmployee(context.Context, serviceapi.Scope, int64) error
+}
+
 type DelegationChecker interface {
 	CheckDelegation(context.Context, serviceapi.Scope) error
 }
@@ -93,6 +97,10 @@ func (s *Service) Issue(ctx context.Context, r serviceapi.IssueRequest) (service
 		if !r.System && r.ActorID <= 0 || r.PanelID != uuid.Nil || r.ViewKeyVersion != 0 {
 			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
 		}
+	case serviceapi.PrincipalKindEmployee:
+		if caller != serviceapi.CoreService || r.System || r.ActorID <= 0 || r.PanelID != uuid.Nil || r.ViewKeyVersion != 0 {
+			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.PermissionDenied, "employee identity is not authorized")
+		}
 	case serviceapi.PrincipalKindViewer:
 		if r.System || r.ActorID != 0 || r.PanelID == uuid.Nil || r.ViewKeyVersion < 1 {
 			return serviceapi.Auth{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid delegation request")
@@ -136,6 +144,12 @@ func (s *Service) Issue(ctx context.Context, r serviceapi.IssueRequest) (service
 }
 
 func (s *Service) admitIssue(ctx context.Context, r serviceapi.IssueRequest) error {
+	if r.Kind == serviceapi.PrincipalKindEmployee {
+		if checker, ok := s.checker.(EmployeeChecker); ok {
+			return checker.CheckEmployee(ctx, r.Scope, r.ActorID)
+		}
+		return s.checker.Check(ctx, r.Scope, r.ActorID, false)
+	}
 	if r.Kind == serviceapi.PrincipalKindViewer || r.Kind == serviceapi.PrincipalKindOperator {
 		if checker, ok := s.checker.(DelegationChecker); ok {
 			return checker.CheckDelegation(ctx, r.Scope)
@@ -160,6 +174,8 @@ func allowedGrant(g serviceapi.Grant, system bool, kind string) bool {
 		return false
 	}
 	switch kind {
+	case serviceapi.PrincipalKindEmployee:
+		return g.Audience == serviceapi.ActivityService && g.Action == serviceapi.ActionSessions
 	case serviceapi.PrincipalKindViewer:
 		switch g.Audience {
 		case serviceapi.ActivityService:
@@ -167,7 +183,7 @@ func allowedGrant(g serviceapi.Grant, system bool, kind string) bool {
 		case serviceapi.EventsService:
 			return g.Action == serviceapi.ActionRead
 		case serviceapi.GatewayService:
-			return g.Action == serviceapi.ActionUsers
+			return g.Action == serviceapi.ActionUsers || g.Action == serviceapi.ActionPipelines || g.Action == serviceapi.ActionProblems
 		}
 		return false
 	case serviceapi.PrincipalKindOperator:
@@ -177,17 +193,17 @@ func allowedGrant(g serviceapi.Grant, system bool, kind string) bool {
 		case serviceapi.EventsService:
 			return g.Action == serviceapi.ActionStatus || g.Action == serviceapi.ActionSync || g.Action == serviceapi.ActionOperation
 		case serviceapi.GatewayService:
-			return g.Action == serviceapi.ActionUsers
+			return g.Action == serviceapi.ActionUsers || g.Action == serviceapi.ActionPipelines
 		}
 		return false
 	}
 	switch g.Audience {
 	case serviceapi.ActivityService:
-		return g.Action == serviceapi.ActionPanel || g.Action == serviceapi.ActionSettings || g.Action == serviceapi.ActionOperation
+		return g.Action == serviceapi.ActionPanel || g.Action == serviceapi.ActionSettings || g.Action == serviceapi.ActionOperation || g.Action == serviceapi.ActionPanels
 	case serviceapi.EventsService:
 		return g.Action == serviceapi.ActionRead || g.Action == serviceapi.ActionStatus || g.Action == serviceapi.ActionSync || g.Action == serviceapi.ActionOperation
 	case serviceapi.GatewayService:
-		return g.Action == serviceapi.ActionUsers
+		return g.Action == serviceapi.ActionUsers || g.Action == serviceapi.ActionPipelines
 	}
 	return false
 }
@@ -217,6 +233,8 @@ func (s *Service) Validate(ctx context.Context, a serviceapi.Auth, audience, act
 	var policyErr error
 	if checker, ok := s.checker.(DelegationChecker); ok {
 		policyErr = checker.CheckDelegation(ctx, c.Scope)
+	} else if checker, ok := s.checker.(EmployeeChecker); ok && c.Kind == serviceapi.PrincipalKindEmployee {
+		policyErr = checker.CheckEmployee(ctx, c.Scope, c.ActorID)
 	} else {
 		policyErr = s.checker.Check(ctx, c.Scope, c.ActorID, c.System)
 	}
@@ -290,4 +308,26 @@ func MapUpstreamError(err error) error {
 		return serviceapi.Fail(serviceapi.DeadlineExceeded, "upstream deadline exceeded")
 	}
 	return serviceapi.Fail(serviceapi.Unavailable, "amoCRM is unavailable")
+}
+
+func (d *databaseChecker) CheckEmployee(ctx context.Context, scope serviceapi.Scope, actor int64) error {
+	if err := d.CheckDelegation(ctx, scope); err != nil {
+		return err
+	}
+	if actor <= 0 {
+		return serviceapi.Fail(serviceapi.PermissionDenied, "active employee required")
+	}
+	user, err := d.client.GetUserAuthorization(ctx, scope.InstallationID, actor)
+	if err != nil {
+		return MapUpstreamError(err)
+	}
+	if !user.Rights.IsActive {
+		return serviceapi.Fail(serviceapi.PermissionDenied, "active employee required")
+	}
+	return nil
+}
+
+// CheckActivityScope is Core-local admission for resumable Gateway collectors.
+func CheckActivityScope(ctx context.Context, pool *pgxpool.Pool, scope serviceapi.Scope) error {
+	return (&databaseChecker{pool: pool}).CheckDelegation(ctx, scope)
 }

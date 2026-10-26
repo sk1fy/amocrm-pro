@@ -1032,6 +1032,237 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ActivityError'
+  /api/v1/widget/activity/state:
+    get:
+      operationId: getOwnActivityState
+      summary: Read authenticated employee current session and task-panel configuration.
+      security: [{widgetToken: []}, {widgetBearer: []}]
+      responses:
+        '200':
+          description: Employee-scoped state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  current: {$ref: '#/components/schemas/ActivityWorkSession'}
+                  settings: {$ref: '#/components/schemas/ActivityTaskPanelSettings'}
+                  enabled: {type: boolean}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+        '429':
+          description: Rate limit.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityRateLimitError'}
+
+  /api/v1/widget/activity/browser-session:
+    post:
+      operationId: createActivityBrowserSession
+      summary: Issue a short-lived management link for a verified amoCRM administrator.
+      description: A fresh disposable widget JWT and live admin authorization are required. The opaque credential stays in the link fragment, is stored hashed by Core and expires in 30 minutes. Every management operation rechecks the admin role. Maximum 10 live sessions per employee.
+      security: [{widgetToken: []}, {widgetBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [app_origin]
+              properties:
+                app_origin: {type: string, format: uri}
+      responses:
+        '200':
+          description: No-store management link.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: {type: string, format: uri}
+                  expires_at: {type: integer, format: int64}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+        '429':
+          description: Ingress or downstream capacity exhausted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityRateLimitError'}
+
+  /api/v1/widget/activity/sessions:
+    get:
+      operationId: getOwnActivitySessions
+      summary: Read stored task, activity, Imbox and pause intervals for one panel employee.
+      security: [{widgetToken: []}, {widgetBearer: []}]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: {type: integer, format: int64}
+        - name: to
+          in: query
+          required: true
+          schema: {type: integer, format: int64}
+        - name: cursor
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: At most 200 intervals per page; follow next_cursor for the complete range. Open intervals retain stopped_at zero until explicitly stopped.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  next_cursor: {type: string}
+                  snapshot_at: {type: integer, format: int64}
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/ActivityWorkSession'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429':
+          description: Rate limit.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityRateLimitError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+    post:
+      operationId: applyActivitySession
+      summary: Start or stop the authenticated employee's work, activity or pause interval.
+      description: Requires a fresh disposable widget JWT and an enabled employee in task-panel settings. Start atomically closes a previous interval; stop requires its session_id. Server timestamps are authoritative. Idempotency-Key must be a UUID and reused on retries with a fresh JWT.
+      security: [{widgetToken: []}, {widgetBearer: []}]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action]
+              properties:
+                action: {type: string, enum: [work, activity, pause, stop]}
+                expected_session_id: {type: string, description: "CAS guard; empty means no current session."}
+                session_id: {type: string, format: uuid}
+                context: {$ref: '#/components/schemas/ActivitySessionContext'}
+      responses:
+        '200':
+          description: Original result on retry; no duplicated intervals.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityWorkSession'}
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '409': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+        '429':
+          description: Ingress or downstream capacity exhausted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityRateLimitError'}
+
+  /api/v1/activity/view/employees/{employeeId}/sessions:
+    get:
+      operationId: getActivityEmployeeSessions
+      summary: Read stored task, activity, Imbox and pause intervals for one panel employee.
+      security: [{viewKey: []}]
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+        - name: from
+          in: query
+          required: true
+          schema: {type: integer, format: int64}
+        - name: to
+          in: query
+          required: true
+          schema: {type: integer, format: int64}
+        - name: cursor
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: At most 200 intervals per page; follow next_cursor for the complete range. Open intervals retain stopped_at zero until explicitly stopped.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  next_cursor: {type: string}
+                  snapshot_at: {type: integer, format: int64}
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/ActivityWorkSession'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/task-panel:
+    get:
+      operationId: getActivityTaskPanelSettings
+      summary: Read installation-wide task-panel settings, separate from share-panel settings.
+      security: [{managementToken: []}, {activityBrowserSession: []}]
+      parameters:
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+      responses:
+        '200':
+          description: Disabled defaults have revision zero.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityTaskPanelSettings'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+    patch:
+      operationId: saveActivityTaskPanelSettings
+      summary: Compare-and-swap installation-wide task-panel settings.
+      security: [{managementToken: []}, {activityBrowserSession: []}]
+      parameters:
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ActivityTaskPanelSettings'}
+      responses:
+        '200':
+          description: Saved settings with incremented revision.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityTaskPanelSettings'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '409': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/view/problems:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivityProblemSnapshot
+      summary: Current scoped counts of open leads without tasks, leads with overdue tasks and overdue tasks.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Only a fully collected snapshot is published. Collection runs in resumable 250-item pages with no account-size cutoff. Pending first collection returns unavailable; existing snapshots carry stale/state/error_code during refresh.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityProblemSnapshot'
+              example: {snapshot_at: 1793000000, counts: [{employee_id: 7, leads_no_tasks: 1, leads_overdue_tasks: 2, overdue_tasks: 3}]}
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
   /api/v1/activity/view/panel:
     get:
       tags: [ActivityViewer]
@@ -1146,7 +1377,7 @@ paths:
       tags: [ActivityManagement]
       operationId: listActivityPanels
       summary: List managed panels for one installation. Keys are never returned.
-      security: [{managementToken: []}]
+      security: [{managementToken: []}, {activityBrowserSession: []}]
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
@@ -1166,7 +1397,7 @@ paths:
       tags: [ActivityManagement]
       operationId: createActivityPanel
       summary: Create a panel and return the view key once.
-      security: [{managementToken: []}]
+      security: [{managementToken: []}, {activityBrowserSession: []}]
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
@@ -1212,7 +1443,7 @@ paths:
       tags: [ActivityManagement]
       operationId: getActivityManagedPanel
       summary: Read one managed panel without the view key.
-      security: [{managementToken: []}]
+      security: [{managementToken: []}, {activityBrowserSession: []}]
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
@@ -1234,7 +1465,7 @@ paths:
       tags: [ActivityManagement]
       operationId: patchActivityManagedPanel
       summary: Patch one panel with revision CAS.
-      security: [{managementToken: []}]
+      security: [{managementToken: []}, {activityBrowserSession: []}]
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
@@ -1265,7 +1496,7 @@ paths:
       tags: [ActivityManagement]
       operationId: rotateActivityShareLink
       summary: Rotate the view key. The previous link is invalid on the next read.
-      security: [{managementToken: []}]
+      security: [{managementToken: []}, {activityBrowserSession: []}]
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
@@ -1302,7 +1533,7 @@ paths:
       tags: [ActivityManagement]
       operationId: listActivityEmployees
       summary: Installation directory used when choosing panel employees.
-      security: [{managementToken: []}]
+      security: [{managementToken: []}, {activityBrowserSession: []}]
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
@@ -1406,6 +1637,11 @@ paths:
 
 components:
   securitySchemes:
+    activityBrowserSession:
+      type: http
+      scheme: bearer
+      description: Short-lived scoped browser credential issued from the widget after a live amoCRM admin check. No installation headers are needed with this credential.
+
     widgetToken:
       type: apiKey
       in: header
@@ -1458,12 +1694,12 @@ components:
     ActivityInstallation:
       name: X-Activity-Installation-Id
       in: header
-      required: true
+      required: false
       schema: {type: string, format: uuid}
     ActivityIntegration:
       name: X-Activity-Integration-Id
       in: header
-      required: true
+      required: false
       schema: {type: string, format: uuid}
     ActivityPanelID:
       name: panelId
@@ -1559,9 +1795,66 @@ components:
         to: {type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'}
       required: [from, to]
       additionalProperties: false
+    ActivityCallThresholds:
+      type: object
+      additionalProperties: false
+      properties:
+        dialing_seconds: {type: integer, minimum: 0, maximum: 86398}
+        conversation_seconds: {type: integer, minimum: 1, maximum: 86399}
+        exceeding_seconds: {type: integer, minimum: 2, maximum: 86400}
+      required: [dialing_seconds, conversation_seconds, exceeding_seconds]
+    ActivityPanelOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        pipeline_ids:
+          type: array
+          nullable: true
+          maxItems: 100
+          items: {type: integer, format: int64, minimum: 1}
+        operators:
+          type: array
+          nullable: true
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              employee_id: {type: integer, format: int64, minimum: 1}
+              enabled: {type: boolean}
+              plan: {type: integer, minimum: 1, maximum: 100000}
+              thresholds: {$ref: '#/components/schemas/ActivityCallThresholds'}
+            required: [employee_id, enabled, plan, thresholds]
+        departments:
+          type: array
+          nullable: true
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              group_id: {type: integer, format: int64, minimum: 0}
+              thresholds: {$ref: '#/components/schemas/ActivityCallThresholds'}
+            required: [group_id, thresholds]
+    ActivityPipelineCatalog:
+      type: array
+      nullable: true
+      items:
+        type: object
+        properties:
+          id: {type: integer, format: int64}
+          name: {type: string}
+          statuses:
+            type: array
+            items:
+              type: object
+              properties:
+                id: {type: integer, format: int64}
+                name: {type: string}
     ActivityPanelCreate:
       type: object
       properties:
+        options: {$ref: '#/components/schemas/ActivityPanelOptions'}
         name: {type: string, minLength: 1, maxLength: 120}
         employee_ids:
           type: array
@@ -1577,6 +1870,7 @@ components:
     ActivityPanelPatch:
       type: object
       properties:
+        options: {$ref: '#/components/schemas/ActivityPanelOptions'}
         revision: {type: integer, format: int64, minimum: 1}
         name: {type: string, minLength: 1, maxLength: 120}
         employee_ids:
@@ -1593,6 +1887,7 @@ components:
     ActivityManagedPanel:
       type: object
       properties:
+        options: {$ref: '#/components/schemas/ActivityPanelOptions'}
         id: {type: string, format: uuid}
         name: {type: string}
         employee_ids:
@@ -1618,9 +1913,82 @@ components:
             $ref: '#/components/schemas/ActivityManagedPanel'
       required: [panels]
       additionalProperties: false
+    ActivityTaskPanelSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: {type: boolean}
+        employee_ids:
+          type: array
+          nullable: true
+          maxItems: 1000
+          items: {type: integer, format: int64, minimum: 1}
+        consider_future_tasks: {type: boolean}
+        include_related_deals: {type: boolean}
+        priority_keys:
+          type: array
+          nullable: true
+          maxItems: 6
+          items: {type: string, enum: [urgent, overdue, overdue_no_time, today_no_time, today_timed, future]}
+        revision: {type: integer, format: int64, minimum: 0}
+      required: [enabled, employee_ids, revision]
+    ActivitySessionContext:
+      type: object
+      additionalProperties: false
+      properties:
+        client_id: {type: string, format: uuid}
+        task_id: {type: integer, format: int64, minimum: 0}
+        task_type_id: {type: integer, format: int64, minimum: 0}
+        entity_id: {type: integer, format: int64, minimum: 0}
+        pipeline_id: {type: integer, format: int64, minimum: 0}
+        status_id: {type: integer, format: int64, minimum: 0}
+        task_name: {type: string, maxLength: 2000}
+        task_type_name: {type: string, maxLength: 2000}
+        task_result: {type: string, maxLength: 2000}
+        activity_name: {type: string, maxLength: 2000}
+        activity_type: {type: string, maxLength: 2000}
+        entity_type: {type: string, maxLength: 2000}
+        entity_name: {type: string, maxLength: 2000}
+        pipeline_name: {type: string, maxLength: 2000}
+        status_name: {type: string, maxLength: 2000}
+        status_color: {type: string, maxLength: 2000}
+    ActivityWorkSession:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        employee_id: {type: integer, format: int64}
+        kind: {type: string, enum: [work, activity, pause]}
+        started_at: {type: integer, format: int64}
+        stopped_at: {type: integer, format: int64, description: "Zero while open."}
+        work_time_seconds: {type: integer, format: int64}
+        context: {$ref: '#/components/schemas/ActivitySessionContext'}
+    ActivityProblemSnapshot:
+      type: object
+      required: [counts, snapshot_at]
+      additionalProperties: false
+      properties:
+        stale: {type: boolean}
+        state: {type: string, enum: [leads, tasks, idle]}
+        error_code: {type: string}
+        snapshot_at: {type: integer, format: int64}
+        counts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [employee_id, leads_no_tasks, leads_overdue_tasks, overdue_tasks]
+            properties:
+              employee_id: {type: integer, format: int64}
+              leads_no_tasks: {type: integer, minimum: 0}
+              leads_overdue_tasks: {type: integer, minimum: 0}
+              overdue_tasks: {type: integer, minimum: 0}
     ActivityViewerPanel:
       type: object
       properties:
+        task_panel_enabled: {type: boolean}
+        pipelines: {$ref: '#/components/schemas/ActivityPipelineCatalog'}
+        options: {$ref: '#/components/schemas/ActivityPanelOptions'}
+        crm_base_url: {type: string, format: uri, description: "HTTPS origin of the scoped CRM account; omitted when unknown."}
         name: {type: string}
         timezone: {type: string}
         display_window:
@@ -1744,12 +2112,12 @@ components:
         initial_days:
           type: integer
           minimum: 1
-          maximum: 7
+          maximum: 31
           default: 2
         retention_days:
           type: integer
           minimum: 2
-          maximum: 30
+          maximum: 31
           default: 7
       required:
       - initial_days
@@ -2043,6 +2411,8 @@ components:
     ActivityDirectory:
       type: object
       properties:
+        pipelines: {$ref: '#/components/schemas/ActivityPipelineCatalog'}
+        crm_base_url: {type: string, format: uri}
         users:
           type: array
           maxItems: 100

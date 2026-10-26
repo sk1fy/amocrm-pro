@@ -41,12 +41,13 @@ type fieldCacheKey struct {
 	entityType   string
 }
 type Service struct {
-	api       API
-	policy    serviceapi.Policy
-	mu        sync.Mutex
-	directory map[uuid.UUID]cached
-	pipelines map[uuid.UUID]cachedPipelines
-	fields    map[fieldCacheKey]cachedFields
+	problemStore *ProblemStore
+	api          API
+	policy       serviceapi.Policy
+	mu           sync.Mutex
+	directory    map[uuid.UUID]cached
+	pipelines    map[uuid.UUID]cachedPipelines
+	fields       map[fieldCacheKey]cachedFields
 }
 
 func New(api API, policy serviceapi.Policy) *Service {
@@ -114,7 +115,7 @@ func (s *Service) Users(ctx context.Context, r serviceapi.UsersRequest) (service
 		}
 		s.mu.Unlock()
 	}
-	result := serviceapi.Directory{Timezone: entry.data.Timezone, Users: []serviceapi.User{}}
+	result := serviceapi.Directory{CRMBaseURL: entry.data.CRMBaseURL, Timezone: entry.data.Timezone, Users: []serviceapi.User{}}
 	for _, u := range entry.data.Users {
 		if len(selected) == 0 || selected[u.ID] {
 			result.Users = append(result.Users, serviceapi.User{ID: u.ID, Name: u.Name, GroupID: u.GroupID, GroupName: u.GroupName})

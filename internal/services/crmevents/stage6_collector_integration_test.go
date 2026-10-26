@@ -589,11 +589,11 @@ func TestSettingsSnapshotOnQueuedAndRunningJobs(t *testing.T) {
 	if err = store.pool.QueryRow(ctx, `SELECT j.id,j.window_from,j.window_to,j.target_to,j.page,s.initial_hours,s.retention_days FROM event_jobs j JOIN event_sources s USING(installation_id) WHERE j.installation_id=$1 AND j.kind='current'`, installation).Scan(&jobID, &windowFrom, &windowTo, &target, &page, &initialHours, &retentionDays); err != nil {
 		t.Fatal(err)
 	}
-	if initialHours != 48 || retentionDays != 7 || page != 1 {
+	if initialHours != serviceapi.DefaultSettings().InitialDays*24 || retentionDays != serviceapi.DefaultSettings().RetentionDays || page != 1 {
 		t.Fatalf("default snapshot hours=%d retention=%d page=%d", initialHours, retentionDays, page)
 	}
 
-	replay, err := s.Apply(ctx, serviceapi.Command{CommandID: "cfg-1", Kind: "sync", InitialDays: 2, RetentionDays: 7})
+	replay, err := s.Apply(ctx, serviceapi.Command{CommandID: "cfg-1", Kind: "sync", InitialDays: serviceapi.DefaultSettings().InitialDays, RetentionDays: serviceapi.DefaultSettings().RetentionDays})
 	if err != nil || replay.ID != first.ID {
 		t.Fatalf("normalized default replay %+v %v", replay, err)
 	}

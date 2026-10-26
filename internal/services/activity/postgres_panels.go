@@ -14,7 +14,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
-const panelSelect = `SELECT id,name,employee_ids,display_from,display_to,timezone,enabled,revision,updated_at,view_key_hash IS NOT NULL,view_key_version FROM panels`
+const panelSelect = `SELECT id,name,employee_ids,display_from,display_to,timezone,enabled,revision,updated_at,view_key_hash IS NOT NULL,view_key_version,options FROM panels`
 
 func (s *Postgres) ResolveShare(ctx context.Context, hash []byte) (serviceapi.ShareLookup, error) {
 	if len(hash) != 32 {
@@ -36,13 +36,18 @@ func (s *Postgres) CreatePanel(ctx context.Context, p serviceapi.Principal, c se
 	if err != nil || id == uuid.Nil || panel.ID == uuid.Nil || len(hash) != 32 {
 		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.InvalidArgument, "command_id must be a UUID")
 	}
+	var canonicalOptions *serviceapi.PanelOptions
+	if c.HasOptions || len(panel.Options.PipelineIDs)+len(panel.Options.Operators)+len(panel.Options.Departments) > 0 {
+		canonicalOptions = &panel.Options
+	}
 	canonical, _ := json.Marshal(struct {
 		Scope         serviceapi.Scope
 		Name          string
 		EmployeeIDs   []int64
 		DisplayWindow serviceapi.DisplayWindow
 		Enabled       bool
-	}{p.Scope, panel.Name, panel.EmployeeIDs, panel.DisplayWindow, panel.Enabled})
+		Options       *serviceapi.PanelOptions `json:",omitempty"`
+	}{p.Scope, panel.Name, panel.EmployeeIDs, panel.DisplayWindow, panel.Enabled, canonicalOptions})
 	requestHash := sha256.Sum256(canonical)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -87,7 +92,7 @@ func (s *Postgres) CreatePanel(ctx context.Context, p serviceapi.Principal, c se
 	if count >= serviceapi.MaxPanelsPerInstallation {
 		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.ResourceExhausted, "at most 50 panels per installation")
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO panels(id,installation_id,integration_id,name,employee_ids,display_from,display_to,timezone,enabled,revision,view_key_hash,view_key_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1,$10,1)`, panel.ID, p.InstallationID, p.IntegrationID, panel.Name, panel.EmployeeIDs, panel.DisplayWindow.From, panel.DisplayWindow.To, panel.Timezone, panel.Enabled, hash); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO panels(id,installation_id,integration_id,name,employee_ids,display_from,display_to,timezone,enabled,revision,view_key_hash,view_key_version,options) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1,$10,1,$11)`, panel.ID, p.InstallationID, p.IntegrationID, panel.Name, panel.EmployeeIDs, panel.DisplayWindow.From, panel.DisplayWindow.To, panel.Timezone, panel.Enabled, hash, panel.Options); err != nil {
 		return serviceapi.ManagedPanel{}, err
 	}
 	stored, err := scanPanel(tx.QueryRow(ctx, panelSelect+` WHERE id=$1`, panel.ID))
@@ -227,6 +232,10 @@ func applyPanelPatch(ctx context.Context, tx pgx.Tx, p serviceapi.Principal, c s
 	if current.Revision != c.Revision {
 		return serviceapi.ManagedPanel{}, serviceapi.Fail(serviceapi.Conflict, "revision mismatch")
 	}
+	options := current.Options
+	if c.HasOptions {
+		options = c.Options
+	}
 	name, employees, from, to, enabled := current.Name, current.EmployeeIDs, current.DisplayWindow.From, current.DisplayWindow.To, current.Enabled
 	if c.HasName {
 		name = c.Name
@@ -240,7 +249,10 @@ func applyPanelPatch(ctx context.Context, tx pgx.Tx, p serviceapi.Principal, c s
 	if c.Enabled != nil {
 		enabled = *c.Enabled
 	}
-	tag, err := tx.Exec(ctx, `UPDATE panels SET name=$1,employee_ids=$2,display_from=$3,display_to=$4,enabled=$5,revision=revision+1,updated_at=now() WHERE id=$6 AND installation_id=$7 AND integration_id=$8 AND revision=$9`, name, employees, from, to, enabled, c.PanelID, p.InstallationID, p.IntegrationID, c.Revision)
+	if err := serviceapi.ValidatePanelOptions(options, employees); err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	tag, err := tx.Exec(ctx, `UPDATE panels SET name=$1,employee_ids=$2,display_from=$3,display_to=$4,enabled=$5,revision=revision+1,updated_at=now(),options=$10 WHERE id=$6 AND installation_id=$7 AND integration_id=$8 AND revision=$9`, name, employees, from, to, enabled, c.PanelID, p.InstallationID, p.IntegrationID, c.Revision, options)
 	if err != nil {
 		return serviceapi.ManagedPanel{}, err
 	}
@@ -261,6 +273,11 @@ func panelPatchRequestHash(p serviceapi.Principal, c serviceapi.PanelCommand) [s
 	canonical.WriteByte(boolByte(c.HasName))
 	canonical.WriteByte(boolByte(c.HasEmployees))
 	canonical.WriteByte(boolByte(c.HasWindow))
+	if c.HasOptions {
+		writePatchString(&canonical, "options-v1")
+		data, _ := json.Marshal(c.Options)
+		writePatchString(&canonical, string(data))
+	}
 	canonical.WriteByte(boolByte(c.Enabled != nil))
 	if c.HasName {
 		writePatchString(&canonical, c.Name)
@@ -294,6 +311,7 @@ func boolByte(value bool) byte {
 }
 
 type panelPatchResult struct {
+	Options        serviceapi.PanelOptions  `json:"options"`
 	ID             uuid.UUID                `json:"id"`
 	Name           string                   `json:"name"`
 	EmployeeIDs    []int64                  `json:"employee_ids"`
@@ -308,7 +326,8 @@ type panelPatchResult struct {
 
 func encodePanelPatchResult(panel serviceapi.ManagedPanel) ([]byte, error) {
 	return json.Marshal(panelPatchResult{
-		ID: panel.ID, Name: panel.Name, EmployeeIDs: panel.EmployeeIDs,
+		Options: panel.Options,
+		ID:      panel.ID, Name: panel.Name, EmployeeIDs: panel.EmployeeIDs,
 		DisplayWindow: panel.DisplayWindow, Timezone: panel.Timezone,
 		Enabled: panel.Enabled, Revision: panel.Revision,
 		UpdatedAt:      panel.UpdatedAt.Format(time.RFC3339Nano),
@@ -333,7 +352,7 @@ func decodePanelPatchResult(raw []byte, panelID uuid.UUID) (serviceapi.ManagedPa
 		employeeIDs = []int64{}
 	}
 	return serviceapi.ManagedPanel{
-		ID: result.ID, Name: result.Name, EmployeeIDs: employeeIDs,
+		Options: result.Options, ID: result.ID, Name: result.Name, EmployeeIDs: employeeIDs,
 		DisplayWindow: result.DisplayWindow, Timezone: result.Timezone,
 		Enabled: result.Enabled, Revision: result.Revision, UpdatedAt: updatedAt,
 		ViewKeyVersion: result.ViewKeyVersion, ShareUrlIssued: result.ShareURLIssued,
@@ -406,7 +425,7 @@ type panelRow interface {
 func scanPanel(row panelRow) (serviceapi.ManagedPanel, error) {
 	var panel serviceapi.ManagedPanel
 	var issued bool
-	err := row.Scan(&panel.ID, &panel.Name, &panel.EmployeeIDs, &panel.DisplayWindow.From, &panel.DisplayWindow.To, &panel.Timezone, &panel.Enabled, &panel.Revision, &panel.UpdatedAt, &issued, &panel.ViewKeyVersion)
+	err := row.Scan(&panel.ID, &panel.Name, &panel.EmployeeIDs, &panel.DisplayWindow.From, &panel.DisplayWindow.To, &panel.Timezone, &panel.Enabled, &panel.Revision, &panel.UpdatedAt, &issued, &panel.ViewKeyVersion, &panel.Options)
 	if err != nil {
 		return serviceapi.ManagedPanel{}, err
 	}

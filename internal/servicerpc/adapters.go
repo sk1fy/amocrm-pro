@@ -463,3 +463,127 @@ func (c policyClient) Validate(ctx context.Context, r serviceapi.Auth, audience,
 	}
 	return fromPrincipal(v), nil
 }
+
+func (s *gatewayServer) Problems(ctx context.Context, r *pb.ProblemRequest) (*pb.ProblemSnapshot, error) {
+	reader, ok := s.impl.(serviceapi.ProblemReader)
+	if !ok {
+		return nil, serviceapi.Fail(serviceapi.Unavailable, "current snapshot reader unavailable")
+	}
+	v, err := reader.Problems(ctx, fromProblemRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toProblemSnapshot(v), nil
+}
+func (c gatewayClient) Problems(ctx context.Context, r serviceapi.ProblemRequest) (serviceapi.ProblemSnapshot, error) {
+	v, err := c.remote.Problems(ctx, toProblemRequest(r))
+	if err != nil {
+		return serviceapi.ProblemSnapshot{}, err
+	}
+	return fromProblemSnapshot(v), nil
+}
+
+func (s *activityServer) ViewProblems(ctx context.Context, r *pb.Auth) (*pb.ProblemSnapshot, error) {
+	v, err := s.impl.ViewProblems(ctx, fromAuth(r))
+	if err != nil {
+		return nil, err
+	}
+	return toProblemSnapshot(v), nil
+}
+func (c activityClient) ViewProblems(ctx context.Context, r serviceapi.Auth) (serviceapi.ProblemSnapshot, error) {
+	v, err := c.remote.ViewProblems(ctx, toAuth(r))
+	if err != nil {
+		return serviceapi.ProblemSnapshot{}, err
+	}
+	return fromProblemSnapshot(v), nil
+}
+
+func (s *activityServer) ApplySession(ctx context.Context, r *pb.SessionCommand) (*pb.WorkSession, error) {
+	v, err := s.impl.ApplySession(ctx, fromSessionCommand(r))
+	if err != nil {
+		return nil, err
+	}
+	return toWorkSession(v), nil
+}
+func (c activityClient) ApplySession(ctx context.Context, r serviceapi.SessionCommand) (serviceapi.WorkSession, error) {
+	v, err := c.remote.ApplySession(ctx, toSessionCommand(r))
+	if err != nil {
+		return serviceapi.WorkSession{}, err
+	}
+	return fromWorkSession(v), nil
+}
+
+func (s *activityServer) ViewSessions(ctx context.Context, r *pb.Query) (*pb.SessionPage, error) {
+	v, err := s.impl.ViewSessions(ctx, fromQuery(r))
+	if err != nil {
+		return nil, err
+	}
+	return toSessionPage(v), nil
+}
+func (c activityClient) ViewSessions(ctx context.Context, r serviceapi.Query) (serviceapi.SessionPage, error) {
+	v, err := c.remote.ViewSessions(ctx, toQuery(r))
+	if err != nil {
+		return serviceapi.SessionPage{}, err
+	}
+	return fromSessionPage(v), nil
+}
+
+func (s *activityServer) TaskPanel(ctx context.Context, r *pb.Auth) (*pb.TaskPanelSettings, error) {
+	v, err := s.impl.TaskPanel(ctx, fromAuth(r))
+	if err != nil {
+		return nil, err
+	}
+	return toTaskPanelSettings(v), nil
+}
+func (c activityClient) TaskPanel(ctx context.Context, r serviceapi.Auth) (serviceapi.TaskPanelSettings, error) {
+	v, err := c.remote.TaskPanel(ctx, toAuth(r))
+	if err != nil {
+		return serviceapi.TaskPanelSettings{}, err
+	}
+	return fromTaskPanelSettings(v), nil
+}
+
+func (s *activityServer) SaveTaskPanel(ctx context.Context, r *pb.TaskPanelCommand) (*pb.TaskPanelSettings, error) {
+	v, err := s.impl.SaveTaskPanel(ctx, fromTaskPanelCommand(r))
+	if err != nil {
+		return nil, err
+	}
+	return toTaskPanelSettings(v), nil
+}
+func (c activityClient) SaveTaskPanel(ctx context.Context, r serviceapi.TaskPanelCommand) (serviceapi.TaskPanelSettings, error) {
+	v, err := c.remote.SaveTaskPanel(ctx, toTaskPanelCommand(r))
+	if err != nil {
+		return serviceapi.TaskPanelSettings{}, err
+	}
+	return fromTaskPanelSettings(v), nil
+}
+
+func (s *activityServer) OwnActivityState(ctx context.Context, r *pb.Auth) (*pb.EmployeeActivityState, error) {
+	v, e := s.impl.OwnActivityState(ctx, fromAuth(r))
+	if e != nil {
+		return nil, e
+	}
+	return toEmployeeActivityState(v), nil
+}
+func (c activityClient) OwnActivityState(ctx context.Context, r serviceapi.Auth) (serviceapi.EmployeeActivityState, error) {
+	v, e := c.remote.OwnActivityState(ctx, toAuth(r))
+	if e != nil {
+		return serviceapi.EmployeeActivityState{}, e
+	}
+	return fromEmployeeActivityState(v), nil
+}
+
+func (s *activityServer) OwnSessions(ctx context.Context, r *pb.Query) (*pb.SessionPage, error) {
+	v, e := s.impl.OwnSessions(ctx, fromQuery(r))
+	if e != nil {
+		return nil, e
+	}
+	return toSessionPage(v), nil
+}
+func (c activityClient) OwnSessions(ctx context.Context, r serviceapi.Query) (serviceapi.SessionPage, error) {
+	v, e := c.remote.OwnSessions(ctx, toQuery(r))
+	if e != nil {
+		return serviceapi.SessionPage{}, e
+	}
+	return fromSessionPage(v), nil
+}
