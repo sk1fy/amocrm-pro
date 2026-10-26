@@ -37,6 +37,7 @@ var (
 	ActivityTaskPanelSave         = Route{Method: http.MethodPatch, Path: "/api/v1/activity/task-panel"}
 	ActivityViewProblems          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/problems"}
 	ActivityViewPanel             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/panel"}
+	ActivityViewRatings           = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/activity"}
 	ActivityViewTimeline          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/timeline"}
 	ActivityViewEmployee          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}"}
 	ActivityViewEvent             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/events/{eventId}"}
@@ -69,6 +70,7 @@ var (
 		ActivityOwnState, ActivityOwnSessions, ActivityBrowserSession, ActivitySessionWrite, ActivityViewSessions, ActivityTaskPanel, ActivityTaskPanelSave,
 		ActivityViewProblems,
 		ActivityViewPanel,
+		ActivityViewRatings,
 		ActivityViewTimeline,
 		ActivityViewEmployee,
 		ActivityViewEvent,

@@ -587,3 +587,22 @@ func (c activityClient) OwnSessions(ctx context.Context, r serviceapi.Query) (se
 	}
 	return fromSessionPage(v), nil
 }
+
+func (s *activityServer) ViewActivityRatings(ctx context.Context, r *pb.ActivityRatingRequest) (*pb.ActivityRatings, error) {
+	reader, ok := s.impl.(serviceapi.ActivityRatingReader)
+	if !ok {
+		return nil, serviceapi.Fail(serviceapi.Unavailable, "Activity rating service unavailable")
+	}
+	v, err := reader.ViewActivityRatings(ctx, fromActivityRatingRequest(r))
+	if err != nil {
+		return nil, err
+	}
+	return toActivityRatings(v), nil
+}
+func (c activityClient) ViewActivityRatings(ctx context.Context, r serviceapi.ActivityRatingRequest) (serviceapi.ActivityRatings, error) {
+	v, err := c.remote.ViewActivityRatings(ctx, toActivityRatingRequest(r))
+	if err != nil {
+		return serviceapi.ActivityRatings{}, err
+	}
+	return fromActivityRatings(v), nil
+}

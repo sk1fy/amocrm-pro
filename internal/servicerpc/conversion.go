@@ -1669,3 +1669,82 @@ func fromEmployeeActivityState(src *pb.EmployeeActivityState) serviceapi.Employe
 	out.Enabled = src.Enabled
 	return out
 }
+func toActivityRatingRequest(src serviceapi.ActivityRatingRequest) *pb.ActivityRatingRequest {
+	out := new(pb.ActivityRatingRequest)
+	out.Auth = toAuth(src.Auth)
+	out.From = src.From
+	out.To = src.To
+	out.Day = src.Day
+	out.Surface = src.Surface
+	out.StartMinutes = boundedInt32(src.StartMinutes)
+	out.EndMinutes = boundedInt32(src.EndMinutes)
+	out.CutoffUnix = src.CutoffUnix
+	out.EmployeeIds = append(out.EmployeeIds, src.EmployeeIDs...)
+	return out
+}
+func fromActivityRatingRequest(src *pb.ActivityRatingRequest) serviceapi.ActivityRatingRequest {
+	var out serviceapi.ActivityRatingRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.From = src.From
+	out.To = src.To
+	out.Day = src.Day
+	out.Surface = src.Surface
+	out.StartMinutes = int(src.StartMinutes)
+	out.EndMinutes = int(src.EndMinutes)
+	out.CutoffUnix = src.CutoffUnix
+	out.EmployeeIDs = append(out.EmployeeIDs, src.EmployeeIds...)
+	return out
+}
+func toEmployeeActivityRating(src serviceapi.EmployeeActivityRating) *pb.EmployeeActivityRating {
+	out := new(pb.EmployeeActivityRating)
+	out.EmployeeId = src.EmployeeID
+	out.Percent = src.Percent
+	out.MinutePercentages = append(out.MinutePercentages, src.MinutePercentages...)
+	return out
+}
+func fromEmployeeActivityRating(src *pb.EmployeeActivityRating) serviceapi.EmployeeActivityRating {
+	var out serviceapi.EmployeeActivityRating
+	if src == nil {
+		return out
+	}
+	out.EmployeeID = src.EmployeeId
+	out.Percent = src.Percent
+	out.MinutePercentages = append(out.MinutePercentages, src.MinutePercentages...)
+	return out
+}
+func toActivityRatings(src serviceapi.ActivityRatings) *pb.ActivityRatings {
+	out := new(pb.ActivityRatings)
+	out.FormulaVersion = src.FormulaVersion
+	out.Day = src.Day
+	out.Timezone = src.Timezone
+	out.StartMinutes = boundedInt32(src.StartMinutes)
+	out.EndMinutes = boundedInt32(src.EndMinutes)
+	out.CutoffUnix = src.CutoffUnix
+	out.SnapshotAt = src.SnapshotAt
+	out.Partial = src.Partial
+	for _, item := range src.Employees {
+		out.Employees = append(out.Employees, toEmployeeActivityRating(item))
+	}
+	return out
+}
+func fromActivityRatings(src *pb.ActivityRatings) serviceapi.ActivityRatings {
+	var out serviceapi.ActivityRatings
+	if src == nil {
+		return out
+	}
+	out.FormulaVersion = src.FormulaVersion
+	out.Day = src.Day
+	out.Timezone = src.Timezone
+	out.StartMinutes = int(src.StartMinutes)
+	out.EndMinutes = int(src.EndMinutes)
+	out.CutoffUnix = src.CutoffUnix
+	out.SnapshotAt = src.SnapshotAt
+	out.Partial = src.Partial
+	for _, item := range src.Employees {
+		out.Employees = append(out.Employees, fromEmployeeActivityRating(item))
+	}
+	return out
+}

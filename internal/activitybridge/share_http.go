@@ -23,7 +23,7 @@ var (
 
 func ShareRoutes() []apicontract.Route {
 	return []apicontract.Route{
-		apicontract.ActivityViewSessions, apicontract.ActivityTaskPanel, apicontract.ActivityTaskPanelSave, apicontract.ActivityViewProblems, apicontract.ActivityViewPanel, apicontract.ActivityViewTimeline, apicontract.ActivityViewEmployee, apicontract.ActivityViewEvent,
+		apicontract.ActivityViewSessions, apicontract.ActivityTaskPanel, apicontract.ActivityTaskPanelSave, apicontract.ActivityViewProblems, apicontract.ActivityViewRatings, apicontract.ActivityViewPanel, apicontract.ActivityViewTimeline, apicontract.ActivityViewEmployee, apicontract.ActivityViewEvent,
 		apicontract.ActivityManagedPanels, apicontract.ActivityManagedPanelCreate, apicontract.ActivityManagedPanel, apicontract.ActivityManagedPanelPatch,
 		apicontract.ActivityManagedShareLink, apicontract.ActivityManagedEmployees,
 	}
@@ -40,6 +40,7 @@ func (b *Bridge) RegisterShareHTTP(router chi.Router) {
 		{apicontract.ActivityTaskPanelSave, b.TaskPanelSaveHTTP, false},
 		{apicontract.ActivityViewProblems, b.ViewProblemsHTTP, true},
 		{apicontract.ActivityViewPanel, b.ViewPanelHTTP, true},
+		{apicontract.ActivityViewRatings, b.ViewActivityRatingsHTTP, true},
 		{apicontract.ActivityViewTimeline, b.ViewTimelineHTTP, true},
 		{apicontract.ActivityViewEmployee, b.ViewEmployeeHTTP, true},
 		{apicontract.ActivityViewEvent, b.ViewEventHTTP, true},
