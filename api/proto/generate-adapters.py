@@ -13,6 +13,7 @@ for name,body in messages.items():
  for direction in ['to','from']:
   if direction=='to':out.append(f'func to{name}(src serviceapi.{name}) *pb.{name} {{ out:=new(pb.{name})')
   else:out.append(f'func from{name}(src *pb.{name}) serviceapi.{name} {{ var out serviceapi.{name};if src==nil{{return out}}')
+  if name=='ProblemSnapshot' and direction=='from':out.append('out.Counts = []serviceapi.ProblemCount{}')
   for repeated,typ,field in fields:
    d=domain(field);p=camel(field)
    if field=='crm_base_url': d='CRMBaseURL'

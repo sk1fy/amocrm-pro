@@ -4838,6 +4838,8 @@ type ProblemSnapshot struct {
 	Stale         bool                   `protobuf:"varint,3,opt,name=stale,proto3" json:"stale,omitempty"`
 	State         string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
 	ErrorCode     string                 `protobuf:"bytes,5,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	Collecting    bool                   `protobuf:"varint,6,opt,name=collecting,proto3" json:"collecting,omitempty"`
+	RefreshAfter  int64                  `protobuf:"varint,7,opt,name=refresh_after,json=refreshAfter,proto3" json:"refresh_after,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4905,6 +4907,20 @@ func (x *ProblemSnapshot) GetErrorCode() string {
 		return x.ErrorCode
 	}
 	return ""
+}
+
+func (x *ProblemSnapshot) GetCollecting() bool {
+	if x != nil {
+		return x.Collecting
+	}
+	return false
+}
+
+func (x *ProblemSnapshot) GetRefreshAfter() int64 {
+	if x != nil {
+		return x.RefreshAfter
+	}
+	return 0
 }
 
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
@@ -6360,7 +6376,7 @@ const file_services_proto_rawDesc = "" +
 	"employeeId\x12$\n" +
 	"\x0eleads_no_tasks\x18\x02 \x01(\x05R\fleadsNoTasks\x12.\n" +
 	"\x13leads_overdue_tasks\x18\x03 \x01(\x05R\x11leadsOverdueTasks\x12#\n" +
-	"\roverdue_tasks\x18\x04 \x01(\x05R\foverdueTasks\"\xb7\x01\n" +
+	"\roverdue_tasks\x18\x04 \x01(\x05R\foverdueTasks\"\xfc\x01\n" +
 	"\x0fProblemSnapshot\x128\n" +
 	"\x06counts\x18\x01 \x03(\v2 .amocrm.services.v1.ProblemCountR\x06counts\x12\x1f\n" +
 	"\vsnapshot_at\x18\x02 \x01(\x03R\n" +
@@ -6368,7 +6384,11 @@ const file_services_proto_rawDesc = "" +
 	"\x05stale\x18\x03 \x01(\bR\x05stale\x12\x14\n" +
 	"\x05state\x18\x04 \x01(\tR\x05state\x12\x1d\n" +
 	"\n" +
-	"error_code\x18\x05 \x01(\tR\terrorCode\"\x8a\x01\n" +
+	"error_code\x18\x05 \x01(\tR\terrorCode\x12\x1e\n" +
+	"\n" +
+	"collecting\x18\x06 \x01(\bR\n" +
+	"collecting\x12#\n" +
+	"\rrefresh_after\x18\a \x01(\x03R\frefreshAfter\"\x8a\x01\n" +
 	"\x17BootstrapAccountRequest\x12%\n" +
 	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12%\n" +
 	"\x0eaccount_domain\x18\x02 \x01(\tR\raccountDomain\x12!\n" +

@@ -20,9 +20,11 @@ type ProblemCount struct {
 	OverdueTasks      int   `json:"overdue_tasks"`
 }
 type ProblemSnapshot struct {
-	Stale      bool           `json:"stale"`
-	State      string         `json:"state"`
-	ErrorCode  string         `json:"error_code,omitempty"`
-	Counts     []ProblemCount `json:"counts"`
-	SnapshotAt int64          `json:"snapshot_at"`
+	Collecting   bool           `json:"collecting"`
+	RefreshAfter int64          `json:"refresh_after"`
+	Stale        bool           `json:"stale"`
+	State        string         `json:"state"`
+	ErrorCode    string         `json:"error_code,omitempty"`
+	Counts       []ProblemCount `json:"counts"`
+	SnapshotAt   int64          `json:"snapshot_at"`
 }

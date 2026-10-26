@@ -1452,6 +1452,8 @@ func toProblemSnapshot(src serviceapi.ProblemSnapshot) *pb.ProblemSnapshot {
 	out.Stale = src.Stale
 	out.State = src.State
 	out.ErrorCode = src.ErrorCode
+	out.Collecting = src.Collecting
+	out.RefreshAfter = src.RefreshAfter
 	return out
 }
 func fromProblemSnapshot(src *pb.ProblemSnapshot) serviceapi.ProblemSnapshot {
@@ -1459,6 +1461,7 @@ func fromProblemSnapshot(src *pb.ProblemSnapshot) serviceapi.ProblemSnapshot {
 	if src == nil {
 		return out
 	}
+	out.Counts = []serviceapi.ProblemCount{}
 	for _, item := range src.Counts {
 		out.Counts = append(out.Counts, fromProblemCount(item))
 	}
@@ -1466,6 +1469,8 @@ func fromProblemSnapshot(src *pb.ProblemSnapshot) serviceapi.ProblemSnapshot {
 	out.Stale = src.Stale
 	out.State = src.State
 	out.ErrorCode = src.ErrorCode
+	out.Collecting = src.Collecting
+	out.RefreshAfter = src.RefreshAfter
 	return out
 }
 func toBootstrapAccountRequest(src serviceapi.BootstrapAccountRequest) *pb.BootstrapAccountRequest {
