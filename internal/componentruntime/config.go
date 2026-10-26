@@ -4,6 +4,7 @@ package componentruntime
 
 import (
 	"fmt"
+	"github.com/sk1fy/amocrm-pro/internal/gateway"
 	"github.com/sk1fy/amocrm-pro/internal/services"
 	"os"
 	"path/filepath"
@@ -29,6 +30,8 @@ type Config struct {
 	DisableEnrichment   bool
 	PollInterval        time.Duration
 	ShareOrigin         string
+	ProblemBatchSize    int
+	ProblemBatchPause   time.Duration
 }
 
 func Load(role string) (Config, error) {
@@ -66,6 +69,20 @@ func Load(role string) (Config, error) {
 		return c, fmt.Errorf("CRM Events must not receive Activity DSN")
 	}
 	var err error
+	c.ProblemBatchSize = gateway.DefaultProblemBatchSize
+	if raw := os.Getenv("ACTIVITY_PROBLEM_BATCH_SIZE"); raw != "" {
+		c.ProblemBatchSize, err = strconv.Atoi(raw)
+		if err != nil || c.ProblemBatchSize < 250 || c.ProblemBatchSize > 50000 {
+			return c, fmt.Errorf("ACTIVITY_PROBLEM_BATCH_SIZE must be 250..50000")
+		}
+	}
+	c.ProblemBatchPause = gateway.DefaultProblemBatchPause
+	if raw := os.Getenv("ACTIVITY_PROBLEM_BATCH_PAUSE"); raw != "" {
+		c.ProblemBatchPause, err = time.ParseDuration(raw)
+		if err != nil || c.ProblemBatchPause < time.Second || c.ProblemBatchPause > time.Hour {
+			return c, fmt.Errorf("ACTIVITY_PROBLEM_BATCH_PAUSE must be 1s..1h")
+		}
+	}
 	activityDefaults, _ := services.Describe(services.Activity)
 	eventsDefaults, _ := services.Describe(services.CRMEvents)
 	if c.ActivityPool, err = poolLimit("ACTIVITY_DB_MAX_CONNS", int32(activityDefaults.MaxConnections)); err != nil {

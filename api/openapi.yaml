@@ -2006,10 +2006,12 @@ components:
       required: [counts, snapshot_at]
       additionalProperties: false
       properties:
+        collecting: {type: boolean, description: "A generation is queued, collecting, paused or retrying; old counts remain published."}
+        refresh_after: {type: integer, format: int64, description: "Unix time of next collection step, or earliest request-triggered refresh when idle."}
         stale: {type: boolean}
         state: {type: string, enum: [leads, tasks, idle]}
         error_code: {type: string}
-        snapshot_at: {type: integer, format: int64}
+        snapshot_at: {type: integer, format: int64, description: "Zero before the first complete snapshot; counts is then empty, not verified zero."}
         counts:
           type: array
           items:

@@ -1,6 +1,9 @@
 package componentruntime
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLoadPreservesStaticAddressesAndRejectsForeignDSN(t *testing.T) {
 	for _, key := range []string{
@@ -40,5 +43,36 @@ func TestLoadPreservesStaticAddressesAndRejectsForeignDSN(t *testing.T) {
 	t.Setenv("CRM_EVENTS_DATABASE_URL", "postgres://events_runtime@events-postgres-target/events_transfer_restored_test")
 	if _, err := Load("api"); err == nil {
 		t.Fatal("Core grpc accepted product DSNs pointed at transfer aliases")
+	}
+}
+
+func TestProblemCollectionConfig(t *testing.T) {
+	t.Setenv("ACTIVITY_MODE", "grpc")
+	t.Setenv("ACTIVITY_DATABASE_URL", "")
+	t.Setenv("CRM_EVENTS_DATABASE_URL", "")
+	t.Setenv("ACTIVITY_PROBLEM_BATCH_SIZE", "")
+	t.Setenv("ACTIVITY_PROBLEM_BATCH_PAUSE", "")
+	cfg, err := Load("worker")
+	if err != nil || cfg.ProblemBatchSize != 5000 || cfg.ProblemBatchPause != time.Minute {
+		t.Fatalf("defaults %+v %v", cfg, err)
+	}
+	t.Setenv("ACTIVITY_PROBLEM_BATCH_SIZE", "1000")
+	t.Setenv("ACTIVITY_PROBLEM_BATCH_PAUSE", "45s")
+	cfg, err = Load("worker")
+	if err != nil || cfg.ProblemBatchSize != 1000 || cfg.ProblemBatchPause != 45*time.Second {
+		t.Fatalf("overrides %+v %v", cfg, err)
+	}
+	for _, value := range []string{"249", "50001", "bad"} {
+		t.Setenv("ACTIVITY_PROBLEM_BATCH_SIZE", value)
+		if _, err = Load("worker"); err == nil {
+			t.Fatalf("accepted batch %s", value)
+		}
+	}
+	t.Setenv("ACTIVITY_PROBLEM_BATCH_SIZE", "5000")
+	for _, value := range []string{"0s", "2h", "bad"} {
+		t.Setenv("ACTIVITY_PROBLEM_BATCH_PAUSE", value)
+		if _, err = Load("worker"); err == nil {
+			t.Fatalf("accepted pause %s", value)
+		}
 	}
 }
