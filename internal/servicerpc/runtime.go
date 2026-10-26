@@ -135,9 +135,11 @@ func allowedCaller(method, caller string) bool {
 			return true
 		}
 		return caller == serviceapi.ActivityService && (method == pb.CRMEvents_GetEvent_FullMethodName || method == pb.CRMEvents_QueryEvents_FullMethodName || method == pb.CRMEvents_Status_FullMethodName || method == pb.CRMEvents_OperationStatus_FullMethodName)
-	case method == pb.Gateway_Events_FullMethodName, method == pb.Gateway_Notes_FullMethodName, method == pb.Gateway_Tasks_FullMethodName, method == pb.Gateway_Pipelines_FullMethodName, method == pb.Gateway_CustomFields_FullMethodName, method == pb.Gateway_Entities_FullMethodName:
+	case method == pb.Gateway_Pipelines_FullMethodName:
+		return caller == serviceapi.EventsService || caller == serviceapi.ActivityService
+	case method == pb.Gateway_Events_FullMethodName, method == pb.Gateway_Notes_FullMethodName, method == pb.Gateway_Tasks_FullMethodName, method == pb.Gateway_CustomFields_FullMethodName, method == pb.Gateway_Entities_FullMethodName:
 		return caller == serviceapi.EventsService
-	case method == pb.Gateway_Users_FullMethodName:
+	case method == pb.Gateway_Users_FullMethodName, method == pb.Gateway_Problems_FullMethodName:
 		return caller == serviceapi.ActivityService
 	}
 	return false

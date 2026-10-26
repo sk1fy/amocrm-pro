@@ -67,7 +67,7 @@ func TestCRMEventsMTLSActivityCannotApply(t *testing.T) {
 	}
 }
 
-func TestGatewayEnrichmentMTLSAllowsOnlyCRMEvents(t *testing.T) {
+func TestGatewayMTLSRestrictsEnrichmentAndPipelineCallers(t *testing.T) {
 	ca := newCA(t)
 	scope := serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}
 	_, key, _ := ed25519.GenerateKey(rand.Reader)
@@ -92,7 +92,6 @@ func TestGatewayEnrichmentMTLSAllowsOnlyCRMEvents(t *testing.T) {
 		for _, call := range []func() error{
 			func() error { _, err := client.Notes(ctx, notes); return err },
 			func() error { _, err := client.Tasks(ctx, tasks); return err },
-			func() error { _, err := client.Pipelines(ctx, pipelines); return err },
 			func() error { _, err := client.CustomFields(ctx, fields); return err },
 			func() error { _, err := client.Entities(ctx, entities); return err },
 		} {
@@ -105,10 +104,58 @@ func TestGatewayEnrichmentMTLSAllowsOnlyCRMEvents(t *testing.T) {
 				t.Fatalf("%s reached enrichment: %v", identity, err)
 			}
 		}
+		_, pipelineErr := client.Pipelines(ctx, pipelines)
+		if identity == serviceapi.EventsService || identity == serviceapi.ActivityService {
+			if pipelineErr != nil {
+				t.Fatalf("%s pipelines denied: %v", identity, pipelineErr)
+			}
+		} else if serviceapi.ErrorCode(pipelineErr) != serviceapi.PermissionDenied {
+			t.Fatalf("%s reached pipelines: %v", identity, pipelineErr)
+		}
 	}
 	for _, method := range []string{pb.Gateway_Notes_FullMethodName + "Extra", pb.Gateway_Tasks_FullMethodName + "Extra", pb.Gateway_Pipelines_FullMethodName + "Extra", pb.Gateway_CustomFields_FullMethodName + "Extra", pb.Gateway_Entities_FullMethodName + "Extra"} {
 		if allowedCaller(method, serviceapi.EventsService) {
 			t.Fatalf("suffix Extra allowed: %s", method)
 		}
+	}
+}
+
+func TestGatewayProblemsMTLSAllowsActivityWithViewerGrant(t *testing.T) {
+	ca := newCA(t)
+	scope := serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}
+	_, key, _ := ed25519.GenerateKey(rand.Reader)
+	policy, err := corepolicy.NewWithChecker(&checker{scope: scope}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := gateway.New(&fakeAPI{}, corepolicy.ForCaller(policy, serviceapi.GatewayService))
+	address := start(t, ca, &Endpoints{Gateway: gw})
+	auth, err := corepolicy.ForCaller(policy, serviceapi.CoreService).Issue(context.Background(), serviceapi.IssueRequest{
+		Scope: scope, Kind: serviceapi.PrincipalKindViewer, PanelID: uuid.New(), ViewKeyVersion: 1,
+		Consumer: serviceapi.ActivityService, RequestID: "viewer-problems", Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionView),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, identity := range []string{serviceapi.CoreService, serviceapi.ActivityService, serviceapi.GatewayService, serviceapi.EventsService} {
+		client := dialTest(t, ca, address, identity).Gateway
+		_, err := client.(serviceapi.ProblemReader).Problems(context.Background(), serviceapi.ProblemRequest{Auth: auth, EmployeeIDs: []int64{7}})
+		want := serviceapi.PermissionDenied
+		if identity == serviceapi.ActivityService {
+			// No snapshot store is configured: reaching that error proves both
+			// mTLS admission and viewer-grant validation succeeded.
+			want = serviceapi.Unavailable
+		}
+		if serviceapi.ErrorCode(err) != want {
+			t.Fatalf("%s problems: got %v, want %s", identity, err, want)
+		}
+	}
+	client := dialTest(t, ca, address, serviceapi.ActivityService).Gateway
+	_, err = client.(serviceapi.ProblemReader).Problems(context.Background(), serviceapi.ProblemRequest{Auth: serviceapi.Auth{Token: "forged"}, EmployeeIDs: []int64{7}})
+	if serviceapi.ErrorCode(err) != serviceapi.Unauthenticated {
+		t.Fatalf("forged viewer accepted: %v", err)
+	}
+	if allowedCaller(pb.Gateway_Problems_FullMethodName+"Extra", serviceapi.ActivityService) {
+		t.Fatal("unknown problems method admitted")
 	}
 }
