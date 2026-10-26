@@ -5625,6 +5625,283 @@ func (x *EmployeeActivityState) GetEnabled() bool {
 	return false
 }
 
+// Activity-owned legacy rating formulas; no percentages are computed in Core.
+type ActivityRatingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	From          int64                  `protobuf:"varint,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            int64                  `protobuf:"varint,3,opt,name=to,proto3" json:"to,omitempty"`
+	Day           string                 `protobuf:"bytes,4,opt,name=day,proto3" json:"day,omitempty"`
+	Surface       string                 `protobuf:"bytes,5,opt,name=surface,proto3" json:"surface,omitempty"`
+	StartMinutes  int32                  `protobuf:"varint,6,opt,name=start_minutes,json=startMinutes,proto3" json:"start_minutes,omitempty"`
+	EndMinutes    int32                  `protobuf:"varint,7,opt,name=end_minutes,json=endMinutes,proto3" json:"end_minutes,omitempty"`
+	CutoffUnix    *int64                 `protobuf:"varint,8,opt,name=cutoff_unix,json=cutoffUnix,proto3,oneof" json:"cutoff_unix,omitempty"`
+	EmployeeIds   []int64                `protobuf:"varint,9,rep,packed,name=employee_ids,json=employeeIds,proto3" json:"employee_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActivityRatingRequest) Reset() {
+	*x = ActivityRatingRequest{}
+	mi := &file_services_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActivityRatingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActivityRatingRequest) ProtoMessage() {}
+
+func (x *ActivityRatingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActivityRatingRequest.ProtoReflect.Descriptor instead.
+func (*ActivityRatingRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *ActivityRatingRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *ActivityRatingRequest) GetFrom() int64 {
+	if x != nil {
+		return x.From
+	}
+	return 0
+}
+
+func (x *ActivityRatingRequest) GetTo() int64 {
+	if x != nil {
+		return x.To
+	}
+	return 0
+}
+
+func (x *ActivityRatingRequest) GetDay() string {
+	if x != nil {
+		return x.Day
+	}
+	return ""
+}
+
+func (x *ActivityRatingRequest) GetSurface() string {
+	if x != nil {
+		return x.Surface
+	}
+	return ""
+}
+
+func (x *ActivityRatingRequest) GetStartMinutes() int32 {
+	if x != nil {
+		return x.StartMinutes
+	}
+	return 0
+}
+
+func (x *ActivityRatingRequest) GetEndMinutes() int32 {
+	if x != nil {
+		return x.EndMinutes
+	}
+	return 0
+}
+
+func (x *ActivityRatingRequest) GetCutoffUnix() int64 {
+	if x != nil && x.CutoffUnix != nil {
+		return *x.CutoffUnix
+	}
+	return 0
+}
+
+func (x *ActivityRatingRequest) GetEmployeeIds() []int64 {
+	if x != nil {
+		return x.EmployeeIds
+	}
+	return nil
+}
+
+type EmployeeActivityRating struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EmployeeId        int64                  `protobuf:"varint,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
+	Percent           float64                `protobuf:"fixed64,2,opt,name=percent,proto3" json:"percent,omitempty"`
+	MinutePercentages []float64              `protobuf:"fixed64,3,rep,packed,name=minute_percentages,json=minutePercentages,proto3" json:"minute_percentages,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *EmployeeActivityRating) Reset() {
+	*x = EmployeeActivityRating{}
+	mi := &file_services_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmployeeActivityRating) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmployeeActivityRating) ProtoMessage() {}
+
+func (x *EmployeeActivityRating) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmployeeActivityRating.ProtoReflect.Descriptor instead.
+func (*EmployeeActivityRating) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *EmployeeActivityRating) GetEmployeeId() int64 {
+	if x != nil {
+		return x.EmployeeId
+	}
+	return 0
+}
+
+func (x *EmployeeActivityRating) GetPercent() float64 {
+	if x != nil {
+		return x.Percent
+	}
+	return 0
+}
+
+func (x *EmployeeActivityRating) GetMinutePercentages() []float64 {
+	if x != nil {
+		return x.MinutePercentages
+	}
+	return nil
+}
+
+type ActivityRatings struct {
+	state          protoimpl.MessageState    `protogen:"open.v1"`
+	FormulaVersion string                    `protobuf:"bytes,1,opt,name=formula_version,json=formulaVersion,proto3" json:"formula_version,omitempty"`
+	Day            string                    `protobuf:"bytes,2,opt,name=day,proto3" json:"day,omitempty"`
+	Timezone       string                    `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	StartMinutes   int32                     `protobuf:"varint,4,opt,name=start_minutes,json=startMinutes,proto3" json:"start_minutes,omitempty"`
+	EndMinutes     int32                     `protobuf:"varint,5,opt,name=end_minutes,json=endMinutes,proto3" json:"end_minutes,omitempty"`
+	CutoffUnix     *int64                    `protobuf:"varint,6,opt,name=cutoff_unix,json=cutoffUnix,proto3,oneof" json:"cutoff_unix,omitempty"`
+	SnapshotAt     int64                     `protobuf:"varint,7,opt,name=snapshot_at,json=snapshotAt,proto3" json:"snapshot_at,omitempty"`
+	Partial        bool                      `protobuf:"varint,8,opt,name=partial,proto3" json:"partial,omitempty"`
+	Employees      []*EmployeeActivityRating `protobuf:"bytes,9,rep,name=employees,proto3" json:"employees,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ActivityRatings) Reset() {
+	*x = ActivityRatings{}
+	mi := &file_services_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActivityRatings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActivityRatings) ProtoMessage() {}
+
+func (x *ActivityRatings) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActivityRatings.ProtoReflect.Descriptor instead.
+func (*ActivityRatings) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *ActivityRatings) GetFormulaVersion() string {
+	if x != nil {
+		return x.FormulaVersion
+	}
+	return ""
+}
+
+func (x *ActivityRatings) GetDay() string {
+	if x != nil {
+		return x.Day
+	}
+	return ""
+}
+
+func (x *ActivityRatings) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *ActivityRatings) GetStartMinutes() int32 {
+	if x != nil {
+		return x.StartMinutes
+	}
+	return 0
+}
+
+func (x *ActivityRatings) GetEndMinutes() int32 {
+	if x != nil {
+		return x.EndMinutes
+	}
+	return 0
+}
+
+func (x *ActivityRatings) GetCutoffUnix() int64 {
+	if x != nil && x.CutoffUnix != nil {
+		return *x.CutoffUnix
+	}
+	return 0
+}
+
+func (x *ActivityRatings) GetSnapshotAt() int64 {
+	if x != nil {
+		return x.SnapshotAt
+	}
+	return 0
+}
+
+func (x *ActivityRatings) GetPartial() bool {
+	if x != nil {
+		return x.Partial
+	}
+	return false
+}
+
+func (x *ActivityRatings) GetEmployees() []*EmployeeActivityRating {
+	if x != nil {
+		return x.Employees
+	}
+	return nil
+}
+
 var File_services_proto protoreflect.FileDescriptor
 
 const file_services_proto_rawDesc = "" +
@@ -6163,7 +6440,39 @@ const file_services_proto_rawDesc = "" +
 	"\x15EmployeeActivityState\x129\n" +
 	"\acurrent\x18\x01 \x01(\v2\x1f.amocrm.services.v1.WorkSessionR\acurrent\x12A\n" +
 	"\bsettings\x18\x02 \x01(\v2%.amocrm.services.v1.TaskPanelSettingsR\bsettings\x12\x18\n" +
-	"\aenabled\x18\x03 \x01(\bR\aenabled2\x9d\x01\n" +
+	"\aenabled\x18\x03 \x01(\bR\aenabled\"\xb4\x02\n" +
+	"\x15ActivityRatingRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\x03R\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\x03R\x02to\x12\x10\n" +
+	"\x03day\x18\x04 \x01(\tR\x03day\x12\x18\n" +
+	"\asurface\x18\x05 \x01(\tR\asurface\x12#\n" +
+	"\rstart_minutes\x18\x06 \x01(\x05R\fstartMinutes\x12\x1f\n" +
+	"\vend_minutes\x18\a \x01(\x05R\n" +
+	"endMinutes\x12$\n" +
+	"\vcutoff_unix\x18\b \x01(\x03H\x00R\n" +
+	"cutoffUnix\x88\x01\x01\x12!\n" +
+	"\femployee_ids\x18\t \x03(\x03R\vemployeeIdsB\x0e\n" +
+	"\f_cutoff_unix\"\x82\x01\n" +
+	"\x16EmployeeActivityRating\x12\x1f\n" +
+	"\vemployee_id\x18\x01 \x01(\x03R\n" +
+	"employeeId\x12\x18\n" +
+	"\apercent\x18\x02 \x01(\x01R\apercent\x12-\n" +
+	"\x12minute_percentages\x18\x03 \x03(\x01R\x11minutePercentages\"\xe9\x02\n" +
+	"\x0fActivityRatings\x12'\n" +
+	"\x0fformula_version\x18\x01 \x01(\tR\x0eformulaVersion\x12\x10\n" +
+	"\x03day\x18\x02 \x01(\tR\x03day\x12\x1a\n" +
+	"\btimezone\x18\x03 \x01(\tR\btimezone\x12#\n" +
+	"\rstart_minutes\x18\x04 \x01(\x05R\fstartMinutes\x12\x1f\n" +
+	"\vend_minutes\x18\x05 \x01(\x05R\n" +
+	"endMinutes\x12$\n" +
+	"\vcutoff_unix\x18\x06 \x01(\x03H\x00R\n" +
+	"cutoffUnix\x88\x01\x01\x12\x1f\n" +
+	"\vsnapshot_at\x18\a \x01(\x03R\n" +
+	"snapshotAt\x12\x18\n" +
+	"\apartial\x18\b \x01(\bR\apartial\x12H\n" +
+	"\temployees\x18\t \x03(\v2*.amocrm.services.v1.EmployeeActivityRatingR\temployeesB\x0e\n" +
+	"\f_cutoff_unix2\x9d\x01\n" +
 	"\x06Policy\x12C\n" +
 	"\x05Issue\x12 .amocrm.services.v1.IssueRequest\x1a\x18.amocrm.services.v1.Auth\x12N\n" +
 	"\bValidate\x12#.amocrm.services.v1.ValidateRequest\x1a\x1d.amocrm.services.v1.Principal2\x94\x05\n" +
@@ -6181,8 +6490,9 @@ const file_services_proto_rawDesc = "" +
 	"\x05Apply\x12\x1b.amocrm.services.v1.Command\x1a\x1d.amocrm.services.v1.Operation\x12I\n" +
 	"\vQueryEvents\x12\x19.amocrm.services.v1.Query\x1a\x1f.amocrm.services.v1.QueryResult\x12B\n" +
 	"\x06Status\x12\x18.amocrm.services.v1.Auth\x1a\x1e.amocrm.services.v1.SyncStatus\x12V\n" +
-	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\xb5\x0e\n" +
-	"\bActivity\x12W\n" +
+	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\x9c\x0f\n" +
+	"\bActivity\x12e\n" +
+	"\x13ViewActivityRatings\x12).amocrm.services.v1.ActivityRatingRequest\x1a#.amocrm.services.v1.ActivityRatings\x12W\n" +
 	"\x10OwnActivityState\x12\x18.amocrm.services.v1.Auth\x1a).amocrm.services.v1.EmployeeActivityState\x12I\n" +
 	"\vOwnSessions\x12\x19.amocrm.services.v1.Query\x1a\x1f.amocrm.services.v1.SessionPage\x12S\n" +
 	"\fApplySession\x12\".amocrm.services.v1.SessionCommand\x1a\x1f.amocrm.services.v1.WorkSession\x12J\n" +
@@ -6224,7 +6534,7 @@ func file_services_proto_rawDescGZIP() []byte {
 	return file_services_proto_rawDescData
 }
 
-var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
+var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_services_proto_goTypes = []any{
 	(*Auth)(nil),                    // 0: amocrm.services.v1.Auth
 	(*Grant)(nil),                   // 1: amocrm.services.v1.Grant
@@ -6299,6 +6609,9 @@ var file_services_proto_goTypes = []any{
 	(*TaskPanelSettings)(nil),       // 70: amocrm.services.v1.TaskPanelSettings
 	(*TaskPanelCommand)(nil),        // 71: amocrm.services.v1.TaskPanelCommand
 	(*EmployeeActivityState)(nil),   // 72: amocrm.services.v1.EmployeeActivityState
+	(*ActivityRatingRequest)(nil),   // 73: amocrm.services.v1.ActivityRatingRequest
+	(*EmployeeActivityRating)(nil),  // 74: amocrm.services.v1.EmployeeActivityRating
+	(*ActivityRatings)(nil),         // 75: amocrm.services.v1.ActivityRatings
 }
 var file_services_proto_depIdxs = []int32{
 	1,   // 0: amocrm.services.v1.IssueRequest.grants:type_name -> amocrm.services.v1.Grant
@@ -6370,89 +6683,93 @@ var file_services_proto_depIdxs = []int32{
 	70,  // 66: amocrm.services.v1.TaskPanelCommand.settings:type_name -> amocrm.services.v1.TaskPanelSettings
 	67,  // 67: amocrm.services.v1.EmployeeActivityState.current:type_name -> amocrm.services.v1.WorkSession
 	70,  // 68: amocrm.services.v1.EmployeeActivityState.settings:type_name -> amocrm.services.v1.TaskPanelSettings
-	2,   // 69: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
-	3,   // 70: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
-	61,  // 71: amocrm.services.v1.Gateway.Problems:input_type -> amocrm.services.v1.ProblemRequest
-	32,  // 72: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
-	35,  // 73: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
-	14,  // 74: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
-	17,  // 75: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
-	20,  // 76: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
-	24,  // 77: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
-	28,  // 78: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
-	31,  // 79: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
-	41,  // 80: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
-	37,  // 81: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
-	0,   // 82: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
-	43,  // 83: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	0,   // 84: amocrm.services.v1.Activity.OwnActivityState:input_type -> amocrm.services.v1.Auth
-	37,  // 85: amocrm.services.v1.Activity.OwnSessions:input_type -> amocrm.services.v1.Query
-	68,  // 86: amocrm.services.v1.Activity.ApplySession:input_type -> amocrm.services.v1.SessionCommand
-	37,  // 87: amocrm.services.v1.Activity.ViewSessions:input_type -> amocrm.services.v1.Query
-	0,   // 88: amocrm.services.v1.Activity.TaskPanel:input_type -> amocrm.services.v1.Auth
-	71,  // 89: amocrm.services.v1.Activity.SaveTaskPanel:input_type -> amocrm.services.v1.TaskPanelCommand
-	0,   // 90: amocrm.services.v1.Activity.ViewProblems:input_type -> amocrm.services.v1.Auth
-	37,  // 91: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
-	31,  // 92: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
-	0,   // 93: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
-	45,  // 94: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
-	43,  // 95: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	48,  // 96: amocrm.services.v1.Activity.ResolveShare:input_type -> amocrm.services.v1.ShareLookupRequest
-	55,  // 97: amocrm.services.v1.Activity.CreatePanel:input_type -> amocrm.services.v1.PanelCommand
-	0,   // 98: amocrm.services.v1.Activity.ListPanels:input_type -> amocrm.services.v1.Auth
-	50,  // 99: amocrm.services.v1.Activity.GetManagedPanel:input_type -> amocrm.services.v1.PanelRef
-	55,  // 100: amocrm.services.v1.Activity.PatchPanel:input_type -> amocrm.services.v1.PanelCommand
-	55,  // 101: amocrm.services.v1.Activity.RotateShareLink:input_type -> amocrm.services.v1.PanelCommand
-	0,   // 102: amocrm.services.v1.Activity.ListEmployees:input_type -> amocrm.services.v1.Auth
-	0,   // 103: amocrm.services.v1.Activity.ViewPanel:input_type -> amocrm.services.v1.Auth
-	37,  // 104: amocrm.services.v1.Activity.ViewTimeline:input_type -> amocrm.services.v1.Query
-	37,  // 105: amocrm.services.v1.Activity.ViewEmployee:input_type -> amocrm.services.v1.Query
-	31,  // 106: amocrm.services.v1.Activity.ViewEvent:input_type -> amocrm.services.v1.EventRequest
-	64,  // 107: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
-	0,   // 108: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
-	4,   // 109: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
-	63,  // 110: amocrm.services.v1.Gateway.Problems:output_type -> amocrm.services.v1.ProblemSnapshot
-	33,  // 111: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
-	36,  // 112: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
-	16,  // 113: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
-	19,  // 114: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
-	23,  // 115: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
-	27,  // 116: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
-	30,  // 117: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
-	5,   // 118: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
-	42,  // 119: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
-	40,  // 120: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
-	39,  // 121: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
-	42,  // 122: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
-	72,  // 123: amocrm.services.v1.Activity.OwnActivityState:output_type -> amocrm.services.v1.EmployeeActivityState
-	69,  // 124: amocrm.services.v1.Activity.OwnSessions:output_type -> amocrm.services.v1.SessionPage
-	67,  // 125: amocrm.services.v1.Activity.ApplySession:output_type -> amocrm.services.v1.WorkSession
-	69,  // 126: amocrm.services.v1.Activity.ViewSessions:output_type -> amocrm.services.v1.SessionPage
-	70,  // 127: amocrm.services.v1.Activity.TaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
-	70,  // 128: amocrm.services.v1.Activity.SaveTaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
-	63,  // 129: amocrm.services.v1.Activity.ViewProblems:output_type -> amocrm.services.v1.ProblemSnapshot
-	46,  // 130: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
-	5,   // 131: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
-	44,  // 132: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
-	42,  // 133: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
-	42,  // 134: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
-	49,  // 135: amocrm.services.v1.Activity.ResolveShare:output_type -> amocrm.services.v1.ShareLookup
-	56,  // 136: amocrm.services.v1.Activity.CreatePanel:output_type -> amocrm.services.v1.ManagedPanel
-	57,  // 137: amocrm.services.v1.Activity.ListPanels:output_type -> amocrm.services.v1.ManagedPanelPage
-	56,  // 138: amocrm.services.v1.Activity.GetManagedPanel:output_type -> amocrm.services.v1.ManagedPanel
-	56,  // 139: amocrm.services.v1.Activity.PatchPanel:output_type -> amocrm.services.v1.ManagedPanel
-	56,  // 140: amocrm.services.v1.Activity.RotateShareLink:output_type -> amocrm.services.v1.ManagedPanel
-	36,  // 141: amocrm.services.v1.Activity.ListEmployees:output_type -> amocrm.services.v1.Directory
-	58,  // 142: amocrm.services.v1.Activity.ViewPanel:output_type -> amocrm.services.v1.ViewerPanel
-	59,  // 143: amocrm.services.v1.Activity.ViewTimeline:output_type -> amocrm.services.v1.ViewerTimeline
-	60,  // 144: amocrm.services.v1.Activity.ViewEmployee:output_type -> amocrm.services.v1.ViewerEmployee
-	5,   // 145: amocrm.services.v1.Activity.ViewEvent:output_type -> amocrm.services.v1.Event
-	65,  // 146: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
-	108, // [108:147] is the sub-list for method output_type
-	69,  // [69:108] is the sub-list for method input_type
-	69,  // [69:69] is the sub-list for extension type_name
-	69,  // [69:69] is the sub-list for extension extendee
-	0,   // [0:69] is the sub-list for field type_name
+	0,   // 69: amocrm.services.v1.ActivityRatingRequest.auth:type_name -> amocrm.services.v1.Auth
+	74,  // 70: amocrm.services.v1.ActivityRatings.employees:type_name -> amocrm.services.v1.EmployeeActivityRating
+	2,   // 71: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
+	3,   // 72: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
+	61,  // 73: amocrm.services.v1.Gateway.Problems:input_type -> amocrm.services.v1.ProblemRequest
+	32,  // 74: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
+	35,  // 75: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
+	14,  // 76: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
+	17,  // 77: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
+	20,  // 78: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
+	24,  // 79: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
+	28,  // 80: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
+	31,  // 81: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	41,  // 82: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
+	37,  // 83: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
+	0,   // 84: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
+	43,  // 85: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	73,  // 86: amocrm.services.v1.Activity.ViewActivityRatings:input_type -> amocrm.services.v1.ActivityRatingRequest
+	0,   // 87: amocrm.services.v1.Activity.OwnActivityState:input_type -> amocrm.services.v1.Auth
+	37,  // 88: amocrm.services.v1.Activity.OwnSessions:input_type -> amocrm.services.v1.Query
+	68,  // 89: amocrm.services.v1.Activity.ApplySession:input_type -> amocrm.services.v1.SessionCommand
+	37,  // 90: amocrm.services.v1.Activity.ViewSessions:input_type -> amocrm.services.v1.Query
+	0,   // 91: amocrm.services.v1.Activity.TaskPanel:input_type -> amocrm.services.v1.Auth
+	71,  // 92: amocrm.services.v1.Activity.SaveTaskPanel:input_type -> amocrm.services.v1.TaskPanelCommand
+	0,   // 93: amocrm.services.v1.Activity.ViewProblems:input_type -> amocrm.services.v1.Auth
+	37,  // 94: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
+	31,  // 95: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	0,   // 96: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
+	45,  // 97: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
+	43,  // 98: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	48,  // 99: amocrm.services.v1.Activity.ResolveShare:input_type -> amocrm.services.v1.ShareLookupRequest
+	55,  // 100: amocrm.services.v1.Activity.CreatePanel:input_type -> amocrm.services.v1.PanelCommand
+	0,   // 101: amocrm.services.v1.Activity.ListPanels:input_type -> amocrm.services.v1.Auth
+	50,  // 102: amocrm.services.v1.Activity.GetManagedPanel:input_type -> amocrm.services.v1.PanelRef
+	55,  // 103: amocrm.services.v1.Activity.PatchPanel:input_type -> amocrm.services.v1.PanelCommand
+	55,  // 104: amocrm.services.v1.Activity.RotateShareLink:input_type -> amocrm.services.v1.PanelCommand
+	0,   // 105: amocrm.services.v1.Activity.ListEmployees:input_type -> amocrm.services.v1.Auth
+	0,   // 106: amocrm.services.v1.Activity.ViewPanel:input_type -> amocrm.services.v1.Auth
+	37,  // 107: amocrm.services.v1.Activity.ViewTimeline:input_type -> amocrm.services.v1.Query
+	37,  // 108: amocrm.services.v1.Activity.ViewEmployee:input_type -> amocrm.services.v1.Query
+	31,  // 109: amocrm.services.v1.Activity.ViewEvent:input_type -> amocrm.services.v1.EventRequest
+	64,  // 110: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
+	0,   // 111: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
+	4,   // 112: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
+	63,  // 113: amocrm.services.v1.Gateway.Problems:output_type -> amocrm.services.v1.ProblemSnapshot
+	33,  // 114: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
+	36,  // 115: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
+	16,  // 116: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
+	19,  // 117: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
+	23,  // 118: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
+	27,  // 119: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
+	30,  // 120: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
+	5,   // 121: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
+	42,  // 122: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
+	40,  // 123: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
+	39,  // 124: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
+	42,  // 125: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
+	75,  // 126: amocrm.services.v1.Activity.ViewActivityRatings:output_type -> amocrm.services.v1.ActivityRatings
+	72,  // 127: amocrm.services.v1.Activity.OwnActivityState:output_type -> amocrm.services.v1.EmployeeActivityState
+	69,  // 128: amocrm.services.v1.Activity.OwnSessions:output_type -> amocrm.services.v1.SessionPage
+	67,  // 129: amocrm.services.v1.Activity.ApplySession:output_type -> amocrm.services.v1.WorkSession
+	69,  // 130: amocrm.services.v1.Activity.ViewSessions:output_type -> amocrm.services.v1.SessionPage
+	70,  // 131: amocrm.services.v1.Activity.TaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
+	70,  // 132: amocrm.services.v1.Activity.SaveTaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
+	63,  // 133: amocrm.services.v1.Activity.ViewProblems:output_type -> amocrm.services.v1.ProblemSnapshot
+	46,  // 134: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
+	5,   // 135: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
+	44,  // 136: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
+	42,  // 137: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
+	42,  // 138: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
+	49,  // 139: amocrm.services.v1.Activity.ResolveShare:output_type -> amocrm.services.v1.ShareLookup
+	56,  // 140: amocrm.services.v1.Activity.CreatePanel:output_type -> amocrm.services.v1.ManagedPanel
+	57,  // 141: amocrm.services.v1.Activity.ListPanels:output_type -> amocrm.services.v1.ManagedPanelPage
+	56,  // 142: amocrm.services.v1.Activity.GetManagedPanel:output_type -> amocrm.services.v1.ManagedPanel
+	56,  // 143: amocrm.services.v1.Activity.PatchPanel:output_type -> amocrm.services.v1.ManagedPanel
+	56,  // 144: amocrm.services.v1.Activity.RotateShareLink:output_type -> amocrm.services.v1.ManagedPanel
+	36,  // 145: amocrm.services.v1.Activity.ListEmployees:output_type -> amocrm.services.v1.Directory
+	58,  // 146: amocrm.services.v1.Activity.ViewPanel:output_type -> amocrm.services.v1.ViewerPanel
+	59,  // 147: amocrm.services.v1.Activity.ViewTimeline:output_type -> amocrm.services.v1.ViewerTimeline
+	60,  // 148: amocrm.services.v1.Activity.ViewEmployee:output_type -> amocrm.services.v1.ViewerEmployee
+	5,   // 149: amocrm.services.v1.Activity.ViewEvent:output_type -> amocrm.services.v1.Event
+	65,  // 150: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
+	111, // [111:151] is the sub-list for method output_type
+	71,  // [71:111] is the sub-list for method input_type
+	71,  // [71:71] is the sub-list for extension type_name
+	71,  // [71:71] is the sub-list for extension extendee
+	0,   // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_services_proto_init() }
@@ -6462,13 +6779,15 @@ func file_services_proto_init() {
 	}
 	file_services_proto_msgTypes[6].OneofWrappers = []any{}
 	file_services_proto_msgTypes[55].OneofWrappers = []any{}
+	file_services_proto_msgTypes[73].OneofWrappers = []any{}
+	file_services_proto_msgTypes[75].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_proto_rawDesc), len(file_services_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   73,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

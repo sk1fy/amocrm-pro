@@ -781,35 +781,37 @@ var CRMEvents_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Activity_OwnActivityState_FullMethodName = "/amocrm.services.v1.Activity/OwnActivityState"
-	Activity_OwnSessions_FullMethodName      = "/amocrm.services.v1.Activity/OwnSessions"
-	Activity_ApplySession_FullMethodName     = "/amocrm.services.v1.Activity/ApplySession"
-	Activity_ViewSessions_FullMethodName     = "/amocrm.services.v1.Activity/ViewSessions"
-	Activity_TaskPanel_FullMethodName        = "/amocrm.services.v1.Activity/TaskPanel"
-	Activity_SaveTaskPanel_FullMethodName    = "/amocrm.services.v1.Activity/SaveTaskPanel"
-	Activity_ViewProblems_FullMethodName     = "/amocrm.services.v1.Activity/ViewProblems"
-	Activity_GetPanel_FullMethodName         = "/amocrm.services.v1.Activity/GetPanel"
-	Activity_GetEvent_FullMethodName         = "/amocrm.services.v1.Activity/GetEvent"
-	Activity_GetSettings_FullMethodName      = "/amocrm.services.v1.Activity/GetSettings"
-	Activity_Configure_FullMethodName        = "/amocrm.services.v1.Activity/Configure"
-	Activity_OperationStatus_FullMethodName  = "/amocrm.services.v1.Activity/OperationStatus"
-	Activity_ResolveShare_FullMethodName     = "/amocrm.services.v1.Activity/ResolveShare"
-	Activity_CreatePanel_FullMethodName      = "/amocrm.services.v1.Activity/CreatePanel"
-	Activity_ListPanels_FullMethodName       = "/amocrm.services.v1.Activity/ListPanels"
-	Activity_GetManagedPanel_FullMethodName  = "/amocrm.services.v1.Activity/GetManagedPanel"
-	Activity_PatchPanel_FullMethodName       = "/amocrm.services.v1.Activity/PatchPanel"
-	Activity_RotateShareLink_FullMethodName  = "/amocrm.services.v1.Activity/RotateShareLink"
-	Activity_ListEmployees_FullMethodName    = "/amocrm.services.v1.Activity/ListEmployees"
-	Activity_ViewPanel_FullMethodName        = "/amocrm.services.v1.Activity/ViewPanel"
-	Activity_ViewTimeline_FullMethodName     = "/amocrm.services.v1.Activity/ViewTimeline"
-	Activity_ViewEmployee_FullMethodName     = "/amocrm.services.v1.Activity/ViewEmployee"
-	Activity_ViewEvent_FullMethodName        = "/amocrm.services.v1.Activity/ViewEvent"
+	Activity_ViewActivityRatings_FullMethodName = "/amocrm.services.v1.Activity/ViewActivityRatings"
+	Activity_OwnActivityState_FullMethodName    = "/amocrm.services.v1.Activity/OwnActivityState"
+	Activity_OwnSessions_FullMethodName         = "/amocrm.services.v1.Activity/OwnSessions"
+	Activity_ApplySession_FullMethodName        = "/amocrm.services.v1.Activity/ApplySession"
+	Activity_ViewSessions_FullMethodName        = "/amocrm.services.v1.Activity/ViewSessions"
+	Activity_TaskPanel_FullMethodName           = "/amocrm.services.v1.Activity/TaskPanel"
+	Activity_SaveTaskPanel_FullMethodName       = "/amocrm.services.v1.Activity/SaveTaskPanel"
+	Activity_ViewProblems_FullMethodName        = "/amocrm.services.v1.Activity/ViewProblems"
+	Activity_GetPanel_FullMethodName            = "/amocrm.services.v1.Activity/GetPanel"
+	Activity_GetEvent_FullMethodName            = "/amocrm.services.v1.Activity/GetEvent"
+	Activity_GetSettings_FullMethodName         = "/amocrm.services.v1.Activity/GetSettings"
+	Activity_Configure_FullMethodName           = "/amocrm.services.v1.Activity/Configure"
+	Activity_OperationStatus_FullMethodName     = "/amocrm.services.v1.Activity/OperationStatus"
+	Activity_ResolveShare_FullMethodName        = "/amocrm.services.v1.Activity/ResolveShare"
+	Activity_CreatePanel_FullMethodName         = "/amocrm.services.v1.Activity/CreatePanel"
+	Activity_ListPanels_FullMethodName          = "/amocrm.services.v1.Activity/ListPanels"
+	Activity_GetManagedPanel_FullMethodName     = "/amocrm.services.v1.Activity/GetManagedPanel"
+	Activity_PatchPanel_FullMethodName          = "/amocrm.services.v1.Activity/PatchPanel"
+	Activity_RotateShareLink_FullMethodName     = "/amocrm.services.v1.Activity/RotateShareLink"
+	Activity_ListEmployees_FullMethodName       = "/amocrm.services.v1.Activity/ListEmployees"
+	Activity_ViewPanel_FullMethodName           = "/amocrm.services.v1.Activity/ViewPanel"
+	Activity_ViewTimeline_FullMethodName        = "/amocrm.services.v1.Activity/ViewTimeline"
+	Activity_ViewEmployee_FullMethodName        = "/amocrm.services.v1.Activity/ViewEmployee"
+	Activity_ViewEvent_FullMethodName           = "/amocrm.services.v1.Activity/ViewEvent"
 )
 
 // ActivityClient is the client API for Activity service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ActivityClient interface {
+	ViewActivityRatings(ctx context.Context, in *ActivityRatingRequest, opts ...grpc.CallOption) (*ActivityRatings, error)
 	OwnActivityState(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*EmployeeActivityState, error)
 	OwnSessions(ctx context.Context, in *Query, opts ...grpc.CallOption) (*SessionPage, error)
 	ApplySession(ctx context.Context, in *SessionCommand, opts ...grpc.CallOption) (*WorkSession, error)
@@ -841,6 +843,16 @@ type activityClient struct {
 
 func NewActivityClient(cc grpc.ClientConnInterface) ActivityClient {
 	return &activityClient{cc}
+}
+
+func (c *activityClient) ViewActivityRatings(ctx context.Context, in *ActivityRatingRequest, opts ...grpc.CallOption) (*ActivityRatings, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ActivityRatings)
+	err := c.cc.Invoke(ctx, Activity_ViewActivityRatings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *activityClient) OwnActivityState(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*EmployeeActivityState, error) {
@@ -1077,6 +1089,7 @@ func (c *activityClient) ViewEvent(ctx context.Context, in *EventRequest, opts .
 // All implementations must embed UnimplementedActivityServer
 // for forward compatibility.
 type ActivityServer interface {
+	ViewActivityRatings(context.Context, *ActivityRatingRequest) (*ActivityRatings, error)
 	OwnActivityState(context.Context, *Auth) (*EmployeeActivityState, error)
 	OwnSessions(context.Context, *Query) (*SessionPage, error)
 	ApplySession(context.Context, *SessionCommand) (*WorkSession, error)
@@ -1110,6 +1123,9 @@ type ActivityServer interface {
 // pointer dereference when methods are called.
 type UnimplementedActivityServer struct{}
 
+func (UnimplementedActivityServer) ViewActivityRatings(context.Context, *ActivityRatingRequest) (*ActivityRatings, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewActivityRatings not implemented")
+}
 func (UnimplementedActivityServer) OwnActivityState(context.Context, *Auth) (*EmployeeActivityState, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OwnActivityState not implemented")
 }
@@ -1198,6 +1214,24 @@ func RegisterActivityServer(s grpc.ServiceRegistrar, srv ActivityServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Activity_ServiceDesc, srv)
+}
+
+func _Activity_ViewActivityRatings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActivityRatingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewActivityRatings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewActivityRatings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewActivityRatings(ctx, req.(*ActivityRatingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Activity_OwnActivityState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1621,6 +1655,10 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "amocrm.services.v1.Activity",
 	HandlerType: (*ActivityServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ViewActivityRatings",
+			Handler:    _Activity_ViewActivityRatings_Handler,
+		},
 		{
 			MethodName: "OwnActivityState",
 			Handler:    _Activity_OwnActivityState_Handler,

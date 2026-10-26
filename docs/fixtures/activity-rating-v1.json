@@ -1,0 +1,561 @@
+[
+  {
+    "name": "empty",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [],
+    "expectedDashboard": 0,
+    "expectedProfile": 0
+  },
+  {
+    "name": "one_event",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "duplicate_same_bin",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      },
+      {
+        "id": "e1",
+        "type": "task_added",
+        "createdAt": 1792998060,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "unknown_event_dashboard_only",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "unrecognized_activity",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0
+  },
+  {
+    "name": "custom_field_alias",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "custom_field_901_value_changed",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "substring_profile_alias",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "prefix_task_completed_suffix",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "unknown_call_substring",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "callback",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0
+  },
+  {
+    "name": "known_zero_call",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "incoming_call",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 0
+        }
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "unknown_call_duration",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "incoming_call",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": null
+        }
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "sixty_one_second_call",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "outgoing_call",
+        "createdAt": 1792998060,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 61
+        }
+      }
+    ],
+    "expectedDashboard": 0.7,
+    "expectedProfile": 0.7
+  },
+  {
+    "name": "round_call_duration_up",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "outgoing_call",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 121
+        }
+      }
+    ],
+    "expectedDashboard": 0.7,
+    "expectedProfile": 0.7
+  },
+  {
+    "name": "seconds_ignored",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "outgoing_call",
+        "createdAt": 1792998059,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 1
+        }
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "overlapping_calls",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "incoming_call",
+        "createdAt": 1792998000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 300
+        }
+      },
+      {
+        "id": "e1",
+        "type": "outgoing_call",
+        "createdAt": 1792998120,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 600
+        }
+      }
+    ],
+    "expectedDashboard": 2.2,
+    "expectedProfile": 2.2
+  },
+  {
+    "name": "event_on_end_excluded",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1793026800,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0,
+    "expectedProfile": 0
+  },
+  {
+    "name": "earlier_day_excluded",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1792911600,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 0,
+    "expectedProfile": 0
+  },
+  {
+    "name": "call_crossing_start",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "incoming_call",
+        "createdAt": 1792994340,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 181
+        }
+      }
+    ],
+    "expectedDashboard": 0.7,
+    "expectedProfile": 0.7
+  },
+  {
+    "name": "cutoff_in_partial_bin",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": 1792994580,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1792994520,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 66.7,
+    "expectedProfile": 0
+  },
+  {
+    "name": "odd_window",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 545,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1792994640,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 40,
+    "expectedProfile": 33.3
+  },
+  {
+    "name": "odd_end_hour_cutoff",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 545,
+    "cutoffUnix": 1792994760,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1792994640,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      }
+    ],
+    "expectedDashboard": 33.3,
+    "expectedProfile": 33.3
+  },
+  {
+    "name": "before_shift",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": 1792992000,
+    "events": [
+      {
+        "id": "e0",
+        "type": "incoming_call",
+        "createdAt": 1792994460,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 3600
+        }
+      }
+    ],
+    "expectedDashboard": 0,
+    "expectedProfile": 0
+  },
+  {
+    "name": "fractional_timezone",
+    "dayKey": "2026-10-26",
+    "timeZone": "Asia/Kathmandu",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "incoming_call",
+        "createdAt": 1792988100,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 181
+        }
+      }
+    ],
+    "expectedDashboard": 0.7,
+    "expectedProfile": 0.7
+  },
+  {
+    "name": "dst_spring_day",
+    "dayKey": "2026-03-08",
+    "timeZone": "America/New_York",
+    "startMinutes": 0,
+    "endMinutes": 1440,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1772951400,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      },
+      {
+        "id": "e1",
+        "type": "incoming_call",
+        "createdAt": 1772953800,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 181
+        }
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  },
+  {
+    "name": "dst_autumn_day",
+    "dayKey": "2026-11-01",
+    "timeZone": "America/New_York",
+    "startMinutes": 0,
+    "endMinutes": 1440,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "e0",
+        "type": "task_completed",
+        "createdAt": 1793511000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": null
+      },
+      {
+        "id": "e1",
+        "type": "outgoing_call",
+        "createdAt": 1793520000,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 181
+        }
+      }
+    ],
+    "expectedDashboard": 0.4,
+    "expectedProfile": 0.4
+  }
+]
