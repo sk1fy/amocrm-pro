@@ -28,6 +28,13 @@ const MaxMessageSize = 4 << 20
 const MaxConcurrent = 32
 const RPCTimeout = 10 * time.Second
 
+func rpcCallTimeout(method string) time.Duration {
+	if method == pb.Activity_ViewActivityRatings_FullMethodName {
+		return serviceapi.ActivityRatingTimeout
+	}
+	return RPCTimeout
+}
+
 type Endpoints struct {
 	BootstrapAccount serviceapi.CoreBootstrap
 	Ready            func(context.Context) error
@@ -66,7 +73,7 @@ func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 		default:
 			return nil, status.Error(codes.ResourceExhausted, "service concurrency quota exceeded")
 		}
-		ctx, cancel := context.WithTimeout(corepolicy.WithCaller(ctx, identity), RPCTimeout)
+		ctx, cancel := context.WithTimeout(corepolicy.WithCaller(ctx, identity), rpcCallTimeout(info.FullMethod))
 		defer cancel()
 		result, err = handler(ctx, req)
 		return result, toStatus(err)
@@ -200,7 +207,7 @@ func Dial(ctx context.Context, address string, config *tls.Config) (*Clients, er
 }
 func clientOptions(config *tls.Config) []grpc.DialOption {
 	return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(config)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(MaxMessageSize), grpc.MaxCallSendMsgSize(MaxMessageSize)), grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx, cancel := context.WithTimeout(ctx, RPCTimeout)
+		ctx, cancel := context.WithTimeout(ctx, rpcCallTimeout(method))
 		defer cancel()
 		return fromStatus(invoker(ctx, method, req, reply, cc, opts...))
 	})}

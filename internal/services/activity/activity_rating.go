@@ -7,6 +7,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
@@ -14,6 +16,8 @@ import (
 
 // Activity owns these formulae. CRM Events supplies facts, never percentages.
 func (s *Service) ViewActivityRatings(ctx context.Context, req serviceapi.ActivityRatingRequest) (serviceapi.ActivityRatings, error) {
+	ctx, cancel := context.WithTimeout(ctx, serviceapi.ActivityRatingTimeout)
+	defer cancel()
 	if err := serviceapi.ValidateActivityRatingRequest(req); err != nil {
 		return serviceapi.ActivityRatings{}, err
 	}
@@ -36,11 +40,10 @@ func (s *Service) ViewActivityRatings(ctx context.Context, req serviceapi.Activi
 	// Exactly the existing UI's ascending 60 x 100 page selection. No per-user
 	// scan, external amoCRM fetch, or silent aggregate of an unbounded account.
 	q := serviceapi.Query{Auth: req.Auth, From: req.From, To: req.To, UserIDs: ids, Limit: 100}
-	byID := map[int64][]ratingEvent{}
+	observations := make([]ratingObservation, 0)
+	candidates := make([]ratingCardCandidate, 0, 150)
 	partial := false
 	seen := map[string]bool{}
-	legacyBudget := 150
-	legacyStopped := false
 	for page := 0; page < serviceapi.ActivityRatingMaxPages; page++ {
 		data, err := s.viewerQuery(ctx, q, panel, users, req.Surface == "dashboard")
 		if err != nil {
@@ -48,23 +51,10 @@ func (s *Service) ViewActivityRatings(ctx context.Context, req serviceapi.Activi
 		}
 		for _, event := range data.Events {
 			normalized := ratingEventFromAPI(event)
-			if event.CallFacts == nil && normalized.Duration == nil && (event.Type == "incoming_call" || event.Type == "outgoing_call") && legacyBudget > 0 && !legacyStopped {
-				legacyBudget--
-				if reader, ok := s.events.(serviceapi.EventReader); ok {
-					card, readErr := reader.GetEvent(ctx, serviceapi.EventRequest{Auth: req.Auth, EventID: event.ID})
-					if readErr == nil {
-						normalized.Duration = ratingEventFromAPI(card).Duration
-					} else if ctx.Err() != nil {
-						return serviceapi.ActivityRatings{}, ctx.Err()
-					} else if serviceapi.ErrorCode(readErr) == serviceapi.ResourceExhausted {
-						legacyStopped = true
-					}
-				}
+			if event.CallFacts == nil && normalized.Duration == nil && (event.Type == "incoming_call" || event.Type == "outgoing_call") && len(candidates) < 150 {
+				candidates = append(candidates, ratingCardCandidate{ID: event.ID, Index: len(observations)})
 			}
-			if req.Surface == "dashboard" && !ratingPipelineMatch(event, panel.Options.PipelineIDs) {
-				continue
-			}
-			byID[event.CreatedBy] = append(byID[event.CreatedBy], normalized)
+			observations = append(observations, ratingObservation{Event: normalized, EmployeeID: event.CreatedBy, Visible: req.Surface != "dashboard" || ratingPipelineMatch(event, panel.Options.PipelineIDs)})
 		}
 		if data.NextCursor == "" {
 			break
@@ -76,6 +66,19 @@ func (s *Service) ViewActivityRatings(ctx context.Context, req serviceapi.Activi
 		q.Cursor = data.NextCursor
 		if page == serviceapi.ActivityRatingMaxPages-1 {
 			partial = true
+		}
+	}
+	// Match the old UI order: finish the bounded page scan first, then resolve
+	// at most150 missing cards with four workers, before the pipeline filter.
+	if reader, ok := s.events.(serviceapi.EventReader); ok {
+		if err := resolveRatingCards(ctx, reader, req.Auth, observations, candidates); err != nil {
+			return serviceapi.ActivityRatings{}, err
+		}
+	}
+	byID := map[int64][]ratingEvent{}
+	for _, observation := range observations {
+		if observation.Visible {
+			byID[observation.EmployeeID] = append(byID[observation.EmployeeID], observation.Event)
 		}
 	}
 	out := serviceapi.ActivityRatings{FormulaVersion: serviceapi.DashboardActivityFormula, Day: req.Day, Timezone: panel.Timezone, StartMinutes: req.StartMinutes, EndMinutes: req.EndMinutes, CutoffUnix: req.CutoffUnix, SnapshotAt: time.Now().Unix(), Partial: partial, Employees: []serviceapi.EmployeeActivityRating{}}
@@ -103,6 +106,47 @@ func (s *Service) ViewActivityRatings(ctx context.Context, req serviceapi.Activi
 		return serviceapi.ActivityRatings{}, err
 	}
 	return out, nil
+}
+
+type ratingObservation struct {
+	Event      ratingEvent
+	EmployeeID int64
+	Visible    bool
+}
+type ratingCardCandidate struct {
+	ID    string
+	Index int
+}
+
+func resolveRatingCards(ctx context.Context, reader serviceapi.EventReader, auth serviceapi.Auth, observations []ratingObservation, candidates []ratingCardCandidate) error {
+	var next atomic.Int64
+	var stopped atomic.Bool
+	var workers sync.WaitGroup
+	for worker := 0; worker < min(4, len(candidates)); worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for {
+				if stopped.Load() || ctx.Err() != nil {
+					return
+				}
+				index := int(next.Add(1) - 1)
+				if index >= len(candidates) {
+					return
+				}
+				candidate := candidates[index]
+				card, err := reader.GetEvent(ctx, serviceapi.EventRequest{Auth: auth, EventID: candidate.ID})
+				if err == nil {
+					// Keep original observation type/timestamp, just as resolveCallFacts.
+					observations[candidate.Index].Event.Duration = ratingEventFromAPI(card).Duration
+				} else if serviceapi.ErrorCode(err) == serviceapi.ResourceExhausted {
+					stopped.Store(true)
+				}
+			}
+		}()
+	}
+	workers.Wait()
+	return ctx.Err()
 }
 
 type ratingEvent struct {
@@ -211,7 +255,10 @@ func roundedRating(active, total float64) float64 {
 	if total <= 0 {
 		return 0
 	}
-	return math.Max(0, math.Min(100, math.Round(active/total*1000)/10))
+	// Keep the JavaScript evaluation order. Folding these multiplications into
+	// *1000 changes half-tie rounding for representable inputs (e.g.138/480).
+	percent := (active / total) * 100
+	return math.Max(0, math.Min(100, math.Round(percent*10)/10))
 }
 func dashboardRating(events []ratingEvent, day string, loc *time.Location, start, end int, cutoff *int64) float64 {
 	rangeEnd := end
@@ -325,7 +372,19 @@ func ratingPipelineMatch(e serviceapi.Event, selected []int64) bool {
 	var walk func(any)
 	add := func(v any) {
 		if v != nil {
-			value := fmt.Sprint(v)
+			value := ""
+			switch id := v.(type) {
+			case string:
+				value = id
+			case float64:
+				// JSON numbers decode as float64. JS String(number) does not use
+				// an exponent for positive integer CRM IDs below1e21.
+				value = strconv.FormatFloat(id, 'f', -1, 64)
+			case bool:
+				value = strconv.FormatBool(id)
+			default:
+				value = fmt.Sprint(v)
+			}
 			if value != "" {
 				ids[value] = true
 			}

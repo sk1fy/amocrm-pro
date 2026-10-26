@@ -2,11 +2,17 @@ package activity
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"github.com/google/uuid"
+	"math"
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -95,6 +101,7 @@ func TestRatingPipelineAndCanonicalCallFacts(t *testing.T) {
 func number(v float64) *float64 { return &v }
 
 type ratingEventSource struct {
+	cardMu    sync.Mutex
 	cards     map[string]serviceapi.Event
 	cardReads int
 	serviceapi.CRMEvents
@@ -183,6 +190,8 @@ func TestActivityRatingsPageCapAndRepeatedCursor(t *testing.T) {
 }
 
 func (e *ratingEventSource) GetEvent(_ context.Context, r serviceapi.EventRequest) (serviceapi.Event, error) {
+	e.cardMu.Lock()
+	defer e.cardMu.Unlock()
 	e.cardReads++
 	return e.cards[r.EventID], nil
 }
@@ -224,5 +233,169 @@ func TestActivityRatingLegacyCardKeepsObservationAndBound(t *testing.T) {
 	}
 	if src.cardReads != 150 || got.Employees[0].Percent != 0.4 {
 		t.Fatalf("legacy card cap/filter order rating=%v reads=%d", got.Employees, src.cardReads)
+	}
+}
+
+func TestRatingPipelineRealisticIDs(t *testing.T) {
+	for _, c := range []struct {
+		raw      string
+		selected int64
+		want     bool
+	}{
+		{`[{"pipeline_id":5123456}]`, 5123456, true},
+		{`[{"pipeline_id":"5123456"}]`, 5123456, true},
+		{`[{"pipeline_id":5.123456e6}]`, 5123456, true},
+		{`[{"lead_status":{"pipeline_id":912345678}}]`, 912345678, true},
+		{`[{"options":{"pipeline":{"id":1.23456789e8}}}]`, 123456789, true},
+		{`[{"pipeline_id":"5.123456e6"}]`, 5123456, false},
+		{`[{"pipeline_id":5123457}]`, 5123456, false},
+		{`[{"pipeline_id":null}]`, 5123456, true},
+		{`[]`, 5123456, true},
+	} {
+		if got := ratingPipelineMatch(serviceapi.Event{ValueAfter: json.RawMessage(c.raw)}, []int64{c.selected}); got != c.want {
+			t.Fatalf("%s selected%d got%v want%v", c.raw, c.selected, got, c.want)
+		}
+	}
+}
+
+func TestRatingRoundingExhaustiveJavaScriptOracle(t *testing.T) {
+	var oracle struct {
+		MaxTotal   int          `json:"max_total"`
+		Pairs      int          `json:"pairs"`
+		SHA256     string       `json:"sha256"`
+		Mismatches [][3]float64 `json:"mismatches"`
+	}
+	data, err := os.ReadFile("../../../docs/fixtures/activity-rating-rounding-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(data, &oracle); err != nil {
+		t.Fatal(err)
+	}
+	// Each changed half-tie is explicit to make failures diagnosable, while the
+	// compact hash freezes every admissible pair rather than only chosen cases.
+	for _, c := range oracle.Mismatches {
+		if got := roundedRating(c[0], c[1]); got != c[2] {
+			t.Fatalf("JS half-tie active%v total%v got%v want%v", c[0], c[1], got, c[2])
+		}
+	}
+	hash := sha256.New()
+	var buffer [2]byte
+	pairs := 0
+	for total := 1; total <= oracle.MaxTotal; total++ {
+		for active := 0; active <= total+2; active++ {
+			got := roundedRating(float64(active), float64(total))
+			binary.LittleEndian.PutUint16(buffer[:], uint16(math.Round(got*10)))
+			hash.Write(buffer[:])
+			pairs++
+		}
+	}
+	if got := hex.EncodeToString(hash.Sum(nil)); got != oracle.SHA256 || pairs != oracle.Pairs {
+		t.Fatalf("exhaustive JS oracle mismatch: pairs%d hash%s, want%d %s", pairs, got, oracle.Pairs, oracle.SHA256)
+	}
+	if got := roundedRating(138, 480); got != 28.7 {
+		t.Fatalf("dashboard half-tie %v", got)
+	}
+	if got := roundedRating(23, 80); got != 28.7 {
+		t.Fatalf("profile half-tie %v", got)
+	}
+}
+
+type boundedRatingCards struct {
+	reads     atomic.Int64
+	active    atomic.Int64
+	maximum   atomic.Int64
+	entered   chan struct{}
+	release   chan struct{}
+	exhausted bool
+}
+
+func (r *boundedRatingCards) GetEvent(ctx context.Context, _ serviceapi.EventRequest) (serviceapi.Event, error) {
+	r.reads.Add(1)
+	active := r.active.Add(1)
+	defer r.active.Add(-1)
+	for {
+		old := r.maximum.Load()
+		if active <= old || r.maximum.CompareAndSwap(old, active) {
+			break
+		}
+	}
+	if r.entered != nil {
+		r.entered <- struct{}{}
+	}
+	select {
+	case <-ctx.Done():
+		return serviceapi.Event{}, ctx.Err()
+	case <-r.release:
+	}
+	if r.exhausted {
+		return serviceapi.Event{}, serviceapi.Fail(serviceapi.ResourceExhausted, "test budget")
+	}
+	d := int64(60)
+	return serviceapi.Event{Type: "incoming_call", CallFacts: &serviceapi.CallFacts{Duration: &d}}, nil
+}
+func TestRatingCardsBoundedWorkersCancellationAndBudget(t *testing.T) {
+	for _, cancelRequest := range []bool{false, true} {
+		t.Run(strconv.FormatBool(cancelRequest), func(t *testing.T) {
+			reader := &boundedRatingCards{entered: make(chan struct{}, 150), release: make(chan struct{})}
+			observations := make([]ratingObservation, 150)
+			candidates := make([]ratingCardCandidate, 150)
+			for i := range candidates {
+				candidates[i] = ratingCardCandidate{ID: strconv.Itoa(i), Index: i}
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- resolveRatingCards(ctx, reader, serviceapi.Auth{}, observations, candidates) }()
+			for i := 0; i < 4; i++ {
+				select {
+				case <-reader.entered:
+				case <-time.After(time.Second):
+					t.Fatal("four workers did not start")
+				}
+			}
+			if reader.reads.Load() != 4 || reader.maximum.Load() != 4 {
+				t.Fatalf("unbounded workers reads%d max%d", reader.reads.Load(), reader.maximum.Load())
+			}
+			if cancelRequest {
+				cancel()
+			} else {
+				close(reader.release)
+			}
+			select {
+			case err := <-done:
+				if cancelRequest && err != context.Canceled {
+					t.Fatalf("cancellation=%v", err)
+				}
+				if !cancelRequest && (err != nil || reader.reads.Load() != 150) {
+					t.Fatalf("budget reads%d err%v", reader.reads.Load(), err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("rating workers did not stop")
+			}
+			if reader.maximum.Load() > 4 || reader.active.Load() != 0 {
+				t.Fatalf("worker leak active%d max%d", reader.active.Load(), reader.maximum.Load())
+			}
+		})
+	}
+	reader := &boundedRatingCards{entered: make(chan struct{}, 4), release: make(chan struct{}), exhausted: true}
+	observations := make([]ratingObservation, 150)
+	candidates := make([]ratingCardCandidate, 150)
+	for i := range candidates {
+		candidates[i] = ratingCardCandidate{Index: i}
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- resolveRatingCards(context.Background(), reader, serviceapi.Auth{}, observations, candidates)
+	}()
+	for i := 0; i < 4; i++ {
+		<-reader.entered
+	}
+	close(reader.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if reader.reads.Load() != 4 {
+		t.Fatalf("resource exhaustion started extra work: %d", reader.reads.Load())
 	}
 }

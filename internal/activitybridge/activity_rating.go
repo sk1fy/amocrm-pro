@@ -2,6 +2,7 @@ package activitybridge
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -28,7 +29,13 @@ func (b *Bridge) ViewActivityRatingsHTTP(w http.ResponseWriter, r *http.Request)
 		writeShareError(w, serviceapi.Fail(serviceapi.Unavailable, "Activity rating service unavailable"))
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	// The shared server keeps its15second WriteTimeout for every other route.
+	// Extend only this response so its finite rating deadline can complete.
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Now().Add(serviceapi.ActivityRatingTimeout + time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		writeShareError(w, serviceapi.Fail(serviceapi.Unavailable, "Activity rating response deadline unavailable"))
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), serviceapi.ActivityRatingTimeout)
 	defer cancel()
 	out, err := reader.ViewActivityRatings(ctx, req)
 	respond(w, http.StatusOK, out, shareErr(err))

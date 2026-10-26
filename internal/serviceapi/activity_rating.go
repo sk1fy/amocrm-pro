@@ -10,6 +10,10 @@ const DashboardActivityFormula = "dashboard-v1"
 const ProfileActivityFormula = "profile-v1"
 const ActivityRatingMaxPages = 60
 
+// The rating batch stays below the30second delegation lifetime. Other RPCs
+// retain their existing per-call deadlines.
+const ActivityRatingTimeout = 25 * time.Second
+
 type ActivityRatingRequest struct {
 	Auth         Auth    `json:"auth"`
 	From         int64   `json:"from"`

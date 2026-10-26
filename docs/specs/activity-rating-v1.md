@@ -48,7 +48,35 @@ snapshot guarantee. The explicit cutoff is preserved; new observations or refres
 call facts between reads may change either response normally.
 
 `docs/fixtures/activity-rating-v1.json` and the identical web-panel test fixture
-freeze23 representative legacy cases: duplicates, unknown types, call durations,
+freeze25 representative legacy cases: duplicates, unknown types, call durations,
 odd windows/cutoffs, seconds, fractional timezones and DST. Both Go owner formulas
 and unchanged TypeScript references must reproduce these numbers. HTTP, mTLS,
 pagination, scope, call projection and fallback tests cover the production path.
+
+## Bounded rating work and deadlines
+
+The rating-only HTTP and exact `Activity/ViewActivityRatings` RPC use a25second
+budget, below the30second delegation lifetime. All other RPC methods retain their
+10second budgets, including each underlying CRM Events RPC read. Embedded Activity
+also applies the rating budget; cancellation propagates to page and card reads.
+The rating response alone receives a26second write deadline (25seconds of work
+plus one second to send the result); the shared HTTP server retains its15second
+WriteTimeout for all other routes.
+
+The60page scan retains only compact observations. Once it finishes, at most150
+legacy missing call cards are resolved by four workers (the same concurrency as
+the legacy UI). Pipeline filtering is applied afterward. Resource exhaustion stops
+new card work; a cancelled request waits for the bounded in-flight workers to exit.
+No raw event payload cache or unbounded goroutine pool is introduced.
+
+A controlled latency audit used60query pages at50ms per page and150card reads
+at200ms each. The previous serial path hit its10second deadline after one page
+and49card attempts; the bounded four-worker path completed all60pages and150cards
+in10.72seconds under the rating-only25second budget. This is a deterministic fake
+source measurement, not a production latency guarantee. Slower reads still fail
+at the finite deadline rather than return an incomplete score as complete.
+
+The rounding oracle in `docs/fixtures/activity-rating-rounding-v1.json` checks
+1,041,840 count pairs against JavaScript, including the 72 cases that differ
+if the original multiplication order is reassociated. Numeric pipeline IDs are
+normalized as decimal strings, including ordinary seven- and nine-digit CRM IDs.

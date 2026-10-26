@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"github.com/sk1fy/amocrm-pro/internal/servicerpc/pb"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/corepolicy"
@@ -58,5 +60,43 @@ func TestActivityRatingLocalAndMTLSParity(t *testing.T) {
 	foreign := dialTest(t, ca, address, serviceapi.EventsService).Activity.(serviceapi.ActivityRatingReader)
 	if _, err = foreign.ViewActivityRatings(ctx, req); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 		t.Fatalf("non-Core caller=%v", err)
+	}
+}
+
+type ratingDeadlineOwner struct {
+	serviceapi.Activity
+	ratingRemaining time.Duration
+	panelRemaining  time.Duration
+}
+
+func (o *ratingDeadlineOwner) ViewActivityRatings(ctx context.Context, _ serviceapi.ActivityRatingRequest) (serviceapi.ActivityRatings, error) {
+	deadline, _ := ctx.Deadline()
+	o.ratingRemaining = time.Until(deadline)
+	return serviceapi.ActivityRatings{}, nil
+}
+func (o *ratingDeadlineOwner) ViewPanel(ctx context.Context, _ serviceapi.Auth) (serviceapi.ViewerPanel, error) {
+	deadline, _ := ctx.Deadline()
+	o.panelRemaining = time.Until(deadline)
+	return serviceapi.ViewerPanel{}, nil
+}
+func TestActivityRatingSpecificDeadlineOverMTLS(t *testing.T) {
+	if rpcCallTimeout(pb.Activity_ViewActivityRatings_FullMethodName) != 25*time.Second || rpcCallTimeout(pb.Activity_ViewActivityRatings_FullMethodName+"Extra") != 10*time.Second || rpcCallTimeout(pb.CRMEvents_GetEvent_FullMethodName) != 10*time.Second {
+		t.Fatal("rating timeout widened other RPC methods")
+	}
+	owner := &ratingDeadlineOwner{}
+	ca := newCA(t)
+	address := start(t, ca, &Endpoints{Activity: owner})
+	client := dialTest(t, ca, address, serviceapi.CoreService).Activity
+	if _, err := client.(serviceapi.ActivityRatingReader).ViewActivityRatings(context.Background(), serviceapi.ActivityRatingRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if owner.ratingRemaining < 24*time.Second || owner.ratingRemaining > 25*time.Second {
+		t.Fatalf("rating RPC context budget=%v", owner.ratingRemaining)
+	}
+	if _, err := client.ViewPanel(context.Background(), serviceapi.Auth{}); err != nil {
+		t.Fatal(err)
+	}
+	if owner.panelRemaining < 9*time.Second || owner.panelRemaining > 10*time.Second {
+		t.Fatalf("other RPC changed budget=%v", owner.panelRemaining)
 	}
 }

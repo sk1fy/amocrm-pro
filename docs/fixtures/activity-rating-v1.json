@@ -557,5 +557,53 @@
     ],
     "expectedDashboard": 0.4,
     "expectedProfile": 0.4
+  },
+  {
+    "name": "rounding-dashboard-138-of-480",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1020,
+    "cutoffUnix": null,
+    "events": [
+      {
+        "id": "rounding-call",
+        "type": "outgoing_call",
+        "createdAt": 1792994400,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 8280
+        }
+      }
+    ],
+    "expectedDashboard": 28.7,
+    "expectedProfile": 28.7
+  },
+  {
+    "name": "rounding-profile-23-of-80",
+    "dayKey": "2026-10-26",
+    "timeZone": "Europe/Moscow",
+    "startMinutes": 540,
+    "endMinutes": 1080,
+    "cutoffUnix": 1793004000,
+    "events": [
+      {
+        "id": "rounding-call",
+        "type": "outgoing_call",
+        "createdAt": 1792994400,
+        "createdBy": 7,
+        "entityType": "leads",
+        "entityId": 1,
+        "pipelineIds": [],
+        "call": {
+          "durationSeconds": 2760
+        }
+      }
+    ],
+    "expectedDashboard": 28.7,
+    "expectedProfile": 28.7
   }
 ]
