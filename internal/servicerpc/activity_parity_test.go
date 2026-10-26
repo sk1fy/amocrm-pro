@@ -276,7 +276,9 @@ func TestCreatePanelAndViewTimelineLocalAndMTLSParity(t *testing.T) {
 	repo := &parityRepository{settings: serviceapi.DefaultSettings(), commands: map[string]serviceapi.SettingsCommand{}}
 	events := &parityEvents{policy: corepolicy.ForCaller(policy, "crm-events")}
 	gw := gateway.New(&fakeAPI{}, corepolicy.ForCaller(policy, "gateway"))
-	local := product.New(repo, corepolicy.ForCaller(policy, "activity"), events, gw).WithShareOrigin("https://activity.example.invalid")
+	gatewayAddress := start(t, ca, &Endpoints{Gateway: gw})
+	remoteGateway := dialTest(t, ca, gatewayAddress, serviceapi.ActivityService).Gateway
+	local := product.New(repo, corepolicy.ForCaller(policy, "activity"), events, remoteGateway).WithShareOrigin("https://activity.example.invalid")
 	address := start(t, ca, &Endpoints{Activity: local})
 	remote := dialTest(t, ca, address, "core").Activity
 	operator, err := corepolicy.ForCaller(policy, "core").Issue(ctx, serviceapi.IssueRequest{Scope: scope, Kind: serviceapi.PrincipalKindOperator, Consumer: "activity", RequestID: uuid.NewString(), Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanels)})
@@ -295,6 +297,9 @@ func TestCreatePanelAndViewTimelineLocalAndMTLSParity(t *testing.T) {
 	viewer, err := corepolicy.ForCaller(policy, "core").Issue(ctx, serviceapi.IssueRequest{Scope: scope, Kind: serviceapi.PrincipalKindViewer, ViewKeyVersion: 1, PanelID: localPanel.ID, Consumer: "activity", RequestID: uuid.NewString(), Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionView)})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err := remote.ViewPanel(ctx, viewer); err != nil {
+		t.Fatalf("viewer panel through Activity and Gateway mTLS: %v", err)
 	}
 	query := serviceapi.Query{Auth: viewer, From: 90, To: 200, Limit: 100, Buckets: serviceapi.BucketAuto}
 	localTimeline, err := local.ViewTimeline(ctx, query)
