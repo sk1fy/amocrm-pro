@@ -17,6 +17,10 @@ import (
 
 func seedRetainedEvents(t *testing.T, store *Postgres, id uuid.UUID, count int) time.Time {
 	t.Helper()
+	// This fixture explicitly exercises a seven-day retention policy, independent of product defaults.
+	if _, err := store.pool.Exec(context.Background(), `UPDATE event_sources SET retention_days=7 WHERE installation_id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
 	at := time.Now().UTC().Truncate(time.Second).Add(-10 * 24 * time.Hour)
 	_, err := store.pool.Exec(context.Background(), `INSERT INTO crm_events(installation_id,event_id,created_at,created_by,event_type,entity_id,entity_type,content_hash) SELECT $1,'old-'||n,$2::timestamptz+n*interval '1 second',7,'test',1,'lead','hash'::bytea FROM generate_series(1,$3::int) n`, id, at, count)
 	if err != nil {

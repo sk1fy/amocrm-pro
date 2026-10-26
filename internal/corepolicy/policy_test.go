@@ -266,3 +266,46 @@ func TestPanelDelegationCannotMutateOrInspectUnrelatedOperations(t *testing.T) {
 		}
 	}
 }
+
+type employeeTestChecker struct{ *testChecker }
+
+func (c employeeTestChecker) CheckEmployee(ctx context.Context, s serviceapi.Scope, actor int64) error {
+	if actor != 8 {
+		return serviceapi.Fail(serviceapi.PermissionDenied, "employee not active")
+	}
+	return c.testChecker.Check(ctx, s, 7, false)
+}
+func TestEmployeeDelegationCannotManageOrReadOtherUsers(t *testing.T) {
+	original, checker, req := testPolicy(t)
+	policy, err := NewWithChecker(employeeTestChecker{checker}, original.key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Kind = serviceapi.PrincipalKindEmployee
+	req.ActorID = 8
+	req.Grants = []serviceapi.Grant{{Audience: serviceapi.ActivityService, Action: serviceapi.ActionSessions}}
+	core := ForCaller(policy, serviceapi.CoreService)
+	auth, err := core.Issue(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Legacy checker fallback must not silently authorize a new employee principal.
+	for _, g := range []serviceapi.Grant{{Audience: serviceapi.ActivityService, Action: serviceapi.ActionPanels}, {Audience: serviceapi.ActivityService, Action: serviceapi.ActionView}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionUsers}} {
+		bad := req
+		bad.Grants = []serviceapi.Grant{g}
+		if _, err := core.Issue(context.Background(), bad); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+			t.Fatalf("employee escalation %+v %v", g, err)
+		}
+	}
+	if auth.Token == "" {
+		t.Fatal("missing delegated token")
+	}
+	principal, err := ForCaller(policy, serviceapi.ActivityService).Validate(context.Background(), auth, serviceapi.ActivityService, serviceapi.ActionSessions)
+	if err != nil || principal.ActorID != 8 || principal.Kind != serviceapi.PrincipalKindEmployee {
+		t.Fatalf("employee delegation %+v %v", principal, err)
+	}
+	req.ActorID = 9
+	if _, err := core.Issue(context.Background(), req); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatal("inactive employee accepted")
+	}
+}

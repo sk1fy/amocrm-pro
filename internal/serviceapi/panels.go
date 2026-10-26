@@ -36,6 +36,8 @@ type PanelRef struct {
 }
 
 type PanelCommand struct {
+	Options       PanelOptions  `json:"options"`
+	HasOptions    bool          `json:"-"`
 	Auth          Auth          `json:"auth"`
 	CommandID     string        `json:"command_id"`
 	PanelID       uuid.UUID     `json:"panel_id,omitempty"`
@@ -51,6 +53,7 @@ type PanelCommand struct {
 }
 
 type ManagedPanel struct {
+	Options        PanelOptions  `json:"options"`
 	ID             uuid.UUID     `json:"id"`
 	Name           string        `json:"name"`
 	EmployeeIDs    []int64       `json:"employee_ids"`
@@ -70,6 +73,10 @@ type ManagedPanelPage struct {
 }
 
 type ViewerPanel struct {
+	TaskPanelEnabled      bool          `json:"task_panel_enabled"`
+	Options               PanelOptions  `json:"options"`
+	Pipelines             []Pipeline    `json:"pipelines"`
+	CRMBaseURL            string        `json:"crm_base_url,omitempty"`
 	Name                  string        `json:"name"`
 	Timezone              string        `json:"timezone"`
 	DisplayWindow         DisplayWindow `json:"display_window"`

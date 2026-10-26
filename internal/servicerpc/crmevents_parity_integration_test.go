@@ -366,3 +366,7 @@ func TestCRMEventsOwnPostgresReplayAfterMTLSConnectionLostAfterCommit(t *testing
 		t.Fatalf("transport retry duplicated effect: inbox=%d operations=%d jobs=%d err=%v", inbox, operations, jobs, err)
 	}
 }
+
+func (crmParityGateway) Problems(context.Context, serviceapi.ProblemRequest) (serviceapi.ProblemSnapshot, error) {
+	return serviceapi.ProblemSnapshot{}, serviceapi.Fail(serviceapi.PermissionDenied, "not a CRM Events capability")
+}

@@ -54,3 +54,40 @@ func TestOversizedDirectoryIsRejectedBeforeCaching(t *testing.T) {
 		})
 	}
 }
+
+type scopedDirectoryAPI struct {
+	API
+	byID map[uuid.UUID]amocrm.AccountDirectory
+}
+
+func (a scopedDirectoryAPI) GetDirectory(_ context.Context, id uuid.UUID) (amocrm.AccountDirectory, error) {
+	return a.byID[id], nil
+}
+
+type scopedDirectoryPolicy struct {
+	serviceapi.Policy
+	byToken map[string]serviceapi.Scope
+}
+
+func (p scopedDirectoryPolicy) Validate(_ context.Context, a serviceapi.Auth, _, _ string) (serviceapi.Principal, error) {
+	scope, ok := p.byToken[a.Token]
+	if !ok {
+		return serviceapi.Principal{}, serviceapi.Fail(serviceapi.PermissionDenied, "denied")
+	}
+	return serviceapi.Principal{Scope: scope}, nil
+}
+func TestDirectoryCRMOriginCacheIsScopedToInstallation(t *testing.T) {
+	a, b := uuid.New(), uuid.New()
+	api := scopedDirectoryAPI{byID: map[uuid.UUID]amocrm.AccountDirectory{a: {CRMBaseURL: "https://alpha.amocrm.ru"}, b: {CRMBaseURL: "https://bravo.kommo.com"}}}
+	policy := scopedDirectoryPolicy{byToken: map[string]serviceapi.Scope{"a": {InstallationID: a}, "b": {InstallationID: b}}}
+	s := New(api, policy)
+	for _, token := range []string{"a", "b", "a", "b"} {
+		got, err := s.Users(context.Background(), serviceapi.UsersRequest{Auth: serviceapi.Auth{Token: token}})
+		if err != nil || got.CRMBaseURL != api.byID[policy.byToken[token].InstallationID].CRMBaseURL {
+			t.Fatalf("scope leak for %s: %+v %v", token, got, err)
+		}
+	}
+	if _, err := s.Users(context.Background(), serviceapi.UsersRequest{Auth: serviceapi.Auth{Token: "revoked"}}); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatal("cache bypassed authorization")
+	}
+}

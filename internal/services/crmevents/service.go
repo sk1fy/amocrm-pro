@@ -136,13 +136,16 @@ func normalizeCommand(c serviceapi.Command, now time.Time) (serviceapi.Command, 
 		return c, serviceapi.Fail(serviceapi.InvalidArgument, "command id required, maximum 128 bytes")
 	}
 	if c.InitialDays == 0 {
-		c.InitialDays = 2
+		c.InitialDays = serviceapi.DefaultSettings().InitialDays
+		if c.RetentionDays > 0 {
+			c.InitialDays = min(c.InitialDays, c.RetentionDays)
+		}
 	}
 	if c.RetentionDays == 0 {
-		c.RetentionDays = 7
+		c.RetentionDays = serviceapi.DefaultSettings().RetentionDays
 	}
-	if c.InitialDays < 1 || c.InitialDays > 7 || c.RetentionDays < 2 || c.RetentionDays > 30 || c.RetentionDays < c.InitialDays {
-		return c, serviceapi.Fail(serviceapi.InvalidArgument, "initial days 1..7; retention days 2..30 and at least initial days")
+	if c.InitialDays < 1 || c.InitialDays > 31 || c.RetentionDays < 2 || c.RetentionDays > 31 || c.RetentionDays < c.InitialDays {
+		return c, serviceapi.Fail(serviceapi.InvalidArgument, "initial days 1..31; retention days 2..31 and at least initial days")
 	}
 	switch c.Kind {
 	case "enable", "sync", "disable":

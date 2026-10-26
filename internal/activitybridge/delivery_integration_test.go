@@ -293,7 +293,7 @@ func TestDurableAcceptanceLostResponseAndActorIsolation(t *testing.T) {
 	}
 	fresh.TokenID = uuid.NewString()
 	changed := serviceapi.DefaultSettings()
-	changed.RetentionDays++
+	changed.InitialDays--
 	if _, err := b.Configure(ctx, fresh, "same-key", changed); serviceapi.ErrorCode(err) != serviceapi.Conflict {
 		t.Fatalf("changed payload=%v", err)
 	}

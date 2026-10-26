@@ -158,8 +158,10 @@ type User struct {
 	GroupName string `json:"group_name"`
 }
 type Directory struct {
-	Users    []User `json:"users"`
-	Timezone string `json:"timezone"`
+	Pipelines  []Pipeline `json:"pipelines,omitempty"`
+	CRMBaseURL string     `json:"crm_base_url,omitempty"`
+	Users      []User     `json:"users"`
+	Timezone   string     `json:"timezone"`
 }
 type UsersRequest struct {
 	Auth    Auth    `json:"auth"`
@@ -283,6 +285,13 @@ type Panel struct {
 	InterpretationVersion int         `json:"interpretation_version,omitempty"`
 }
 type Activity interface {
+	OwnActivityState(context.Context, Auth) (EmployeeActivityState, error)
+	OwnSessions(context.Context, Query) (SessionPage, error)
+	ApplySession(context.Context, SessionCommand) (WorkSession, error)
+	ViewSessions(context.Context, Query) (SessionPage, error)
+	TaskPanel(context.Context, Auth) (TaskPanelSettings, error)
+	SaveTaskPanel(context.Context, TaskPanelCommand) (TaskPanelSettings, error)
+	ViewProblems(context.Context, Auth) (ProblemSnapshot, error)
 	Panel(context.Context, Query) (Panel, error)
 	Settings(context.Context, Auth) (Settings, error)
 	Configure(context.Context, SettingsCommand) (Operation, error)
@@ -327,9 +336,9 @@ func UserGrantsFor(audience, action string) []Grant {
 	case audience == ActivityService && action == ActionPanel:
 		return []Grant{{ActivityService, ActionPanel}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}
 	case audience == ActivityService && action == ActionView:
-		return []Grant{{ActivityService, ActionView}, {EventsService, ActionRead}, {GatewayService, ActionUsers}}
+		return []Grant{{ActivityService, ActionView}, {EventsService, ActionRead}, {GatewayService, ActionUsers}, {GatewayService, ActionPipelines}, {GatewayService, ActionProblems}}
 	case audience == ActivityService && action == ActionPanels:
-		return []Grant{{ActivityService, ActionPanels}, {GatewayService, ActionUsers}}
+		return []Grant{{ActivityService, ActionPanels}, {GatewayService, ActionUsers}, {GatewayService, ActionPipelines}}
 	case audience == ActivityService && (action == ActionSettings || action == ActionOperation):
 		return []Grant{{audience, action}}
 	case audience == EventsService && (action == ActionRead || action == ActionStatus || action == ActionSync || action == ActionOperation):

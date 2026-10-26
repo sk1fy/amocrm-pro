@@ -73,8 +73,9 @@ type DirectoryUser struct {
 	GroupName string
 }
 type AccountDirectory struct {
-	Users    []DirectoryUser
-	Timezone string
+	CRMBaseURL string
+	Users      []DirectoryUser
+	Timezone   string
 }
 
 // GetDirectory is bounded to 1000 users/4 pages and returns only fields consumed
@@ -98,7 +99,15 @@ func (c *Client) GetDirectory(ctx context.Context, id uuid.UUID) (AccountDirecto
 	for _, g := range account.Embedded.Groups {
 		groups[g.ID] = g.Name
 	}
-	result := AccountDirectory{Timezone: account.Embedded.DateTime.Timezone, Users: []DirectoryUser{}}
+	access, err := c.tokens.Token(ctx, id)
+	if err != nil {
+		return AccountDirectory{}, err
+	}
+	base, err := c.resolveAccount(access.AccountDomain)
+	if err != nil {
+		return AccountDirectory{}, err
+	}
+	result := AccountDirectory{Timezone: account.Embedded.DateTime.Timezone, CRMBaseURL: base.String(), Users: []DirectoryUser{}}
 	for page := 1; page <= 4; page++ {
 		var response struct {
 			Embedded struct {

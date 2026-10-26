@@ -50,7 +50,7 @@ func TestPostgresSettingsReceiptSurvivesResponseLoss(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM command_receipts`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("receipt count=%d err=%v", count, err)
 	}
-	command.Settings.RetentionDays++
+	command.Settings.InitialDays--
 	if _, err := s.Configure(ctx, p, command); serviceapi.ErrorCode(err) != serviceapi.Conflict {
 		t.Fatalf("changed payload=%v", err)
 	}

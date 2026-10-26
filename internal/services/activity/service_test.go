@@ -170,7 +170,7 @@ func TestRevocationStopsLocalAdapterBeforeDataAccess(t *testing.T) {
 }
 
 func TestSettingsBounds(t *testing.T) {
-	for _, s := range []serviceapi.Settings{{}, {InitialDays: 8, RetentionDays: 30}, {InitialDays: 7, RetentionDays: 2}, {InitialDays: 2, RetentionDays: 31}} {
+	for _, s := range []serviceapi.Settings{{}, {InitialDays: 32, RetentionDays: 30}, {InitialDays: 7, RetentionDays: 2}, {InitialDays: 2, RetentionDays: 32}} {
 		if ValidateSettings(s) == nil {
 			t.Fatalf("accepted %+v", s)
 		}
@@ -183,4 +183,8 @@ func TestSettingsBounds(t *testing.T) {
 	if err := ValidateSettings(ignored); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (g *fakeGateway) Pipelines(context.Context, serviceapi.CatalogRequest) (serviceapi.PipelineCatalog, error) {
+	return serviceapi.PipelineCatalog{Pipelines: []serviceapi.Pipeline{}}, nil
 }

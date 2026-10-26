@@ -776,6 +776,10 @@ func toDirectory(src serviceapi.Directory) *pb.Directory {
 		out.Users = append(out.Users, toUser(item))
 	}
 	out.Timezone = src.Timezone
+	out.CrmBaseUrl = src.CRMBaseURL
+	for _, item := range src.Pipelines {
+		out.Pipelines = append(out.Pipelines, toPipeline(item))
+	}
 	return out
 }
 func fromDirectory(src *pb.Directory) serviceapi.Directory {
@@ -787,6 +791,10 @@ func fromDirectory(src *pb.Directory) serviceapi.Directory {
 		out.Users = append(out.Users, fromUser(item))
 	}
 	out.Timezone = src.Timezone
+	out.CRMBaseURL = src.CrmBaseUrl
+	for _, item := range src.Pipelines {
+		out.Pipelines = append(out.Pipelines, fromPipeline(item))
+	}
 	return out
 }
 func toQuery(src serviceapi.Query) *pb.Query {
@@ -1141,6 +1149,82 @@ func fromPanelRef(src *pb.PanelRef) serviceapi.PanelRef {
 	out.PanelID = parseUUID(src.PanelId)
 	return out
 }
+func toCallThresholds(src serviceapi.CallThresholds) *pb.CallThresholds {
+	out := new(pb.CallThresholds)
+	out.DialingSeconds = boundedInt32(src.DialingSeconds)
+	out.ConversationSeconds = boundedInt32(src.ConversationSeconds)
+	out.ExceedingSeconds = boundedInt32(src.ExceedingSeconds)
+	return out
+}
+func fromCallThresholds(src *pb.CallThresholds) serviceapi.CallThresholds {
+	var out serviceapi.CallThresholds
+	if src == nil {
+		return out
+	}
+	out.DialingSeconds = int(src.DialingSeconds)
+	out.ConversationSeconds = int(src.ConversationSeconds)
+	out.ExceedingSeconds = int(src.ExceedingSeconds)
+	return out
+}
+func toOperatorSettings(src serviceapi.OperatorSettings) *pb.OperatorSettings {
+	out := new(pb.OperatorSettings)
+	out.EmployeeId = src.EmployeeID
+	out.Enabled = src.Enabled
+	out.Plan = boundedInt32(src.Plan)
+	out.Thresholds = toCallThresholds(src.Thresholds)
+	return out
+}
+func fromOperatorSettings(src *pb.OperatorSettings) serviceapi.OperatorSettings {
+	var out serviceapi.OperatorSettings
+	if src == nil {
+		return out
+	}
+	out.EmployeeID = src.EmployeeId
+	out.Enabled = src.Enabled
+	out.Plan = int(src.Plan)
+	out.Thresholds = fromCallThresholds(src.Thresholds)
+	return out
+}
+func toDepartmentThresholds(src serviceapi.DepartmentThresholds) *pb.DepartmentThresholds {
+	out := new(pb.DepartmentThresholds)
+	out.GroupId = src.GroupID
+	out.Thresholds = toCallThresholds(src.Thresholds)
+	return out
+}
+func fromDepartmentThresholds(src *pb.DepartmentThresholds) serviceapi.DepartmentThresholds {
+	var out serviceapi.DepartmentThresholds
+	if src == nil {
+		return out
+	}
+	out.GroupID = src.GroupId
+	out.Thresholds = fromCallThresholds(src.Thresholds)
+	return out
+}
+func toPanelOptions(src serviceapi.PanelOptions) *pb.PanelOptions {
+	out := new(pb.PanelOptions)
+	out.PipelineIds = append(out.PipelineIds, src.PipelineIDs...)
+	for _, item := range src.Operators {
+		out.Operators = append(out.Operators, toOperatorSettings(item))
+	}
+	for _, item := range src.Departments {
+		out.Departments = append(out.Departments, toDepartmentThresholds(item))
+	}
+	return out
+}
+func fromPanelOptions(src *pb.PanelOptions) serviceapi.PanelOptions {
+	var out serviceapi.PanelOptions
+	if src == nil {
+		return out
+	}
+	out.PipelineIDs = append(out.PipelineIDs, src.PipelineIds...)
+	for _, item := range src.Operators {
+		out.Operators = append(out.Operators, fromOperatorSettings(item))
+	}
+	for _, item := range src.Departments {
+		out.Departments = append(out.Departments, fromDepartmentThresholds(item))
+	}
+	return out
+}
 func toPanelCommand(src serviceapi.PanelCommand) *pb.PanelCommand {
 	out := new(pb.PanelCommand)
 	out.Auth = toAuth(src.Auth)
@@ -1154,6 +1238,8 @@ func toPanelCommand(src serviceapi.PanelCommand) *pb.PanelCommand {
 	out.HasName = src.HasName
 	out.HasEmployees = src.HasEmployees
 	out.HasWindow = src.HasWindow
+	out.Options = toPanelOptions(src.Options)
+	out.HasOptions = src.HasOptions
 	return out
 }
 func fromPanelCommand(src *pb.PanelCommand) serviceapi.PanelCommand {
@@ -1172,6 +1258,8 @@ func fromPanelCommand(src *pb.PanelCommand) serviceapi.PanelCommand {
 	out.HasName = src.HasName
 	out.HasEmployees = src.HasEmployees
 	out.HasWindow = src.HasWindow
+	out.Options = fromPanelOptions(src.Options)
+	out.HasOptions = src.HasOptions
 	return out
 }
 func toManagedPanel(src serviceapi.ManagedPanel) *pb.ManagedPanel {
@@ -1188,6 +1276,7 @@ func toManagedPanel(src serviceapi.ManagedPanel) *pb.ManagedPanel {
 	out.ViewKey = src.ViewKey
 	out.ShareUrl = src.ShareUrl
 	out.ViewKeyVersion = boundedInt32(src.ViewKeyVersion)
+	out.Options = toPanelOptions(src.Options)
 	return out
 }
 func fromManagedPanel(src *pb.ManagedPanel) serviceapi.ManagedPanel {
@@ -1207,6 +1296,7 @@ func fromManagedPanel(src *pb.ManagedPanel) serviceapi.ManagedPanel {
 	out.ViewKey = src.ViewKey
 	out.ShareUrl = src.ShareUrl
 	out.ViewKeyVersion = int(src.ViewKeyVersion)
+	out.Options = fromPanelOptions(src.Options)
 	return out
 }
 func toManagedPanelPage(src serviceapi.ManagedPanelPage) *pb.ManagedPanelPage {
@@ -1235,6 +1325,12 @@ func toViewerPanel(src serviceapi.ViewerPanel) *pb.ViewerPanel {
 		out.Employees = append(out.Employees, toUser(item))
 	}
 	out.InterpretationVersion = boundedInt32(src.InterpretationVersion)
+	out.CrmBaseUrl = src.CRMBaseURL
+	out.Options = toPanelOptions(src.Options)
+	for _, item := range src.Pipelines {
+		out.Pipelines = append(out.Pipelines, toPipeline(item))
+	}
+	out.TaskPanelEnabled = src.TaskPanelEnabled
 	return out
 }
 func fromViewerPanel(src *pb.ViewerPanel) serviceapi.ViewerPanel {
@@ -1249,6 +1345,12 @@ func fromViewerPanel(src *pb.ViewerPanel) serviceapi.ViewerPanel {
 		out.Employees = append(out.Employees, fromUser(item))
 	}
 	out.InterpretationVersion = int(src.InterpretationVersion)
+	out.CRMBaseURL = src.CrmBaseUrl
+	out.Options = fromPanelOptions(src.Options)
+	for _, item := range src.Pipelines {
+		out.Pipelines = append(out.Pipelines, fromPipeline(item))
+	}
+	out.TaskPanelEnabled = src.TaskPanelEnabled
 	return out
 }
 func toViewerTimeline(src serviceapi.ViewerTimeline) *pb.ViewerTimeline {
@@ -1305,6 +1407,67 @@ func fromViewerEmployee(src *pb.ViewerEmployee) serviceapi.ViewerEmployee {
 	out.InterpretationVersion = int(src.InterpretationVersion)
 	return out
 }
+func toProblemRequest(src serviceapi.ProblemRequest) *pb.ProblemRequest {
+	out := new(pb.ProblemRequest)
+	out.Auth = toAuth(src.Auth)
+	out.EmployeeIds = append(out.EmployeeIds, src.EmployeeIDs...)
+	out.PipelineIds = append(out.PipelineIds, src.PipelineIDs...)
+	return out
+}
+func fromProblemRequest(src *pb.ProblemRequest) serviceapi.ProblemRequest {
+	var out serviceapi.ProblemRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.EmployeeIDs = append(out.EmployeeIDs, src.EmployeeIds...)
+	out.PipelineIDs = append(out.PipelineIDs, src.PipelineIds...)
+	return out
+}
+func toProblemCount(src serviceapi.ProblemCount) *pb.ProblemCount {
+	out := new(pb.ProblemCount)
+	out.EmployeeId = src.EmployeeID
+	out.LeadsNoTasks = boundedInt32(src.LeadsNoTasks)
+	out.LeadsOverdueTasks = boundedInt32(src.LeadsOverdueTasks)
+	out.OverdueTasks = boundedInt32(src.OverdueTasks)
+	return out
+}
+func fromProblemCount(src *pb.ProblemCount) serviceapi.ProblemCount {
+	var out serviceapi.ProblemCount
+	if src == nil {
+		return out
+	}
+	out.EmployeeID = src.EmployeeId
+	out.LeadsNoTasks = int(src.LeadsNoTasks)
+	out.LeadsOverdueTasks = int(src.LeadsOverdueTasks)
+	out.OverdueTasks = int(src.OverdueTasks)
+	return out
+}
+func toProblemSnapshot(src serviceapi.ProblemSnapshot) *pb.ProblemSnapshot {
+	out := new(pb.ProblemSnapshot)
+	for _, item := range src.Counts {
+		out.Counts = append(out.Counts, toProblemCount(item))
+	}
+	out.SnapshotAt = src.SnapshotAt
+	out.Stale = src.Stale
+	out.State = src.State
+	out.ErrorCode = src.ErrorCode
+	return out
+}
+func fromProblemSnapshot(src *pb.ProblemSnapshot) serviceapi.ProblemSnapshot {
+	var out serviceapi.ProblemSnapshot
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Counts {
+		out.Counts = append(out.Counts, fromProblemCount(item))
+	}
+	out.SnapshotAt = src.SnapshotAt
+	out.Stale = src.Stale
+	out.State = src.State
+	out.ErrorCode = src.ErrorCode
+	return out
+}
 func toBootstrapAccountRequest(src serviceapi.BootstrapAccountRequest) *pb.BootstrapAccountRequest {
 	out := new(pb.BootstrapAccountRequest)
 	out.IntegrationId = src.IntegrationID.String()
@@ -1335,5 +1498,174 @@ func fromBootstrapAccount(src *pb.BootstrapAccount) serviceapi.BootstrapAccount 
 	}
 	out.ID = src.Id
 	out.Subdomain = src.Subdomain
+	return out
+}
+func toSessionContext(src serviceapi.SessionContext) *pb.SessionContext {
+	out := new(pb.SessionContext)
+	out.TaskId = src.TaskID
+	out.TaskName = src.TaskName
+	out.TaskTypeId = src.TaskTypeID
+	out.TaskTypeName = src.TaskTypeName
+	out.TaskResult = src.TaskResult
+	out.ActivityName = src.ActivityName
+	out.ActivityType = src.ActivityType
+	out.EntityId = src.EntityID
+	out.EntityType = src.EntityType
+	out.EntityName = src.EntityName
+	out.PipelineId = src.PipelineID
+	out.PipelineName = src.PipelineName
+	out.StatusId = src.StatusID
+	out.StatusName = src.StatusName
+	out.StatusColor = src.StatusColor
+	out.ClientId = src.ClientID
+	return out
+}
+func fromSessionContext(src *pb.SessionContext) serviceapi.SessionContext {
+	var out serviceapi.SessionContext
+	if src == nil {
+		return out
+	}
+	out.TaskID = src.TaskId
+	out.TaskName = src.TaskName
+	out.TaskTypeID = src.TaskTypeId
+	out.TaskTypeName = src.TaskTypeName
+	out.TaskResult = src.TaskResult
+	out.ActivityName = src.ActivityName
+	out.ActivityType = src.ActivityType
+	out.EntityID = src.EntityId
+	out.EntityType = src.EntityType
+	out.EntityName = src.EntityName
+	out.PipelineID = src.PipelineId
+	out.PipelineName = src.PipelineName
+	out.StatusID = src.StatusId
+	out.StatusName = src.StatusName
+	out.StatusColor = src.StatusColor
+	out.ClientID = src.ClientId
+	return out
+}
+func toWorkSession(src serviceapi.WorkSession) *pb.WorkSession {
+	out := new(pb.WorkSession)
+	out.Id = src.ID
+	out.EmployeeId = src.EmployeeID
+	out.Kind = src.Kind
+	out.StartedAt = src.StartedAt
+	out.StoppedAt = src.StoppedAt
+	out.WorkTimeSeconds = src.WorkTimeSeconds
+	out.Context = toSessionContext(src.Context)
+	return out
+}
+func fromWorkSession(src *pb.WorkSession) serviceapi.WorkSession {
+	var out serviceapi.WorkSession
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EmployeeID = src.EmployeeId
+	out.Kind = src.Kind
+	out.StartedAt = src.StartedAt
+	out.StoppedAt = src.StoppedAt
+	out.WorkTimeSeconds = src.WorkTimeSeconds
+	out.Context = fromSessionContext(src.Context)
+	return out
+}
+func toSessionCommand(src serviceapi.SessionCommand) *pb.SessionCommand {
+	out := new(pb.SessionCommand)
+	out.Auth = toAuth(src.Auth)
+	out.CommandId = src.CommandID
+	out.Action = src.Action
+	out.SessionId = src.SessionID
+	out.Context = toSessionContext(src.Context)
+	out.ExpectedSessionId = src.ExpectedSessionID
+	out.HasExpectedSession = src.HasExpectedSession
+	return out
+}
+func fromSessionCommand(src *pb.SessionCommand) serviceapi.SessionCommand {
+	var out serviceapi.SessionCommand
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.CommandID = src.CommandId
+	out.Action = src.Action
+	out.SessionID = src.SessionId
+	out.Context = fromSessionContext(src.Context)
+	out.ExpectedSessionID = src.ExpectedSessionId
+	out.HasExpectedSession = src.HasExpectedSession
+	return out
+}
+func toSessionPage(src serviceapi.SessionPage) *pb.SessionPage {
+	out := new(pb.SessionPage)
+	for _, item := range src.Items {
+		out.Items = append(out.Items, toWorkSession(item))
+	}
+	out.SnapshotAt = src.SnapshotAt
+	out.NextCursor = src.NextCursor
+	return out
+}
+func fromSessionPage(src *pb.SessionPage) serviceapi.SessionPage {
+	var out serviceapi.SessionPage
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Items {
+		out.Items = append(out.Items, fromWorkSession(item))
+	}
+	out.SnapshotAt = src.SnapshotAt
+	out.NextCursor = src.NextCursor
+	return out
+}
+func toTaskPanelSettings(src serviceapi.TaskPanelSettings) *pb.TaskPanelSettings {
+	out := new(pb.TaskPanelSettings)
+	out.Enabled = src.Enabled
+	out.EmployeeIds = append(out.EmployeeIds, src.EmployeeIDs...)
+	out.ConsiderFutureTasks = src.ConsiderFutureTasks
+	out.IncludeRelatedDeals = src.IncludeRelatedDeals
+	out.PriorityKeys = append(out.PriorityKeys, src.PriorityKeys...)
+	out.Revision = src.Revision
+	return out
+}
+func fromTaskPanelSettings(src *pb.TaskPanelSettings) serviceapi.TaskPanelSettings {
+	var out serviceapi.TaskPanelSettings
+	if src == nil {
+		return out
+	}
+	out.Enabled = src.Enabled
+	out.EmployeeIDs = append(out.EmployeeIDs, src.EmployeeIds...)
+	out.ConsiderFutureTasks = src.ConsiderFutureTasks
+	out.IncludeRelatedDeals = src.IncludeRelatedDeals
+	out.PriorityKeys = append(out.PriorityKeys, src.PriorityKeys...)
+	out.Revision = src.Revision
+	return out
+}
+func toTaskPanelCommand(src serviceapi.TaskPanelCommand) *pb.TaskPanelCommand {
+	out := new(pb.TaskPanelCommand)
+	out.Auth = toAuth(src.Auth)
+	out.Settings = toTaskPanelSettings(src.Settings)
+	return out
+}
+func fromTaskPanelCommand(src *pb.TaskPanelCommand) serviceapi.TaskPanelCommand {
+	var out serviceapi.TaskPanelCommand
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.Settings = fromTaskPanelSettings(src.Settings)
+	return out
+}
+func toEmployeeActivityState(src serviceapi.EmployeeActivityState) *pb.EmployeeActivityState {
+	out := new(pb.EmployeeActivityState)
+	out.Current = toWorkSession(src.Current)
+	out.Settings = toTaskPanelSettings(src.Settings)
+	out.Enabled = src.Enabled
+	return out
+}
+func fromEmployeeActivityState(src *pb.EmployeeActivityState) serviceapi.EmployeeActivityState {
+	var out serviceapi.EmployeeActivityState
+	if src == nil {
+		return out
+	}
+	out.Current = fromWorkSession(src.Current)
+	out.Settings = fromTaskPanelSettings(src.Settings)
+	out.Enabled = src.Enabled
 	return out
 }

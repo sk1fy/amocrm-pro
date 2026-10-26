@@ -42,6 +42,12 @@ func (s *Service) CreatePanel(ctx context.Context, command serviceapi.PanelComma
 	if err := serviceapi.ValidateDisplayWindow(command.DisplayWindow); err != nil {
 		return serviceapi.ManagedPanel{}, err
 	}
+	if err := serviceapi.ValidatePanelOptions(command.Options, command.EmployeeIDs); err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
+	if err := s.validatePanelPipelines(ctx, command.Auth, command.Options.PipelineIDs); err != nil {
+		return serviceapi.ManagedPanel{}, err
+	}
 	directory, err := s.directoryFor(ctx, command.Auth, command.EmployeeIDs)
 	if err != nil {
 		return serviceapi.ManagedPanel{}, err
@@ -55,6 +61,7 @@ func (s *Service) CreatePanel(ctx context.Context, command serviceapi.PanelComma
 		return serviceapi.ManagedPanel{}, err
 	}
 	panel := serviceapi.ManagedPanel{
+		Options:       command.Options,
 		ID:            uuid.New(),
 		Name:          command.Name,
 		EmployeeIDs:   slices.Clone(command.EmployeeIDs),
@@ -126,6 +133,27 @@ func (s *Service) PatchPanel(ctx context.Context, command serviceapi.PanelComman
 			return serviceapi.ManagedPanel{}, err
 		}
 	}
+	if command.HasOptions {
+		if err := s.validatePanelPipelines(ctx, command.Auth, command.Options.PipelineIDs); err != nil {
+			return serviceapi.ManagedPanel{}, err
+		}
+	}
+	if command.HasOptions || command.HasEmployees {
+		current, err := s.store.GetPanel(ctx, p.Scope, command.PanelID)
+		if err != nil {
+			return serviceapi.ManagedPanel{}, err
+		}
+		options, employees := current.Options, current.EmployeeIDs
+		if command.HasOptions {
+			options = command.Options
+		}
+		if command.HasEmployees {
+			employees = command.EmployeeIDs
+		}
+		if err := serviceapi.ValidatePanelOptions(options, employees); err != nil {
+			return serviceapi.ManagedPanel{}, err
+		}
+	}
 	panel, err := s.store.PatchPanel(ctx, p, command)
 	if err != nil {
 		return serviceapi.ManagedPanel{}, err
@@ -169,6 +197,11 @@ func (s *Service) ListEmployees(ctx context.Context, auth serviceapi.Auth) (serv
 	if directory.Users == nil {
 		directory.Users = []serviceapi.User{}
 	}
+	catalog, err := s.gateway.Pipelines(ctx, serviceapi.CatalogRequest{Auth: auth})
+	if err != nil {
+		return serviceapi.Directory{}, err
+	}
+	directory.Pipelines = catalog.Pipelines
 	return directory, nil
 }
 
@@ -178,7 +211,26 @@ func (s *Service) ViewPanel(ctx context.Context, auth serviceapi.Auth) (servicea
 		return serviceapi.ViewerPanel{}, err
 	}
 	_ = p
+	directory, err := s.gateway.Users(ctx, serviceapi.UsersRequest{Auth: auth, UserIDs: panel.EmployeeIDs})
+	if err != nil {
+		return serviceapi.ViewerPanel{}, err
+	}
+	catalog, err := s.gateway.Pipelines(ctx, serviceapi.CatalogRequest{Auth: auth})
+	if err != nil {
+		return serviceapi.ViewerPanel{}, err
+	}
+	taskPanelEnabled := false
+	if store, ok := s.store.(sessionRepository); ok {
+		settings, err := store.TaskPanel(ctx, p.Scope)
+		if err != nil {
+			return serviceapi.ViewerPanel{}, err
+		}
+		taskPanelEnabled = settings.Enabled
+	}
 	return serviceapi.ViewerPanel{
+		TaskPanelEnabled: taskPanelEnabled,
+		Options:          panel.Options, Pipelines: catalog.Pipelines,
+		CRMBaseURL:            directory.CRMBaseURL,
 		Name:                  panel.Name,
 		Timezone:              panel.Timezone,
 		DisplayWindow:         panel.DisplayWindow,
@@ -424,4 +476,24 @@ func projectEmployees(ids []int64, directory []serviceapi.User) []serviceapi.Use
 		users = append(users, serviceapi.User{ID: id, Name: serviceapi.AuthorLabel(id, nil)})
 	}
 	return users
+}
+
+func (s *Service) validatePanelPipelines(ctx context.Context, auth serviceapi.Auth, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	catalog, err := s.gateway.Pipelines(ctx, serviceapi.CatalogRequest{Auth: auth})
+	if err != nil {
+		return err
+	}
+	known := map[int64]bool{}
+	for _, p := range catalog.Pipelines {
+		known[p.ID] = true
+	}
+	for _, id := range ids {
+		if !known[id] {
+			return serviceapi.Fail(serviceapi.InvalidArgument, "pipeline is not in the installation catalog")
+		}
+	}
+	return nil
 }

@@ -28,6 +28,14 @@ var (
 	ActivityConfigure             = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/settings"}
 	ActivitySync                  = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/sync"}
 	ActivityOperation             = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/operations/{operationID}"}
+	ActivityBrowserSession        = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/browser-session"}
+	ActivityOwnState              = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/state"}
+	ActivityOwnSessions           = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/sessions"}
+	ActivitySessionWrite          = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/sessions"}
+	ActivityViewSessions          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}/sessions"}
+	ActivityTaskPanel             = Route{Method: http.MethodGet, Path: "/api/v1/activity/task-panel"}
+	ActivityTaskPanelSave         = Route{Method: http.MethodPatch, Path: "/api/v1/activity/task-panel"}
+	ActivityViewProblems          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/problems"}
 	ActivityViewPanel             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/panel"}
 	ActivityViewTimeline          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/timeline"}
 	ActivityViewEmployee          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}"}
@@ -58,6 +66,8 @@ var (
 		ActivityConfigure,
 		ActivitySync,
 		ActivityOperation,
+		ActivityOwnState, ActivityOwnSessions, ActivityBrowserSession, ActivitySessionWrite, ActivityViewSessions, ActivityTaskPanel, ActivityTaskPanelSave,
+		ActivityViewProblems,
 		ActivityViewPanel,
 		ActivityViewTimeline,
 		ActivityViewEmployee,

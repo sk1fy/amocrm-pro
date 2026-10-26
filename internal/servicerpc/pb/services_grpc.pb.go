@@ -159,6 +159,7 @@ var Policy_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Gateway_Problems_FullMethodName     = "/amocrm.services.v1.Gateway/Problems"
 	Gateway_Events_FullMethodName       = "/amocrm.services.v1.Gateway/Events"
 	Gateway_Users_FullMethodName        = "/amocrm.services.v1.Gateway/Users"
 	Gateway_Notes_FullMethodName        = "/amocrm.services.v1.Gateway/Notes"
@@ -172,6 +173,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GatewayClient interface {
+	Problems(ctx context.Context, in *ProblemRequest, opts ...grpc.CallOption) (*ProblemSnapshot, error)
 	Events(ctx context.Context, in *EventPageRequest, opts ...grpc.CallOption) (*EventPage, error)
 	Users(ctx context.Context, in *UsersRequest, opts ...grpc.CallOption) (*Directory, error)
 	Notes(ctx context.Context, in *NotesRequest, opts ...grpc.CallOption) (*NotePage, error)
@@ -187,6 +189,16 @@ type gatewayClient struct {
 
 func NewGatewayClient(cc grpc.ClientConnInterface) GatewayClient {
 	return &gatewayClient{cc}
+}
+
+func (c *gatewayClient) Problems(ctx context.Context, in *ProblemRequest, opts ...grpc.CallOption) (*ProblemSnapshot, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProblemSnapshot)
+	err := c.cc.Invoke(ctx, Gateway_Problems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *gatewayClient) Events(ctx context.Context, in *EventPageRequest, opts ...grpc.CallOption) (*EventPage, error) {
@@ -263,6 +275,7 @@ func (c *gatewayClient) Entities(ctx context.Context, in *EntitiesRequest, opts 
 // All implementations must embed UnimplementedGatewayServer
 // for forward compatibility.
 type GatewayServer interface {
+	Problems(context.Context, *ProblemRequest) (*ProblemSnapshot, error)
 	Events(context.Context, *EventPageRequest) (*EventPage, error)
 	Users(context.Context, *UsersRequest) (*Directory, error)
 	Notes(context.Context, *NotesRequest) (*NotePage, error)
@@ -280,6 +293,9 @@ type GatewayServer interface {
 // pointer dereference when methods are called.
 type UnimplementedGatewayServer struct{}
 
+func (UnimplementedGatewayServer) Problems(context.Context, *ProblemRequest) (*ProblemSnapshot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Problems not implemented")
+}
 func (UnimplementedGatewayServer) Events(context.Context, *EventPageRequest) (*EventPage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Events not implemented")
 }
@@ -320,6 +336,24 @@ func RegisterGatewayServer(s grpc.ServiceRegistrar, srv GatewayServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Gateway_ServiceDesc, srv)
+}
+
+func _Gateway_Problems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProblemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).Problems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_Problems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).Problems(ctx, req.(*ProblemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Gateway_Events_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -455,6 +489,10 @@ var Gateway_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "amocrm.services.v1.Gateway",
 	HandlerType: (*GatewayServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Problems",
+			Handler:    _Gateway_Problems_Handler,
+		},
 		{
 			MethodName: "Events",
 			Handler:    _Gateway_Events_Handler,
@@ -743,28 +781,42 @@ var CRMEvents_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Activity_GetPanel_FullMethodName        = "/amocrm.services.v1.Activity/GetPanel"
-	Activity_GetEvent_FullMethodName        = "/amocrm.services.v1.Activity/GetEvent"
-	Activity_GetSettings_FullMethodName     = "/amocrm.services.v1.Activity/GetSettings"
-	Activity_Configure_FullMethodName       = "/amocrm.services.v1.Activity/Configure"
-	Activity_OperationStatus_FullMethodName = "/amocrm.services.v1.Activity/OperationStatus"
-	Activity_ResolveShare_FullMethodName    = "/amocrm.services.v1.Activity/ResolveShare"
-	Activity_CreatePanel_FullMethodName     = "/amocrm.services.v1.Activity/CreatePanel"
-	Activity_ListPanels_FullMethodName      = "/amocrm.services.v1.Activity/ListPanels"
-	Activity_GetManagedPanel_FullMethodName = "/amocrm.services.v1.Activity/GetManagedPanel"
-	Activity_PatchPanel_FullMethodName      = "/amocrm.services.v1.Activity/PatchPanel"
-	Activity_RotateShareLink_FullMethodName = "/amocrm.services.v1.Activity/RotateShareLink"
-	Activity_ListEmployees_FullMethodName   = "/amocrm.services.v1.Activity/ListEmployees"
-	Activity_ViewPanel_FullMethodName       = "/amocrm.services.v1.Activity/ViewPanel"
-	Activity_ViewTimeline_FullMethodName    = "/amocrm.services.v1.Activity/ViewTimeline"
-	Activity_ViewEmployee_FullMethodName    = "/amocrm.services.v1.Activity/ViewEmployee"
-	Activity_ViewEvent_FullMethodName       = "/amocrm.services.v1.Activity/ViewEvent"
+	Activity_OwnActivityState_FullMethodName = "/amocrm.services.v1.Activity/OwnActivityState"
+	Activity_OwnSessions_FullMethodName      = "/amocrm.services.v1.Activity/OwnSessions"
+	Activity_ApplySession_FullMethodName     = "/amocrm.services.v1.Activity/ApplySession"
+	Activity_ViewSessions_FullMethodName     = "/amocrm.services.v1.Activity/ViewSessions"
+	Activity_TaskPanel_FullMethodName        = "/amocrm.services.v1.Activity/TaskPanel"
+	Activity_SaveTaskPanel_FullMethodName    = "/amocrm.services.v1.Activity/SaveTaskPanel"
+	Activity_ViewProblems_FullMethodName     = "/amocrm.services.v1.Activity/ViewProblems"
+	Activity_GetPanel_FullMethodName         = "/amocrm.services.v1.Activity/GetPanel"
+	Activity_GetEvent_FullMethodName         = "/amocrm.services.v1.Activity/GetEvent"
+	Activity_GetSettings_FullMethodName      = "/amocrm.services.v1.Activity/GetSettings"
+	Activity_Configure_FullMethodName        = "/amocrm.services.v1.Activity/Configure"
+	Activity_OperationStatus_FullMethodName  = "/amocrm.services.v1.Activity/OperationStatus"
+	Activity_ResolveShare_FullMethodName     = "/amocrm.services.v1.Activity/ResolveShare"
+	Activity_CreatePanel_FullMethodName      = "/amocrm.services.v1.Activity/CreatePanel"
+	Activity_ListPanels_FullMethodName       = "/amocrm.services.v1.Activity/ListPanels"
+	Activity_GetManagedPanel_FullMethodName  = "/amocrm.services.v1.Activity/GetManagedPanel"
+	Activity_PatchPanel_FullMethodName       = "/amocrm.services.v1.Activity/PatchPanel"
+	Activity_RotateShareLink_FullMethodName  = "/amocrm.services.v1.Activity/RotateShareLink"
+	Activity_ListEmployees_FullMethodName    = "/amocrm.services.v1.Activity/ListEmployees"
+	Activity_ViewPanel_FullMethodName        = "/amocrm.services.v1.Activity/ViewPanel"
+	Activity_ViewTimeline_FullMethodName     = "/amocrm.services.v1.Activity/ViewTimeline"
+	Activity_ViewEmployee_FullMethodName     = "/amocrm.services.v1.Activity/ViewEmployee"
+	Activity_ViewEvent_FullMethodName        = "/amocrm.services.v1.Activity/ViewEvent"
 )
 
 // ActivityClient is the client API for Activity service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ActivityClient interface {
+	OwnActivityState(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*EmployeeActivityState, error)
+	OwnSessions(ctx context.Context, in *Query, opts ...grpc.CallOption) (*SessionPage, error)
+	ApplySession(ctx context.Context, in *SessionCommand, opts ...grpc.CallOption) (*WorkSession, error)
+	ViewSessions(ctx context.Context, in *Query, opts ...grpc.CallOption) (*SessionPage, error)
+	TaskPanel(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*TaskPanelSettings, error)
+	SaveTaskPanel(ctx context.Context, in *TaskPanelCommand, opts ...grpc.CallOption) (*TaskPanelSettings, error)
+	ViewProblems(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*ProblemSnapshot, error)
 	GetPanel(ctx context.Context, in *Query, opts ...grpc.CallOption) (*Panel, error)
 	GetEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error)
 	GetSettings(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*Settings, error)
@@ -789,6 +841,76 @@ type activityClient struct {
 
 func NewActivityClient(cc grpc.ClientConnInterface) ActivityClient {
 	return &activityClient{cc}
+}
+
+func (c *activityClient) OwnActivityState(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*EmployeeActivityState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmployeeActivityState)
+	err := c.cc.Invoke(ctx, Activity_OwnActivityState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) OwnSessions(ctx context.Context, in *Query, opts ...grpc.CallOption) (*SessionPage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SessionPage)
+	err := c.cc.Invoke(ctx, Activity_OwnSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ApplySession(ctx context.Context, in *SessionCommand, opts ...grpc.CallOption) (*WorkSession, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkSession)
+	err := c.cc.Invoke(ctx, Activity_ApplySession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewSessions(ctx context.Context, in *Query, opts ...grpc.CallOption) (*SessionPage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SessionPage)
+	err := c.cc.Invoke(ctx, Activity_ViewSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) TaskPanel(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*TaskPanelSettings, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskPanelSettings)
+	err := c.cc.Invoke(ctx, Activity_TaskPanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) SaveTaskPanel(ctx context.Context, in *TaskPanelCommand, opts ...grpc.CallOption) (*TaskPanelSettings, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskPanelSettings)
+	err := c.cc.Invoke(ctx, Activity_SaveTaskPanel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewProblems(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*ProblemSnapshot, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProblemSnapshot)
+	err := c.cc.Invoke(ctx, Activity_ViewProblems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *activityClient) GetPanel(ctx context.Context, in *Query, opts ...grpc.CallOption) (*Panel, error) {
@@ -955,6 +1077,13 @@ func (c *activityClient) ViewEvent(ctx context.Context, in *EventRequest, opts .
 // All implementations must embed UnimplementedActivityServer
 // for forward compatibility.
 type ActivityServer interface {
+	OwnActivityState(context.Context, *Auth) (*EmployeeActivityState, error)
+	OwnSessions(context.Context, *Query) (*SessionPage, error)
+	ApplySession(context.Context, *SessionCommand) (*WorkSession, error)
+	ViewSessions(context.Context, *Query) (*SessionPage, error)
+	TaskPanel(context.Context, *Auth) (*TaskPanelSettings, error)
+	SaveTaskPanel(context.Context, *TaskPanelCommand) (*TaskPanelSettings, error)
+	ViewProblems(context.Context, *Auth) (*ProblemSnapshot, error)
 	GetPanel(context.Context, *Query) (*Panel, error)
 	GetEvent(context.Context, *EventRequest) (*Event, error)
 	GetSettings(context.Context, *Auth) (*Settings, error)
@@ -981,6 +1110,27 @@ type ActivityServer interface {
 // pointer dereference when methods are called.
 type UnimplementedActivityServer struct{}
 
+func (UnimplementedActivityServer) OwnActivityState(context.Context, *Auth) (*EmployeeActivityState, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnActivityState not implemented")
+}
+func (UnimplementedActivityServer) OwnSessions(context.Context, *Query) (*SessionPage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnSessions not implemented")
+}
+func (UnimplementedActivityServer) ApplySession(context.Context, *SessionCommand) (*WorkSession, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplySession not implemented")
+}
+func (UnimplementedActivityServer) ViewSessions(context.Context, *Query) (*SessionPage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewSessions not implemented")
+}
+func (UnimplementedActivityServer) TaskPanel(context.Context, *Auth) (*TaskPanelSettings, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TaskPanel not implemented")
+}
+func (UnimplementedActivityServer) SaveTaskPanel(context.Context, *TaskPanelCommand) (*TaskPanelSettings, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveTaskPanel not implemented")
+}
+func (UnimplementedActivityServer) ViewProblems(context.Context, *Auth) (*ProblemSnapshot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewProblems not implemented")
+}
 func (UnimplementedActivityServer) GetPanel(context.Context, *Query) (*Panel, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPanel not implemented")
 }
@@ -1048,6 +1198,132 @@ func RegisterActivityServer(s grpc.ServiceRegistrar, srv ActivityServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Activity_ServiceDesc, srv)
+}
+
+func _Activity_OwnActivityState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Auth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).OwnActivityState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_OwnActivityState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).OwnActivityState(ctx, req.(*Auth))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_OwnSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Query)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).OwnSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_OwnSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).OwnSessions(ctx, req.(*Query))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ApplySession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SessionCommand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ApplySession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ApplySession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ApplySession(ctx, req.(*SessionCommand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Query)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewSessions(ctx, req.(*Query))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_TaskPanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Auth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).TaskPanel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_TaskPanel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).TaskPanel(ctx, req.(*Auth))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_SaveTaskPanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TaskPanelCommand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).SaveTaskPanel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_SaveTaskPanel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).SaveTaskPanel(ctx, req.(*TaskPanelCommand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewProblems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Auth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewProblems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewProblems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewProblems(ctx, req.(*Auth))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Activity_GetPanel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1345,6 +1621,34 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "amocrm.services.v1.Activity",
 	HandlerType: (*ActivityServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "OwnActivityState",
+			Handler:    _Activity_OwnActivityState_Handler,
+		},
+		{
+			MethodName: "OwnSessions",
+			Handler:    _Activity_OwnSessions_Handler,
+		},
+		{
+			MethodName: "ApplySession",
+			Handler:    _Activity_ApplySession_Handler,
+		},
+		{
+			MethodName: "ViewSessions",
+			Handler:    _Activity_ViewSessions_Handler,
+		},
+		{
+			MethodName: "TaskPanel",
+			Handler:    _Activity_TaskPanel_Handler,
+		},
+		{
+			MethodName: "SaveTaskPanel",
+			Handler:    _Activity_SaveTaskPanel_Handler,
+		},
+		{
+			MethodName: "ViewProblems",
+			Handler:    _Activity_ViewProblems_Handler,
+		},
 		{
 			MethodName: "GetPanel",
 			Handler:    _Activity_GetPanel_Handler,

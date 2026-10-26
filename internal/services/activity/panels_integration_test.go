@@ -235,3 +235,7 @@ func TestPostgresConcurrentPanelQuota(t *testing.T) {
 		t.Fatalf("successes=%d panels=%d err=%v", successes, len(panels), err)
 	}
 }
+
+func (g *panelGateway) Pipelines(context.Context, serviceapi.CatalogRequest) (serviceapi.PipelineCatalog, error) {
+	return serviceapi.PipelineCatalog{Pipelines: []serviceapi.Pipeline{{ID: 123, Name: "Synthetic"}}}, nil
+}

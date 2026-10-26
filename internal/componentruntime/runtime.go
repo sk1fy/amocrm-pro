@@ -183,7 +183,9 @@ func StartAPI(ctx context.Context, c Config, core *pgxpool.Pool, reg prometheus.
 			return nil, err
 		}
 		g.closers = append(g.closers, aPool.Close)
-		product = activity.New(activity.NewPostgres(aPool), aClient.Policy, g.components.Events(), aClient.Gateway).WithShareOrigin(c.ShareOrigin)
+		activityStore := activity.NewPostgres(aPool)
+		g.goRun(activityStore.RunSessionMaintenance)
+		product = activity.New(activityStore, aClient.Policy, g.components.Events(), aClient.Gateway).WithShareOrigin(c.ShareOrigin)
 		if err := g.components.Register(serviceapi.ActivityService, product, ownedPlacement("embedded", c.ActivityPool, 0), readyAll(aPool.Ping, aClient.Ready)); err != nil {
 			return nil, err
 		}
@@ -236,7 +238,8 @@ func StartGateway(ctx context.Context, c Config, core *pgxpool.Pool, amo *amocrm
 	if err != nil {
 		return nil, err
 	}
-	api := gateway.New(amo, corepolicy.ForCaller(policy, serviceapi.GatewayService))
+	api := gateway.New(amo, corepolicy.ForCaller(policy, serviceapi.GatewayService)).WithProblemStore(core)
+	g.goRun(api.RunProblemCollector)
 	if err := g.components.Register(serviceapi.GatewayService, api, ownedPlacement(c.Mode, core.Config().MaxConns, 0), core.Ping); err != nil {
 		return nil, err
 	}
@@ -315,7 +318,9 @@ func RunStandalone(ctx context.Context, role string) error {
 		if err := g.components.Register(serviceapi.EventsService, events.CRMEvents, remotePlacement(), events.Ready); err != nil {
 			return err
 		}
-		product := activity.New(activity.NewPostgres(pool), client.Policy, g.components.Events(), g.components.Gateway()).WithShareOrigin(c.ShareOrigin)
+		activityStore := activity.NewPostgres(pool)
+		g.goRun(activityStore.RunSessionMaintenance)
+		product := activity.New(activityStore, client.Policy, g.components.Events(), g.components.Gateway()).WithShareOrigin(c.ShareOrigin)
 		if err := g.components.Register(role, product, ownedPlacement("grpc", c.ActivityPool, 0), pool.Ping); err != nil {
 			return err
 		}

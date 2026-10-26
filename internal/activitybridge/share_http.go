@@ -23,7 +23,7 @@ var (
 
 func ShareRoutes() []apicontract.Route {
 	return []apicontract.Route{
-		apicontract.ActivityViewPanel, apicontract.ActivityViewTimeline, apicontract.ActivityViewEmployee, apicontract.ActivityViewEvent,
+		apicontract.ActivityViewSessions, apicontract.ActivityTaskPanel, apicontract.ActivityTaskPanelSave, apicontract.ActivityViewProblems, apicontract.ActivityViewPanel, apicontract.ActivityViewTimeline, apicontract.ActivityViewEmployee, apicontract.ActivityViewEvent,
 		apicontract.ActivityManagedPanels, apicontract.ActivityManagedPanelCreate, apicontract.ActivityManagedPanel, apicontract.ActivityManagedPanelPatch,
 		apicontract.ActivityManagedShareLink, apicontract.ActivityManagedEmployees,
 	}
@@ -35,6 +35,10 @@ func (b *Bridge) RegisterShareHTTP(router chi.Router) {
 		handler http.HandlerFunc
 		viewer  bool
 	}{
+		{apicontract.ActivityViewSessions, b.ViewSessionsHTTP, true},
+		{apicontract.ActivityTaskPanel, b.TaskPanelHTTP, false},
+		{apicontract.ActivityTaskPanelSave, b.TaskPanelSaveHTTP, false},
+		{apicontract.ActivityViewProblems, b.ViewProblemsHTTP, true},
 		{apicontract.ActivityViewPanel, b.ViewPanelHTTP, true},
 		{apicontract.ActivityViewTimeline, b.ViewTimelineHTTP, true},
 		{apicontract.ActivityViewEmployee, b.ViewEmployeeHTTP, true},
@@ -56,6 +60,10 @@ func (b *Bridge) RegisterShareHTTP(router chi.Router) {
 	}
 	seen := map[string]bool{}
 	for _, route := range ShareRoutes() {
+		if !strings.HasPrefix(route.Path, "/api/v1/activity/view/") && !seen[route.Path] {
+			router.Method(http.MethodOptions, route.Path, b.managementAccess(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})))
+			seen[route.Path] = true
+		}
 		if strings.HasPrefix(route.Path, "/api/v1/activity/view/") && !seen[route.Path] {
 			router.Method(http.MethodOptions, route.Path, b.viewerAccess(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})))
 			seen[route.Path] = true
@@ -93,7 +101,7 @@ func (b *Bridge) viewerAccess(next http.Handler) http.Handler {
 func (b *Bridge) managementAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if b.managementToken == "" || !timingSafeEqual(bearerOrEmpty(r), b.managementToken) {
-			writeShareError(w, serviceapi.Fail(serviceapi.Unauthenticated, "management authentication required"))
+			b.browserManagementAccess(next, w, r)
 			return
 		}
 		installation, err := headerUUID(r, "X-Activity-Installation-Id")
@@ -206,7 +214,7 @@ func (b *Bridge) CreatePanelHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	result, err := b.activity.CreatePanel(ctx, serviceapi.PanelCommand{
 		Auth: auth, CommandID: commandID, Name: *body.Name, EmployeeIDs: *body.EmployeeIDs,
-		DisplayWindow: *body.DisplayWindow, Enabled: body.Enabled, HasName: true, HasEmployees: true, HasWindow: true,
+		Options: panelBodyOptions(body), HasOptions: body.Options != nil, DisplayWindow: *body.DisplayWindow, Enabled: body.Enabled, HasName: true, HasEmployees: true, HasWindow: true,
 	})
 	respond(w, http.StatusCreated, result, shareErr(err))
 }
@@ -239,7 +247,7 @@ func (b *Bridge) PatchPanelHTTP(w http.ResponseWriter, r *http.Request) {
 		writeShareError(w, err)
 		return
 	}
-	command := serviceapi.PanelCommand{Auth: auth, PanelID: id, Revision: body.Revision, Enabled: body.Enabled}
+	command := serviceapi.PanelCommand{Auth: auth, PanelID: id, Revision: body.Revision, Enabled: body.Enabled, Options: panelBodyOptions(body), HasOptions: body.Options != nil}
 	if body.Name != nil {
 		command.Name = *body.Name
 		command.HasName = true
@@ -311,6 +319,9 @@ func (b *Bridge) issueViewer(r *http.Request) (serviceapi.Auth, error) {
 }
 
 func (b *Bridge) issueOperator(r *http.Request) (serviceapi.Auth, error) {
+	if auth, ok := r.Context().Value(browserAuthKey{}).(serviceapi.Auth); ok {
+		return auth, nil
+	}
 	scope, ok := managementScopeFrom(r.Context())
 	if !ok {
 		return serviceapi.Auth{}, serviceapi.Fail(serviceapi.Unauthenticated, "management authentication required")
@@ -324,6 +335,7 @@ func (b *Bridge) issueOperator(r *http.Request) (serviceapi.Auth, error) {
 }
 
 type panelWriteBody struct {
+	Options       *serviceapi.PanelOptions  `json:"options"`
 	Name          *string                   `json:"name"`
 	EmployeeIDs   *[]int64                  `json:"employee_ids"`
 	DisplayWindow *serviceapi.DisplayWindow `json:"display_window"`
@@ -521,4 +533,27 @@ func (b *Bridge) allowViewerOrigin(w http.ResponseWriter, r *http.Request) bool 
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Expose-Headers", "X-Request-ID, Retry-After")
 	return true
+}
+
+func panelBodyOptions(b panelWriteBody) serviceapi.PanelOptions {
+	if b.Options != nil {
+		return *b.Options
+	}
+	return serviceapi.PanelOptions{}
+}
+
+func (b *Bridge) ViewProblemsHTTP(w http.ResponseWriter, r *http.Request) {
+	auth, err := b.issueViewer(r)
+	if err != nil {
+		writeShareError(w, err)
+		return
+	}
+	if r.URL.RawQuery != "" {
+		writeShareError(w, serviceapi.Fail(serviceapi.InvalidArgument, "problem snapshot uses the panel scope"))
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	result, err := b.activity.ViewProblems(ctx, auth)
+	respond(w, http.StatusOK, result, shareErr(err))
 }
