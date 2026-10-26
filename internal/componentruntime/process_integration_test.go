@@ -320,7 +320,11 @@ func TestComponentProcessesAndModeSwitch(t *testing.T) {
 		t.Fatalf("second widget after independent restart=%d %s", status, body)
 	}
 
-	// Prespecified bounded impact workload: 50 ping admissions, concurrency2,
+	// Prespecified bounded impact workload: 10 warm-up pings per phase (fully
+	// drained before sampling), then 50 measured admissions, concurrency2.
+	// Warm both phases unconditionally; never retry/select samples after seeing
+	// their latency. Collector startup and worker/pool ramp-up are not the
+	// steady-state comparison. Keep the same thresholds for the measured sample.
 	// baseline collector disabled then10000 events in stable100-row pages/2slots.
 	// Thresholds recorded before execution: zero errors, loadedP95<1s,P99<2s,
 	// loadedP95<=max(3*idleP95,100ms). Additionally each phase runs30 real
@@ -349,9 +353,6 @@ func TestComponentProcessesAndModeSwitch(t *testing.T) {
 	}
 	t.Logf("PRODUCT IMPACT passed:30real leadstatus mutations/phase,2closed-loop callers,10000event backfill active throughout; idle admissionP95=%s P99=%s completionP95=%s P99=%s; loaded admissionP95=%s P99=%s completionP95=%s P99=%s; errors=0,retries=0", idleProduct.admission.p95, idleProduct.admission.p99, idleProduct.completion.p95, idleProduct.completion.p99, loadedProduct.admission.p95, loadedProduct.admission.p99, loadedProduct.completion.p95, loadedProduct.completion.p99)
 	metricAfter := processMetrics(t, ctx, "http://"+managementAddr+"/metrics")
-	if loaded.p95 >= time.Second || loaded.p99 >= 2*time.Second || loaded.p95 > maxDuration(3*idle.p95, 100*time.Millisecond) {
-		t.Fatalf("impact threshold failed idle=%+v loaded=%+v", idle, loaded)
-	}
 	metrics := map[string]string{"core_before": metricBefore, "core_after": metricAfter, "events": processMetrics(t, ctx, "http://"+eventsHealth+"/metrics"), "gateway": processMetrics(t, ctx, "http://"+fixtureMetrics+"/metrics")}
 	for owner, body := range metrics {
 		var keep []string
@@ -362,7 +363,11 @@ func TestComponentProcessesAndModeSwitch(t *testing.T) {
 		}
 		t.Logf("impact %s metrics:\n%s", owner, strings.Join(keep, "\n"))
 	}
-	t.Logf("IMPACT passed: 50ping/concurrency2,10000events/100page/2slots; idle P95=%s P99=%s loaded P95=%s P99=%s errors=0; local fixture only", idle.p95, idle.p99, loaded.p95, loaded.p99)
+	// Keep diagnostics even when the performance gate fails on a shared runner.
+	if loaded.p95 >= time.Second || loaded.p99 >= 2*time.Second || loaded.p95 > maxDuration(3*idle.p95, 100*time.Millisecond) {
+		t.Fatalf("impact threshold failed: idle P95=%s P99=%s loaded P95=%s P99=%s relative P95 limit=%s", idle.p95, idle.p99, loaded.p95, loaded.p99, maxDuration(3*idle.p95, 100*time.Millisecond))
+	}
+	t.Logf("IMPACT passed: 10warmup/phase,50ping/concurrency2,10000events/100page/2slots; idle P95=%s P99=%s loaded P95=%s P99=%s errors=0; local fixture only", idle.p95, idle.p99, loaded.p95, loaded.p99)
 	client.waitOperation(ctx, backfill.CommandID)
 
 	// Return to embedded only after all old product executors stop.
@@ -810,18 +815,25 @@ func maxDuration(a, b time.Duration) time.Duration {
 }
 func processPingWorkload(t *testing.T, ctx context.Context, client processWidgetClient, pool *pgxpool.Pool, prefix string) processLatency {
 	t.Helper()
+	processPingSamples(t, ctx, client, pool, prefix+"-warmup", 10)
+	latencies := processPingSamples(t, ctx, client, pool, prefix, 50)
+	return processLatency{latencies[47], latencies[49]}
+}
+
+func processPingSamples(t *testing.T, ctx context.Context, client processWidgetClient, pool *pgxpool.Pool, prefix string, total int) []time.Duration {
+	t.Helper()
 	type sample struct {
 		latency time.Duration
 		status  int
 		id      string
 	}
-	out := make(chan sample, 50)
+	out := make(chan sample, total)
 	var wg sync.WaitGroup
 	for worker := 0; worker < 2; worker++ {
 		wg.Add(1)
 		go func(worker int) {
 			defer wg.Done()
-			for i := worker; i < 50; i += 2 {
+			for i := worker; i < total; i += 2 {
 				start := time.Now()
 				status, body := client.request(ctx, "POST", "/api/v1/widget/actions/ping", fmt.Sprintf("impact-%s-%d", prefix, i), "")
 				var receipt struct {
@@ -847,9 +859,9 @@ func processPingWorkload(t *testing.T, ctx context.Context, client processWidget
 	waitProcess(t, ctx, 20*time.Second, func() bool {
 		var count int
 		err := pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE id::text=ANY($1) AND status='completed'`, ids).Scan(&count)
-		return err == nil && count == 50
+		return err == nil && count == total
 	})
-	return processLatency{latencies[47], latencies[49]}
+	return latencies
 }
 func processMetrics(t *testing.T, ctx context.Context, address string) string {
 	t.Helper()
