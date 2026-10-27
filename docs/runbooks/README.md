@@ -1,6 +1,7 @@
 # Runbooks
 
 - [`integrations.md`](integrations.md) — multi-widget provisioning, secret rotation, service grants and disable/restore.
+- [`activity-mvp-registration.md`](activity-mvp-registration.md) — регистрация MVP Activity, связь OAuth/установки и проверка сотрудника.
 - [`admin-read-api.md`](admin-read-api.md) — optional internal admin read listener, token and actor headers.
 - [`admin-commands.md`](admin-commands.md) — команды админки, durable receipts и восстановление.
 - [`widget-capacity.md`](widget-capacity.md) — widget API limits, fair queue rollout and capacity diagnostics.
