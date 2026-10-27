@@ -1,5 +1,8 @@
 # Architecture decision records
 
+- [0040](0040-activity-mvp-registration.md) — регистрация MVP Activity
+  через существующую capability и установку OAuth.
+
 | ADR | Status | Decision |
 | --- | --- | --- |
 | [0001](0001-postgresql-without-redis.md) | Accepted | PostgreSQL without Redis |
