@@ -1,6 +1,7 @@
 // Package oauthlimit bounds unauthenticated OAuth start/callback traffic per API
-// process. Buckets are keyed by hashed client IP and hashed integration_code or
-// state so admission cannot reveal whether an integration exists.
+// process. Buckets are keyed by hashed client IP and hashed integration_code,
+// state or widget-install client_id so admission cannot reveal whether an
+// integration exists.
 package oauthlimit
 
 import (
@@ -223,7 +224,12 @@ func remoteIP(r *http.Request) string {
 
 func requestIdentity(r *http.Request) string {
 	if strings.HasSuffix(r.URL.Path, "/callback") {
-		return "s\x00" + clip(r.URL.Query().Get("state"), maxHashedState)
+		query := r.URL.Query()
+		// Widget-install callbacks have no state; their bucket is the client_id.
+		if query.Get("state") == "" && query.Has("from_widget") {
+			return "i\x00" + clip(query.Get("client_id"), maxHashedState)
+		}
+		return "s\x00" + clip(query.Get("state"), maxHashedState)
 	}
 	return "c\x00" + clip(r.URL.Query().Get("integration_code"), maxHashedCode)
 }

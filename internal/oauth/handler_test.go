@@ -19,6 +19,7 @@ import (
 type fakeFlow struct {
 	start    func(context.Context, string, string) (string, error)
 	callback func(context.Context, string, string, string) (InstallationResult, error)
+	install  func(context.Context, string, string, string) (InstallationResult, error)
 }
 
 func (f fakeFlow) Start(ctx context.Context, code, returnURL string) (string, error) {
@@ -27,6 +28,10 @@ func (f fakeFlow) Start(ctx context.Context, code, returnURL string) (string, er
 
 func (f fakeFlow) Callback(ctx context.Context, state, code, referer string) (InstallationResult, error) {
 	return f.callback(ctx, state, code, referer)
+}
+
+func (f fakeFlow) InstallCallback(ctx context.Context, clientID, code, referer string) (InstallationResult, error) {
+	return f.install(ctx, clientID, code, referer)
 }
 
 func testHandler(flow fakeFlow, consume func(context.Context, string)) *Handler {
@@ -272,5 +277,76 @@ func TestLimiterHidesIntegrationExistenceOnStartAndCallback(t *testing.T) {
 	}
 	if callbackBodies[0] != callbackBodies[1] {
 		t.Fatalf("callback 429 bodies differ: %q vs %q", callbackBodies[0], callbackBodies[1])
+	}
+}
+
+func TestCallbackRoutesStatelessWidgetInstallToInstallFlow(t *testing.T) {
+	installationID := uuid.New()
+	var installs int
+	h := testHandler(fakeFlow{
+		callback: func(context.Context, string, string, string) (InstallationResult, error) {
+			t.Fatal("widget install must not use the state flow")
+			return InstallationResult{}, nil
+		},
+		install: func(_ context.Context, clientID, code, referer string) (InstallationResult, error) {
+			installs++
+			if clientID != "6f0b5a3e-0000-4000-8000-000000000001" || code != "install-code" || referer != "example.amocrm.ru" {
+				t.Fatalf("install args %q %q %q", clientID, code, referer)
+			}
+			return InstallationResult{ID: installationID, AccountID: 7, Status: "active"}, nil
+		},
+	}, nil)
+	w := requestIDRecorder()
+	h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=install-code&referer=example.amocrm.ru&platform=1&client_id=6f0b5a3e-0000-4000-8000-000000000001&from_widget=1", nil))
+	if w.Code != http.StatusCreated || installs != 1 || !strings.Contains(w.Body.String(), installationID.String()) {
+		t.Fatalf("status=%d installs=%d body=%s", w.Code, installs, w.Body.String())
+	}
+
+	h = testHandler(fakeFlow{install: func(context.Context, string, string, string) (InstallationResult, error) {
+		return InstallationResult{}, ErrInvalidState
+	}}, nil)
+	w = requestIDRecorder()
+	h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=used&referer=example.amocrm.ru&client_id=x&from_widget=1", nil))
+	if code, _, _, retryable := decodeOAuthError(t, w.Body.Bytes()); w.Code != http.StatusBadRequest || code != "invalid_argument" || retryable {
+		t.Fatalf("replayed install status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestCallbackStillRequiresStateOutsideWidgetInstall(t *testing.T) {
+	var states []string
+	h := testHandler(fakeFlow{
+		callback: func(_ context.Context, state, _, _ string) (InstallationResult, error) {
+			states = append(states, state)
+			return InstallationResult{}, ErrInvalidState
+		},
+		install: func(context.Context, string, string, string) (InstallationResult, error) {
+			t.Fatal("only from_widget callbacks without state may skip state")
+			return InstallationResult{}, nil
+		},
+	}, nil)
+	for _, query := range []string{
+		"code=x&referer=example.amocrm.ru&client_id=c",
+		"state=forged&code=x&referer=example.amocrm.ru&client_id=c&from_widget=1",
+	} {
+		w := requestIDRecorder()
+		h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?"+query, nil))
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("%s status=%d", query, w.Code)
+		}
+	}
+	if len(states) != 2 || states[0] != "" || states[1] != "forged" {
+		t.Fatalf("state flow calls = %q", states)
+	}
+}
+
+func TestCallbackRejectsOversizedClientIDWithoutFlow(t *testing.T) {
+	h := testHandler(fakeFlow{install: func(context.Context, string, string, string) (InstallationResult, error) {
+		t.Fatal("oversized client_id reached install flow")
+		return InstallationResult{}, nil
+	}}, nil)
+	w := requestIDRecorder()
+	h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=x&from_widget=1&client_id="+strings.Repeat("c", maxClientID+1), nil))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d", w.Code)
 	}
 }

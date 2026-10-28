@@ -107,6 +107,8 @@ type Repository interface {
 	SaveEnrichment(context.Context, EnrichmentClaim, []enrichmentSave) error
 	FailEnrichment(context.Context, EnrichmentClaim, error) error
 	Retain(context.Context) (int64, error)
+	ReauthSources(context.Context, time.Duration, int) ([]serviceapi.Scope, error)
+	ResumeReauthorized(context.Context, uuid.UUID) (bool, error)
 	MetricsSnapshot(context.Context) (Snapshot, error)
 }
 type Service struct {

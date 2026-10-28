@@ -12,6 +12,11 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
+const (
+	reauthProbeInterval = time.Minute
+	reauthProbeBatch    = 20
+)
+
 type Slice struct {
 	ID, InstallationID, IntegrationID uuid.UUID
 	From, To, Target                  time.Time
@@ -58,6 +63,7 @@ func (s *Service) Run(ctx context.Context) error {
 		case <-retention.C:
 			_, err := s.Retain(ctx)
 			s.logBackgroundError("retention", err)
+			s.logBackgroundError("reauth", s.ResumeReauthorized(ctx))
 		}
 	}
 }
@@ -133,6 +139,34 @@ func (s *Service) EnrichOnce(ctx context.Context) (bool, error) {
 
 func validJSON(b []byte) bool  { return len(b) == 0 || json.Valid(b) }
 func (c Slice) String() string { return fmt.Sprintf("%s page %d pass %d", c.ID, c.Page, c.Pass) }
+
+// ResumeReauthorized probes sources parked by reauth_required. A system
+// delegation is answered from Core's installation state without calling
+// amoCRM, so collection resumes by itself after the account authorizes the
+// integration again (amoMarket reinstall or /oauth/amocrm/start).
+func (s *Service) ResumeReauthorized(ctx context.Context) error {
+	sources, err := s.repository.ReauthSources(ctx, reauthProbeInterval, reauthProbeBatch)
+	if err != nil {
+		return err
+	}
+	var failed error
+	for _, scope := range sources {
+		callCtx, cancel := context.WithTimeout(ctx, s.cfg.CallTimeout)
+		_, err := s.policy.Issue(callCtx, serviceapi.IssueRequest{Scope: scope, System: true, Consumer: serviceapi.ActivityService, RequestID: "reauth-probe:" + scope.InstallationID.String(), Grants: []serviceapi.Grant{{Audience: serviceapi.EventsService, Action: serviceapi.ActionStatus}}})
+		cancel()
+		if err != nil {
+			// Still unauthorized, disabled or Core unavailable: probe again later.
+			if code := serviceapi.ErrorCode(err); code != serviceapi.ReauthRequired && code != serviceapi.PermissionDenied {
+				failed = errors.Join(failed, err)
+			}
+			continue
+		}
+		if _, err := s.repository.ResumeReauthorized(ctx, scope.InstallationID); err != nil {
+			failed = errors.Join(failed, err)
+		}
+	}
+	return failed
+}
 
 func (s *Service) Schedule(ctx context.Context) error        { return s.repository.Schedule(ctx) }
 func (s *Service) Retain(ctx context.Context) (int64, error) { return s.repository.Retain(ctx) }

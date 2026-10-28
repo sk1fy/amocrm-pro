@@ -53,8 +53,12 @@ not purged in v0: deleting them needs a coordinated dedup/retry retention policy
   policy grant. Policy outage fails closed; disabling policy prevents the next
   slice while an already authorized call may finish within its deadline.
 * Temporary errors have at most five attempts per page with capped backoff.
-  `reauth_required` and denied policy pause work. Exhausted retries and unstable
-  pages require an explicit `sync` after remediation; the cursor is preserved.
+  `reauth_required` and denied policy pause work. A `reauth_required` source is
+  probed once a minute with a system delegation; when Core reports the
+  installation active again (OAuth callback or amoMarket reinstall), the source
+  and its reauth-paused jobs resume on the preserved cursor without a command.
+  Operator disable/pause is never resumed by the probe. Exhausted retries and
+  unstable pages require an explicit `sync` after remediation.
 * Empty verified windows advance checked progress. Disjoint backfill islands
   remain separate coverage and cannot close a gap. Last event, last successful
   window, continuous checked period and retained history are separate fields.

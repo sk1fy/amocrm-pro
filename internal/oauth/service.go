@@ -8,8 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
+
+// amoCRM authorization codes live 20 minutes; a claimed code is remembered as long.
+const installCodeTTL = 20 * time.Minute
 
 type Service struct {
 	store        *Store
@@ -64,10 +68,41 @@ func (s *Service) Callback(ctx context.Context, rawState, code, referer string) 
 	if err != nil {
 		return InstallationResult{}, fmt.Errorf("invalid account referer: %w", err)
 	}
+	return s.authorize(ctx, state.Integration, accountURL.Host, code)
+}
+
+// InstallCallback completes the authorization amoCRM sends by itself when a
+// widget archive is installed from amoMarket. That request has client_id and
+// from_widget but never state, so the integration comes from its active
+// client_id and every code is claimed once before the exchange. Only the
+// client secret can redeem the code; the account still comes from the token.
+func (s *Service) InstallCallback(ctx context.Context, rawClientID, code, referer string) (InstallationResult, error) {
+	clientID := strings.TrimSpace(rawClientID)
+	if _, err := uuid.Parse(clientID); err != nil || strings.TrimSpace(code) == "" {
+		return InstallationResult{}, ErrInvalidState
+	}
+	accountURL, err := amocrm.AccountBaseURL(referer)
+	if err != nil {
+		return InstallationResult{}, fmt.Errorf("%w: invalid account referer", ErrInvalidState)
+	}
+	integration, err := s.store.FindIntegrationByClientID(ctx, clientID)
+	if errors.Is(err, ErrIntegrationNotFound) {
+		return InstallationResult{}, ErrInvalidState
+	}
+	if err != nil {
+		return InstallationResult{}, err
+	}
+	if err := s.store.ClaimInstallCode(ctx, integration.ID, code, installCodeTTL); err != nil {
+		return InstallationResult{}, err
+	}
+	return s.authorize(ctx, integration, accountURL.Host, code)
+}
+
+func (s *Service) authorize(ctx context.Context, integration Integration, accountDomain, code string) (InstallationResult, error) {
 	clientSecret, err := s.cipher.Open(
-		state.ClientSecretKeyVersion,
-		state.ClientSecretCiphertext,
-		integrationSecretAAD(state.Integration.ID),
+		integration.ClientSecretKeyVersion,
+		integration.ClientSecretCiphertext,
+		integrationSecretAAD(integration.ID),
 	)
 	if err != nil {
 		return InstallationResult{}, fmt.Errorf("decrypt integration secret: %w", err)
@@ -76,23 +111,23 @@ func (s *Service) Callback(ctx context.Context, rawState, code, referer string) 
 	requestContext, cancel := context.WithTimeout(ctx, s.requestTTL)
 	token, err := s.gateway.ExchangeCode(
 		requestContext,
-		accountURL.Host,
-		state.ClientID,
+		accountDomain,
+		integration.ClientID,
 		string(clientSecret),
-		state.RedirectURI,
+		integration.RedirectURI,
 		code,
 	)
 	if err == nil {
 		var account Account
-		// The budget identity comes from the consumed, verified OAuth state, not
-		// callback parameters. This leaves the established OAuth port compatible.
-		accountContext := context.WithValue(requestContext, accountBudgetContextKey{}, state.Integration.ID)
-		account, err = s.gateway.GetAccount(accountContext, accountURL.Host, token.AccessToken)
+		// The budget identity comes from the verified state or claimed install
+		// code, not callback parameters. This keeps the OAuth port compatible.
+		accountContext := context.WithValue(requestContext, accountBudgetContextKey{}, integration.ID)
+		account, err = s.gateway.GetAccount(accountContext, accountDomain, token.AccessToken)
 		if err == nil {
 			if account.ID <= 0 {
 				err = errors.New("amoCRM returned invalid account id")
 			} else {
-				result, saveErr := s.store.SaveInstallation(ctx, state.Integration, account, accountURL.Host, token)
+				result, saveErr := s.store.SaveInstallation(ctx, integration, account, accountDomain, token)
 				cancel()
 				return result, saveErr
 			}

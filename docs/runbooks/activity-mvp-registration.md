@@ -35,6 +35,23 @@ OAuth проходит по этой же интеграции. Capability и pi
 включаются отдельно: [инструкция Activity](activity-v0.md).
 Отключение pilot не отзывает OAuth и не отключает интеграцию.
 
+## Переустановка из amoМаркета
+
+Отключение виджета отзывает токены: Core переводит установку
+в `reauth_required`, виджет получает 401 (`tenant_not_found`).
+При повторной установке amoCRM сам вызывает callback с `code`,
+`referer`, `client_id` и `from_widget`, но без `state`. Core
+принимает такой callback только для активной интеграции с этим
+`client_id`, один раз на код (повтор — 400) и с доменом amoCRM в
+`referer`. Остальные callback по-прежнему требуют `state`.
+Установка и её `installation_id` сохраняются, статус снова
+`active`; `crm-events` возобновляет сбор в течение пары минут.
+Ручной `/oauth/amocrm/start` и `activity-sync` не нужны.
+
+Проверка: в журнале API `GET /oauth/amocrm/callback` → 201,
+затем запросы виджета 200; `event_sources` уходит из
+`reauth_required` без команды.
+
 ## Приёмка
 
 1. Откройте аккаунт → виджеты. Проверьте продукт, подключение,

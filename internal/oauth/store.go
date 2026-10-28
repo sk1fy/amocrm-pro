@@ -119,13 +119,24 @@ func (s *Store) EnsureIntegration(ctx context.Context, input IntegrationInput) (
 }
 
 func (s *Store) FindIntegrationByCode(ctx context.Context, code string) (Integration, error) {
+	return s.findActiveIntegration(ctx, "code", code)
+}
+
+func (s *Store) FindIntegrationByClientID(ctx context.Context, clientID string) (Integration, error) {
+	return s.findActiveIntegration(ctx, "client_id", clientID)
+}
+
+func (s *Store) findActiveIntegration(ctx context.Context, column, value string) (Integration, error) {
+	if column != "code" && column != "client_id" {
+		return Integration{}, fmt.Errorf("unsupported integration lookup %q", column)
+	}
 	var integration Integration
 	var events json.RawMessage
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, code, client_id, client_secret_ciphertext,
 			client_secret_key_version, redirect_uri, webhook_events
 		FROM integrations
-		WHERE code = $1 AND status = 'active'`, code,
+		WHERE `+column+` = $1 AND status = 'active'`, value,
 	).Scan(
 		&integration.ID,
 		&integration.Code,
@@ -166,6 +177,24 @@ func (s *Store) CreateState(
 		return "", time.Time{}, fmt.Errorf("save OAuth state: %w", err)
 	}
 	return state, expiresAt, nil
+}
+
+// ClaimInstallCode records an amoCRM install code as an already consumed state,
+// so a replayed or concurrent widget-install callback is rejected like a used
+// state. Only the hash is stored; cleanup removes it after ttl.
+func (s *Store) ClaimInstallCode(ctx context.Context, integrationID uuid.UUID, code string, ttl time.Duration) error {
+	hash := sha256.Sum256([]byte("amocrm-install-code\x00" + code))
+	tag, err := s.pool.Exec(ctx, `
+		INSERT INTO oauth_states (integration_id, state_hash, metadata, expires_at, consumed_at)
+		VALUES ($1, $2, '{"kind":"widget_install"}', $3, now())
+		ON CONFLICT (state_hash) DO NOTHING`, integrationID, hash[:], time.Now().UTC().Add(ttl))
+	if err != nil {
+		return fmt.Errorf("claim install code: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrInvalidState
+	}
+	return nil
 }
 
 func (s *Store) ConsumeState(ctx context.Context, rawState string) (State, error) {

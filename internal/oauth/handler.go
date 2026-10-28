@@ -17,11 +17,13 @@ const (
 	maxOAuthState      = 256
 	maxOAuthCode       = 2048
 	maxReferer         = 256
+	maxClientID        = 64
 )
 
 type oauthFlow interface {
 	Start(context.Context, string, string) (string, error)
 	Callback(context.Context, string, string, string) (InstallationResult, error)
+	InstallCallback(context.Context, string, string, string) (InstallationResult, error)
 }
 
 type Handler struct {
@@ -64,7 +66,8 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	code := query.Get("code")
 	referer := query.Get("referer")
 	denied := query.Get("error")
-	if len(state) > maxOAuthState {
+	clientID := query.Get("client_id")
+	if len(state) > maxOAuthState || len(clientID) > maxClientID {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_argument", "authorization failed", false)
 		return
 	}
@@ -77,7 +80,14 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_argument", "authorization failed", false)
 		return
 	}
-	result, err := h.flow.Callback(r.Context(), state, code, referer)
+	var result InstallationResult
+	var err error
+	if state == "" && query.Has("from_widget") {
+		// amoMarket installs and reinstalls of a widget arrive without state.
+		result, err = h.flow.InstallCallback(r.Context(), clientID, code, referer)
+	} else {
+		result, err = h.flow.Callback(r.Context(), state, code, referer)
+	}
 	if err != nil {
 		status := http.StatusBadGateway
 		code := "unavailable"

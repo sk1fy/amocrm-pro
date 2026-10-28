@@ -560,3 +560,63 @@ func (s *Postgres) writeEvents(ctx context.Context, tx pgx.Tx, c Slice, events [
 	err = tx.SendBatch(ctx, batch).Close()
 	return
 }
+
+// ReauthSources leases a batch of sources parked by reauth_required for one
+// Core policy probe. next_poll_at is idle in that state, so it paces the probes.
+func (s *Postgres) ReauthSources(ctx context.Context, every time.Duration, limit int) ([]serviceapi.Scope, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `SELECT installation_id,integration_id FROM event_sources WHERE state='reauth_required' AND next_poll_at<=now() ORDER BY next_poll_at FOR UPDATE SKIP LOCKED LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	var scopes []serviceapi.Scope
+	var ids []uuid.UUID
+	for rows.Next() {
+		var x serviceapi.Scope
+		if err = rows.Scan(&x.InstallationID, &x.IntegrationID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		scopes = append(scopes, x)
+		ids = append(ids, x.InstallationID)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE event_sources SET next_poll_at=now()+$2*interval '1 millisecond' WHERE installation_id=ANY($1)`, ids, every.Milliseconds()); err != nil {
+		return nil, err
+	}
+	return scopes, tx.Commit(ctx)
+}
+
+// ResumeReauthorized undoes only what a reauth_required failure parked: the
+// source, its paused jobs and their operations. Operator pauses and disables
+// keep their state, and the fixed cursor of each job is preserved.
+func (s *Postgres) ResumeReauthorized(ctx context.Context, installationID uuid.UUID) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `UPDATE event_sources SET state='pending',error_code='',next_poll_at=now(),updated_at=now() WHERE installation_id=$1 AND state='reauth_required'`, installationID)
+	if err != nil || tag.RowsAffected() == 0 {
+		return false, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE event_operations SET status='running',error_code='',updated_at=now() WHERE installation_id=$1 AND status='paused' AND error_code=$2`, installationID, string(serviceapi.ReauthRequired)); err != nil {
+		return false, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE event_jobs SET status='queued',attempts=0,error_code='',run_after=now(),updated_at=now() WHERE installation_id=$1 AND status='paused' AND error_code=$2`, installationID, string(serviceapi.ReauthRequired)); err != nil {
+		return false, err
+	}
+	// Enrichment backs off for an hour on reauth; retry it with the collector.
+	if _, err = tx.Exec(ctx, `UPDATE event_enrichment_objects SET run_after=now(),updated_at=now() WHERE installation_id=$1 AND state='retry' AND run_after>now()`, installationID); err != nil {
+		return false, err
+	}
+	return true, tx.Commit(ctx)
+}
