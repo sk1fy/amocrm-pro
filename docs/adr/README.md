@@ -2,6 +2,8 @@
 
 - [0040](0040-activity-mvp-registration.md) — регистрация MVP Activity
   через существующую capability и установку OAuth.
+- [0041](0041-activity-tasks-through-gateway.md) — задачи панели Activity
+  только через Gateway с общей очередью в PostgreSQL.
 
 | ADR | Status | Decision |
 | --- | --- | --- |

@@ -238,7 +238,7 @@ func StartGateway(ctx context.Context, c Config, core *pgxpool.Pool, amo *amocrm
 	if err != nil {
 		return nil, err
 	}
-	api := gateway.New(amo, corepolicy.ForCaller(policy, serviceapi.GatewayService)).WithProblemStore(core, gateway.ProblemCollectionOptions{BatchSize: c.ProblemBatchSize, BatchPause: c.ProblemBatchPause})
+	api := gateway.New(amo, corepolicy.ForCaller(policy, serviceapi.GatewayService)).WithProblemStore(core, gateway.ProblemCollectionOptions{BatchSize: c.ProblemBatchSize, BatchPause: c.ProblemBatchPause}).WithTaskQueues(gateway.NewTaskQueueStore(core))
 	g.goRun(api.RunProblemCollector)
 	if err := g.components.Register(serviceapi.GatewayService, api, ownedPlacement(c.Mode, core.Config().MaxConns, 0), core.Ping); err != nil {
 		return nil, err

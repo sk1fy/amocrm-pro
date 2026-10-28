@@ -42,16 +42,23 @@ type fieldCacheKey struct {
 }
 type Service struct {
 	problemStore *ProblemStore
+	taskQueues   *TaskQueueStore
 	api          API
 	policy       serviceapi.Policy
 	mu           sync.Mutex
 	directory    map[uuid.UUID]cached
 	pipelines    map[uuid.UUID]cachedPipelines
 	fields       map[fieldCacheKey]cachedFields
+	taskTypes    map[uuid.UUID]cachedTaskTypes
+	entityNames  map[entityKey]cachedName
+	related      map[relatedKey]cachedRelated
+	visibility   map[visibilityKey]cachedVisibility
 }
 
 func New(api API, policy serviceapi.Policy) *Service {
-	return &Service{api: api, policy: policy, directory: map[uuid.UUID]cached{}, pipelines: map[uuid.UUID]cachedPipelines{}, fields: map[fieldCacheKey]cachedFields{}}
+	return &Service{api: api, policy: policy, directory: map[uuid.UUID]cached{}, pipelines: map[uuid.UUID]cachedPipelines{}, fields: map[fieldCacheKey]cachedFields{},
+		taskTypes: map[uuid.UUID]cachedTaskTypes{}, entityNames: map[entityKey]cachedName{}, related: map[relatedKey]cachedRelated{},
+		visibility: map[visibilityKey]cachedVisibility{}}
 }
 func (s *Service) Events(ctx context.Context, r serviceapi.EventPageRequest) (serviceapi.EventPage, error) {
 	if r.From < 0 || r.To < r.From || r.To-r.From > 31*86400 || r.Page < 1 || r.Page > 100000 || r.Limit < 1 || r.Limit > 100 {

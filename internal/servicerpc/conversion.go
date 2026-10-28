@@ -1473,6 +1473,194 @@ func fromProblemSnapshot(src *pb.ProblemSnapshot) serviceapi.ProblemSnapshot {
 	out.RefreshAfter = src.RefreshAfter
 	return out
 }
+func toOwnTasksRequest(src serviceapi.OwnTasksRequest) *pb.OwnTasksRequest {
+	out := new(pb.OwnTasksRequest)
+	out.Auth = toAuth(src.Auth)
+	out.LeadId = src.LeadID
+	return out
+}
+func fromOwnTasksRequest(src *pb.OwnTasksRequest) serviceapi.OwnTasksRequest {
+	var out serviceapi.OwnTasksRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.LeadID = src.LeadId
+	return out
+}
+func toQueueTask(src serviceapi.QueueTask) *pb.QueueTask {
+	out := new(pb.QueueTask)
+	out.Id = src.ID
+	out.EntityId = src.EntityID
+	out.EntityType = src.EntityType
+	out.EntityName = src.EntityName
+	out.Text = src.Text
+	out.CompleteTill = src.CompleteTill
+	out.TaskTypeId = src.TaskTypeID
+	out.TaskTypeName = src.TaskTypeName
+	out.Related = src.Related
+	out.UpdatedAt = src.UpdatedAt
+	return out
+}
+func fromQueueTask(src *pb.QueueTask) serviceapi.QueueTask {
+	var out serviceapi.QueueTask
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EntityID = src.EntityId
+	out.EntityType = src.EntityType
+	out.EntityName = src.EntityName
+	out.Text = src.Text
+	out.CompleteTill = src.CompleteTill
+	out.TaskTypeID = src.TaskTypeId
+	out.TaskTypeName = src.TaskTypeName
+	out.Related = src.Related
+	out.UpdatedAt = src.UpdatedAt
+	return out
+}
+func toTaskQueue(src serviceapi.TaskQueue) *pb.TaskQueue {
+	out := new(pb.TaskQueue)
+	for _, item := range src.Tasks {
+		out.Tasks = append(out.Tasks, toQueueTask(item))
+	}
+	out.FetchedAt = src.FetchedAt
+	out.FreshUntil = src.FreshUntil
+	out.Complete = src.Complete
+	out.Stale = src.Stale
+	out.ErrorCode = src.ErrorCode
+	out.RetryAfterSeconds = src.RetryAfterSeconds
+	return out
+}
+func fromTaskQueue(src *pb.TaskQueue) serviceapi.TaskQueue {
+	var out serviceapi.TaskQueue
+	if src == nil {
+		return out
+	}
+	for _, item := range src.Tasks {
+		out.Tasks = append(out.Tasks, fromQueueTask(item))
+	}
+	out.FetchedAt = src.FetchedAt
+	out.FreshUntil = src.FreshUntil
+	out.Complete = src.Complete
+	out.Stale = src.Stale
+	out.ErrorCode = src.ErrorCode
+	out.RetryAfterSeconds = src.RetryAfterSeconds
+	return out
+}
+func toOwnTaskRequest(src serviceapi.OwnTaskRequest) *pb.OwnTaskRequest {
+	out := new(pb.OwnTaskRequest)
+	out.Auth = toAuth(src.Auth)
+	out.TaskId = src.TaskID
+	out.WithContext = src.WithContext
+	return out
+}
+func fromOwnTaskRequest(src *pb.OwnTaskRequest) serviceapi.OwnTaskRequest {
+	var out serviceapi.OwnTaskRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.TaskID = src.TaskId
+	out.WithContext = src.WithContext
+	return out
+}
+func toEntityContext(src serviceapi.EntityContext) *pb.EntityContext {
+	out := new(pb.EntityContext)
+	out.Id = src.ID
+	out.EntityType = src.EntityType
+	out.Name = src.Name
+	out.PipelineId = src.PipelineID
+	out.PipelineName = src.PipelineName
+	out.StatusId = src.StatusID
+	out.StatusName = src.StatusName
+	out.StatusColor = src.StatusColor
+	out.Restricted = src.Restricted
+	return out
+}
+func fromEntityContext(src *pb.EntityContext) serviceapi.EntityContext {
+	var out serviceapi.EntityContext
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EntityType = src.EntityType
+	out.Name = src.Name
+	out.PipelineID = src.PipelineId
+	out.PipelineName = src.PipelineName
+	out.StatusID = src.StatusId
+	out.StatusName = src.StatusName
+	out.StatusColor = src.StatusColor
+	out.Restricted = src.Restricted
+	return out
+}
+func toTaskDetail(src serviceapi.TaskDetail) *pb.TaskDetail {
+	out := new(pb.TaskDetail)
+	out.Id = src.ID
+	out.EntityId = src.EntityID
+	out.EntityType = src.EntityType
+	out.ResponsibleUserId = src.ResponsibleUserID
+	out.Text = src.Text
+	out.CompleteTill = src.CompleteTill
+	out.TaskTypeId = src.TaskTypeID
+	out.TaskTypeName = src.TaskTypeName
+	out.IsCompleted = src.IsCompleted
+	out.ResultText = src.ResultText
+	out.UpdatedAt = src.UpdatedAt
+	out.Entity = toEntityContext(src.Entity)
+	return out
+}
+func fromTaskDetail(src *pb.TaskDetail) serviceapi.TaskDetail {
+	var out serviceapi.TaskDetail
+	if src == nil {
+		return out
+	}
+	out.ID = src.Id
+	out.EntityID = src.EntityId
+	out.EntityType = src.EntityType
+	out.ResponsibleUserID = src.ResponsibleUserId
+	out.Text = src.Text
+	out.CompleteTill = src.CompleteTill
+	out.TaskTypeID = src.TaskTypeId
+	out.TaskTypeName = src.TaskTypeName
+	out.IsCompleted = src.IsCompleted
+	out.ResultText = src.ResultText
+	out.UpdatedAt = src.UpdatedAt
+	out.Entity = fromEntityContext(src.Entity)
+	return out
+}
+func toCompleteTaskRequest(src serviceapi.CompleteTaskRequest) *pb.CompleteTaskRequest {
+	out := new(pb.CompleteTaskRequest)
+	out.Auth = toAuth(src.Auth)
+	out.TaskId = src.TaskID
+	out.Result = src.Result
+	return out
+}
+func fromCompleteTaskRequest(src *pb.CompleteTaskRequest) serviceapi.CompleteTaskRequest {
+	var out serviceapi.CompleteTaskRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.TaskID = src.TaskId
+	out.Result = src.Result
+	return out
+}
+func toOwnLeadRequest(src serviceapi.OwnLeadRequest) *pb.OwnLeadRequest {
+	out := new(pb.OwnLeadRequest)
+	out.Auth = toAuth(src.Auth)
+	out.LeadId = src.LeadID
+	return out
+}
+func fromOwnLeadRequest(src *pb.OwnLeadRequest) serviceapi.OwnLeadRequest {
+	var out serviceapi.OwnLeadRequest
+	if src == nil {
+		return out
+	}
+	out.Auth = fromAuth(src.Auth)
+	out.LeadID = src.LeadId
+	return out
+}
 func toBootstrapAccountRequest(src serviceapi.BootstrapAccountRequest) *pb.BootstrapAccountRequest {
 	out := new(pb.BootstrapAccountRequest)
 	out.IntegrationId = src.IntegrationID.String()

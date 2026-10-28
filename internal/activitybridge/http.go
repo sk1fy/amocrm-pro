@@ -10,6 +10,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 	"io"
+	"math"
 	"mime"
 	"net/http"
 	"net/url"
@@ -19,7 +20,7 @@ import (
 )
 
 func Routes() []apicontract.Route {
-	return []apicontract.Route{apicontract.ActivityOwnState, apicontract.ActivityOwnSessions, apicontract.ActivityBrowserSession, apicontract.ActivitySessionWrite, apicontract.ActivityEvent, apicontract.ActivityPanel, apicontract.ActivityStatus, apicontract.ActivitySettings, apicontract.ActivityConfigure, apicontract.ActivitySync, apicontract.ActivityOperation}
+	return []apicontract.Route{apicontract.ActivityOwnState, apicontract.ActivityOwnSessions, apicontract.ActivityBrowserSession, apicontract.ActivitySessionWrite, apicontract.ActivityOwnTasks, apicontract.ActivityOwnTask, apicontract.ActivityCompleteTask, apicontract.ActivityOwnLead, apicontract.ActivityEvent, apicontract.ActivityPanel, apicontract.ActivityStatus, apicontract.ActivitySettings, apicontract.ActivityConfigure, apicontract.ActivitySync, apicontract.ActivityOperation}
 }
 
 // RegisterHTTP uses the existing JWT/CORS/rate middleware. Read middleware must
@@ -30,7 +31,8 @@ func (b *Bridge) RegisterHTTP(router chi.Router, readMiddleware, commandMiddlewa
 		handler http.HandlerFunc
 		write   bool
 	}{
-		{apicontract.ActivityOwnState, b.OwnActivityStateHTTP, false}, {apicontract.ActivityOwnSessions, b.OwnSessionsHTTP, false}, {apicontract.ActivityBrowserSession, b.BrowserSessionHTTP, false}, {apicontract.ActivitySessionWrite, b.SessionWriteHTTP, false}, {apicontract.ActivityEvent, b.EventHTTP, false}, {apicontract.ActivityPanel, b.PanelHTTP, false}, {apicontract.ActivityStatus, b.StatusHTTP, false},
+		{apicontract.ActivityOwnState, b.OwnActivityStateHTTP, false}, {apicontract.ActivityOwnSessions, b.OwnSessionsHTTP, false}, {apicontract.ActivityBrowserSession, b.BrowserSessionHTTP, false}, {apicontract.ActivitySessionWrite, b.SessionWriteHTTP, false},
+		{apicontract.ActivityOwnTasks, b.OwnTasksHTTP, false}, {apicontract.ActivityOwnTask, b.OwnTaskHTTP, false}, {apicontract.ActivityCompleteTask, b.CompleteTaskHTTP, false}, {apicontract.ActivityOwnLead, b.OwnLeadHTTP, false}, {apicontract.ActivityEvent, b.EventHTTP, false}, {apicontract.ActivityPanel, b.PanelHTTP, false}, {apicontract.ActivityStatus, b.StatusHTTP, false},
 		{apicontract.ActivitySettings, b.SettingsHTTP, false}, {apicontract.ActivityConfigure, b.ConfigureHTTP, true},
 		{apicontract.ActivitySync, b.SyncHTTP, true}, {apicontract.ActivityOperation, b.OperationHTTP, false},
 	} {
@@ -350,7 +352,11 @@ func writeError(w http.ResponseWriter, err error) {
 	case serviceapi.DeadlineExceeded:
 		status = 504
 	}
-	if status == 429 {
+	var domain *serviceapi.Error
+	if errors.As(err, &domain) && domain.RetryAfter > 0 && (status == 429 || status == 503) {
+		// amoCRM's own Retry-After survives Gateway and RPC hops.
+		w.Header().Set("Retry-After", strconv.FormatInt(int64(math.Ceil(min(domain.RetryAfter, 5*time.Minute).Seconds())), 10))
+	} else if status == 429 {
 		w.Header().Set("Retry-After", "1")
 	}
 	respond(w, status, jsonError{Error: jsonErrorFields{

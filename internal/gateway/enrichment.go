@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/corepolicy"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"time"
@@ -96,37 +97,46 @@ func (s *Service) Pipelines(ctx context.Context, r serviceapi.CatalogRequest) (s
 	if err != nil {
 		return serviceapi.PipelineCatalog{}, err
 	}
-	s.mu.Lock()
-	entry, ok := s.pipelines[p.InstallationID]
-	s.mu.Unlock()
-	if !ok || time.Now().After(entry.until) {
-		data, err := s.api.ListPipelines(ctx, p.InstallationID)
-		if err != nil {
-			return serviceapi.PipelineCatalog{}, corepolicy.MapUpstreamError(err)
-		}
-		if err := validateCatalog(data); err != nil {
-			return serviceapi.PipelineCatalog{}, err
-		}
-		entry = cachedPipelines{data: data, fetchedAt: time.Now().Unix(), until: time.Now().Add(catalogTTL)}
-		s.mu.Lock()
-		if len(s.pipelines) >= 256 {
-			now := time.Now()
-			for id, v := range s.pipelines {
-				if now.After(v.until) {
-					delete(s.pipelines, id)
-				}
-			}
-		}
-		if len(s.pipelines) < 256 {
-			s.pipelines[p.InstallationID] = entry
-		}
-		s.mu.Unlock()
+	entry, err := s.pipelineEntry(ctx, p.InstallationID)
+	if err != nil {
+		return serviceapi.PipelineCatalog{}, err
 	}
 	result := mapPipelines(entry)
 	if err := serviceapi.ValidateResponseSize(result); err != nil {
 		return serviceapi.PipelineCatalog{}, err
 	}
 	return result, nil
+}
+
+func (s *Service) pipelineEntry(ctx context.Context, installationID uuid.UUID) (cachedPipelines, error) {
+	s.mu.Lock()
+	entry, ok := s.pipelines[installationID]
+	s.mu.Unlock()
+	if ok && !time.Now().After(entry.until) {
+		return entry, nil
+	}
+	data, err := s.api.ListPipelines(ctx, installationID)
+	if err != nil {
+		return cachedPipelines{}, corepolicy.MapUpstreamError(err)
+	}
+	if err := validateCatalog(data); err != nil {
+		return cachedPipelines{}, err
+	}
+	entry = cachedPipelines{data: data, fetchedAt: time.Now().Unix(), until: time.Now().Add(catalogTTL)}
+	s.mu.Lock()
+	if len(s.pipelines) >= 256 {
+		now := time.Now()
+		for id, v := range s.pipelines {
+			if now.After(v.until) {
+				delete(s.pipelines, id)
+			}
+		}
+	}
+	if len(s.pipelines) < 256 {
+		s.pipelines[installationID] = entry
+	}
+	s.mu.Unlock()
+	return entry, nil
 }
 
 func (s *Service) CustomFields(ctx context.Context, r serviceapi.CustomFieldsRequest) (serviceapi.CustomFieldCatalog, error) {

@@ -175,6 +175,11 @@ func allowedGrant(g serviceapi.Grant, system bool, kind string) bool {
 	}
 	switch kind {
 	case serviceapi.PrincipalKindEmployee:
+		// Own tasks are read and completed through Gateway as the employee;
+		// Gateway still binds every task to the delegated actor.
+		if g.Audience == serviceapi.GatewayService {
+			return g.Action == serviceapi.ActionOwnTasks || g.Action == serviceapi.ActionCompleteTask
+		}
 		return g.Audience == serviceapi.ActivityService && g.Action == serviceapi.ActionSessions
 	case serviceapi.PrincipalKindViewer:
 		switch g.Audience {
