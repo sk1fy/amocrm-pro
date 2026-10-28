@@ -160,7 +160,10 @@ last success, last event, lag и reauth. `unknown`, `partial` и `stale` нел�
 источников; лимит очистки и её отставание нужно учитывать при росте нагрузки.
 
 После простоя worker продолжает durable окно/страницу. После `reauth_required`
-пройдите OAuth той же installation и отправьте новую `sync`; после exhausted
+достаточно повторной авторизации той же installation (переустановка виджета
+в amoМаркете или `/oauth/amocrm/start`): `crm-events` раз в минуту сверяется
+с Core и сам возобновляет источник с сохранённого курсора. Отдельная `sync`
+не нужна, но допустима. После exhausted
 retries/pagination ошибки исправьте причину и отправьте `sync`. Удалять jobs,
 inbox, source state или создавать новый operation ID для старой команды не нужно.
 
