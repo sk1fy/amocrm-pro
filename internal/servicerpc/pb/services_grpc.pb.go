@@ -159,14 +159,18 @@ var Policy_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Gateway_Problems_FullMethodName     = "/amocrm.services.v1.Gateway/Problems"
-	Gateway_Events_FullMethodName       = "/amocrm.services.v1.Gateway/Events"
-	Gateway_Users_FullMethodName        = "/amocrm.services.v1.Gateway/Users"
-	Gateway_Notes_FullMethodName        = "/amocrm.services.v1.Gateway/Notes"
-	Gateway_Tasks_FullMethodName        = "/amocrm.services.v1.Gateway/Tasks"
-	Gateway_Pipelines_FullMethodName    = "/amocrm.services.v1.Gateway/Pipelines"
-	Gateway_CustomFields_FullMethodName = "/amocrm.services.v1.Gateway/CustomFields"
-	Gateway_Entities_FullMethodName     = "/amocrm.services.v1.Gateway/Entities"
+	Gateway_Problems_FullMethodName        = "/amocrm.services.v1.Gateway/Problems"
+	Gateway_Events_FullMethodName          = "/amocrm.services.v1.Gateway/Events"
+	Gateway_Users_FullMethodName           = "/amocrm.services.v1.Gateway/Users"
+	Gateway_Notes_FullMethodName           = "/amocrm.services.v1.Gateway/Notes"
+	Gateway_Tasks_FullMethodName           = "/amocrm.services.v1.Gateway/Tasks"
+	Gateway_Pipelines_FullMethodName       = "/amocrm.services.v1.Gateway/Pipelines"
+	Gateway_CustomFields_FullMethodName    = "/amocrm.services.v1.Gateway/CustomFields"
+	Gateway_Entities_FullMethodName        = "/amocrm.services.v1.Gateway/Entities"
+	Gateway_OwnTasks_FullMethodName        = "/amocrm.services.v1.Gateway/OwnTasks"
+	Gateway_OwnTask_FullMethodName         = "/amocrm.services.v1.Gateway/OwnTask"
+	Gateway_CompleteOwnTask_FullMethodName = "/amocrm.services.v1.Gateway/CompleteOwnTask"
+	Gateway_OwnLead_FullMethodName         = "/amocrm.services.v1.Gateway/OwnLead"
 )
 
 // GatewayClient is the client API for Gateway service.
@@ -181,6 +185,10 @@ type GatewayClient interface {
 	Pipelines(ctx context.Context, in *CatalogRequest, opts ...grpc.CallOption) (*PipelineCatalog, error)
 	CustomFields(ctx context.Context, in *CustomFieldsRequest, opts ...grpc.CallOption) (*CustomFieldCatalog, error)
 	Entities(ctx context.Context, in *EntitiesRequest, opts ...grpc.CallOption) (*EntityCatalog, error)
+	OwnTasks(ctx context.Context, in *OwnTasksRequest, opts ...grpc.CallOption) (*TaskQueue, error)
+	OwnTask(ctx context.Context, in *OwnTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error)
+	CompleteOwnTask(ctx context.Context, in *CompleteTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error)
+	OwnLead(ctx context.Context, in *OwnLeadRequest, opts ...grpc.CallOption) (*EntityContext, error)
 }
 
 type gatewayClient struct {
@@ -271,6 +279,46 @@ func (c *gatewayClient) Entities(ctx context.Context, in *EntitiesRequest, opts 
 	return out, nil
 }
 
+func (c *gatewayClient) OwnTasks(ctx context.Context, in *OwnTasksRequest, opts ...grpc.CallOption) (*TaskQueue, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskQueue)
+	err := c.cc.Invoke(ctx, Gateway_OwnTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) OwnTask(ctx context.Context, in *OwnTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskDetail)
+	err := c.cc.Invoke(ctx, Gateway_OwnTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) CompleteOwnTask(ctx context.Context, in *CompleteTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskDetail)
+	err := c.cc.Invoke(ctx, Gateway_CompleteOwnTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gatewayClient) OwnLead(ctx context.Context, in *OwnLeadRequest, opts ...grpc.CallOption) (*EntityContext, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EntityContext)
+	err := c.cc.Invoke(ctx, Gateway_OwnLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GatewayServer is the server API for Gateway service.
 // All implementations must embed UnimplementedGatewayServer
 // for forward compatibility.
@@ -283,6 +331,10 @@ type GatewayServer interface {
 	Pipelines(context.Context, *CatalogRequest) (*PipelineCatalog, error)
 	CustomFields(context.Context, *CustomFieldsRequest) (*CustomFieldCatalog, error)
 	Entities(context.Context, *EntitiesRequest) (*EntityCatalog, error)
+	OwnTasks(context.Context, *OwnTasksRequest) (*TaskQueue, error)
+	OwnTask(context.Context, *OwnTaskRequest) (*TaskDetail, error)
+	CompleteOwnTask(context.Context, *CompleteTaskRequest) (*TaskDetail, error)
+	OwnLead(context.Context, *OwnLeadRequest) (*EntityContext, error)
 	mustEmbedUnimplementedGatewayServer()
 }
 
@@ -316,6 +368,18 @@ func (UnimplementedGatewayServer) CustomFields(context.Context, *CustomFieldsReq
 }
 func (UnimplementedGatewayServer) Entities(context.Context, *EntitiesRequest) (*EntityCatalog, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Entities not implemented")
+}
+func (UnimplementedGatewayServer) OwnTasks(context.Context, *OwnTasksRequest) (*TaskQueue, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnTasks not implemented")
+}
+func (UnimplementedGatewayServer) OwnTask(context.Context, *OwnTaskRequest) (*TaskDetail, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnTask not implemented")
+}
+func (UnimplementedGatewayServer) CompleteOwnTask(context.Context, *CompleteTaskRequest) (*TaskDetail, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompleteOwnTask not implemented")
+}
+func (UnimplementedGatewayServer) OwnLead(context.Context, *OwnLeadRequest) (*EntityContext, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnLead not implemented")
 }
 func (UnimplementedGatewayServer) mustEmbedUnimplementedGatewayServer() {}
 func (UnimplementedGatewayServer) testEmbeddedByValue()                 {}
@@ -482,6 +546,78 @@ func _Gateway_Entities_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Gateway_OwnTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OwnTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).OwnTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_OwnTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).OwnTasks(ctx, req.(*OwnTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_OwnTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OwnTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).OwnTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_OwnTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).OwnTask(ctx, req.(*OwnTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_CompleteOwnTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).CompleteOwnTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_CompleteOwnTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).CompleteOwnTask(ctx, req.(*CompleteTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gateway_OwnLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OwnLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayServer).OwnLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gateway_OwnLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayServer).OwnLead(ctx, req.(*OwnLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Gateway_ServiceDesc is the grpc.ServiceDesc for Gateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -520,6 +656,22 @@ var Gateway_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Entities",
 			Handler:    _Gateway_Entities_Handler,
+		},
+		{
+			MethodName: "OwnTasks",
+			Handler:    _Gateway_OwnTasks_Handler,
+		},
+		{
+			MethodName: "OwnTask",
+			Handler:    _Gateway_OwnTask_Handler,
+		},
+		{
+			MethodName: "CompleteOwnTask",
+			Handler:    _Gateway_CompleteOwnTask_Handler,
+		},
+		{
+			MethodName: "OwnLead",
+			Handler:    _Gateway_OwnLead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -805,6 +957,10 @@ const (
 	Activity_ViewTimeline_FullMethodName        = "/amocrm.services.v1.Activity/ViewTimeline"
 	Activity_ViewEmployee_FullMethodName        = "/amocrm.services.v1.Activity/ViewEmployee"
 	Activity_ViewEvent_FullMethodName           = "/amocrm.services.v1.Activity/ViewEvent"
+	Activity_OwnTasks_FullMethodName            = "/amocrm.services.v1.Activity/OwnTasks"
+	Activity_OwnTask_FullMethodName             = "/amocrm.services.v1.Activity/OwnTask"
+	Activity_CompleteOwnTask_FullMethodName     = "/amocrm.services.v1.Activity/CompleteOwnTask"
+	Activity_OwnLead_FullMethodName             = "/amocrm.services.v1.Activity/OwnLead"
 )
 
 // ActivityClient is the client API for Activity service.
@@ -835,6 +991,10 @@ type ActivityClient interface {
 	ViewTimeline(ctx context.Context, in *Query, opts ...grpc.CallOption) (*ViewerTimeline, error)
 	ViewEmployee(ctx context.Context, in *Query, opts ...grpc.CallOption) (*ViewerEmployee, error)
 	ViewEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*Event, error)
+	OwnTasks(ctx context.Context, in *OwnTasksRequest, opts ...grpc.CallOption) (*TaskQueue, error)
+	OwnTask(ctx context.Context, in *OwnTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error)
+	CompleteOwnTask(ctx context.Context, in *CompleteTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error)
+	OwnLead(ctx context.Context, in *OwnLeadRequest, opts ...grpc.CallOption) (*EntityContext, error)
 }
 
 type activityClient struct {
@@ -1085,6 +1245,46 @@ func (c *activityClient) ViewEvent(ctx context.Context, in *EventRequest, opts .
 	return out, nil
 }
 
+func (c *activityClient) OwnTasks(ctx context.Context, in *OwnTasksRequest, opts ...grpc.CallOption) (*TaskQueue, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskQueue)
+	err := c.cc.Invoke(ctx, Activity_OwnTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) OwnTask(ctx context.Context, in *OwnTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskDetail)
+	err := c.cc.Invoke(ctx, Activity_OwnTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) CompleteOwnTask(ctx context.Context, in *CompleteTaskRequest, opts ...grpc.CallOption) (*TaskDetail, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskDetail)
+	err := c.cc.Invoke(ctx, Activity_CompleteOwnTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) OwnLead(ctx context.Context, in *OwnLeadRequest, opts ...grpc.CallOption) (*EntityContext, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EntityContext)
+	err := c.cc.Invoke(ctx, Activity_OwnLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ActivityServer is the server API for Activity service.
 // All implementations must embed UnimplementedActivityServer
 // for forward compatibility.
@@ -1113,6 +1313,10 @@ type ActivityServer interface {
 	ViewTimeline(context.Context, *Query) (*ViewerTimeline, error)
 	ViewEmployee(context.Context, *Query) (*ViewerEmployee, error)
 	ViewEvent(context.Context, *EventRequest) (*Event, error)
+	OwnTasks(context.Context, *OwnTasksRequest) (*TaskQueue, error)
+	OwnTask(context.Context, *OwnTaskRequest) (*TaskDetail, error)
+	CompleteOwnTask(context.Context, *CompleteTaskRequest) (*TaskDetail, error)
+	OwnLead(context.Context, *OwnLeadRequest) (*EntityContext, error)
 	mustEmbedUnimplementedActivityServer()
 }
 
@@ -1194,6 +1398,18 @@ func (UnimplementedActivityServer) ViewEmployee(context.Context, *Query) (*Viewe
 }
 func (UnimplementedActivityServer) ViewEvent(context.Context, *EventRequest) (*Event, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ViewEvent not implemented")
+}
+func (UnimplementedActivityServer) OwnTasks(context.Context, *OwnTasksRequest) (*TaskQueue, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnTasks not implemented")
+}
+func (UnimplementedActivityServer) OwnTask(context.Context, *OwnTaskRequest) (*TaskDetail, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnTask not implemented")
+}
+func (UnimplementedActivityServer) CompleteOwnTask(context.Context, *CompleteTaskRequest) (*TaskDetail, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompleteOwnTask not implemented")
+}
+func (UnimplementedActivityServer) OwnLead(context.Context, *OwnLeadRequest) (*EntityContext, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OwnLead not implemented")
 }
 func (UnimplementedActivityServer) mustEmbedUnimplementedActivityServer() {}
 func (UnimplementedActivityServer) testEmbeddedByValue()                  {}
@@ -1648,6 +1864,78 @@ func _Activity_ViewEvent_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Activity_OwnTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OwnTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).OwnTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_OwnTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).OwnTasks(ctx, req.(*OwnTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_OwnTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OwnTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).OwnTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_OwnTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).OwnTask(ctx, req.(*OwnTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_CompleteOwnTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).CompleteOwnTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_CompleteOwnTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).CompleteOwnTask(ctx, req.(*CompleteTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_OwnLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OwnLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).OwnLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_OwnLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).OwnLead(ctx, req.(*OwnLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Activity_ServiceDesc is the grpc.ServiceDesc for Activity service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1750,6 +2038,22 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ViewEvent",
 			Handler:    _Activity_ViewEvent_Handler,
+		},
+		{
+			MethodName: "OwnTasks",
+			Handler:    _Activity_OwnTasks_Handler,
+		},
+		{
+			MethodName: "OwnTask",
+			Handler:    _Activity_OwnTask_Handler,
+		},
+		{
+			MethodName: "CompleteOwnTask",
+			Handler:    _Activity_CompleteOwnTask_Handler,
+		},
+		{
+			MethodName: "OwnLead",
+			Handler:    _Activity_OwnLead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

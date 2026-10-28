@@ -32,6 +32,10 @@ var (
 	ActivityOwnState              = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/state"}
 	ActivityOwnSessions           = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/sessions"}
 	ActivitySessionWrite          = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/sessions"}
+	ActivityOwnTasks              = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/tasks"}
+	ActivityOwnTask               = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/tasks/{taskID}"}
+	ActivityCompleteTask          = Route{Method: http.MethodPost, Path: "/api/v1/widget/activity/tasks/{taskID}/complete"}
+	ActivityOwnLead               = Route{Method: http.MethodGet, Path: "/api/v1/widget/activity/leads/{leadID}"}
 	ActivityViewSessions          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}/sessions"}
 	ActivityTaskPanel             = Route{Method: http.MethodGet, Path: "/api/v1/activity/task-panel"}
 	ActivityTaskPanelSave         = Route{Method: http.MethodPatch, Path: "/api/v1/activity/task-panel"}
@@ -68,6 +72,7 @@ var (
 		ActivitySync,
 		ActivityOperation,
 		ActivityOwnState, ActivityOwnSessions, ActivityBrowserSession, ActivitySessionWrite, ActivityViewSessions, ActivityTaskPanel, ActivityTaskPanelSave,
+		ActivityOwnTasks, ActivityOwnTask, ActivityCompleteTask, ActivityOwnLead,
 		ActivityViewProblems,
 		ActivityViewPanel,
 		ActivityViewRatings,

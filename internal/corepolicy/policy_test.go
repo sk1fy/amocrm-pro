@@ -309,3 +309,43 @@ func TestEmployeeDelegationCannotManageOrReadOtherUsers(t *testing.T) {
 		t.Fatal("inactive employee accepted")
 	}
 }
+
+func TestEmployeeTaskGrantsReachOnlyOwnTaskGateway(t *testing.T) {
+	original, checker, req := testPolicy(t)
+	policy, err := NewWithChecker(employeeTestChecker{checker}, original.key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Kind = serviceapi.PrincipalKindEmployee
+	req.ActorID = 8
+	req.Grants = []serviceapi.Grant{{Audience: serviceapi.ActivityService, Action: serviceapi.ActionSessions}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionOwnTasks}, {Audience: serviceapi.GatewayService, Action: serviceapi.ActionCompleteTask}}
+	core := ForCaller(policy, serviceapi.CoreService)
+	auth, err := core.Issue(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gateway := ForCaller(policy, serviceapi.GatewayService)
+	for _, action := range []string{serviceapi.ActionOwnTasks, serviceapi.ActionCompleteTask} {
+		if p, err := gateway.Validate(context.Background(), auth, serviceapi.GatewayService, action); err != nil || p.ActorID != 8 || p.Kind != serviceapi.PrincipalKindEmployee {
+			t.Fatalf("employee %s: %+v %v", action, p, err)
+		}
+	}
+	// System enrichment reads stay unavailable: they are not bound to the actor.
+	for _, action := range []string{serviceapi.ActionTasks, serviceapi.ActionEntities, serviceapi.ActionNotes, serviceapi.ActionEvents} {
+		bad := req
+		bad.Grants = []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: action}}
+		if _, err := core.Issue(context.Background(), bad); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+			t.Fatalf("employee got system read %s: %v", action, err)
+		}
+		if _, err := gateway.Validate(context.Background(), auth, serviceapi.GatewayService, action); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+			t.Fatalf("employee delegation validated %s: %v", action, err)
+		}
+	}
+	// A user (admin panel) delegation cannot carry the employee task grants.
+	admin := req
+	admin.Kind, admin.ActorID = serviceapi.PrincipalKindUser, 7
+	admin.Grants = []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: serviceapi.ActionOwnTasks}}
+	if _, err := core.Issue(context.Background(), admin); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("user delegation got own task grant: %v", err)
+	}
+}

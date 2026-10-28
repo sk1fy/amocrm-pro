@@ -159,3 +159,21 @@ func TestGatewayProblemsMTLSAllowsActivityWithViewerGrant(t *testing.T) {
 		t.Fatal("unknown problems method admitted")
 	}
 }
+
+func TestEmployeeTaskRPCsAreActivityOnly(t *testing.T) {
+	for _, method := range []string{pb.Gateway_OwnTasks_FullMethodName, pb.Gateway_OwnTask_FullMethodName, pb.Gateway_CompleteOwnTask_FullMethodName, pb.Gateway_OwnLead_FullMethodName} {
+		if !allowedCaller(method, serviceapi.ActivityService) {
+			t.Fatalf("Activity cannot relay %s", method)
+		}
+		for _, caller := range []string{serviceapi.EventsService, serviceapi.CoreService, serviceapi.GatewayService, "unknown"} {
+			if allowedCaller(method, caller) {
+				t.Fatalf("%s may call %s", caller, method)
+			}
+		}
+	}
+	for _, method := range []string{pb.Activity_OwnTasks_FullMethodName, pb.Activity_OwnTask_FullMethodName, pb.Activity_CompleteOwnTask_FullMethodName, pb.Activity_OwnLead_FullMethodName} {
+		if !allowedCaller(method, serviceapi.CoreService) || allowedCaller(method, serviceapi.EventsService) || allowedCaller(method, serviceapi.ActivityService) {
+			t.Fatalf("Activity task RPC %s must be Core-only", method)
+		}
+	}
+}

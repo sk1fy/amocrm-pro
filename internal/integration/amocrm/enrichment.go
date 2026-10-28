@@ -38,8 +38,9 @@ type Task struct {
 }
 
 type PipelineStatus struct {
-	ID   int64
-	Name string
+	ID    int64
+	Name  string
+	Color string
 }
 
 type Pipeline struct {
@@ -245,8 +246,9 @@ func (c *Client) ListPipelines(ctx context.Context, installationID uuid.UUID) ([
 				Name     string `json:"name"`
 				Embedded struct {
 					Statuses []struct {
-						ID   int64  `json:"id"`
-						Name string `json:"name"`
+						ID    int64  `json:"id"`
+						Name  string `json:"name"`
+						Color string `json:"color"`
 					} `json:"statuses"`
 				} `json:"_embedded"`
 			} `json:"pipelines"`
@@ -270,10 +272,10 @@ func (c *Client) ListPipelines(ctx context.Context, installationID uuid.UUID) ([
 		}
 		statuses := make([]PipelineStatus, 0, len(item.Embedded.Statuses))
 		for _, status := range item.Embedded.Statuses {
-			if status.ID <= 0 || len(status.Name) > enrichmentNameLimit {
+			if status.ID <= 0 || len(status.Name) > enrichmentNameLimit || len(status.Color) > 32 {
 				return nil, ErrIncompleteResponse
 			}
-			statuses = append(statuses, PipelineStatus{ID: status.ID, Name: status.Name})
+			statuses = append(statuses, PipelineStatus{ID: status.ID, Name: status.Name, Color: status.Color})
 		}
 		pipelines = append(pipelines, Pipeline{ID: item.ID, Name: item.Name, Statuses: statuses})
 	}

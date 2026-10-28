@@ -4923,6 +4923,678 @@ func (x *ProblemSnapshot) GetRefreshAfter() int64 {
 	return 0
 }
 
+type OwnTasksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	LeadId        int64                  `protobuf:"varint,2,opt,name=lead_id,json=leadId,proto3" json:"lead_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OwnTasksRequest) Reset() {
+	*x = OwnTasksRequest{}
+	mi := &file_services_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OwnTasksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OwnTasksRequest) ProtoMessage() {}
+
+func (x *OwnTasksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OwnTasksRequest.ProtoReflect.Descriptor instead.
+func (*OwnTasksRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *OwnTasksRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *OwnTasksRequest) GetLeadId() int64 {
+	if x != nil {
+		return x.LeadId
+	}
+	return 0
+}
+
+type QueueTask struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntityId      int64                  `protobuf:"varint,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,3,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	EntityName    string                 `protobuf:"bytes,4,opt,name=entity_name,json=entityName,proto3" json:"entity_name,omitempty"`
+	Text          string                 `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	CompleteTill  int64                  `protobuf:"varint,6,opt,name=complete_till,json=completeTill,proto3" json:"complete_till,omitempty"`
+	TaskTypeId    int64                  `protobuf:"varint,7,opt,name=task_type_id,json=taskTypeId,proto3" json:"task_type_id,omitempty"`
+	TaskTypeName  string                 `protobuf:"bytes,8,opt,name=task_type_name,json=taskTypeName,proto3" json:"task_type_name,omitempty"`
+	Related       string                 `protobuf:"bytes,9,opt,name=related,proto3" json:"related,omitempty"`
+	UpdatedAt     int64                  `protobuf:"varint,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueTask) Reset() {
+	*x = QueueTask{}
+	mi := &file_services_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueTask) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueTask) ProtoMessage() {}
+
+func (x *QueueTask) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueTask.ProtoReflect.Descriptor instead.
+func (*QueueTask) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *QueueTask) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *QueueTask) GetEntityId() int64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *QueueTask) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *QueueTask) GetEntityName() string {
+	if x != nil {
+		return x.EntityName
+	}
+	return ""
+}
+
+func (x *QueueTask) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *QueueTask) GetCompleteTill() int64 {
+	if x != nil {
+		return x.CompleteTill
+	}
+	return 0
+}
+
+func (x *QueueTask) GetTaskTypeId() int64 {
+	if x != nil {
+		return x.TaskTypeId
+	}
+	return 0
+}
+
+func (x *QueueTask) GetTaskTypeName() string {
+	if x != nil {
+		return x.TaskTypeName
+	}
+	return ""
+}
+
+func (x *QueueTask) GetRelated() string {
+	if x != nil {
+		return x.Related
+	}
+	return ""
+}
+
+func (x *QueueTask) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+type TaskQueue struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Tasks             []*QueueTask           `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	FetchedAt         int64                  `protobuf:"varint,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	FreshUntil        int64                  `protobuf:"varint,3,opt,name=fresh_until,json=freshUntil,proto3" json:"fresh_until,omitempty"`
+	Complete          bool                   `protobuf:"varint,4,opt,name=complete,proto3" json:"complete,omitempty"`
+	Stale             bool                   `protobuf:"varint,5,opt,name=stale,proto3" json:"stale,omitempty"`
+	ErrorCode         string                 `protobuf:"bytes,6,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	RetryAfterSeconds int64                  `protobuf:"varint,7,opt,name=retry_after_seconds,json=retryAfterSeconds,proto3" json:"retry_after_seconds,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *TaskQueue) Reset() {
+	*x = TaskQueue{}
+	mi := &file_services_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskQueue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskQueue) ProtoMessage() {}
+
+func (x *TaskQueue) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskQueue.ProtoReflect.Descriptor instead.
+func (*TaskQueue) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *TaskQueue) GetTasks() []*QueueTask {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
+
+func (x *TaskQueue) GetFetchedAt() int64 {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return 0
+}
+
+func (x *TaskQueue) GetFreshUntil() int64 {
+	if x != nil {
+		return x.FreshUntil
+	}
+	return 0
+}
+
+func (x *TaskQueue) GetComplete() bool {
+	if x != nil {
+		return x.Complete
+	}
+	return false
+}
+
+func (x *TaskQueue) GetStale() bool {
+	if x != nil {
+		return x.Stale
+	}
+	return false
+}
+
+func (x *TaskQueue) GetErrorCode() string {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ""
+}
+
+func (x *TaskQueue) GetRetryAfterSeconds() int64 {
+	if x != nil {
+		return x.RetryAfterSeconds
+	}
+	return 0
+}
+
+type OwnTaskRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	TaskId        int64                  `protobuf:"varint,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	WithContext   bool                   `protobuf:"varint,3,opt,name=with_context,json=withContext,proto3" json:"with_context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OwnTaskRequest) Reset() {
+	*x = OwnTaskRequest{}
+	mi := &file_services_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OwnTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OwnTaskRequest) ProtoMessage() {}
+
+func (x *OwnTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OwnTaskRequest.ProtoReflect.Descriptor instead.
+func (*OwnTaskRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *OwnTaskRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *OwnTaskRequest) GetTaskId() int64 {
+	if x != nil {
+		return x.TaskId
+	}
+	return 0
+}
+
+func (x *OwnTaskRequest) GetWithContext() bool {
+	if x != nil {
+		return x.WithContext
+	}
+	return false
+}
+
+type EntityContext struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	PipelineId    int64                  `protobuf:"varint,4,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
+	PipelineName  string                 `protobuf:"bytes,5,opt,name=pipeline_name,json=pipelineName,proto3" json:"pipeline_name,omitempty"`
+	StatusId      int64                  `protobuf:"varint,6,opt,name=status_id,json=statusId,proto3" json:"status_id,omitempty"`
+	StatusName    string                 `protobuf:"bytes,7,opt,name=status_name,json=statusName,proto3" json:"status_name,omitempty"`
+	StatusColor   string                 `protobuf:"bytes,8,opt,name=status_color,json=statusColor,proto3" json:"status_color,omitempty"`
+	Restricted    bool                   `protobuf:"varint,9,opt,name=restricted,proto3" json:"restricted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityContext) Reset() {
+	*x = EntityContext{}
+	mi := &file_services_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityContext) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityContext) ProtoMessage() {}
+
+func (x *EntityContext) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityContext.ProtoReflect.Descriptor instead.
+func (*EntityContext) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *EntityContext) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *EntityContext) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *EntityContext) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *EntityContext) GetPipelineId() int64 {
+	if x != nil {
+		return x.PipelineId
+	}
+	return 0
+}
+
+func (x *EntityContext) GetPipelineName() string {
+	if x != nil {
+		return x.PipelineName
+	}
+	return ""
+}
+
+func (x *EntityContext) GetStatusId() int64 {
+	if x != nil {
+		return x.StatusId
+	}
+	return 0
+}
+
+func (x *EntityContext) GetStatusName() string {
+	if x != nil {
+		return x.StatusName
+	}
+	return ""
+}
+
+func (x *EntityContext) GetStatusColor() string {
+	if x != nil {
+		return x.StatusColor
+	}
+	return ""
+}
+
+func (x *EntityContext) GetRestricted() bool {
+	if x != nil {
+		return x.Restricted
+	}
+	return false
+}
+
+type TaskDetail struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntityId          int64                  `protobuf:"varint,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityType        string                 `protobuf:"bytes,3,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	ResponsibleUserId int64                  `protobuf:"varint,4,opt,name=responsible_user_id,json=responsibleUserId,proto3" json:"responsible_user_id,omitempty"`
+	Text              string                 `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	CompleteTill      int64                  `protobuf:"varint,6,opt,name=complete_till,json=completeTill,proto3" json:"complete_till,omitempty"`
+	TaskTypeId        int64                  `protobuf:"varint,7,opt,name=task_type_id,json=taskTypeId,proto3" json:"task_type_id,omitempty"`
+	TaskTypeName      string                 `protobuf:"bytes,8,opt,name=task_type_name,json=taskTypeName,proto3" json:"task_type_name,omitempty"`
+	IsCompleted       bool                   `protobuf:"varint,9,opt,name=is_completed,json=isCompleted,proto3" json:"is_completed,omitempty"`
+	ResultText        string                 `protobuf:"bytes,10,opt,name=result_text,json=resultText,proto3" json:"result_text,omitempty"`
+	UpdatedAt         int64                  `protobuf:"varint,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Entity            *EntityContext         `protobuf:"bytes,12,opt,name=entity,proto3" json:"entity,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *TaskDetail) Reset() {
+	*x = TaskDetail{}
+	mi := &file_services_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskDetail) ProtoMessage() {}
+
+func (x *TaskDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskDetail.ProtoReflect.Descriptor instead.
+func (*TaskDetail) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *TaskDetail) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *TaskDetail) GetEntityId() int64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *TaskDetail) GetEntityType() string {
+	if x != nil {
+		return x.EntityType
+	}
+	return ""
+}
+
+func (x *TaskDetail) GetResponsibleUserId() int64 {
+	if x != nil {
+		return x.ResponsibleUserId
+	}
+	return 0
+}
+
+func (x *TaskDetail) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *TaskDetail) GetCompleteTill() int64 {
+	if x != nil {
+		return x.CompleteTill
+	}
+	return 0
+}
+
+func (x *TaskDetail) GetTaskTypeId() int64 {
+	if x != nil {
+		return x.TaskTypeId
+	}
+	return 0
+}
+
+func (x *TaskDetail) GetTaskTypeName() string {
+	if x != nil {
+		return x.TaskTypeName
+	}
+	return ""
+}
+
+func (x *TaskDetail) GetIsCompleted() bool {
+	if x != nil {
+		return x.IsCompleted
+	}
+	return false
+}
+
+func (x *TaskDetail) GetResultText() string {
+	if x != nil {
+		return x.ResultText
+	}
+	return ""
+}
+
+func (x *TaskDetail) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *TaskDetail) GetEntity() *EntityContext {
+	if x != nil {
+		return x.Entity
+	}
+	return nil
+}
+
+type CompleteTaskRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	TaskId        int64                  `protobuf:"varint,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Result        string                 `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteTaskRequest) Reset() {
+	*x = CompleteTaskRequest{}
+	mi := &file_services_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteTaskRequest) ProtoMessage() {}
+
+func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteTaskRequest.ProtoReflect.Descriptor instead.
+func (*CompleteTaskRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *CompleteTaskRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *CompleteTaskRequest) GetTaskId() int64 {
+	if x != nil {
+		return x.TaskId
+	}
+	return 0
+}
+
+func (x *CompleteTaskRequest) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+type OwnLeadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Auth          *Auth                  `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	LeadId        int64                  `protobuf:"varint,2,opt,name=lead_id,json=leadId,proto3" json:"lead_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OwnLeadRequest) Reset() {
+	*x = OwnLeadRequest{}
+	mi := &file_services_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OwnLeadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OwnLeadRequest) ProtoMessage() {}
+
+func (x *OwnLeadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OwnLeadRequest.ProtoReflect.Descriptor instead.
+func (*OwnLeadRequest) Descriptor() ([]byte, []int) {
+	return file_services_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *OwnLeadRequest) GetAuth() *Auth {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+func (x *OwnLeadRequest) GetLeadId() int64 {
+	if x != nil {
+		return x.LeadId
+	}
+	return 0
+}
+
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
 // candidate credential is never persisted or exposed to Activity/CRM Events.
 type BootstrapAccountRequest struct {
@@ -4936,7 +5608,7 @@ type BootstrapAccountRequest struct {
 
 func (x *BootstrapAccountRequest) Reset() {
 	*x = BootstrapAccountRequest{}
-	mi := &file_services_proto_msgTypes[64]
+	mi := &file_services_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4948,7 +5620,7 @@ func (x *BootstrapAccountRequest) String() string {
 func (*BootstrapAccountRequest) ProtoMessage() {}
 
 func (x *BootstrapAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[64]
+	mi := &file_services_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4961,7 +5633,7 @@ func (x *BootstrapAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootstrapAccountRequest.ProtoReflect.Descriptor instead.
 func (*BootstrapAccountRequest) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{64}
+	return file_services_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *BootstrapAccountRequest) GetIntegrationId() string {
@@ -4995,7 +5667,7 @@ type BootstrapAccount struct {
 
 func (x *BootstrapAccount) Reset() {
 	*x = BootstrapAccount{}
-	mi := &file_services_proto_msgTypes[65]
+	mi := &file_services_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5007,7 +5679,7 @@ func (x *BootstrapAccount) String() string {
 func (*BootstrapAccount) ProtoMessage() {}
 
 func (x *BootstrapAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[65]
+	mi := &file_services_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5020,7 +5692,7 @@ func (x *BootstrapAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BootstrapAccount.ProtoReflect.Descriptor instead.
 func (*BootstrapAccount) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{65}
+	return file_services_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *BootstrapAccount) GetId() int64 {
@@ -5061,7 +5733,7 @@ type SessionContext struct {
 
 func (x *SessionContext) Reset() {
 	*x = SessionContext{}
-	mi := &file_services_proto_msgTypes[66]
+	mi := &file_services_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5073,7 +5745,7 @@ func (x *SessionContext) String() string {
 func (*SessionContext) ProtoMessage() {}
 
 func (x *SessionContext) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[66]
+	mi := &file_services_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5086,7 +5758,7 @@ func (x *SessionContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionContext.ProtoReflect.Descriptor instead.
 func (*SessionContext) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{66}
+	return file_services_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *SessionContext) GetTaskId() int64 {
@@ -5216,7 +5888,7 @@ type WorkSession struct {
 
 func (x *WorkSession) Reset() {
 	*x = WorkSession{}
-	mi := &file_services_proto_msgTypes[67]
+	mi := &file_services_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5228,7 +5900,7 @@ func (x *WorkSession) String() string {
 func (*WorkSession) ProtoMessage() {}
 
 func (x *WorkSession) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[67]
+	mi := &file_services_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5241,7 +5913,7 @@ func (x *WorkSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkSession.ProtoReflect.Descriptor instead.
 func (*WorkSession) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{67}
+	return file_services_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *WorkSession) GetId() string {
@@ -5308,7 +5980,7 @@ type SessionCommand struct {
 
 func (x *SessionCommand) Reset() {
 	*x = SessionCommand{}
-	mi := &file_services_proto_msgTypes[68]
+	mi := &file_services_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5320,7 +5992,7 @@ func (x *SessionCommand) String() string {
 func (*SessionCommand) ProtoMessage() {}
 
 func (x *SessionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[68]
+	mi := &file_services_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5333,7 +6005,7 @@ func (x *SessionCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionCommand.ProtoReflect.Descriptor instead.
 func (*SessionCommand) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{68}
+	return file_services_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *SessionCommand) GetAuth() *Auth {
@@ -5396,7 +6068,7 @@ type SessionPage struct {
 
 func (x *SessionPage) Reset() {
 	*x = SessionPage{}
-	mi := &file_services_proto_msgTypes[69]
+	mi := &file_services_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5408,7 +6080,7 @@ func (x *SessionPage) String() string {
 func (*SessionPage) ProtoMessage() {}
 
 func (x *SessionPage) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[69]
+	mi := &file_services_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5421,7 +6093,7 @@ func (x *SessionPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionPage.ProtoReflect.Descriptor instead.
 func (*SessionPage) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{69}
+	return file_services_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *SessionPage) GetItems() []*WorkSession {
@@ -5459,7 +6131,7 @@ type TaskPanelSettings struct {
 
 func (x *TaskPanelSettings) Reset() {
 	*x = TaskPanelSettings{}
-	mi := &file_services_proto_msgTypes[70]
+	mi := &file_services_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5471,7 +6143,7 @@ func (x *TaskPanelSettings) String() string {
 func (*TaskPanelSettings) ProtoMessage() {}
 
 func (x *TaskPanelSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[70]
+	mi := &file_services_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5484,7 +6156,7 @@ func (x *TaskPanelSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskPanelSettings.ProtoReflect.Descriptor instead.
 func (*TaskPanelSettings) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{70}
+	return file_services_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *TaskPanelSettings) GetEnabled() bool {
@@ -5539,7 +6211,7 @@ type TaskPanelCommand struct {
 
 func (x *TaskPanelCommand) Reset() {
 	*x = TaskPanelCommand{}
-	mi := &file_services_proto_msgTypes[71]
+	mi := &file_services_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5551,7 +6223,7 @@ func (x *TaskPanelCommand) String() string {
 func (*TaskPanelCommand) ProtoMessage() {}
 
 func (x *TaskPanelCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[71]
+	mi := &file_services_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5564,7 +6236,7 @@ func (x *TaskPanelCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskPanelCommand.ProtoReflect.Descriptor instead.
 func (*TaskPanelCommand) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{71}
+	return file_services_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *TaskPanelCommand) GetAuth() *Auth {
@@ -5592,7 +6264,7 @@ type EmployeeActivityState struct {
 
 func (x *EmployeeActivityState) Reset() {
 	*x = EmployeeActivityState{}
-	mi := &file_services_proto_msgTypes[72]
+	mi := &file_services_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5604,7 +6276,7 @@ func (x *EmployeeActivityState) String() string {
 func (*EmployeeActivityState) ProtoMessage() {}
 
 func (x *EmployeeActivityState) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[72]
+	mi := &file_services_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5617,7 +6289,7 @@ func (x *EmployeeActivityState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmployeeActivityState.ProtoReflect.Descriptor instead.
 func (*EmployeeActivityState) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{72}
+	return file_services_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *EmployeeActivityState) GetCurrent() *WorkSession {
@@ -5659,7 +6331,7 @@ type ActivityRatingRequest struct {
 
 func (x *ActivityRatingRequest) Reset() {
 	*x = ActivityRatingRequest{}
-	mi := &file_services_proto_msgTypes[73]
+	mi := &file_services_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5671,7 +6343,7 @@ func (x *ActivityRatingRequest) String() string {
 func (*ActivityRatingRequest) ProtoMessage() {}
 
 func (x *ActivityRatingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[73]
+	mi := &file_services_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5684,7 +6356,7 @@ func (x *ActivityRatingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivityRatingRequest.ProtoReflect.Descriptor instead.
 func (*ActivityRatingRequest) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{73}
+	return file_services_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ActivityRatingRequest) GetAuth() *Auth {
@@ -5761,7 +6433,7 @@ type EmployeeActivityRating struct {
 
 func (x *EmployeeActivityRating) Reset() {
 	*x = EmployeeActivityRating{}
-	mi := &file_services_proto_msgTypes[74]
+	mi := &file_services_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5773,7 +6445,7 @@ func (x *EmployeeActivityRating) String() string {
 func (*EmployeeActivityRating) ProtoMessage() {}
 
 func (x *EmployeeActivityRating) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[74]
+	mi := &file_services_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5786,7 +6458,7 @@ func (x *EmployeeActivityRating) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmployeeActivityRating.ProtoReflect.Descriptor instead.
 func (*EmployeeActivityRating) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{74}
+	return file_services_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *EmployeeActivityRating) GetEmployeeId() int64 {
@@ -5827,7 +6499,7 @@ type ActivityRatings struct {
 
 func (x *ActivityRatings) Reset() {
 	*x = ActivityRatings{}
-	mi := &file_services_proto_msgTypes[75]
+	mi := &file_services_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5839,7 +6511,7 @@ func (x *ActivityRatings) String() string {
 func (*ActivityRatings) ProtoMessage() {}
 
 func (x *ActivityRatings) ProtoReflect() protoreflect.Message {
-	mi := &file_services_proto_msgTypes[75]
+	mi := &file_services_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5852,7 +6524,7 @@ func (x *ActivityRatings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivityRatings.ProtoReflect.Descriptor instead.
 func (*ActivityRatings) Descriptor() ([]byte, []int) {
-	return file_services_proto_rawDescGZIP(), []int{75}
+	return file_services_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *ActivityRatings) GetFormulaVersion() string {
@@ -6388,7 +7060,82 @@ const file_services_proto_rawDesc = "" +
 	"\n" +
 	"collecting\x18\x06 \x01(\bR\n" +
 	"collecting\x12#\n" +
-	"\rrefresh_after\x18\a \x01(\x03R\frefreshAfter\"\x8a\x01\n" +
+	"\rrefresh_after\x18\a \x01(\x03R\frefreshAfter\"X\n" +
+	"\x0fOwnTasksRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x17\n" +
+	"\alead_id\x18\x02 \x01(\x03R\x06leadId\"\xb4\x02\n" +
+	"\tQueueTask\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\x03R\bentityId\x12\x1f\n" +
+	"\ventity_type\x18\x03 \x01(\tR\n" +
+	"entityType\x12\x1f\n" +
+	"\ventity_name\x18\x04 \x01(\tR\n" +
+	"entityName\x12\x12\n" +
+	"\x04text\x18\x05 \x01(\tR\x04text\x12#\n" +
+	"\rcomplete_till\x18\x06 \x01(\x03R\fcompleteTill\x12 \n" +
+	"\ftask_type_id\x18\a \x01(\x03R\n" +
+	"taskTypeId\x12$\n" +
+	"\x0etask_type_name\x18\b \x01(\tR\ftaskTypeName\x12\x18\n" +
+	"\arelated\x18\t \x01(\tR\arelated\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\x03R\tupdatedAt\"\x81\x02\n" +
+	"\tTaskQueue\x123\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x1d.amocrm.services.v1.QueueTaskR\x05tasks\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\x03R\tfetchedAt\x12\x1f\n" +
+	"\vfresh_until\x18\x03 \x01(\x03R\n" +
+	"freshUntil\x12\x1a\n" +
+	"\bcomplete\x18\x04 \x01(\bR\bcomplete\x12\x14\n" +
+	"\x05stale\x18\x05 \x01(\bR\x05stale\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\x06 \x01(\tR\terrorCode\x12.\n" +
+	"\x13retry_after_seconds\x18\a \x01(\x03R\x11retryAfterSeconds\"z\n" +
+	"\x0eOwnTaskRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\x03R\x06taskId\x12!\n" +
+	"\fwith_context\x18\x03 \x01(\bR\vwithContext\"\x9b\x02\n" +
+	"\rEntityContext\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1f\n" +
+	"\vpipeline_id\x18\x04 \x01(\x03R\n" +
+	"pipelineId\x12#\n" +
+	"\rpipeline_name\x18\x05 \x01(\tR\fpipelineName\x12\x1b\n" +
+	"\tstatus_id\x18\x06 \x01(\x03R\bstatusId\x12\x1f\n" +
+	"\vstatus_name\x18\a \x01(\tR\n" +
+	"statusName\x12!\n" +
+	"\fstatus_color\x18\b \x01(\tR\vstatusColor\x12\x1e\n" +
+	"\n" +
+	"restricted\x18\t \x01(\bR\n" +
+	"restricted\"\xa9\x03\n" +
+	"\n" +
+	"TaskDetail\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\x03R\bentityId\x12\x1f\n" +
+	"\ventity_type\x18\x03 \x01(\tR\n" +
+	"entityType\x12.\n" +
+	"\x13responsible_user_id\x18\x04 \x01(\x03R\x11responsibleUserId\x12\x12\n" +
+	"\x04text\x18\x05 \x01(\tR\x04text\x12#\n" +
+	"\rcomplete_till\x18\x06 \x01(\x03R\fcompleteTill\x12 \n" +
+	"\ftask_type_id\x18\a \x01(\x03R\n" +
+	"taskTypeId\x12$\n" +
+	"\x0etask_type_name\x18\b \x01(\tR\ftaskTypeName\x12!\n" +
+	"\fis_completed\x18\t \x01(\bR\visCompleted\x12\x1f\n" +
+	"\vresult_text\x18\n" +
+	" \x01(\tR\n" +
+	"resultText\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\x03R\tupdatedAt\x129\n" +
+	"\x06entity\x18\f \x01(\v2!.amocrm.services.v1.EntityContextR\x06entity\"t\n" +
+	"\x13CompleteTaskRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\x03R\x06taskId\x12\x16\n" +
+	"\x06result\x18\x03 \x01(\tR\x06result\"W\n" +
+	"\x0eOwnLeadRequest\x12,\n" +
+	"\x04auth\x18\x01 \x01(\v2\x18.amocrm.services.v1.AuthR\x04auth\x12\x17\n" +
+	"\alead_id\x18\x02 \x01(\x03R\x06leadId\"\x8a\x01\n" +
 	"\x17BootstrapAccountRequest\x12%\n" +
 	"\x0eintegration_id\x18\x01 \x01(\tR\rintegrationId\x12%\n" +
 	"\x0eaccount_domain\x18\x02 \x01(\tR\raccountDomain\x12!\n" +
@@ -6495,7 +7242,7 @@ const file_services_proto_rawDesc = "" +
 	"\f_cutoff_unix2\x9d\x01\n" +
 	"\x06Policy\x12C\n" +
 	"\x05Issue\x12 .amocrm.services.v1.IssueRequest\x1a\x18.amocrm.services.v1.Auth\x12N\n" +
-	"\bValidate\x12#.amocrm.services.v1.ValidateRequest\x1a\x1d.amocrm.services.v1.Principal2\x94\x05\n" +
+	"\bValidate\x12#.amocrm.services.v1.ValidateRequest\x1a\x1d.amocrm.services.v1.Principal2\xe1\a\n" +
 	"\aGateway\x12S\n" +
 	"\bProblems\x12\".amocrm.services.v1.ProblemRequest\x1a#.amocrm.services.v1.ProblemSnapshot\x12M\n" +
 	"\x06Events\x12$.amocrm.services.v1.EventPageRequest\x1a\x1d.amocrm.services.v1.EventPage\x12H\n" +
@@ -6504,13 +7251,17 @@ const file_services_proto_rawDesc = "" +
 	"\x05Tasks\x12 .amocrm.services.v1.TasksRequest\x1a\x1c.amocrm.services.v1.TaskPage\x12T\n" +
 	"\tPipelines\x12\".amocrm.services.v1.CatalogRequest\x1a#.amocrm.services.v1.PipelineCatalog\x12_\n" +
 	"\fCustomFields\x12'.amocrm.services.v1.CustomFieldsRequest\x1a&.amocrm.services.v1.CustomFieldCatalog\x12R\n" +
-	"\bEntities\x12#.amocrm.services.v1.EntitiesRequest\x1a!.amocrm.services.v1.EntityCatalog2\x80\x03\n" +
+	"\bEntities\x12#.amocrm.services.v1.EntitiesRequest\x1a!.amocrm.services.v1.EntityCatalog\x12N\n" +
+	"\bOwnTasks\x12#.amocrm.services.v1.OwnTasksRequest\x1a\x1d.amocrm.services.v1.TaskQueue\x12M\n" +
+	"\aOwnTask\x12\".amocrm.services.v1.OwnTaskRequest\x1a\x1e.amocrm.services.v1.TaskDetail\x12Z\n" +
+	"\x0fCompleteOwnTask\x12'.amocrm.services.v1.CompleteTaskRequest\x1a\x1e.amocrm.services.v1.TaskDetail\x12P\n" +
+	"\aOwnLead\x12\".amocrm.services.v1.OwnLeadRequest\x1a!.amocrm.services.v1.EntityContext2\x80\x03\n" +
 	"\tCRMEvents\x12G\n" +
 	"\bGetEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event\x12C\n" +
 	"\x05Apply\x12\x1b.amocrm.services.v1.Command\x1a\x1d.amocrm.services.v1.Operation\x12I\n" +
 	"\vQueryEvents\x12\x19.amocrm.services.v1.Query\x1a\x1f.amocrm.services.v1.QueryResult\x12B\n" +
 	"\x06Status\x12\x18.amocrm.services.v1.Auth\x1a\x1e.amocrm.services.v1.SyncStatus\x12V\n" +
-	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\x9c\x0f\n" +
+	"\x0fOperationStatus\x12$.amocrm.services.v1.OperationRequest\x1a\x1d.amocrm.services.v1.Operation2\xe9\x11\n" +
 	"\bActivity\x12e\n" +
 	"\x13ViewActivityRatings\x12).amocrm.services.v1.ActivityRatingRequest\x1a#.amocrm.services.v1.ActivityRatings\x12W\n" +
 	"\x10OwnActivityState\x12\x18.amocrm.services.v1.Auth\x1a).amocrm.services.v1.EmployeeActivityState\x12I\n" +
@@ -6537,7 +7288,11 @@ const file_services_proto_rawDesc = "" +
 	"\tViewPanel\x12\x18.amocrm.services.v1.Auth\x1a\x1f.amocrm.services.v1.ViewerPanel\x12M\n" +
 	"\fViewTimeline\x12\x19.amocrm.services.v1.Query\x1a\".amocrm.services.v1.ViewerTimeline\x12M\n" +
 	"\fViewEmployee\x12\x19.amocrm.services.v1.Query\x1a\".amocrm.services.v1.ViewerEmployee\x12H\n" +
-	"\tViewEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event2p\n" +
+	"\tViewEvent\x12 .amocrm.services.v1.EventRequest\x1a\x19.amocrm.services.v1.Event\x12N\n" +
+	"\bOwnTasks\x12#.amocrm.services.v1.OwnTasksRequest\x1a\x1d.amocrm.services.v1.TaskQueue\x12M\n" +
+	"\aOwnTask\x12\".amocrm.services.v1.OwnTaskRequest\x1a\x1e.amocrm.services.v1.TaskDetail\x12Z\n" +
+	"\x0fCompleteOwnTask\x12'.amocrm.services.v1.CompleteTaskRequest\x1a\x1e.amocrm.services.v1.TaskDetail\x12P\n" +
+	"\aOwnLead\x12\".amocrm.services.v1.OwnLeadRequest\x1a!.amocrm.services.v1.EntityContext2p\n" +
 	"\rCoreBootstrap\x12_\n" +
 	"\n" +
 	"GetAccount\x12+.amocrm.services.v1.BootstrapAccountRequest\x1a$.amocrm.services.v1.BootstrapAccountB4Z2github.com/sk1fy/amocrm-pro/internal/servicerpc/pbb\x06proto3"
@@ -6554,7 +7309,7 @@ func file_services_proto_rawDescGZIP() []byte {
 	return file_services_proto_rawDescData
 }
 
-var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
+var file_services_proto_msgTypes = make([]protoimpl.MessageInfo, 84)
 var file_services_proto_goTypes = []any{
 	(*Auth)(nil),                    // 0: amocrm.services.v1.Auth
 	(*Grant)(nil),                   // 1: amocrm.services.v1.Grant
@@ -6620,18 +7375,26 @@ var file_services_proto_goTypes = []any{
 	(*ProblemRequest)(nil),          // 61: amocrm.services.v1.ProblemRequest
 	(*ProblemCount)(nil),            // 62: amocrm.services.v1.ProblemCount
 	(*ProblemSnapshot)(nil),         // 63: amocrm.services.v1.ProblemSnapshot
-	(*BootstrapAccountRequest)(nil), // 64: amocrm.services.v1.BootstrapAccountRequest
-	(*BootstrapAccount)(nil),        // 65: amocrm.services.v1.BootstrapAccount
-	(*SessionContext)(nil),          // 66: amocrm.services.v1.SessionContext
-	(*WorkSession)(nil),             // 67: amocrm.services.v1.WorkSession
-	(*SessionCommand)(nil),          // 68: amocrm.services.v1.SessionCommand
-	(*SessionPage)(nil),             // 69: amocrm.services.v1.SessionPage
-	(*TaskPanelSettings)(nil),       // 70: amocrm.services.v1.TaskPanelSettings
-	(*TaskPanelCommand)(nil),        // 71: amocrm.services.v1.TaskPanelCommand
-	(*EmployeeActivityState)(nil),   // 72: amocrm.services.v1.EmployeeActivityState
-	(*ActivityRatingRequest)(nil),   // 73: amocrm.services.v1.ActivityRatingRequest
-	(*EmployeeActivityRating)(nil),  // 74: amocrm.services.v1.EmployeeActivityRating
-	(*ActivityRatings)(nil),         // 75: amocrm.services.v1.ActivityRatings
+	(*OwnTasksRequest)(nil),         // 64: amocrm.services.v1.OwnTasksRequest
+	(*QueueTask)(nil),               // 65: amocrm.services.v1.QueueTask
+	(*TaskQueue)(nil),               // 66: amocrm.services.v1.TaskQueue
+	(*OwnTaskRequest)(nil),          // 67: amocrm.services.v1.OwnTaskRequest
+	(*EntityContext)(nil),           // 68: amocrm.services.v1.EntityContext
+	(*TaskDetail)(nil),              // 69: amocrm.services.v1.TaskDetail
+	(*CompleteTaskRequest)(nil),     // 70: amocrm.services.v1.CompleteTaskRequest
+	(*OwnLeadRequest)(nil),          // 71: amocrm.services.v1.OwnLeadRequest
+	(*BootstrapAccountRequest)(nil), // 72: amocrm.services.v1.BootstrapAccountRequest
+	(*BootstrapAccount)(nil),        // 73: amocrm.services.v1.BootstrapAccount
+	(*SessionContext)(nil),          // 74: amocrm.services.v1.SessionContext
+	(*WorkSession)(nil),             // 75: amocrm.services.v1.WorkSession
+	(*SessionCommand)(nil),          // 76: amocrm.services.v1.SessionCommand
+	(*SessionPage)(nil),             // 77: amocrm.services.v1.SessionPage
+	(*TaskPanelSettings)(nil),       // 78: amocrm.services.v1.TaskPanelSettings
+	(*TaskPanelCommand)(nil),        // 79: amocrm.services.v1.TaskPanelCommand
+	(*EmployeeActivityState)(nil),   // 80: amocrm.services.v1.EmployeeActivityState
+	(*ActivityRatingRequest)(nil),   // 81: amocrm.services.v1.ActivityRatingRequest
+	(*EmployeeActivityRating)(nil),  // 82: amocrm.services.v1.EmployeeActivityRating
+	(*ActivityRatings)(nil),         // 83: amocrm.services.v1.ActivityRatings
 }
 var file_services_proto_depIdxs = []int32{
 	1,   // 0: amocrm.services.v1.IssueRequest.grants:type_name -> amocrm.services.v1.Grant
@@ -6695,101 +7458,123 @@ var file_services_proto_depIdxs = []int32{
 	40,  // 58: amocrm.services.v1.ViewerEmployee.data:type_name -> amocrm.services.v1.QueryResult
 	0,   // 59: amocrm.services.v1.ProblemRequest.auth:type_name -> amocrm.services.v1.Auth
 	62,  // 60: amocrm.services.v1.ProblemSnapshot.counts:type_name -> amocrm.services.v1.ProblemCount
-	66,  // 61: amocrm.services.v1.WorkSession.context:type_name -> amocrm.services.v1.SessionContext
-	0,   // 62: amocrm.services.v1.SessionCommand.auth:type_name -> amocrm.services.v1.Auth
-	66,  // 63: amocrm.services.v1.SessionCommand.context:type_name -> amocrm.services.v1.SessionContext
-	67,  // 64: amocrm.services.v1.SessionPage.items:type_name -> amocrm.services.v1.WorkSession
-	0,   // 65: amocrm.services.v1.TaskPanelCommand.auth:type_name -> amocrm.services.v1.Auth
-	70,  // 66: amocrm.services.v1.TaskPanelCommand.settings:type_name -> amocrm.services.v1.TaskPanelSettings
-	67,  // 67: amocrm.services.v1.EmployeeActivityState.current:type_name -> amocrm.services.v1.WorkSession
-	70,  // 68: amocrm.services.v1.EmployeeActivityState.settings:type_name -> amocrm.services.v1.TaskPanelSettings
-	0,   // 69: amocrm.services.v1.ActivityRatingRequest.auth:type_name -> amocrm.services.v1.Auth
-	74,  // 70: amocrm.services.v1.ActivityRatings.employees:type_name -> amocrm.services.v1.EmployeeActivityRating
-	2,   // 71: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
-	3,   // 72: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
-	61,  // 73: amocrm.services.v1.Gateway.Problems:input_type -> amocrm.services.v1.ProblemRequest
-	32,  // 74: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
-	35,  // 75: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
-	14,  // 76: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
-	17,  // 77: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
-	20,  // 78: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
-	24,  // 79: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
-	28,  // 80: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
-	31,  // 81: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
-	41,  // 82: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
-	37,  // 83: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
-	0,   // 84: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
-	43,  // 85: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	73,  // 86: amocrm.services.v1.Activity.ViewActivityRatings:input_type -> amocrm.services.v1.ActivityRatingRequest
-	0,   // 87: amocrm.services.v1.Activity.OwnActivityState:input_type -> amocrm.services.v1.Auth
-	37,  // 88: amocrm.services.v1.Activity.OwnSessions:input_type -> amocrm.services.v1.Query
-	68,  // 89: amocrm.services.v1.Activity.ApplySession:input_type -> amocrm.services.v1.SessionCommand
-	37,  // 90: amocrm.services.v1.Activity.ViewSessions:input_type -> amocrm.services.v1.Query
-	0,   // 91: amocrm.services.v1.Activity.TaskPanel:input_type -> amocrm.services.v1.Auth
-	71,  // 92: amocrm.services.v1.Activity.SaveTaskPanel:input_type -> amocrm.services.v1.TaskPanelCommand
-	0,   // 93: amocrm.services.v1.Activity.ViewProblems:input_type -> amocrm.services.v1.Auth
-	37,  // 94: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
-	31,  // 95: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
-	0,   // 96: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
-	45,  // 97: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
-	43,  // 98: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
-	48,  // 99: amocrm.services.v1.Activity.ResolveShare:input_type -> amocrm.services.v1.ShareLookupRequest
-	55,  // 100: amocrm.services.v1.Activity.CreatePanel:input_type -> amocrm.services.v1.PanelCommand
-	0,   // 101: amocrm.services.v1.Activity.ListPanels:input_type -> amocrm.services.v1.Auth
-	50,  // 102: amocrm.services.v1.Activity.GetManagedPanel:input_type -> amocrm.services.v1.PanelRef
-	55,  // 103: amocrm.services.v1.Activity.PatchPanel:input_type -> amocrm.services.v1.PanelCommand
-	55,  // 104: amocrm.services.v1.Activity.RotateShareLink:input_type -> amocrm.services.v1.PanelCommand
-	0,   // 105: amocrm.services.v1.Activity.ListEmployees:input_type -> amocrm.services.v1.Auth
-	0,   // 106: amocrm.services.v1.Activity.ViewPanel:input_type -> amocrm.services.v1.Auth
-	37,  // 107: amocrm.services.v1.Activity.ViewTimeline:input_type -> amocrm.services.v1.Query
-	37,  // 108: amocrm.services.v1.Activity.ViewEmployee:input_type -> amocrm.services.v1.Query
-	31,  // 109: amocrm.services.v1.Activity.ViewEvent:input_type -> amocrm.services.v1.EventRequest
-	64,  // 110: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
-	0,   // 111: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
-	4,   // 112: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
-	63,  // 113: amocrm.services.v1.Gateway.Problems:output_type -> amocrm.services.v1.ProblemSnapshot
-	33,  // 114: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
-	36,  // 115: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
-	16,  // 116: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
-	19,  // 117: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
-	23,  // 118: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
-	27,  // 119: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
-	30,  // 120: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
-	5,   // 121: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
-	42,  // 122: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
-	40,  // 123: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
-	39,  // 124: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
-	42,  // 125: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
-	75,  // 126: amocrm.services.v1.Activity.ViewActivityRatings:output_type -> amocrm.services.v1.ActivityRatings
-	72,  // 127: amocrm.services.v1.Activity.OwnActivityState:output_type -> amocrm.services.v1.EmployeeActivityState
-	69,  // 128: amocrm.services.v1.Activity.OwnSessions:output_type -> amocrm.services.v1.SessionPage
-	67,  // 129: amocrm.services.v1.Activity.ApplySession:output_type -> amocrm.services.v1.WorkSession
-	69,  // 130: amocrm.services.v1.Activity.ViewSessions:output_type -> amocrm.services.v1.SessionPage
-	70,  // 131: amocrm.services.v1.Activity.TaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
-	70,  // 132: amocrm.services.v1.Activity.SaveTaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
-	63,  // 133: amocrm.services.v1.Activity.ViewProblems:output_type -> amocrm.services.v1.ProblemSnapshot
-	46,  // 134: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
-	5,   // 135: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
-	44,  // 136: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
-	42,  // 137: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
-	42,  // 138: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
-	49,  // 139: amocrm.services.v1.Activity.ResolveShare:output_type -> amocrm.services.v1.ShareLookup
-	56,  // 140: amocrm.services.v1.Activity.CreatePanel:output_type -> amocrm.services.v1.ManagedPanel
-	57,  // 141: amocrm.services.v1.Activity.ListPanels:output_type -> amocrm.services.v1.ManagedPanelPage
-	56,  // 142: amocrm.services.v1.Activity.GetManagedPanel:output_type -> amocrm.services.v1.ManagedPanel
-	56,  // 143: amocrm.services.v1.Activity.PatchPanel:output_type -> amocrm.services.v1.ManagedPanel
-	56,  // 144: amocrm.services.v1.Activity.RotateShareLink:output_type -> amocrm.services.v1.ManagedPanel
-	36,  // 145: amocrm.services.v1.Activity.ListEmployees:output_type -> amocrm.services.v1.Directory
-	58,  // 146: amocrm.services.v1.Activity.ViewPanel:output_type -> amocrm.services.v1.ViewerPanel
-	59,  // 147: amocrm.services.v1.Activity.ViewTimeline:output_type -> amocrm.services.v1.ViewerTimeline
-	60,  // 148: amocrm.services.v1.Activity.ViewEmployee:output_type -> amocrm.services.v1.ViewerEmployee
-	5,   // 149: amocrm.services.v1.Activity.ViewEvent:output_type -> amocrm.services.v1.Event
-	65,  // 150: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
-	111, // [111:151] is the sub-list for method output_type
-	71,  // [71:111] is the sub-list for method input_type
-	71,  // [71:71] is the sub-list for extension type_name
-	71,  // [71:71] is the sub-list for extension extendee
-	0,   // [0:71] is the sub-list for field type_name
+	0,   // 61: amocrm.services.v1.OwnTasksRequest.auth:type_name -> amocrm.services.v1.Auth
+	65,  // 62: amocrm.services.v1.TaskQueue.tasks:type_name -> amocrm.services.v1.QueueTask
+	0,   // 63: amocrm.services.v1.OwnTaskRequest.auth:type_name -> amocrm.services.v1.Auth
+	68,  // 64: amocrm.services.v1.TaskDetail.entity:type_name -> amocrm.services.v1.EntityContext
+	0,   // 65: amocrm.services.v1.CompleteTaskRequest.auth:type_name -> amocrm.services.v1.Auth
+	0,   // 66: amocrm.services.v1.OwnLeadRequest.auth:type_name -> amocrm.services.v1.Auth
+	74,  // 67: amocrm.services.v1.WorkSession.context:type_name -> amocrm.services.v1.SessionContext
+	0,   // 68: amocrm.services.v1.SessionCommand.auth:type_name -> amocrm.services.v1.Auth
+	74,  // 69: amocrm.services.v1.SessionCommand.context:type_name -> amocrm.services.v1.SessionContext
+	75,  // 70: amocrm.services.v1.SessionPage.items:type_name -> amocrm.services.v1.WorkSession
+	0,   // 71: amocrm.services.v1.TaskPanelCommand.auth:type_name -> amocrm.services.v1.Auth
+	78,  // 72: amocrm.services.v1.TaskPanelCommand.settings:type_name -> amocrm.services.v1.TaskPanelSettings
+	75,  // 73: amocrm.services.v1.EmployeeActivityState.current:type_name -> amocrm.services.v1.WorkSession
+	78,  // 74: amocrm.services.v1.EmployeeActivityState.settings:type_name -> amocrm.services.v1.TaskPanelSettings
+	0,   // 75: amocrm.services.v1.ActivityRatingRequest.auth:type_name -> amocrm.services.v1.Auth
+	82,  // 76: amocrm.services.v1.ActivityRatings.employees:type_name -> amocrm.services.v1.EmployeeActivityRating
+	2,   // 77: amocrm.services.v1.Policy.Issue:input_type -> amocrm.services.v1.IssueRequest
+	3,   // 78: amocrm.services.v1.Policy.Validate:input_type -> amocrm.services.v1.ValidateRequest
+	61,  // 79: amocrm.services.v1.Gateway.Problems:input_type -> amocrm.services.v1.ProblemRequest
+	32,  // 80: amocrm.services.v1.Gateway.Events:input_type -> amocrm.services.v1.EventPageRequest
+	35,  // 81: amocrm.services.v1.Gateway.Users:input_type -> amocrm.services.v1.UsersRequest
+	14,  // 82: amocrm.services.v1.Gateway.Notes:input_type -> amocrm.services.v1.NotesRequest
+	17,  // 83: amocrm.services.v1.Gateway.Tasks:input_type -> amocrm.services.v1.TasksRequest
+	20,  // 84: amocrm.services.v1.Gateway.Pipelines:input_type -> amocrm.services.v1.CatalogRequest
+	24,  // 85: amocrm.services.v1.Gateway.CustomFields:input_type -> amocrm.services.v1.CustomFieldsRequest
+	28,  // 86: amocrm.services.v1.Gateway.Entities:input_type -> amocrm.services.v1.EntitiesRequest
+	64,  // 87: amocrm.services.v1.Gateway.OwnTasks:input_type -> amocrm.services.v1.OwnTasksRequest
+	67,  // 88: amocrm.services.v1.Gateway.OwnTask:input_type -> amocrm.services.v1.OwnTaskRequest
+	70,  // 89: amocrm.services.v1.Gateway.CompleteOwnTask:input_type -> amocrm.services.v1.CompleteTaskRequest
+	71,  // 90: amocrm.services.v1.Gateway.OwnLead:input_type -> amocrm.services.v1.OwnLeadRequest
+	31,  // 91: amocrm.services.v1.CRMEvents.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	41,  // 92: amocrm.services.v1.CRMEvents.Apply:input_type -> amocrm.services.v1.Command
+	37,  // 93: amocrm.services.v1.CRMEvents.QueryEvents:input_type -> amocrm.services.v1.Query
+	0,   // 94: amocrm.services.v1.CRMEvents.Status:input_type -> amocrm.services.v1.Auth
+	43,  // 95: amocrm.services.v1.CRMEvents.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	81,  // 96: amocrm.services.v1.Activity.ViewActivityRatings:input_type -> amocrm.services.v1.ActivityRatingRequest
+	0,   // 97: amocrm.services.v1.Activity.OwnActivityState:input_type -> amocrm.services.v1.Auth
+	37,  // 98: amocrm.services.v1.Activity.OwnSessions:input_type -> amocrm.services.v1.Query
+	76,  // 99: amocrm.services.v1.Activity.ApplySession:input_type -> amocrm.services.v1.SessionCommand
+	37,  // 100: amocrm.services.v1.Activity.ViewSessions:input_type -> amocrm.services.v1.Query
+	0,   // 101: amocrm.services.v1.Activity.TaskPanel:input_type -> amocrm.services.v1.Auth
+	79,  // 102: amocrm.services.v1.Activity.SaveTaskPanel:input_type -> amocrm.services.v1.TaskPanelCommand
+	0,   // 103: amocrm.services.v1.Activity.ViewProblems:input_type -> amocrm.services.v1.Auth
+	37,  // 104: amocrm.services.v1.Activity.GetPanel:input_type -> amocrm.services.v1.Query
+	31,  // 105: amocrm.services.v1.Activity.GetEvent:input_type -> amocrm.services.v1.EventRequest
+	0,   // 106: amocrm.services.v1.Activity.GetSettings:input_type -> amocrm.services.v1.Auth
+	45,  // 107: amocrm.services.v1.Activity.Configure:input_type -> amocrm.services.v1.SettingsCommand
+	43,  // 108: amocrm.services.v1.Activity.OperationStatus:input_type -> amocrm.services.v1.OperationRequest
+	48,  // 109: amocrm.services.v1.Activity.ResolveShare:input_type -> amocrm.services.v1.ShareLookupRequest
+	55,  // 110: amocrm.services.v1.Activity.CreatePanel:input_type -> amocrm.services.v1.PanelCommand
+	0,   // 111: amocrm.services.v1.Activity.ListPanels:input_type -> amocrm.services.v1.Auth
+	50,  // 112: amocrm.services.v1.Activity.GetManagedPanel:input_type -> amocrm.services.v1.PanelRef
+	55,  // 113: amocrm.services.v1.Activity.PatchPanel:input_type -> amocrm.services.v1.PanelCommand
+	55,  // 114: amocrm.services.v1.Activity.RotateShareLink:input_type -> amocrm.services.v1.PanelCommand
+	0,   // 115: amocrm.services.v1.Activity.ListEmployees:input_type -> amocrm.services.v1.Auth
+	0,   // 116: amocrm.services.v1.Activity.ViewPanel:input_type -> amocrm.services.v1.Auth
+	37,  // 117: amocrm.services.v1.Activity.ViewTimeline:input_type -> amocrm.services.v1.Query
+	37,  // 118: amocrm.services.v1.Activity.ViewEmployee:input_type -> amocrm.services.v1.Query
+	31,  // 119: amocrm.services.v1.Activity.ViewEvent:input_type -> amocrm.services.v1.EventRequest
+	64,  // 120: amocrm.services.v1.Activity.OwnTasks:input_type -> amocrm.services.v1.OwnTasksRequest
+	67,  // 121: amocrm.services.v1.Activity.OwnTask:input_type -> amocrm.services.v1.OwnTaskRequest
+	70,  // 122: amocrm.services.v1.Activity.CompleteOwnTask:input_type -> amocrm.services.v1.CompleteTaskRequest
+	71,  // 123: amocrm.services.v1.Activity.OwnLead:input_type -> amocrm.services.v1.OwnLeadRequest
+	72,  // 124: amocrm.services.v1.CoreBootstrap.GetAccount:input_type -> amocrm.services.v1.BootstrapAccountRequest
+	0,   // 125: amocrm.services.v1.Policy.Issue:output_type -> amocrm.services.v1.Auth
+	4,   // 126: amocrm.services.v1.Policy.Validate:output_type -> amocrm.services.v1.Principal
+	63,  // 127: amocrm.services.v1.Gateway.Problems:output_type -> amocrm.services.v1.ProblemSnapshot
+	33,  // 128: amocrm.services.v1.Gateway.Events:output_type -> amocrm.services.v1.EventPage
+	36,  // 129: amocrm.services.v1.Gateway.Users:output_type -> amocrm.services.v1.Directory
+	16,  // 130: amocrm.services.v1.Gateway.Notes:output_type -> amocrm.services.v1.NotePage
+	19,  // 131: amocrm.services.v1.Gateway.Tasks:output_type -> amocrm.services.v1.TaskPage
+	23,  // 132: amocrm.services.v1.Gateway.Pipelines:output_type -> amocrm.services.v1.PipelineCatalog
+	27,  // 133: amocrm.services.v1.Gateway.CustomFields:output_type -> amocrm.services.v1.CustomFieldCatalog
+	30,  // 134: amocrm.services.v1.Gateway.Entities:output_type -> amocrm.services.v1.EntityCatalog
+	66,  // 135: amocrm.services.v1.Gateway.OwnTasks:output_type -> amocrm.services.v1.TaskQueue
+	69,  // 136: amocrm.services.v1.Gateway.OwnTask:output_type -> amocrm.services.v1.TaskDetail
+	69,  // 137: amocrm.services.v1.Gateway.CompleteOwnTask:output_type -> amocrm.services.v1.TaskDetail
+	68,  // 138: amocrm.services.v1.Gateway.OwnLead:output_type -> amocrm.services.v1.EntityContext
+	5,   // 139: amocrm.services.v1.CRMEvents.GetEvent:output_type -> amocrm.services.v1.Event
+	42,  // 140: amocrm.services.v1.CRMEvents.Apply:output_type -> amocrm.services.v1.Operation
+	40,  // 141: amocrm.services.v1.CRMEvents.QueryEvents:output_type -> amocrm.services.v1.QueryResult
+	39,  // 142: amocrm.services.v1.CRMEvents.Status:output_type -> amocrm.services.v1.SyncStatus
+	42,  // 143: amocrm.services.v1.CRMEvents.OperationStatus:output_type -> amocrm.services.v1.Operation
+	83,  // 144: amocrm.services.v1.Activity.ViewActivityRatings:output_type -> amocrm.services.v1.ActivityRatings
+	80,  // 145: amocrm.services.v1.Activity.OwnActivityState:output_type -> amocrm.services.v1.EmployeeActivityState
+	77,  // 146: amocrm.services.v1.Activity.OwnSessions:output_type -> amocrm.services.v1.SessionPage
+	75,  // 147: amocrm.services.v1.Activity.ApplySession:output_type -> amocrm.services.v1.WorkSession
+	77,  // 148: amocrm.services.v1.Activity.ViewSessions:output_type -> amocrm.services.v1.SessionPage
+	78,  // 149: amocrm.services.v1.Activity.TaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
+	78,  // 150: amocrm.services.v1.Activity.SaveTaskPanel:output_type -> amocrm.services.v1.TaskPanelSettings
+	63,  // 151: amocrm.services.v1.Activity.ViewProblems:output_type -> amocrm.services.v1.ProblemSnapshot
+	46,  // 152: amocrm.services.v1.Activity.GetPanel:output_type -> amocrm.services.v1.Panel
+	5,   // 153: amocrm.services.v1.Activity.GetEvent:output_type -> amocrm.services.v1.Event
+	44,  // 154: amocrm.services.v1.Activity.GetSettings:output_type -> amocrm.services.v1.Settings
+	42,  // 155: amocrm.services.v1.Activity.Configure:output_type -> amocrm.services.v1.Operation
+	42,  // 156: amocrm.services.v1.Activity.OperationStatus:output_type -> amocrm.services.v1.Operation
+	49,  // 157: amocrm.services.v1.Activity.ResolveShare:output_type -> amocrm.services.v1.ShareLookup
+	56,  // 158: amocrm.services.v1.Activity.CreatePanel:output_type -> amocrm.services.v1.ManagedPanel
+	57,  // 159: amocrm.services.v1.Activity.ListPanels:output_type -> amocrm.services.v1.ManagedPanelPage
+	56,  // 160: amocrm.services.v1.Activity.GetManagedPanel:output_type -> amocrm.services.v1.ManagedPanel
+	56,  // 161: amocrm.services.v1.Activity.PatchPanel:output_type -> amocrm.services.v1.ManagedPanel
+	56,  // 162: amocrm.services.v1.Activity.RotateShareLink:output_type -> amocrm.services.v1.ManagedPanel
+	36,  // 163: amocrm.services.v1.Activity.ListEmployees:output_type -> amocrm.services.v1.Directory
+	58,  // 164: amocrm.services.v1.Activity.ViewPanel:output_type -> amocrm.services.v1.ViewerPanel
+	59,  // 165: amocrm.services.v1.Activity.ViewTimeline:output_type -> amocrm.services.v1.ViewerTimeline
+	60,  // 166: amocrm.services.v1.Activity.ViewEmployee:output_type -> amocrm.services.v1.ViewerEmployee
+	5,   // 167: amocrm.services.v1.Activity.ViewEvent:output_type -> amocrm.services.v1.Event
+	66,  // 168: amocrm.services.v1.Activity.OwnTasks:output_type -> amocrm.services.v1.TaskQueue
+	69,  // 169: amocrm.services.v1.Activity.OwnTask:output_type -> amocrm.services.v1.TaskDetail
+	69,  // 170: amocrm.services.v1.Activity.CompleteOwnTask:output_type -> amocrm.services.v1.TaskDetail
+	68,  // 171: amocrm.services.v1.Activity.OwnLead:output_type -> amocrm.services.v1.EntityContext
+	73,  // 172: amocrm.services.v1.CoreBootstrap.GetAccount:output_type -> amocrm.services.v1.BootstrapAccount
+	125, // [125:173] is the sub-list for method output_type
+	77,  // [77:125] is the sub-list for method input_type
+	77,  // [77:77] is the sub-list for extension type_name
+	77,  // [77:77] is the sub-list for extension extendee
+	0,   // [0:77] is the sub-list for field type_name
 }
 
 func init() { file_services_proto_init() }
@@ -6799,15 +7584,15 @@ func file_services_proto_init() {
 	}
 	file_services_proto_msgTypes[6].OneofWrappers = []any{}
 	file_services_proto_msgTypes[55].OneofWrappers = []any{}
-	file_services_proto_msgTypes[73].OneofWrappers = []any{}
-	file_services_proto_msgTypes[75].OneofWrappers = []any{}
+	file_services_proto_msgTypes[81].OneofWrappers = []any{}
+	file_services_proto_msgTypes[83].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_proto_rawDesc), len(file_services_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   76,
+			NumMessages:   84,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

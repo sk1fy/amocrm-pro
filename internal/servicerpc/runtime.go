@@ -148,6 +148,9 @@ func allowedCaller(method, caller string) bool {
 		return caller == serviceapi.EventsService
 	case method == pb.Gateway_Users_FullMethodName, method == pb.Gateway_Problems_FullMethodName:
 		return caller == serviceapi.ActivityService
+	case method == pb.Gateway_OwnTasks_FullMethodName, method == pb.Gateway_OwnTask_FullMethodName, method == pb.Gateway_CompleteOwnTask_FullMethodName, method == pb.Gateway_OwnLead_FullMethodName:
+		// Only Activity relays a delegated employee; CRM Events collects as system.
+		return caller == serviceapi.ActivityService
 	}
 	return false
 }
