@@ -199,3 +199,20 @@ func TestConfigurationRejectsUnsafeRatesAndEarlyEviction(t *testing.T) {
 		}
 	}
 }
+
+func TestWidgetInstallCallbackUsesClientIDBucket(t *testing.T) {
+	install := httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=x&client_id=client-a&from_widget=1", nil)
+	if got := requestIdentity(install); got != "i\x00client-a" {
+		t.Fatalf("install identity = %q", got)
+	}
+	// A stateless callback without from_widget keeps the state bucket and still
+	// fails state validation in the handler.
+	plain := httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=x&client_id=client-a", nil)
+	if got := requestIdentity(plain); got != "s\x00" {
+		t.Fatalf("plain identity = %q", got)
+	}
+	stated := httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?state=s1&code=x&client_id=client-a&from_widget=1", nil)
+	if got := requestIdentity(stated); got != "s\x00s1" {
+		t.Fatalf("stated identity = %q", got)
+	}
+}
