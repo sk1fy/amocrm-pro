@@ -53,6 +53,9 @@ func (s *Service) Run(ctx context.Context) error {
 	defer tick.Stop()
 	retention := time.NewTicker(time.Minute)
 	defer retention.Stop()
+	// The reauth probe has its own clock: slow retention must not delay it.
+	reauth := time.NewTicker(reauthProbeInterval)
+	defer reauth.Stop()
 	defer wg.Wait()
 	for {
 		select {
@@ -63,6 +66,7 @@ func (s *Service) Run(ctx context.Context) error {
 		case <-retention.C:
 			_, err := s.Retain(ctx)
 			s.logBackgroundError("retention", err)
+		case <-reauth.C:
 			s.logBackgroundError("reauth", s.ResumeReauthorized(ctx))
 		}
 	}

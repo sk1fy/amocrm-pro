@@ -45,7 +45,7 @@ OAuth проходит по этой же интеграции. Capability и pi
 `client_id`, один раз на код (повтор — 400) и с доменом amoCRM в
 `referer`. Остальные callback по-прежнему требуют `state`.
 Установка и её `installation_id` сохраняются, статус снова
-`active`; `crm-events` возобновляет сбор в течение пары минут.
+`active`; `crm-events` возобновляет сбор примерно в течение минуты.
 Ручной `/oauth/amocrm/start` и `activity-sync` не нужны.
 
 Проверка: в журнале API `GET /oauth/amocrm/callback` → 201,

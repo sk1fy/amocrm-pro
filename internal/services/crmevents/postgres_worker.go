@@ -178,7 +178,9 @@ func (s *Postgres) Fail(ctx context.Context, c Slice, cause error) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `UPDATE event_sources SET state=$2,error_code=$3,lease_until=NULL,updated_at=now() WHERE installation_id=$1`, c.InstallationID, sourceState, code)
+	// A reauth_required source is no longer polled; next_poll_at becomes the
+	// reauth probe schedule, starting now rather than at the next regular poll.
+	_, err = tx.Exec(ctx, `UPDATE event_sources SET state=$2,error_code=$3,lease_until=NULL,next_poll_at=CASE WHEN $2='reauth_required' THEN now() ELSE next_poll_at END,updated_at=now() WHERE installation_id=$1`, c.InstallationID, sourceState, code)
 	if err != nil {
 		return err
 	}

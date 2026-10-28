@@ -54,7 +54,9 @@ not purged in v0: deleting them needs a coordinated dedup/retry retention policy
   slice while an already authorized call may finish within its deadline.
 * Temporary errors have at most five attempts per page with capped backoff.
   `reauth_required` and denied policy pause work. A `reauth_required` source is
-  probed once a minute with a system delegation; when Core reports the
+  probed once a minute on its own schedule (the first probe is due as soon as
+  the source is parked, not at its next regular poll) with a system
+  delegation; when Core reports the
   installation active again (OAuth callback or amoMarket reinstall), the source
   and its reauth-paused jobs resume on the preserved cursor without a command.
   Operator disable/pause is never resumed by the probe. Exhausted retries and

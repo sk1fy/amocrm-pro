@@ -51,6 +51,27 @@ func TestReauthorizedSourceResumesWithoutManualSync(t *testing.T) {
 	}
 }
 
+func TestReauthProbeRunsBeforeTheNextRegularPoll(t *testing.T) {
+	s, p, g := setup(t)
+	accepted(t, s, p)
+	ctx := context.Background()
+	// Regular polling has already scheduled the source minutes ahead.
+	if _, err := testStore(s).pool.Exec(ctx, `UPDATE event_sources SET next_poll_at=now()+interval '5 minutes'`); err != nil {
+		t.Fatal(err)
+	}
+	g.events = func(serviceapi.EventPageRequest) (serviceapi.EventPage, error) {
+		return serviceapi.EventPage{}, serviceapi.Fail(serviceapi.ReauthRequired, "revoked")
+	}
+	runPages(t, s, 1)
+	// The installation is authorized again: the very first probe resumes it.
+	if err := s.ResumeReauthorized(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if state, _ := s.Status(ctx, serviceapi.Auth{}); state.ReauthRequired {
+		t.Fatalf("first probe waited for the regular poll: %+v", state)
+	}
+}
+
 func TestReauthProbeLeavesOperatorStatesAlone(t *testing.T) {
 	s, p, _ := setup(t)
 	accepted(t, s, p)
