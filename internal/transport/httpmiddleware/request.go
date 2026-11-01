@@ -16,12 +16,16 @@ type requestIDKey struct{}
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.New()
-		if incoming, err := uuid.Parse(r.Header.Get("X-Request-ID")); err == nil {
+		if incoming, err := uuid.Parse(r.Header.Get("X-Request-ID")); err == nil && incoming != uuid.Nil {
 			id = incoming
 		}
 		w.Header().Set("X-Request-ID", id.String())
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey{}, id)))
+		next.ServeHTTP(w, r.WithContext(ContextWithRequestID(r.Context(), id)))
 	})
+}
+
+func ContextWithRequestID(ctx context.Context, id uuid.UUID) context.Context {
+	return context.WithValue(ctx, requestIDKey{}, id)
 }
 
 func RequestIDFromContext(ctx context.Context) uuid.UUID {

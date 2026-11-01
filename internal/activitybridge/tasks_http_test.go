@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -52,10 +53,12 @@ func (a *taskActivity) OwnLead(_ context.Context, r serviceapi.OwnLeadRequest) (
 func serveTask(t *testing.T, b *Bridge, method, target, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
 	pass := func(next http.Handler) http.Handler { return next }
 	b.RegisterHTTP(router, pass, pass)
 	r := httptest.NewRequest(method, target, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-Request-ID", "11111111-1111-1111-1111-111111111111")
 	p := widgetauth.Principal{IntegrationID: uuid.New(), InstallationID: uuid.New(), UserID: 7}
 	r = r.WithContext(widgetauth.ContextWithPrincipal(r.Context(), p))
 	w := httptest.NewRecorder()
@@ -77,7 +80,13 @@ func TestTaskRoutesDelegateVerifiedEmployeeOnly(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &queue); err != nil || queue.Tasks == nil {
 		t.Fatalf("empty queue must be an array: %s", w.Body)
 	}
+	if !strings.Contains(w.Header().Get("Server-Timing"), "core_local_handler_ok") {
+		t.Fatal("verified read lacks handler timing")
+	}
 	issued := policy.requests[0]
+	if issued.RequestID != w.Header().Get("X-Request-ID") {
+		t.Fatal("read correlation changed at delegation")
+	}
 	if issued.Kind != serviceapi.PrincipalKindEmployee || issued.ActorID != 7 || len(issued.Grants) != 2 {
 		t.Fatalf("queue delegation %+v", issued)
 	}
@@ -85,6 +94,9 @@ func TestTaskRoutesDelegateVerifiedEmployeeOnly(t *testing.T) {
 		t.Fatalf("complete %d %s", w.Code, w.Body)
 	}
 	last := policy.requests[len(policy.requests)-1]
+	if last.RequestID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatal("uninstrumented mutation correlation changed")
+	}
 	if len(last.Grants) != 3 || last.Grants[2].Action != serviceapi.ActionCompleteTask {
 		t.Fatalf("complete delegation %+v", last.Grants)
 	}
@@ -128,5 +140,18 @@ func TestTaskRoutesForwardUpstreamRetryAfter(t *testing.T) {
 	activity.err = serviceapi.Fail(serviceapi.ResourceExhausted, "local")
 	if w := serveTask(t, b, "GET", "/api/v1/widget/activity/tasks", ""); w.Header().Get("Retry-After") != "1" {
 		t.Fatalf("default Retry-After=%q", w.Header().Get("Retry-After"))
+	}
+}
+
+func TestTaskTimingsRequireVerifiedPrincipal(t *testing.T) {
+	b := New(nil, &issuedPolicy{}, &taskActivity{}, nil)
+	w := httptest.NewRecorder()
+	b.OwnTasksHTTP(w, httptest.NewRequest("GET", "/api/v1/widget/activity/tasks", nil))
+	if w.Code != http.StatusUnauthorized || w.Header().Get("Server-Timing") != "" {
+		t.Fatalf("unauthorized timing exposure: %d %s", w.Code, w.Header())
+	}
+	w = serveTask(t, b, "POST", "/api/v1/widget/activity/tasks/9/complete", `{"result":"done"}`)
+	if w.Header().Get("Server-Timing") != "" {
+		t.Fatal("mutation exposed read-only diagnostics")
 	}
 }

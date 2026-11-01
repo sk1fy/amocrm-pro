@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 )
 
 const maxAPIResponseBody = 4 << 20
@@ -104,7 +105,9 @@ func (c *Client) DoJSON(
 		return errors.New("amoCRM API path must stay under /api/v4")
 	}
 
+	tokenFinish := requesttiming.Measure(ctx, requesttiming.TokenLookup)
 	access, err := c.tokens.Token(ctx, installationID)
+	tokenFinish(err)
 	if err != nil {
 		return err
 	}
@@ -117,7 +120,9 @@ func (c *Client) DoJSON(
 			return err
 		}
 		if status == http.StatusUnauthorized && attempt == 0 {
+			refreshFinish := requesttiming.Measure(ctx, requesttiming.TokenRefresh)
 			access, err = c.tokens.RefreshIfCurrent(ctx, access)
+			refreshFinish(err)
 			if err != nil {
 				return err
 			}
@@ -155,7 +160,7 @@ func (c *Client) request(
 	method string,
 	path string,
 	requestBody any,
-) (int, http.Header, []byte, error) {
+) (statusCode int, headers http.Header, data []byte, resultErr error) {
 	baseURL, err := c.resolveAccount(access.AccountDomain)
 	if err != nil {
 		return 0, nil, nil, err
@@ -184,6 +189,14 @@ func (c *Client) request(
 		request.Header.Set("Content-Type", "application/json")
 	}
 
+	finish := requesttiming.Measure(ctx, requesttiming.AmoHTTP)
+	defer func() {
+		if resultErr == nil && (statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices) {
+			finish(classifyResponse(statusCode, headers, time.Now()))
+		} else {
+			finish(resultErr)
+		}
+	}()
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.observeResponse(0, err)
@@ -194,7 +207,12 @@ func (c *Client) request(
 		return 0, nil, nil, transportError{operation: "request amoCRM API", cause: err}
 	}
 	c.observeResponse(response.StatusCode, nil)
-	defer response.Body.Close()
+	defer func() {
+		closeErr := response.Body.Close()
+		if resultErr == nil && closeErr != nil {
+			finish(closeErr)
+		}
+	}()
 	contents, err := io.ReadAll(io.LimitReader(response.Body, maxAPIResponseBody+1))
 	if err != nil {
 		return 0, nil, nil, transportError{operation: "read amoCRM API response", cause: err}

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
@@ -99,17 +100,37 @@ func (r queueRow) snapshot(stale bool) (queueSnapshot, error) {
 // Load returns a fresh shared snapshot, refreshing it under a lease when
 // needed. While another holder refreshes or amoCRM backs off, an existing
 // snapshot is served as stale instead of starting another upstream read.
-func (s *TaskQueueStore) Load(ctx context.Context, scope serviceapi.Scope, userID int64, fetch queueFetch) (queueSnapshot, error) {
+func (s *TaskQueueStore) Load(ctx context.Context, scope serviceapi.Scope, userID int64, fetch queueFetch) (result queueSnapshot, resultErr error) {
+	finish := requesttiming.Measure(ctx, requesttiming.QueueLoad)
+	final := requesttiming.Failed
+	defer func() { finish(resultErr); requesttiming.Observe(ctx, requesttiming.QueueFinal, final) }()
+	initial := true
 	deadline := time.Now().Add(s.wait)
 	for {
 		row, found, err := s.read(ctx, scope, userID)
 		if err != nil {
 			return queueSnapshot{}, err
 		}
+		if initial {
+			state := requesttiming.MissingRow
+			switch {
+			case !found:
+			case row.payload == nil:
+				state = requesttiming.MissingPayload
+			case row.now.Before(row.freshUntil):
+				state = requesttiming.Fresh
+			default:
+				state = requesttiming.Expired
+			}
+			requesttiming.Observe(ctx, requesttiming.QueueInitial, state)
+			initial = false
+		}
 		if found && row.payload != nil && row.now.Before(row.freshUntil) {
+			final = requesttiming.Hit
 			return row.snapshot(false)
 		}
 		if found && row.now.Before(row.retryAt) {
+			final = requesttiming.Backoff
 			if row.payload != nil {
 				return row.snapshot(true)
 			}
@@ -120,20 +141,32 @@ func (s *TaskQueueStore) Load(ctx context.Context, scope serviceapi.Scope, userI
 			return queueSnapshot{}, err
 		}
 		if acquired {
-			return s.refresh(ctx, scope, userID, token, version, row, found, fetch)
+			result, resultErr = s.refresh(ctx, scope, userID, token, version, row, found, fetch)
+			if resultErr == nil {
+				final = requesttiming.Refreshed
+				if result.Stale {
+					final = requesttiming.Stale
+				}
+			}
+			return result, resultErr
 		}
 		if found && row.payload != nil {
+			final = requesttiming.Stale
 			return row.snapshot(true)
 		}
 		if !time.Now().Before(deadline) {
+			final = requesttiming.WaitTimeout
 			return queueSnapshot{}, &serviceapi.Error{Code: serviceapi.Unavailable, Message: "task queue refresh is in progress", RetryAfter: time.Second}
 		}
+		waitFinish := requesttiming.Measure(ctx, requesttiming.QueueWait)
 		timer := time.NewTimer(s.poll)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
+			waitFinish(ctx.Err())
 			return queueSnapshot{}, ctx.Err()
 		case <-timer.C:
+			waitFinish(nil)
 		}
 	}
 }
@@ -171,7 +204,9 @@ func (s *TaskQueueStore) acquire(ctx context.Context, scope serviceapi.Scope, us
 	return token, version, true, nil
 }
 
-func (s *TaskQueueStore) refresh(ctx context.Context, scope serviceapi.Scope, userID, token, version int64, previous queueRow, found bool, fetch queueFetch) (queueSnapshot, error) {
+func (s *TaskQueueStore) refresh(ctx context.Context, scope serviceapi.Scope, userID, token, version int64, previous queueRow, found bool, fetch queueFetch) (result queueSnapshot, resultErr error) {
+	finish := requesttiming.Measure(ctx, requesttiming.QueueRefresh)
+	defer func() { finish(resultErr) }()
 	// A closed tab must not waste a load other tabs are waiting for.
 	loadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), taskQueueLoadTimeout)
 	defer cancel()

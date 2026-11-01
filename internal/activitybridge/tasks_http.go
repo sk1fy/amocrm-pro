@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -19,7 +20,7 @@ func (b *Bridge) taskAuth(ctx context.Context, p widgetauth.Principal, complete 
 	if complete {
 		grants = append(grants, serviceapi.Grant{Audience: serviceapi.GatewayService, Action: serviceapi.ActionCompleteTask})
 	}
-	return b.policy.Issue(ctx, serviceapi.IssueRequest{Scope: serviceapi.Scope{InstallationID: p.InstallationID, IntegrationID: p.IntegrationID}, ActorID: p.UserID, Kind: serviceapi.PrincipalKindEmployee, Consumer: serviceapi.ActivityService, RequestID: uuid.NewString(), Grants: grants})
+	return b.policy.Issue(ctx, serviceapi.IssueRequest{Scope: serviceapi.Scope{InstallationID: p.InstallationID, IntegrationID: p.IntegrationID}, ActorID: p.UserID, Kind: serviceapi.PrincipalKindEmployee, Consumer: serviceapi.ActivityService, RequestID: httpmiddleware.RequestIDFromContext(ctx).String(), Grants: grants})
 }
 
 func (b *Bridge) employeeTasks() (serviceapi.EmployeeTasks, error) {
@@ -53,6 +54,8 @@ func (b *Bridge) OwnTasksHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r = r.WithContext(requesttiming.Start(r.Context(), httpmiddleware.RequestIDFromContext(r.Context()), requesttiming.Core, requesttiming.Local))
+	w = &taskTimingWriter{ResponseWriter: w, ctx: r.Context(), finish: requesttiming.Measure(r.Context(), requesttiming.Handler)}
 	values, err := taskQuery(r, "lead_id")
 	if err != nil {
 		writeError(w, err)
@@ -88,6 +91,8 @@ func (b *Bridge) OwnTaskHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r = r.WithContext(requesttiming.Start(r.Context(), httpmiddleware.RequestIDFromContext(r.Context()), requesttiming.Core, requesttiming.Local))
+	w = &taskTimingWriter{ResponseWriter: w, ctx: r.Context(), finish: requesttiming.Measure(r.Context(), requesttiming.Handler)}
 	id, err := pathInt64(r, "taskID")
 	if err != nil {
 		writeError(w, err)
@@ -165,6 +170,8 @@ func (b *Bridge) OwnLeadHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r = r.WithContext(requesttiming.Start(r.Context(), httpmiddleware.RequestIDFromContext(r.Context()), requesttiming.Core, requesttiming.Local))
+	w = &taskTimingWriter{ResponseWriter: w, ctx: r.Context(), finish: requesttiming.Measure(r.Context(), requesttiming.Handler)}
 	id, err := pathInt64(r, "leadID")
 	if err != nil {
 		writeError(w, err)
@@ -188,4 +195,31 @@ func (b *Bridge) OwnLeadHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := tasks.OwnLead(ctx, request)
 	respond(w, http.StatusOK, result, err)
+}
+
+type taskTimingWriter struct {
+	http.ResponseWriter
+	ctx    context.Context
+	finish func(error)
+	wrote  bool
+}
+
+func (w *taskTimingWriter) WriteHeader(code int) {
+	if w.wrote {
+		return
+	}
+	w.wrote = true
+	var err error
+	if code >= 400 {
+		err = serviceapi.Fail(serviceapi.Internal, "request failed")
+	}
+	w.finish(err)
+	w.Header().Set("Server-Timing", requesttiming.Snapshot(w.ctx).ServerTiming())
+	w.ResponseWriter.WriteHeader(code)
+}
+func (w *taskTimingWriter) Write(p []byte) (int, error) {
+	if !w.wrote {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(p)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 )
 
 // openOwned rejects migration/superuser credentials, even in embedded mode.
@@ -27,6 +28,7 @@ func openOwned(ctx context.Context, dsn, service string, max int32, reg promethe
 		reg.MustRegister(h)
 		cfg.ConnConfig.Tracer = sqlTracer{h: h}
 	}
+	cfg.ConnConfig.Tracer = requesttiming.PGXTracer{Query: cfg.ConnConfig.Tracer}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("open %s DB: %w", service, err)

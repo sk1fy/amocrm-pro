@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 )
 
 func Open(ctx context.Context, databaseURL, applicationName string, maxConns int32) (*pgxpool.Pool, error) {
@@ -13,6 +14,7 @@ func Open(ctx context.Context, databaseURL, applicationName string, maxConns int
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
 	config.MaxConns = maxConns
+	config.ConnConfig.Tracer = requesttiming.PGXTracer{Query: config.ConnConfig.Tracer}
 	config.ConnConfig.RuntimeParams["application_name"] = applicationName
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)

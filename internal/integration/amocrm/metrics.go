@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 )
 
 // Metrics observes the single client that owns all pilot Go API v4 budgets.
@@ -43,7 +44,11 @@ func (c *Client) waitBudget(ctx context.Context, access AccessToken) error {
 
 func (c *Client) waitKey(ctx context.Context, key budgetKey) error {
 	start := time.Now()
+	limits := c.limiter.config
+	requesttiming.ObserveLimits(ctx, requesttiming.Limits{PairRPS: float64(c.limiter.pairLimit(key.AccountID)), AccountRPS: limits.AccountRPS, PairBurst: limits.PairBurst, AccountBurst: limits.AccountBurst, MaxWaitMS: limits.MaxWait.Milliseconds(), PairWaiters: limits.PairWaiters, AccountWaiters: limits.AccountWaiters, ProcessWaiters: limits.ProcessWaiters, Replicas: limits.Replicas})
+	finish := requesttiming.Measure(ctx, requesttiming.Limiter)
 	err := c.limiter.wait(ctx, key)
+	finish(err)
 	c.observeWait(start, err)
 	return err
 }
