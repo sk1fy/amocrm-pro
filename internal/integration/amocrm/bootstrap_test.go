@@ -42,24 +42,80 @@ func fmtInt(value int64) string { return fmt.Sprintf("%d", value) }
 func TestBootstrapKnownAccountSharesExistingIntegrationAndAccountBudgets(t *testing.T) {
 	for _, kind := range []string{"same integration", "same account across integrations"} {
 		t.Run(kind, func(t *testing.T) {
-			client, _, _ := bootstrapClientFixture(t, 200, 42)
+			client, _, calls := bootstrapClientFixture(t, 200, 42)
 			integration := uuid.MustParse("ebc58cb3-a0b9-4c4b-a9b7-c2b3d8d456ba")
-			if kind == "same integration" {
-				client.limiter = pairBoundLimiter(t, 20)
-			} else {
-				client.limiter = accountBoundLimiter(t, 20)
+			config := testLimiterConfig()
+			config.PairRPS = 20
+			if kind != "same integration" {
+				config.PairBurst = 100
+				config.AccountRPS = 20
 				integration = uuid.New()
 			}
+			var clock *testClock
+			client.limiter, clock = newTestLimiter(t, config)
 			if _, err := client.ListEvents(context.Background(), uuid.New(), 1000, 2000, 1, 100); err != nil {
 				t.Fatal(err)
 			}
-			started := time.Now()
-			account, err := client.BootstrapAccount(context.Background(), integration, 42, "fixture.amocrm.ru", "transient-candidate")
-			if err != nil || account.ID != 42 {
-				t.Fatalf("account=%+v err=%v", account, err)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			type result struct {
+				account Account
+				err     error
 			}
-			if time.Since(started) < 30*time.Millisecond {
-				t.Fatalf("bootstrap bypassed shared %s budget", kind)
+			done := make(chan result, 1)
+			go func() {
+				account, err := client.BootstrapAccount(ctx, integration, 42, "fixture.amocrm.ru", "transient-candidate")
+				done <- result{account, err}
+			}()
+			readyDeadline := time.NewTimer(10 * time.Second)
+			defer readyDeadline.Stop()
+			poll := time.NewTicker(time.Millisecond)
+			defer poll.Stop()
+			for {
+				clock.mu.Lock()
+				registered := len(clock.timers) == 1 && !clock.timers[0].done
+				var delay time.Duration
+				if registered {
+					delay = clock.timers[0].at.Sub(clock.now)
+				}
+				clock.mu.Unlock()
+				if registered && client.limiter.snapshotWaiting() == 1 {
+					if delay != 50*time.Millisecond {
+						t.Fatalf("shared budget wait=%s, want 50ms", delay)
+					}
+					break
+				}
+				select {
+				case got := <-done:
+					t.Fatalf("bootstrap completed before budget wait: %+v %v", got.account, got.err)
+				case <-readyDeadline.C:
+					t.Fatal("bootstrap did not register a budget wait timer")
+				case <-poll.C:
+				}
+			}
+			if calls.Load() != 1 {
+				t.Fatal("bootstrap reached HTTP before budget admission")
+			}
+			clock.Advance(49 * time.Millisecond)
+			if waiting := client.limiter.snapshotWaiting(); waiting != 1 {
+				t.Fatalf("shared budget released before refill: waiters=%d", waiting)
+			}
+			if calls.Load() != 1 {
+				t.Fatal("bootstrap reached HTTP before shared budget refilled")
+			}
+			select {
+			case <-done:
+				t.Fatal("bootstrap completed before shared budget refilled")
+			default:
+			}
+			clock.Advance(time.Millisecond)
+			select {
+			case got := <-done:
+				if got.err != nil || got.account.ID != 42 || calls.Load() != 2 {
+					t.Fatalf("account=%+v calls=%d err=%v", got.account, calls.Load(), got.err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("bootstrap did not reach HTTP after shared budget refilled")
 			}
 		})
 	}
