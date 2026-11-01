@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"time"
 )
@@ -315,7 +316,9 @@ func MapUpstreamError(err error) error {
 	return serviceapi.Fail(serviceapi.Unavailable, "amoCRM is unavailable")
 }
 
-func (d *databaseChecker) CheckEmployee(ctx context.Context, scope serviceapi.Scope, actor int64) error {
+func (d *databaseChecker) CheckEmployee(ctx context.Context, scope serviceapi.Scope, actor int64) (resultErr error) {
+	finish := requesttiming.Measure(ctx, requesttiming.EmployeeVerify)
+	defer func() { finish(resultErr) }()
 	if err := d.CheckDelegation(ctx, scope); err != nil {
 		return err
 	}

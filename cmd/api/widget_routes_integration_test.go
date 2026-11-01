@@ -136,7 +136,7 @@ func TestWidgetRoutesRateLimitBeforeConsumptionAcrossIntegrations(t *testing.T) 
 	w := request(action, http.MethodPost, deferred)
 	if w.Code != 429 || w.Header().Get("Retry-After") == "" ||
 		w.Header().Get("Access-Control-Allow-Origin") != "https://shared.amocrm.ru" ||
-		w.Header().Get("Access-Control-Expose-Headers") != "X-Request-ID, Idempotency-Replayed, Retry-After" {
+		w.Header().Get("Access-Control-Expose-Headers") != "X-Request-ID, Idempotency-Replayed, Retry-After, Server-Timing" {
 		t.Fatalf("rate response=%d headers=%v body=%s", w.Code, w.Header(), w.Body.String())
 	}
 	// Register the production Activity routes with the same authentication,

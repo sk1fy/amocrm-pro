@@ -9,6 +9,7 @@ import (
 	"errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sk1fy/amocrm-pro/internal/corepolicy"
+	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc/pb"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -48,6 +50,7 @@ type Endpoints struct {
 
 func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 	slots := make(chan struct{}, MaxConcurrent)
+	timingService, timingServiceOK := certificateService(config)
 	var calls *prometheus.CounterVec
 	var latency *prometheus.HistogramVec
 	if endpoints.Metrics != nil {
@@ -67,6 +70,16 @@ func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 		if !allowedCaller(info.FullMethod, identity) {
 			return nil, status.Error(codes.PermissionDenied, "mTLS service identity is not authorized")
 		}
+		if timingServiceOK {
+			ctx = incomingTiming(ctx, timingService, info.FullMethod)
+		}
+		finishTiming := requesttiming.Measure(ctx, requesttiming.RPCServer)
+		defer func() {
+			finishTiming(timingError(err))
+			if requesttiming.Enabled(ctx) {
+				grpc.SetTrailer(ctx, metadata.Pairs(timingSummary, requesttiming.Encode(requesttiming.Snapshot(ctx), timingService)))
+			}
+		}()
 		select {
 		case slots <- struct{}{}:
 			defer func() { <-slots }()
@@ -212,7 +225,7 @@ func clientOptions(config *tls.Config) []grpc.DialOption {
 	return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(config)), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(MaxMessageSize), grpc.MaxCallSendMsgSize(MaxMessageSize)), grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		ctx, cancel := context.WithTimeout(ctx, rpcCallTimeout(method))
 		defer cancel()
-		return fromStatus(invoker(ctx, method, req, reply, cc, opts...))
+		return fromStatus(invokeTiming(ctx, method, req, reply, cc, invoker, opts...))
 	})}
 }
 func clientsFor(conn *grpc.ClientConn) *Clients {
