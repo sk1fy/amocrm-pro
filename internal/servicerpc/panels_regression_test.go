@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"math"
 	"reflect"
 	"testing"
@@ -16,6 +17,39 @@ import (
 	product "github.com/sk1fy/amocrm-pro/internal/services/activity"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestEmptyManagedPanelsRemainJSONArrayOverMTLS(t *testing.T) {
+	ctx := context.Background()
+	ca := newCA(t)
+	scope := serviceapi.Scope{IntegrationID: uuid.New(), InstallationID: uuid.New()}
+	_, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := corepolicy.NewWithChecker(&checker{scope: scope}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &parityRepository{}
+	local := product.New(repo, corepolicy.ForCaller(policy, "activity"), nil, nil)
+	remote := dialTest(t, ca, start(t, ca, &Endpoints{Activity: local}), "core").Activity
+	auth, err := corepolicy.ForCaller(policy, "core").Issue(ctx, serviceapi.IssueRequest{Scope: scope, Kind: serviceapi.PrincipalKindOperator, Consumer: "activity", RequestID: uuid.NewString(), Grants: serviceapi.UserGrantsFor(serviceapi.ActivityService, serviceapi.ActionPanels)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, activity := range map[string]serviceapi.Activity{"local": local, "mTLS": remote} {
+		t.Run(name, func(t *testing.T) {
+			panels, err := activity.ListPanels(ctx, auth)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(serviceapi.ManagedPanelPage{Panels: panels})
+			if err != nil || string(body) != `{"panels":[]}` {
+				t.Fatalf("empty managed panels JSON = %s, error = %v", body, err)
+			}
+		})
+	}
+}
 
 func TestPanelCommandProtobufRoundTripPreservesReplayIdentity(t *testing.T) {
 	disabled := false

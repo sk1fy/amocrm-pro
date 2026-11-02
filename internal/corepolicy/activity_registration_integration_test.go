@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,8 +103,31 @@ func TestActivityRegistrationAdmitsEmployeeOnlyWithinProvisionedInstallation(t *
 	if err != nil || delegated.ActorID != 7 || delegated.Kind != serviceapi.PrincipalKindEmployee || delegated.Scope != request.Scope {
 		t.Fatalf("employee delegation mismatch: %v", err)
 	}
-	request.Grants[0].Action = serviceapi.ActionSettings
-	assertDenied("employee cannot elevate to settings")
+	for _, action := range []string{serviceapi.ActionOwnTasks, serviceapi.ActionCompleteTask} {
+		tasks := request
+		tasks.Grants = []serviceapi.Grant{{Audience: serviceapi.GatewayService, Action: action}}
+		if _, err := core.Issue(ctx, tasks); err != nil {
+			t.Fatalf("active non-admin employee task action %s rejected: %v", action, err)
+		}
+	}
+	for _, action := range []string{serviceapi.ActionSettings, serviceapi.ActionPanels} {
+		request.Grants[0].Action = action
+		assertDenied("employee cannot elevate to " + action)
+	}
+	bridge := activitybridge.New(pool, core, nil, nil)
+	bridge.ConfigureShare([]string{"https://panel.example.invalid"}, "fixture-browser-secret")
+	browserRequest := httptest.NewRequest(http.MethodPost, "/api/v1/widget/activity/browser-session", strings.NewReader(`{"app_origin":"https://panel.example.invalid"}`))
+	browserRequest.Header.Set("Content-Type", "application/json")
+	browserRequest = browserRequest.WithContext(widgetauth.ContextWithPrincipal(ctx, principal))
+	response := httptest.NewRecorder()
+	bridge.BrowserSessionHTTP(response, browserRequest)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("non-admin browser session: status %d, body %s", response.Code, response.Body)
+	}
+	var browserSessions int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM activity_browser_sessions`).Scan(&browserSessions); err != nil || browserSessions != 0 {
+		t.Fatalf("non-admin browser session persisted: count %d, error %v", browserSessions, err)
+	}
 	request.Grants[0].Action = serviceapi.ActionSessions
 	request.IntegrationID = uuid.New()
 	assertDenied("another integration cannot use this installation")
