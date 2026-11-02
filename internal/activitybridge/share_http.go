@@ -24,7 +24,7 @@ var (
 func ShareRoutes() []apicontract.Route {
 	return []apicontract.Route{
 		apicontract.ActivityViewSessions, apicontract.ActivityTaskPanel, apicontract.ActivityTaskPanelSave, apicontract.ActivityViewProblems, apicontract.ActivityViewRatings, apicontract.ActivityViewPanel, apicontract.ActivityViewTimeline, apicontract.ActivityViewEmployee, apicontract.ActivityViewEvent,
-		apicontract.ActivityManagedPanels, apicontract.ActivityManagedPanelCreate, apicontract.ActivityManagedPanel, apicontract.ActivityManagedPanelPatch,
+		apicontract.ActivityConnection, apicontract.ActivityManagedPanels, apicontract.ActivityManagedPanelCreate, apicontract.ActivityManagedPanel, apicontract.ActivityManagedPanelPatch,
 		apicontract.ActivityManagedShareLink, apicontract.ActivityManagedEmployees,
 	}
 }
@@ -44,6 +44,7 @@ func (b *Bridge) RegisterShareHTTP(router chi.Router) {
 		{apicontract.ActivityViewTimeline, b.ViewTimelineHTTP, true},
 		{apicontract.ActivityViewEmployee, b.ViewEmployeeHTTP, true},
 		{apicontract.ActivityViewEvent, b.ViewEventHTTP, true},
+		{apicontract.ActivityConnection, b.ConnectionHTTP, false},
 		{apicontract.ActivityManagedPanels, b.ListPanelsHTTP, false},
 		{apicontract.ActivityManagedPanelCreate, b.CreatePanelHTTP, false},
 		{apicontract.ActivityManagedPanel, b.GetManagedPanelHTTP, false},
@@ -115,7 +116,19 @@ func (b *Bridge) managementAccess(next http.Handler) http.Handler {
 			writeShareError(w, err)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(withManagementScope(r.Context(), serviceapi.Scope{InstallationID: installation, IntegrationID: integration})))
+		scope := serviceapi.Scope{InstallationID: installation, IntegrationID: integration}
+		if expected := r.Header.Get("X-Activity-Account-Id"); expected != "" {
+			account, err := b.scopeAccount(r.Context(), scope)
+			if err != nil {
+				writeShareError(w, err)
+				return
+			}
+			if account != expected {
+				writeShareError(w, serviceapi.Fail(serviceapi.PermissionDenied, "Activity account mismatch"))
+				return
+			}
+		}
+		next.ServeHTTP(w, r.WithContext(withManagementScope(r.Context(), scope)))
 	})
 }
 
