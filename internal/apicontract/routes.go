@@ -45,6 +45,7 @@ var (
 	ActivityViewTimeline          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/timeline"}
 	ActivityViewEmployee          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}"}
 	ActivityViewEvent             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/events/{eventId}"}
+	ActivityConnection            = Route{Method: http.MethodGet, Path: "/api/v1/activity/connection"}
 	ActivityManagedPanels         = Route{Method: http.MethodGet, Path: "/api/v1/activity/panels"}
 	ActivityManagedPanelCreate    = Route{Method: http.MethodPost, Path: "/api/v1/activity/panels"}
 	ActivityManagedPanel          = Route{Method: http.MethodGet, Path: "/api/v1/activity/panels/{panelId}"}
@@ -79,6 +80,7 @@ var (
 		ActivityViewTimeline,
 		ActivityViewEmployee,
 		ActivityViewEvent,
+		ActivityConnection,
 		ActivityManagedPanels,
 		ActivityManagedPanelCreate,
 		ActivityManagedPanel,

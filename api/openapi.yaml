@@ -1353,6 +1353,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
       responses:
         '200':
           description: Disabled defaults have revision zero.
@@ -1367,6 +1368,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
       requestBody:
         required: true
         content:
@@ -1550,6 +1552,31 @@ paths:
         '404': {$ref: '#/components/responses/ActivityShareError'}
         '429': {$ref: '#/components/responses/ActivityShareError'}
         '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/connection:
+    get:
+      operationId: getActivityConnection
+      summary: Authoritative operator Activity installation scope
+      security:
+        - managementToken: []
+      parameters:
+        - $ref: '#/components/parameters/ActivityInstallation'
+        - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
+      responses:
+        '200':
+          description: Current active operator scope, checked against live policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [installation_id, integration_id, account_id, state]
+                properties:
+                  installation_id: {type: string, format: uuid}
+                  integration_id: {type: string, format: uuid}
+                  account_id: {type: string}
+                  state: {type: string, enum: [active]}
+        default:
+          $ref: '#/components/responses/ActivityShareError'
   /api/v1/activity/panels:
     get:
       tags: [ActivityManagement]
@@ -1560,6 +1587,7 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
       responses:
         '200':
           description: Managed panels without view keys.
@@ -1580,6 +1608,7 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -1626,6 +1655,7 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
         - $ref: '#/components/parameters/ActivityPanelID'
       responses:
         '200':
@@ -1648,6 +1678,7 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
         - $ref: '#/components/parameters/ActivityPanelID'
       requestBody:
         required: true
@@ -1679,6 +1710,7 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
         - $ref: '#/components/parameters/ActivityPanelID'
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -1716,6 +1748,7 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - $ref: '#/components/parameters/ActivityInstallation'
         - $ref: '#/components/parameters/ActivityIntegration'
+        - $ref: '#/components/parameters/ActivityExpectedAccount'
       responses:
         '200':
           description: Bounded directory.
@@ -1869,6 +1902,12 @@ components:
         type: string
         minLength: 1
         maxLength: 128
+    ActivityExpectedAccount:
+      name: X-Activity-Account-Id
+      in: header
+      required: false
+      description: Expected authoritative account for operator calls. A mismatch is rejected before each operation. TeamOS always sends this fence.
+      schema: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
     ActivityInstallation:
       name: X-Activity-Installation-Id
       in: header
