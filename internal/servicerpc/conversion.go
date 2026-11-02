@@ -1307,7 +1307,7 @@ func toManagedPanelPage(src serviceapi.ManagedPanelPage) *pb.ManagedPanelPage {
 	return out
 }
 func fromManagedPanelPage(src *pb.ManagedPanelPage) serviceapi.ManagedPanelPage {
-	var out serviceapi.ManagedPanelPage
+	out := serviceapi.ManagedPanelPage{Panels: []serviceapi.ManagedPanel{}}
 	if src == nil {
 		return out
 	}
