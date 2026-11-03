@@ -30,6 +30,11 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 - [ADR-0038](adr/0038-task-control-hybrid-integration.md) — Core проверяет JWT/установку; правила выдаёт TeamOS.
 - [КТ-01.03: настройка и проверки](../../team-os-backend/docs/integrations/task-control-connection.md).
 
+## Перенос виджетов
+
+- [ПВ-01: архитектурный пакет на review](specs/widget-migration-pv01.md) —
+  OAuth, владельцы, мост SSD, оплата, общий бюджет, перенос данных и размещение продуктов.
+
 ## Проверки и ограничения
 
 - [Сохранённые результаты](verification/README.md).
