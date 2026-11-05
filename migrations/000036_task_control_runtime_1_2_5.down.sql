@@ -1,4 +1,3 @@
--- Retained deployment evidence must never be silently relabelled.
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM task_control_runtime_descriptors WHERE runtime_version='1.2.5') THEN
   RAISE EXCEPTION 'Runtime 1.2.5 descriptors exist: withdraw or replace the deployment evidence before schema rollback';
