@@ -55,42 +55,45 @@ func leadRight(ctx context.Context, crm CRM, install uuid.UUID, actor, leadID in
 		rights.Leads = r.Leads
 		rights.StatusRights = r.StatusRights
 	}
-	level := rights.Leads[action]
-	var allowed bool
-	switch level {
-	case "A":
-		allowed = true
-	case "D":
-		allowed = false
-	case "M":
-		allowed = l.ResponsibleUserID == actor
-	case "G":
-		if u.Rights.GroupID == nil {
+	evaluate := func(level string) (bool, error) {
+		switch level {
+		case "A":
+			return true, nil
+		case "D":
+			return false, nil
+		case "M":
+			return l.ResponsibleUserID == actor, nil
+		case "G":
+			if u.Rights.GroupID == nil {
+				return false, ErrUnavailable
+			}
+			owner, e := crm.DistributionUser(ctx, install, l.ResponsibleUserID)
+			if e != nil || owner.ID != l.ResponsibleUserID || owner.Rights.GroupID == nil {
+				return false, ErrUnavailable
+			}
+			return *owner.Rights.GroupID == *u.Rights.GroupID, nil
+		default:
 			return false, ErrUnavailable
 		}
-		owner, e := crm.DistributionUser(ctx, install, l.ResponsibleUserID)
-		if e != nil || owner.ID != l.ResponsibleUserID || owner.Rights.GroupID == nil {
-			return false, ErrUnavailable
-		}
-		allowed = *owner.Rights.GroupID == *u.Rights.GroupID
-	default:
-		return false, ErrUnavailable
+	}
+
+	allowed, err := evaluate(rights.Leads[action])
+	if err != nil {
+		return false, err
 	}
 	matched := false
 	for _, r := range rights.StatusRights {
-		if r.EntityType == "leads" && r.PipelineID == l.PipelineID && r.StatusID == l.StatusID {
-			if matched {
-				return false, ErrUnavailable
-			}
-			matched = true
-			switch r.Rights[action] {
-			case "A":
-				allowed = true
-			case "D":
-				allowed = false
-			default:
-				return false, ErrUnavailable
-			}
+		if r.EntityType != "leads" || r.PipelineID != l.PipelineID || r.StatusID != l.StatusID {
+			continue
+		}
+		level := r.Rights[action]
+		if matched || (action == "view" && level != "A" && level != "D") {
+			return false, ErrUnavailable
+		}
+		matched = true
+		allowed, err = evaluate(level)
+		if err != nil {
+			return false, err
 		}
 	}
 	if allowed || action != "view" {

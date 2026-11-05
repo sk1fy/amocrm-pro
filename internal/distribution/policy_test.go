@@ -109,3 +109,43 @@ func TestCurrentLeadPolicy(t *testing.T) {
 		t.Fatal("source failure grants access")
 	}
 }
+
+func TestManualAssignmentEditRights(t *testing.T) {
+	for _, c := range []struct {
+		name, edit, override string
+		owner, group         int64
+		allowed              bool
+	}{
+		{name: "view alone cannot edit", edit: "D", owner: 2},
+		{name: "own deal", edit: "M", owner: 1, allowed: true},
+		{name: "another user's deal", edit: "M", owner: 2},
+		{name: "same group", edit: "G", owner: 2, group: 5, allowed: true},
+		{name: "other group", edit: "G", owner: 2, group: 8},
+		{name: "status restricts to owner", edit: "A", override: "M", owner: 2},
+		{name: "status grants group edit", edit: "D", override: "G", owner: 2, group: 5, allowed: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rights := amocrm.DistributionRights{
+				IsActive: ptr(true), GroupID: ptr(int64(5)),
+				Leads: map[string]string{"view": "A", "edit": c.edit},
+			}
+			if c.override != "" {
+				rights.StatusRights = []amocrm.StatusRight{{
+					EntityType: "leads", PipelineID: 20, StatusID: 30,
+					Rights: map[string]string{"view": "A", "edit": c.override},
+				}}
+			}
+			crm := &crmFake{
+				users: map[int64]amocrm.DistributionUser{
+					1: {ID: 1, Rights: rights},
+					2: {ID: 2, Rights: amocrm.DistributionRights{GroupID: ptr(c.group)}},
+				},
+				lead: amocrm.DistributionLead{ID: 10, PipelineID: 20, StatusID: 30, ResponsibleUserID: c.owner},
+			}
+			allowed, err := leadRight(context.Background(), crm, uuid.New(), 1, 10, "edit")
+			if err != nil || allowed != c.allowed {
+				t.Fatalf("edit allowed = %v, error = %v; want %v", allowed, err, c.allowed)
+			}
+		})
+	}
+}

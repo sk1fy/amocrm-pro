@@ -103,10 +103,10 @@ func readAction(r *http.Request) (operationAction, error) {
 	if e != nil || !validRevision(body.ExpectedResultVersion) || len(body.Reason) == 0 || len(body.Reason) > 1000 {
 		return body, ErrDenied
 	}
-	if body.Actor.Kind == "user" && (body.Actor.TeamOSUserID == nil || *body.Actor.TeamOSUserID == uuid.Nil || body.Actor.CRMUserID == nil || *body.Actor.CRMUserID <= 0 || body.Actor.OperatorID != nil) {
+	if (body.Actor.Kind == "user" || body.Actor.Kind == "manual") && (body.Actor.TeamOSUserID == nil || *body.Actor.TeamOSUserID == uuid.Nil || body.Actor.CRMUserID == nil || *body.Actor.CRMUserID <= 0 || body.Actor.OperatorID != nil) {
 		return body, ErrDenied
 	}
-	if body.Actor.Kind != "system" && body.Actor.Kind != "user" {
+	if body.Actor.Kind != "system" && body.Actor.Kind != "user" && body.Actor.Kind != "manual" {
 		return body, ErrDenied
 	}
 	if body.Actor.Kind == "system" && (body.Actor.TeamOSUserID != nil || body.Actor.CRMUserID != nil || body.Actor.OperatorID != nil) {

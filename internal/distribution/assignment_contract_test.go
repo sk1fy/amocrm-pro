@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"github.com/oasdiff/yaml3"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -64,5 +66,26 @@ func validateRuntimeResponse(t *testing.T, name string, body []byte) {
 func TestRuntimeOperationContractSchemasCompile(t *testing.T) {
 	for _, name := range []string{"AssignmentEnvelope", "OperationReceipt", "Operation", "ResultEnvelope", "ReconcileInput"} {
 		runtimeContract(t, name)
+	}
+}
+
+func TestManualOperationActionRequiresMappedIdentity(t *testing.T) {
+	const teamOSID = `"teamosUserId":"8b85b923-1305-44f6-a1f8-917749cffba6"`
+	const crmID = `"crmUserId":"42"`
+	for _, c := range []struct {
+		name, fields string
+		allowed      bool
+	}{
+		{"complete", "," + teamOSID + "," + crmID, true},
+		{"missing Team OS ID", "," + crmID, false},
+		{"missing CRM ID", "," + teamOSID, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			body := `{"expectedResultVersion":1,"reason":"review","actor":{"kind":"manual"` + c.fields + `}}`
+			_, err := readAction(httptest.NewRequest("POST", "/", strings.NewReader(body)))
+			if (err == nil) != c.allowed {
+				t.Fatalf("readAction error = %v; want allowed = %v", err, c.allowed)
+			}
+		})
 	}
 }
