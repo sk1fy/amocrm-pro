@@ -19,6 +19,10 @@ type CRM interface {
 // CanViewLead implements the documented order: general rights, status override,
 // then subscriber extension. Unknown values and incomplete sources fail closed.
 func CanViewLead(ctx context.Context, crm CRM, install uuid.UUID, actor, leadID int64) (bool, error) {
+	return leadRight(ctx, crm, install, actor, leadID, "view")
+}
+
+func leadRight(ctx context.Context, crm CRM, install uuid.UUID, actor, leadID int64, action string) (bool, error) {
 	u, err := crm.DistributionUser(ctx, install, actor)
 	if err != nil {
 		return false, ErrUnavailable
@@ -51,9 +55,9 @@ func CanViewLead(ctx context.Context, crm CRM, install uuid.UUID, actor, leadID 
 		rights.Leads = r.Leads
 		rights.StatusRights = r.StatusRights
 	}
-	view := rights.Leads["view"]
+	level := rights.Leads[action]
 	var allowed bool
-	switch view {
+	switch level {
 	case "A":
 		allowed = true
 	case "D":
@@ -79,7 +83,7 @@ func CanViewLead(ctx context.Context, crm CRM, install uuid.UUID, actor, leadID 
 				return false, ErrUnavailable
 			}
 			matched = true
-			switch r.Rights["view"] {
+			switch r.Rights[action] {
 			case "A":
 				allowed = true
 			case "D":
@@ -89,8 +93,8 @@ func CanViewLead(ctx context.Context, crm CRM, install uuid.UUID, actor, leadID 
 			}
 		}
 	}
-	if allowed {
-		return true, nil
+	if allowed || action != "view" {
+		return allowed, nil
 	}
 	subscriptions, err := crm.DistributionSubscriptions(ctx, install, leadID)
 	if err != nil {
