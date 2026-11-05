@@ -133,7 +133,7 @@ func (a Assignment) Validate() error {
 	if c.DecisionKind != "assign" && c.DecisionKind != "keep" || c.DecisionKind == "keep" && c.TargetResponsibleUserID != c.Expected.ResponsibleUserID {
 		return ErrDenied
 	}
-	if c.Actor.Kind != "system" && c.Actor.Kind != "user" {
+	if c.Actor.Kind != "system" && c.Actor.Kind != "user" && c.Actor.Kind != "manual" {
 		return ErrDenied
 	}
 	if c.Actor.Kind == "system" && (c.Actor.TeamOSUserID != nil || c.Actor.CRMUserID != nil || c.Actor.OperatorID != nil) {
@@ -142,7 +142,7 @@ func (a Assignment) Validate() error {
 	if c.Actor.OperatorID != nil {
 		return ErrDenied
 	}
-	if c.Actor.Kind == "user" && (c.Actor.TeamOSUserID == nil || *c.Actor.TeamOSUserID == uuid.Nil || c.Actor.CRMUserID == nil || *c.Actor.CRMUserID <= 0) {
+	if c.Actor.Kind != "system" && (c.Actor.TeamOSUserID == nil || *c.Actor.TeamOSUserID == uuid.Nil || c.Actor.CRMUserID == nil || *c.Actor.CRMUserID <= 0) {
 		return ErrDenied
 	}
 	if a.SourceEventID != nil && len(*a.SourceEventID) > 255 {

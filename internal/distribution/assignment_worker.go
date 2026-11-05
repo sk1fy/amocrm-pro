@@ -129,7 +129,7 @@ func (w *AssignmentWorker) Handler(ctx context.Context, job jobs.Job) (json.RawM
 	if user.ID != c.TargetResponsibleUserID || user.Rights.IsActive == nil || !*user.Rights.IsActive || user.Rights.IsFree {
 		return finish("rejected", "no_attempt", "rejected", "recipient_unavailable", nil, true, "no_request_sent")
 	}
-	if c.Actor.Kind == "user" {
+	if c.Actor.Kind == "user" || c.Actor.Kind == "manual" {
 		if e = w.Store.Mapped(ctx, op.Scope.Binding(), *c.Actor.TeamOSUserID, *c.Actor.CRMUserID); e != nil {
 			return finish("rejected", "no_attempt", "rejected", "permission_denied", nil, true, "no_request_sent")
 		}
@@ -138,6 +138,9 @@ func (w *AssignmentWorker) Handler(ctx context.Context, job jobs.Job) (json.RawM
 			return nil, retryAssignment("policy_unavailable", ErrUnavailable)
 		}
 		allowed, e := CanViewLead(ctx, policyCRM, op.Scope.InstallationID, *c.Actor.CRMUserID, c.Expected.LeadID)
+		if e == nil && allowed && c.Actor.Kind == "manual" {
+			allowed, e = leadRight(ctx, policyCRM, op.Scope.InstallationID, *c.Actor.CRMUserID, c.Expected.LeadID, "edit")
+		}
 		if e != nil {
 			return nil, retryAssignment("policy_unavailable", e)
 		}
