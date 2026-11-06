@@ -18,14 +18,16 @@ import (
 // offset cursors, like CRM Events.
 type periodEventSource struct {
 	serviceapi.CRMEvents
-	mu      sync.Mutex
-	events  []serviceapi.Event
-	status  serviceapi.SyncStatus
-	queries []serviceapi.Query
-	endless int64 // From of a day whose pages never end
-	repeat  bool
-	cards   map[string]serviceapi.Event
-	reads   []string
+	mu        sync.Mutex
+	events    []serviceapi.Event
+	status    serviceapi.SyncStatus
+	queries   []serviceapi.Query
+	endless   int64 // From of a day whose pages never end
+	blocked   int64 // From of a day whose query waits for cancellation
+	pageLimit int
+	repeat    bool
+	cards     map[string]serviceapi.Event
+	reads     []string
 }
 
 func (e *periodEventSource) GetEvent(_ context.Context, r serviceapi.EventRequest) (serviceapi.Event, error) {
@@ -35,12 +37,19 @@ func (e *periodEventSource) GetEvent(_ context.Context, r serviceapi.EventReques
 	return e.cards[r.EventID], nil
 }
 
-func (e *periodEventSource) Query(_ context.Context, q serviceapi.Query) (serviceapi.QueryResult, error) {
+func (e *periodEventSource) Query(ctx context.Context, q serviceapi.Query) (serviceapi.QueryResult, error) {
+	if e.blocked != 0 && q.From == e.blocked {
+		<-ctx.Done()
+		return serviceapi.QueryResult{}, ctx.Err()
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.queries = append(e.queries, q)
 	if err := serviceapi.ValidateQuery(q); err != nil {
 		return serviceapi.QueryResult{}, err
+	}
+	if e.pageLimit > 0 && q.Limit > e.pageLimit {
+		return serviceapi.QueryResult{}, serviceapi.ValidateResponseSize(make([]byte, serviceapi.MaxResponseBytes))
 	}
 	out := serviceapi.QueryResult{ReadVersion: serviceapi.PresentationReadVersion, Status: e.status, Events: []serviceapi.Event{}}
 	if e.endless != 0 && q.From == e.endless {
@@ -442,5 +451,60 @@ func TestActivityPeriodCallCardFallback(t *testing.T) {
 	}
 	if mon := got.Employees[0].Current.Days[0]; len(src.reads) != 150 || slices.Contains(src.reads, "mon") || mon.Active != 2 || got.Employees[1].Current.Days[3].Call == 0 {
 		t.Fatalf("card bound reads %d monday %+v", len(src.reads), *mon.ActivityDayValues)
+	}
+}
+
+func TestActivityPeriodInFlightBudgetMarksDayPartial(t *testing.T) {
+	src := &periodEventSource{blocked: msk(t, "2026-11-02", 0, 0)}
+	s := periodService(t, src, periodNow)
+	s.periodScanBudget = 50 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	got, err := s.ViewActivityPeriod(ctx, periodReq("week", "2026-11-05"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mon := got.Employees[0].Current.Days[0]; !mon.Partial {
+		t.Fatalf("blocked day must be partial: %+v", mon)
+	}
+}
+
+func TestActivityPeriodCardLimitMarksOmittedDayPartial(t *testing.T) {
+	duration := int64(30)
+	src := &periodEventSource{cards: make(map[string]serviceapi.Event)}
+	for i := range serviceapi.ActivityPeriodMaxCards + 1 {
+		id := strconv.Itoa(i)
+		at := periodNow.Add(-time.Hour).Unix()
+		if i == serviceapi.ActivityPeriodMaxCards {
+			at = msk(t, "2026-11-02", 10, 0)
+		}
+		src.events = append(src.events, serviceapi.Event{ID: id, CreatedAt: at, CreatedBy: 7, Type: "outgoing_call"})
+		src.cards[id] = serviceapi.Event{ID: id, Type: "outgoing_call", CallFacts: &serviceapi.CallFacts{Duration: &duration}}
+	}
+	s := periodService(t, src, periodNow)
+	got, err := s.ViewActivityPeriod(context.Background(), periodReq("week", "2026-11-05"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	days := got.Employees[0].Current.Days
+	if !days[0].Partial || days[3].Partial || len(src.reads) != serviceapi.ActivityPeriodMaxCards {
+		t.Fatalf("omitted day partial=%v, resolved day partial=%v, reads=%d", days[0].Partial, days[3].Partial, len(src.reads))
+	}
+}
+
+func TestActivityPeriodRetriesOversizedPages(t *testing.T) {
+	src := &periodEventSource{pageLimit: 50}
+	at := msk(t, "2026-11-02", 10, 0)
+	for i := range 51 {
+		src.events = append(src.events, serviceapi.Event{ID: strconv.Itoa(i), CreatedAt: at, CreatedBy: 7, Type: "task_completed"})
+	}
+	s := periodService(t, src, periodNow)
+	got, err := s.ViewActivityPeriod(context.Background(), periodReq("week", "2026-11-05"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mon := got.Employees[0].Current.Days[0]
+	if mon.Partial || mon.Events != 51 {
+		t.Fatalf("Monday events=%d, partial=%v", mon.Events, mon.Partial)
 	}
 }

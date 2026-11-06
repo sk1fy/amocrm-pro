@@ -332,17 +332,31 @@ feed:
 }
 
 func (s *Service) scanPeriodDay(ctx context.Context, auth serviceapi.Auth, panel serviceapi.ManagedPanel, users []serviceapi.User, ids []int64, deadline time.Time, d *periodScanDay) error {
+	scanCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
 	q := serviceapi.Query{Auth: auth, From: d.from, To: d.to, UserIDs: ids, Limit: 100}
 	seen := map[string]bool{}
-	for page := 0; page < serviceapi.ActivityPeriodDayMaxPages; page++ {
-		if time.Now().After(deadline) {
+	for page := 0; page < serviceapi.ActivityPeriodDayMaxPages; {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if scanCtx.Err() != nil {
 			d.partial = true
 			return nil
 		}
-		data, err := s.viewerQuery(ctx, q, panel, users, false)
+		data, err := s.viewerQuery(scanCtx, q, panel, users, false)
 		if err != nil {
+			if ctx.Err() == nil && scanCtx.Err() == context.DeadlineExceeded {
+				d.partial = true
+				return nil
+			}
+			if serviceapi.IsResponseSizeError(err) && q.Limit > 1 {
+				q.Limit /= 2
+				continue
+			}
 			return err
 		}
+		page++
 		if d.status == nil {
 			status := data.Status
 			d.status = &status
@@ -388,6 +402,7 @@ func (s *Service) resolvePeriodCards(ctx context.Context, auth serviceapi.Auth, 
 	for _, d := range days {
 		for _, card := range d.cards {
 			if len(refs) == serviceapi.ActivityPeriodMaxCards {
+				d.partial = true
 				break
 			}
 			candidates = append(candidates, ratingCardCandidate{ID: card.id, Index: len(refs)})
@@ -400,14 +415,14 @@ func (s *Service) resolvePeriodCards(ctx context.Context, auth serviceapi.Auth, 
 	observations := make([]ratingObservation, len(refs))
 	cardCtx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
-	err := resolveRatingCards(cardCtx, reader, auth, observations, candidates)
+	_ = resolveRatingCards(cardCtx, reader, auth, observations, candidates)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 	for i, r := range refs {
 		if duration := observations[i].Event.Duration; duration != nil {
 			r.day.events[r.card.employee][r.card.index].Duration = duration
-		} else if err != nil {
+		} else {
 			r.day.partial = true
 		}
 	}

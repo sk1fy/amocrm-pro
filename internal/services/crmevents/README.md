@@ -30,7 +30,7 @@ not purged in v0: deleting them needs a coordinated dedup/retry retention policy
   ≤ 744), retention 2–33 days and at least the initial depth. 33 days keeps a
   whole previous week and the first days of the previous month for Activity's
   week/month statistics (`docs/proposals/activity-period-v1.md`, R3/R7);
-  migration `000010_retention_33` moves sources stored at 31 days to 33.
+  migration `000010_retention_33` preserves existing source settings.
 * `backfill` requires an active consumer, a past range within its retention, and
   at most 31 days. `disable` pauses the consumer and invalidates an in-flight
   writer. Other authorized consumers can be introduced through an explicit
