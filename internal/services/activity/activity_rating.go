@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -368,6 +369,25 @@ func ratingPipelineMatch(e serviceapi.Event, selected []int64) bool {
 	if len(selected) == 0 {
 		return true
 	}
+	return pipelineSetMatch(ratingPipelineIDs(e), selected)
+}
+
+// pipelineSetMatch applies the same rule to an already extracted, sorted set:
+// an event without pipeline attributes stays visible.
+func pipelineSetMatch(ids []string, selected []int64) bool {
+	if len(selected) == 0 || len(ids) == 0 {
+		return true
+	}
+	for _, id := range selected {
+		if _, ok := slices.BinarySearch(ids, strconv.FormatInt(id, 10)); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// ratingPipelineIDs returns the sorted pipeline ID set ratingPipelineMatch sees.
+func ratingPipelineIDs(e serviceapi.Event) []string {
 	ids := map[string]bool{}
 	var walk func(any)
 	add := func(v any) {
@@ -428,12 +448,12 @@ func ratingPipelineMatch(e serviceapi.Event, selected []int64) bool {
 		}
 	}
 	if len(ids) == 0 {
-		return true
+		return nil
 	}
-	for _, id := range selected {
-		if ids[strconv.FormatInt(id, 10)] {
-			return true
-		}
+	out := make([]string, 0, len(ids))
+	for id := range ids {
+		out = append(out, id)
 	}
-	return false
+	slices.Sort(out)
+	return out
 }
