@@ -20,6 +20,10 @@ const ActivityPeriodScanBudget = 20 * time.Second
 const ActivityPeriodDayMaxPages = ActivityRatingMaxPages
 const ActivityPeriodScanWorkers = 4
 
+// Calls without a known duration fall back to their event card, as in the
+// rating: at most this many per request.
+const ActivityPeriodMaxCards = 150
+
 // period-days covers at most 31 days; history is never deeper than retention.
 const ActivityPeriodDaysMax = 31
 const ActivityPeriodHistoryDays = RetentionDaysMax

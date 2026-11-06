@@ -2,6 +2,7 @@ package activity
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -251,6 +252,14 @@ type periodScanDay struct {
 	events   map[int64][]periodEvent
 	partial  bool
 	status   *serviceapi.SyncStatus
+	// Calls read without call facts or a payload duration, in scan order.
+	cards []periodCard
+}
+
+type periodCard struct {
+	id       string
+	employee int64
+	index    int
 }
 
 func (d *periodScanDay) coverage(status serviceapi.SyncStatus) string {
@@ -304,6 +313,9 @@ feed:
 	if err := ctx.Err(); err != nil {
 		return serviceapi.SyncStatus{}, err
 	}
+	if err := s.resolvePeriodCards(ctx, auth, plan, deadline); err != nil {
+		return serviceapi.SyncStatus{}, err
+	}
 	for _, d := range plan {
 		if d.status != nil {
 			return *d.status, nil
@@ -336,7 +348,12 @@ func (s *Service) scanPeriodDay(ctx context.Context, auth serviceapi.Auth, panel
 			d.status = &status
 		}
 		for _, event := range data.Events {
-			d.events[event.CreatedBy] = append(d.events[event.CreatedBy], periodEventFromAPI(event))
+			e := periodEventFromAPI(event)
+			list := d.events[event.CreatedBy]
+			if event.CallFacts == nil && e.Duration == nil && (event.Type == "incoming_call" || event.Type == "outgoing_call") {
+				d.cards = append(d.cards, periodCard{id: event.ID, employee: event.CreatedBy, index: len(list)})
+			}
+			d.events[event.CreatedBy] = append(list, e)
 		}
 		if data.NextCursor == "" {
 			return nil
@@ -348,6 +365,52 @@ func (s *Service) scanPeriodDay(ctx context.Context, auth serviceapi.Auth, panel
 		q.Cursor = data.NextCursor
 	}
 	d.partial = true
+	return nil
+}
+
+// resolvePeriodCards repeats the rating's card fallback for calls without a
+// known duration: at most 150 cards per request with four workers, newest
+// days first (today matches the daily screen), within the scan budget. Cards
+// left unresolved when the budget ends make their day partial.
+func (s *Service) resolvePeriodCards(ctx context.Context, auth serviceapi.Auth, plan []*periodScanDay, deadline time.Time) error {
+	reader, ok := s.events.(serviceapi.EventReader)
+	if !ok {
+		return nil
+	}
+	type ref struct {
+		day  *periodScanDay
+		card periodCard
+	}
+	days := slices.Clone(plan)
+	slices.SortStableFunc(days, func(a, b *periodScanDay) int { return b.day.Compare(a.day) })
+	var refs []ref
+	var candidates []ratingCardCandidate
+	for _, d := range days {
+		for _, card := range d.cards {
+			if len(refs) == serviceapi.ActivityPeriodMaxCards {
+				break
+			}
+			candidates = append(candidates, ratingCardCandidate{ID: card.id, Index: len(refs)})
+			refs = append(refs, ref{day: d, card: card})
+		}
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	observations := make([]ratingObservation, len(refs))
+	cardCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+	err := resolveRatingCards(cardCtx, reader, auth, observations, candidates)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	for i, r := range refs {
+		if duration := observations[i].Event.Duration; duration != nil {
+			r.day.events[r.card.employee][r.card.index].Duration = duration
+		} else if err != nil {
+			r.day.partial = true
+		}
+	}
 	return nil
 }
 

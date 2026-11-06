@@ -24,6 +24,15 @@ type periodEventSource struct {
 	queries []serviceapi.Query
 	endless int64 // From of a day whose pages never end
 	repeat  bool
+	cards   map[string]serviceapi.Event
+	reads   []string
+}
+
+func (e *periodEventSource) GetEvent(_ context.Context, r serviceapi.EventRequest) (serviceapi.Event, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.reads = append(e.reads, r.EventID)
+	return e.cards[r.EventID], nil
 }
 
 func (e *periodEventSource) Query(_ context.Context, q serviceapi.Query) (serviceapi.QueryResult, error) {
@@ -403,5 +412,35 @@ func TestActivityPeriodResponseSizeForClientBatch(t *testing.T) {
 	}
 	if got := size(100); got > serviceapi.MaxResponseBytes {
 		t.Logf("100 employees with full-day windows exceed the limit (%d bytes) and fail as resource_exhausted", got)
+	}
+}
+
+// Calls without call facts take their duration from the event card, as the
+// daily rating does: at most 150 per request, newest day first.
+func TestActivityPeriodCallCardFallback(t *testing.T) {
+	ten := int64(600)
+	src := &periodEventSource{cards: map[string]serviceapi.Event{}}
+	src.events = append(src.events, serviceapi.Event{ID: "mon", CreatedBy: 7, CreatedAt: msk(t, "2026-11-02", 10, 0), Type: "incoming_call"})
+	src.cards["mon"] = serviceapi.Event{Type: "incoming_call", CallFacts: &serviceapi.CallFacts{Duration: &ten}}
+	s := periodService(t, src, periodNow)
+	got, err := s.ViewActivityPeriod(context.Background(), periodReq("week", "2026-11-05"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mon := got.Employees[0].Current.Days[0]; mon.Active != 10 || mon.Call != 10 || len(src.reads) != 1 {
+		t.Fatalf("card duration not applied %+v reads %v", *mon.ActivityDayValues, src.reads)
+	}
+	src.reads = nil
+	for i := 0; i < 150; i++ {
+		id := "today-" + strconv.Itoa(i)
+		src.events = append(src.events, serviceapi.Event{ID: id, CreatedBy: 8, CreatedAt: msk(t, "2026-11-05", 9, i%300), Type: "outgoing_call"})
+		src.cards[id] = serviceapi.Event{Type: "outgoing_call", CallFacts: &serviceapi.CallFacts{Duration: &ten}}
+	}
+	got, err = s.ViewActivityPeriod(context.Background(), periodReq("week", "2026-11-05"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mon := got.Employees[0].Current.Days[0]; len(src.reads) != 150 || slices.Contains(src.reads, "mon") || mon.Active != 2 || got.Employees[1].Current.Days[3].Call == 0 {
+		t.Fatalf("card bound reads %d monday %+v", len(src.reads), *mon.ActivityDayValues)
 	}
 }
