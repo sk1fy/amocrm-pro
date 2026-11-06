@@ -141,6 +141,55 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /admin/v1/accounts/{account_id}/crm-users:
+    servers:
+      - url: /
+        description: |
+          Worker admin CRM listener (ADMIN_CRM_HTTP_ADDRESS, internal network
+          alias core-admin-crm), not the api admin listener.
+    get:
+      tags: [Admin]
+      operationId: getAdminAccountCRMUsers
+      summary: Bounded amoCRM user list of the account.
+      description: |
+        Served by the worker, the only owner of outgoing amoCRM traffic. The
+        worker resolves the active, non-fixture installation of an active
+        integration with stored OAuth credentials (most recently refreshed
+        first) and reads `/api/v4/users` through the shared OAuth provider and
+        outbound budget: at most four pages of 250 users. A complete snapshot
+        is cached in process memory for five minutes and never persisted;
+        failures are not cached. `observed_at` is the amoCRM read time when
+        `state=ok`, otherwise the response time. Every state other than `ok`
+        has `items=null` and `total=null`: the list is unknown, never empty.
+        The projection excludes email, phone, group, role and rights.
+        no-store. Query parameters are rejected.
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - $ref: '#/components/parameters/AdminActor'
+        - name: account_id
+          in: path
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+      responses:
+        '200':
+          description: Users or the bounded reason why they are unknown.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CRMUsersResponse'
+        '400':
+          $ref: '#/components/responses/InvalidArgument'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /admin/v1/installations:
     get:
       tags: [Admin]
@@ -1108,6 +1157,51 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/InstallationCard'
+    CRMUsersResponse:
+      type: object
+      additionalProperties: false
+      required: [source, observed_at, account_id, state, retry_after_seconds, connection, fresh_until, items, total]
+      properties:
+        source: {type: string, const: core}
+        observed_at: {type: string, format: date-time}
+        account_id: {type: integer, format: int64, minimum: 1}
+        state:
+          type: string
+          enum: [ok, no_authorized_connection, auth_error, rate_limited, incomplete, network_error, internal_error]
+        retry_after_seconds:
+          description: Present only for rate_limited when amoCRM or the local budget gave a delay.
+          type: [integer, 'null']
+          format: int64
+          minimum: 1
+        connection:
+          description: Installation that read or tried to read; null for no_authorized_connection.
+          type: [object, 'null']
+          additionalProperties: false
+          required: [installation_id, integration_id, integration_code]
+          properties:
+            installation_id: {type: string, format: uuid}
+            integration_id: {type: string, format: uuid}
+            integration_code: {type: string, minLength: 1}
+        fresh_until:
+          type: [string, 'null']
+          format: date-time
+        items:
+          description: Users ordered by ID when state=ok; null otherwise.
+          type: [array, 'null']
+          maxItems: 1000
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name, is_active, is_admin]
+            properties:
+              id: {type: integer, format: int64, minimum: 1}
+              name: {type: string, maxLength: 512}
+              is_active: {type: boolean}
+              is_admin: {type: boolean}
+        total:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 1000
     InstallationResponse:
       type: object
       required: [source, observed_at, installation, authorization, webhook, grants, activity]

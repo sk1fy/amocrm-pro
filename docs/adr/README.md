@@ -4,6 +4,8 @@
   через существующую capability и установку OAuth.
 - [0041](0041-activity-tasks-through-gateway.md) — задачи панели Activity
   только через Gateway с общей очередью в PostgreSQL.
+- [0042](0042-admin-crm-users-read.md) — пользователи amoCRM для админки
+  через listener worker с кэшем в памяти на 5 минут.
 
 | ADR | Status | Decision |
 | --- | --- | --- |

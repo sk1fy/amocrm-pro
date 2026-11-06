@@ -24,6 +24,13 @@ func actorFrom(ctx context.Context) string {
 // ActorFromContext is populated only by the shared admin listener authentication.
 func ActorFromContext(ctx context.Context) string { return actorFrom(ctx) }
 
+// Authenticate returns the admin bearer and X-Admin-Actor check for other admin
+// listeners (the worker CRM read listener). It fails closed for an empty token
+// and writes the same error envelope as the admin read listener.
+func Authenticate(token string) func(http.Handler) http.Handler {
+	return (&handler{token: token}).authenticate
+}
+
 func (h *handler) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.token == "" || !timingSafeEqual(bearerOrEmpty(r), h.token) {
