@@ -1452,8 +1452,9 @@ paths:
         Contract docs/proposals/activity-period-v1.md. The period is a Monday–Sunday week
         or a calendar month holding anchor; previous is the period before it. Every day is
         computed from the employees' raw CRM events of that account day with the panel
-        pipeline filter and the dashboard-v1 occupancy and cutoff rule, so
-        round(active/elapsed*1000)/10 of a day equals the daily dashboard rating. A day
+        pipeline filter and the dashboard-v1 occupancy and cutoff rule, so a day's
+        Math.round((active / elapsed) * 100 * 10) / 10 (in exactly this order) equals the
+        daily dashboard rating. A day
         statistic reads the window [start_minutes, end_minutes) or, for today and the
         previous period's cut day, the dashboard-v1 cutoff range. Ratings are
         Σactive/Σelapsed over counted days (null when Σelapsed is 0); a weekend day

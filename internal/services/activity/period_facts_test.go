@@ -48,8 +48,9 @@ func cutMinute(cutoff *int64, loc *time.Location) *int {
 	return &m
 }
 
-// assertDashboardParity proves round(active/elapsed*1000)/10 (in the
-// JavaScript evaluation order of roundedRating) equals dashboardRating.
+// assertDashboardParity proves roundedRating(active, elapsed) — that is
+// Math.round((active/elapsed)*100*10)/10 in this order — equals the output of
+// dashboardRating itself, not a re-derived formula.
 func assertDashboardParity(t *testing.T, events []periodEvent, day string, loc *time.Location, w periodWindow, cutoff *int64) dayStat {
 	t.Helper()
 	stat := DayStatFrom(BuildDayFacts(events, day, loc), w, cutMinute(cutoff, loc), nil)
@@ -319,5 +320,20 @@ func TestPeriodPipelineSlicesMatchRawFilter(t *testing.T) {
 		if roundedRating(float64(got.Active), float64(got.Elapsed)) != dashboardRating(ratingEvents(filtered), day, loc, w.Start, w.End, nil) {
 			t.Fatalf("selected %v: dashboard parity", selected)
 		}
+	}
+}
+
+// 138 active of 480 elapsed is the JavaScript half-tie: the dashboard shows
+// 28.7, while round(active/elapsed*1000)/10 would give 28.8.
+func TestPeriodParityHalfTie(t *testing.T) {
+	const day = "2026-10-26"
+	loc, start := periodTestDay(t, day)
+	events := make([]periodEvent, 0, 69)
+	for i := 0; i < 69; i++ {
+		events = append(events, pevent(clock(start, 9, 2*i, 0), "task_added", nil))
+	}
+	stat := assertDashboardParity(t, events, day, loc, periodWindow{540, 1020}, nil)
+	if stat.Active != 138 || stat.Elapsed != 480 || dashboardRating(ratingEvents(events), day, loc, 540, 1020, nil) != 28.7 {
+		t.Fatalf("half tie %d/%d", stat.Active, stat.Elapsed)
 	}
 }

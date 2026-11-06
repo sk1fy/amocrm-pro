@@ -76,8 +76,9 @@
 - Сегменты по 2 минуты от `start_minutes` до `rangeEnd` (последний может быть короче).
   Сегмент **активен**, если любая его минута занята; **звонок**, если любая минута `call`.
 - `active = min(elapsed, activeSegments*2)` (точный паритет с dashboard-v1:
-  `round(active/elapsed*1000)/10 == dashboardRating`; в порядке вычисления JS
-  `round((active/elapsed)*100*10)/10`, как `roundedRating`, — от него зависят половинные значения).
+  `Math.round((active / elapsed) * 100 * 10) / 10 == dashboardRating` — именно в этом порядке
+  операций, как Go `roundedRating`. Запись `round(active/elapsed*1000)/10` даёт другие
+  половинные значения: 138/480 → 28.8 вместо 28.7).
 - `call = min(elapsed, callSegments*2)`.
 - `first` = начало первого активного сегмента; `last` = `min(конец последнего активного сегмента, rangeEnd)`; `null`, если активных нет.
 - `idle_inside` = (неактивные сегменты между первым и последним активным) × 2.
