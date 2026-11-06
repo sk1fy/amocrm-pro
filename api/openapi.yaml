@@ -1443,6 +1443,84 @@ paths:
         '404': {$ref: '#/components/responses/ActivityShareError'}
         '429': {$ref: '#/components/responses/ActivityShareError'}
         '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/view/period:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivitySharePeriod
+      summary: Read Activity-owned week or month statistics (formula period-v1).
+      description: >-
+        Contract docs/proposals/activity-period-v1.md. The period is a Monday–Sunday week
+        or a calendar month holding anchor; previous is the period before it. Every day is
+        computed from the employees' raw CRM events of that account day with the panel
+        pipeline filter and the dashboard-v1 occupancy and cutoff rule, so
+        round(active/elapsed*1000)/10 of a day equals the daily dashboard rating. A day
+        statistic reads the window [start_minutes, end_minutes) or, for today and the
+        previous period's cut day, the dashboard-v1 cutoff range. Ratings are
+        Σactive/Σelapsed over counted days (null when Σelapsed is 0); a weekend day
+        without active segments is not counted. History is at most 33 days: days before
+        history_from are unavailable, and previous.available is true only when every
+        previous day is ready. Stage 1 reads events on demand, one bounded scan per day
+        (60 pages of 100 events for the employee batch, 4 days in parallel, a 20-second
+        scan budget); a day that reaches a bound is partial, never an error. No day is
+        pending in stage 1, so refresh_after is omitted. The client requests at most 25
+        employees per call; responses above 3 MiB fail with 429.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - {name: kind, in: query, required: true, schema: {type: string, enum: [week, month]}}
+        - {name: anchor, in: query, required: true, description: Any day of the period., schema: {type: string, format: date}}
+        - {name: start_minutes, in: query, required: true, schema: {type: integer, minimum: 0, maximum: 1439}}
+        - {name: end_minutes, in: query, required: true, description: Greater than start_minutes., schema: {type: integer, minimum: 1, maximum: 1440}}
+        - {name: cutoff_unix, in: query, description: '"Now" for today and the same-point cut; the server time when omitted. The value used is returned.', schema: {type: integer, format: int64, minimum: 0}}
+        - name: employee_ids
+          in: query
+          description: Comma-separated panel employee IDs (at most 100); defaults to all panel employees.
+          schema: {type: string, pattern: '^[1-9][0-9]*(,[1-9][0-9]*)*$'}
+      responses:
+        '200':
+          description: Week or month statistics calculated by Activity.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityPeriod'}
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
+  /api/v1/activity/view/employees/{employeeId}/period-days:
+    get:
+      tags: [ActivityViewer]
+      operationId: getActivitySharePeriodDays
+      summary: Read one employee's 2-minute segments per day (formula period-v1).
+      description: >-
+        For the working-day comparison; loaded lazily. One character per 2-minute segment of
+        the window (ceil((end_minutes-start_minutes)/2)): kinds 0 pause, 1 CRM, 2 call;
+        zones - no events, C calls, T tasks, I Imbox, D deals, O other CRM; "." not yet
+        happened (today after the cutoff). Days in the future, before history_from or pending
+        carry only day and state. Same panel pipeline filter, history and scan bounds as
+        /api/v1/activity/view/period.
+      security: [{viewKey: []}]
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - {name: employeeId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+        - {name: from_day, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to_day, in: query, required: true, description: Not before from_day; at most 31 days inclusive., schema: {type: string, format: date}}
+        - {name: start_minutes, in: query, required: true, schema: {type: integer, minimum: 0, maximum: 1439}}
+        - {name: end_minutes, in: query, required: true, schema: {type: integer, minimum: 1, maximum: 1440}}
+        - {name: cutoff_unix, in: query, schema: {type: integer, format: int64, minimum: 0}}
+      responses:
+        '200':
+          description: Segment strings calculated by Activity.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActivityPeriodDays'}
+        '400': {$ref: '#/components/responses/ActivityShareError'}
+        '401': {$ref: '#/components/responses/ActivityShareError'}
+        '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
+        '429': {$ref: '#/components/responses/ActivityShareError'}
+        '503': {$ref: '#/components/responses/ActivityShareError'}
   /api/v1/activity/view/panel:
     get:
       tags: [ActivityViewer]
@@ -2280,6 +2358,149 @@ components:
                 minItems: 1441
                 maxItems: 1441
                 items: {type: number, minimum: 0, maximum: 100}
+    ActivityPeriodRange:
+      type: object
+      required: [start, end, days]
+      properties:
+        start: {type: string, format: date}
+        end: {type: string, format: date}
+        days:
+          type: array
+          minItems: 7
+          maxItems: 31
+          items: {type: string, format: date}
+    ActivityDayStat:
+      type: object
+      description: >-
+        future, pending and unavailable days carry only day, state and counted=false; ready
+        and today days carry every field. A cutoff inside hour floor(end_minutes/60) keeps the
+        dashboard-v1 rule and may extend the range past end_minutes; such segments count in
+        active, call, elapsed, first and last but have no column in hours.
+      required: [day, state, counted]
+      additionalProperties: false
+      properties:
+        day: {type: string, format: date}
+        state: {type: string, enum: [future, today, ready, pending, unavailable]}
+        counted: {type: boolean, description: Not in the future and not a Saturday/Sunday without active segments.}
+        coverage: {type: string, enum: [verified, partial, unknown]}
+        partial: {type: boolean, description: The day reached the page or time bound of the event scan.}
+        kpi:
+          type: array
+          description: '[outgoing_calls, messages, outgoing_mail, completed_tasks, lead_status_changes] inside the range.'
+          minItems: 5
+          maxItems: 5
+          items: {type: integer, minimum: 0}
+        events: {type: integer, minimum: 0, description: Sum of kpi.}
+        active: {type: integer, minimum: 0, description: 'min(elapsed, active 2-minute segments x 2).'}
+        call: {type: integer, minimum: 0}
+        elapsed: {type: integer, minimum: 0}
+        idle_inside: {type: integer, minimum: 0}
+        first: {type: integer, nullable: true, minimum: 0, maximum: 1440}
+        last: {type: integer, nullable: true, minimum: 0, maximum: 1440}
+        hours:
+          type: array
+          description: One [active, call, elapsed] triple per top-level hours entry.
+          items:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items: {type: integer, minimum: 0}
+    ActivityPeriod:
+      type: object
+      required: [formula_version, kind, timezone, start_minutes, end_minutes, cutoff_unix, snapshot_at, history_from, hours, current, previous, employees]
+      additionalProperties: false
+      properties:
+        formula_version: {type: string, enum: [period-v1]}
+        kind: {type: string, enum: [week, month]}
+        timezone: {type: string}
+        start_minutes: {type: integer, minimum: 0, maximum: 1439}
+        end_minutes: {type: integer, minimum: 1, maximum: 1440}
+        cutoff_unix: {type: integer, format: int64, minimum: 0}
+        snapshot_at: {type: integer, format: int64}
+        history_from: {type: string, format: date, description: Earliest whole day with data; never deeper than 33 days.}
+        refresh_after: {type: integer, format: int64, description: Present only while a day is pending (never in stage 1).}
+        hours:
+          type: array
+          items: {type: integer, minimum: 0, maximum: 23}
+        current: {$ref: '#/components/schemas/ActivityPeriodRange'}
+        previous:
+          allOf:
+            - {$ref: '#/components/schemas/ActivityPeriodRange'}
+            - type: object
+              required: [available, cut]
+              properties:
+                available: {type: boolean}
+                cut:
+                  type: object
+                  nullable: true
+                  description: Present only while the current period holds today and the previous period has that day index.
+                  required: [day_index, minute]
+                  properties:
+                    day_index: {type: integer, minimum: 0, maximum: 30}
+                    minute: {type: integer, minimum: 0, maximum: 1439}
+        employees:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [employee_id, current, previous]
+            additionalProperties: false
+            properties:
+              employee_id: {type: integer, format: int64, minimum: 1}
+              current:
+                type: object
+                required: [rating, days]
+                additionalProperties: false
+                properties:
+                  rating: {type: number, nullable: true, minimum: 0, maximum: 1}
+                  days:
+                    type: array
+                    items: {$ref: '#/components/schemas/ActivityDayStat'}
+              previous:
+                type: object
+                nullable: true
+                description: Null when previous.available is false.
+                required: [rating, rating_full, days, cut_day]
+                additionalProperties: false
+                properties:
+                  rating: {type: number, nullable: true, minimum: 0, maximum: 1, description: Days before cut.day_index plus cut_day.}
+                  rating_full: {type: number, nullable: true, minimum: 0, maximum: 1}
+                  days:
+                    type: array
+                    items: {$ref: '#/components/schemas/ActivityDayStat'}
+                  cut_day:
+                    nullable: true
+                    allOf: [{$ref: '#/components/schemas/ActivityDayStat'}]
+    ActivityPeriodDays:
+      type: object
+      required: [formula_version, timezone, employee_id, start_minutes, end_minutes, segment_minutes, cutoff_unix, snapshot_at, history_from, days]
+      additionalProperties: false
+      properties:
+        formula_version: {type: string, enum: [period-v1]}
+        timezone: {type: string}
+        employee_id: {type: integer, format: int64, minimum: 1}
+        start_minutes: {type: integer, minimum: 0, maximum: 1439}
+        end_minutes: {type: integer, minimum: 1, maximum: 1440}
+        segment_minutes: {type: integer, enum: [2]}
+        cutoff_unix: {type: integer, format: int64, minimum: 0}
+        snapshot_at: {type: integer, format: int64}
+        history_from: {type: string, format: date}
+        days:
+          type: array
+          maxItems: 31
+          items:
+            type: object
+            required: [day, state]
+            additionalProperties: false
+            properties:
+              day: {type: string, format: date}
+              state: {type: string, enum: [future, today, ready, pending, unavailable]}
+              coverage: {type: string, enum: [verified, partial, unknown]}
+              partial: {type: boolean}
+              first: {type: integer, nullable: true, minimum: 0, maximum: 1440}
+              last: {type: integer, nullable: true, minimum: 0, maximum: 1440}
+              kinds: {type: string, pattern: '^[012.]*$'}
+              zones: {type: string, pattern: '^[-CTIDO.]*$'}
     ActivityViewerPanel:
       type: object
       properties:

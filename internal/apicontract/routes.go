@@ -42,6 +42,8 @@ var (
 	ActivityViewProblems          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/problems"}
 	ActivityViewPanel             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/panel"}
 	ActivityViewRatings           = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/activity"}
+	ActivityViewPeriod            = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/period"}
+	ActivityViewPeriodDays        = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}/period-days"}
 	ActivityViewTimeline          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/timeline"}
 	ActivityViewEmployee          = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/employees/{employeeId}"}
 	ActivityViewEvent             = Route{Method: http.MethodGet, Path: "/api/v1/activity/view/events/{eventId}"}
@@ -77,6 +79,8 @@ var (
 		ActivityViewProblems,
 		ActivityViewPanel,
 		ActivityViewRatings,
+		ActivityViewPeriod,
+		ActivityViewPeriodDays,
 		ActivityViewTimeline,
 		ActivityViewEmployee,
 		ActivityViewEvent,

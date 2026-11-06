@@ -933,34 +933,36 @@ var CRMEvents_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Activity_ViewActivityRatings_FullMethodName = "/amocrm.services.v1.Activity/ViewActivityRatings"
-	Activity_OwnActivityState_FullMethodName    = "/amocrm.services.v1.Activity/OwnActivityState"
-	Activity_OwnSessions_FullMethodName         = "/amocrm.services.v1.Activity/OwnSessions"
-	Activity_ApplySession_FullMethodName        = "/amocrm.services.v1.Activity/ApplySession"
-	Activity_ViewSessions_FullMethodName        = "/amocrm.services.v1.Activity/ViewSessions"
-	Activity_TaskPanel_FullMethodName           = "/amocrm.services.v1.Activity/TaskPanel"
-	Activity_SaveTaskPanel_FullMethodName       = "/amocrm.services.v1.Activity/SaveTaskPanel"
-	Activity_ViewProblems_FullMethodName        = "/amocrm.services.v1.Activity/ViewProblems"
-	Activity_GetPanel_FullMethodName            = "/amocrm.services.v1.Activity/GetPanel"
-	Activity_GetEvent_FullMethodName            = "/amocrm.services.v1.Activity/GetEvent"
-	Activity_GetSettings_FullMethodName         = "/amocrm.services.v1.Activity/GetSettings"
-	Activity_Configure_FullMethodName           = "/amocrm.services.v1.Activity/Configure"
-	Activity_OperationStatus_FullMethodName     = "/amocrm.services.v1.Activity/OperationStatus"
-	Activity_ResolveShare_FullMethodName        = "/amocrm.services.v1.Activity/ResolveShare"
-	Activity_CreatePanel_FullMethodName         = "/amocrm.services.v1.Activity/CreatePanel"
-	Activity_ListPanels_FullMethodName          = "/amocrm.services.v1.Activity/ListPanels"
-	Activity_GetManagedPanel_FullMethodName     = "/amocrm.services.v1.Activity/GetManagedPanel"
-	Activity_PatchPanel_FullMethodName          = "/amocrm.services.v1.Activity/PatchPanel"
-	Activity_RotateShareLink_FullMethodName     = "/amocrm.services.v1.Activity/RotateShareLink"
-	Activity_ListEmployees_FullMethodName       = "/amocrm.services.v1.Activity/ListEmployees"
-	Activity_ViewPanel_FullMethodName           = "/amocrm.services.v1.Activity/ViewPanel"
-	Activity_ViewTimeline_FullMethodName        = "/amocrm.services.v1.Activity/ViewTimeline"
-	Activity_ViewEmployee_FullMethodName        = "/amocrm.services.v1.Activity/ViewEmployee"
-	Activity_ViewEvent_FullMethodName           = "/amocrm.services.v1.Activity/ViewEvent"
-	Activity_OwnTasks_FullMethodName            = "/amocrm.services.v1.Activity/OwnTasks"
-	Activity_OwnTask_FullMethodName             = "/amocrm.services.v1.Activity/OwnTask"
-	Activity_CompleteOwnTask_FullMethodName     = "/amocrm.services.v1.Activity/CompleteOwnTask"
-	Activity_OwnLead_FullMethodName             = "/amocrm.services.v1.Activity/OwnLead"
+	Activity_ViewActivityRatings_FullMethodName    = "/amocrm.services.v1.Activity/ViewActivityRatings"
+	Activity_ViewActivityPeriod_FullMethodName     = "/amocrm.services.v1.Activity/ViewActivityPeriod"
+	Activity_ViewActivityPeriodDays_FullMethodName = "/amocrm.services.v1.Activity/ViewActivityPeriodDays"
+	Activity_OwnActivityState_FullMethodName       = "/amocrm.services.v1.Activity/OwnActivityState"
+	Activity_OwnSessions_FullMethodName            = "/amocrm.services.v1.Activity/OwnSessions"
+	Activity_ApplySession_FullMethodName           = "/amocrm.services.v1.Activity/ApplySession"
+	Activity_ViewSessions_FullMethodName           = "/amocrm.services.v1.Activity/ViewSessions"
+	Activity_TaskPanel_FullMethodName              = "/amocrm.services.v1.Activity/TaskPanel"
+	Activity_SaveTaskPanel_FullMethodName          = "/amocrm.services.v1.Activity/SaveTaskPanel"
+	Activity_ViewProblems_FullMethodName           = "/amocrm.services.v1.Activity/ViewProblems"
+	Activity_GetPanel_FullMethodName               = "/amocrm.services.v1.Activity/GetPanel"
+	Activity_GetEvent_FullMethodName               = "/amocrm.services.v1.Activity/GetEvent"
+	Activity_GetSettings_FullMethodName            = "/amocrm.services.v1.Activity/GetSettings"
+	Activity_Configure_FullMethodName              = "/amocrm.services.v1.Activity/Configure"
+	Activity_OperationStatus_FullMethodName        = "/amocrm.services.v1.Activity/OperationStatus"
+	Activity_ResolveShare_FullMethodName           = "/amocrm.services.v1.Activity/ResolveShare"
+	Activity_CreatePanel_FullMethodName            = "/amocrm.services.v1.Activity/CreatePanel"
+	Activity_ListPanels_FullMethodName             = "/amocrm.services.v1.Activity/ListPanels"
+	Activity_GetManagedPanel_FullMethodName        = "/amocrm.services.v1.Activity/GetManagedPanel"
+	Activity_PatchPanel_FullMethodName             = "/amocrm.services.v1.Activity/PatchPanel"
+	Activity_RotateShareLink_FullMethodName        = "/amocrm.services.v1.Activity/RotateShareLink"
+	Activity_ListEmployees_FullMethodName          = "/amocrm.services.v1.Activity/ListEmployees"
+	Activity_ViewPanel_FullMethodName              = "/amocrm.services.v1.Activity/ViewPanel"
+	Activity_ViewTimeline_FullMethodName           = "/amocrm.services.v1.Activity/ViewTimeline"
+	Activity_ViewEmployee_FullMethodName           = "/amocrm.services.v1.Activity/ViewEmployee"
+	Activity_ViewEvent_FullMethodName              = "/amocrm.services.v1.Activity/ViewEvent"
+	Activity_OwnTasks_FullMethodName               = "/amocrm.services.v1.Activity/OwnTasks"
+	Activity_OwnTask_FullMethodName                = "/amocrm.services.v1.Activity/OwnTask"
+	Activity_CompleteOwnTask_FullMethodName        = "/amocrm.services.v1.Activity/CompleteOwnTask"
+	Activity_OwnLead_FullMethodName                = "/amocrm.services.v1.Activity/OwnLead"
 )
 
 // ActivityClient is the client API for Activity service.
@@ -968,6 +970,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ActivityClient interface {
 	ViewActivityRatings(ctx context.Context, in *ActivityRatingRequest, opts ...grpc.CallOption) (*ActivityRatings, error)
+	ViewActivityPeriod(ctx context.Context, in *ActivityPeriodRequest, opts ...grpc.CallOption) (*ActivityPeriodView, error)
+	ViewActivityPeriodDays(ctx context.Context, in *ActivityPeriodDaysRequest, opts ...grpc.CallOption) (*ActivityPeriodDaysView, error)
 	OwnActivityState(ctx context.Context, in *Auth, opts ...grpc.CallOption) (*EmployeeActivityState, error)
 	OwnSessions(ctx context.Context, in *Query, opts ...grpc.CallOption) (*SessionPage, error)
 	ApplySession(ctx context.Context, in *SessionCommand, opts ...grpc.CallOption) (*WorkSession, error)
@@ -1009,6 +1013,26 @@ func (c *activityClient) ViewActivityRatings(ctx context.Context, in *ActivityRa
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ActivityRatings)
 	err := c.cc.Invoke(ctx, Activity_ViewActivityRatings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewActivityPeriod(ctx context.Context, in *ActivityPeriodRequest, opts ...grpc.CallOption) (*ActivityPeriodView, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ActivityPeriodView)
+	err := c.cc.Invoke(ctx, Activity_ViewActivityPeriod_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *activityClient) ViewActivityPeriodDays(ctx context.Context, in *ActivityPeriodDaysRequest, opts ...grpc.CallOption) (*ActivityPeriodDaysView, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ActivityPeriodDaysView)
+	err := c.cc.Invoke(ctx, Activity_ViewActivityPeriodDays_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1290,6 +1314,8 @@ func (c *activityClient) OwnLead(ctx context.Context, in *OwnLeadRequest, opts .
 // for forward compatibility.
 type ActivityServer interface {
 	ViewActivityRatings(context.Context, *ActivityRatingRequest) (*ActivityRatings, error)
+	ViewActivityPeriod(context.Context, *ActivityPeriodRequest) (*ActivityPeriodView, error)
+	ViewActivityPeriodDays(context.Context, *ActivityPeriodDaysRequest) (*ActivityPeriodDaysView, error)
 	OwnActivityState(context.Context, *Auth) (*EmployeeActivityState, error)
 	OwnSessions(context.Context, *Query) (*SessionPage, error)
 	ApplySession(context.Context, *SessionCommand) (*WorkSession, error)
@@ -1329,6 +1355,12 @@ type UnimplementedActivityServer struct{}
 
 func (UnimplementedActivityServer) ViewActivityRatings(context.Context, *ActivityRatingRequest) (*ActivityRatings, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ViewActivityRatings not implemented")
+}
+func (UnimplementedActivityServer) ViewActivityPeriod(context.Context, *ActivityPeriodRequest) (*ActivityPeriodView, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewActivityPeriod not implemented")
+}
+func (UnimplementedActivityServer) ViewActivityPeriodDays(context.Context, *ActivityPeriodDaysRequest) (*ActivityPeriodDaysView, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewActivityPeriodDays not implemented")
 }
 func (UnimplementedActivityServer) OwnActivityState(context.Context, *Auth) (*EmployeeActivityState, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OwnActivityState not implemented")
@@ -1446,6 +1478,42 @@ func _Activity_ViewActivityRatings_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ActivityServer).ViewActivityRatings(ctx, req.(*ActivityRatingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewActivityPeriod_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActivityPeriodRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewActivityPeriod(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewActivityPeriod_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewActivityPeriod(ctx, req.(*ActivityPeriodRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Activity_ViewActivityPeriodDays_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActivityPeriodDaysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ActivityServer).ViewActivityPeriodDays(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Activity_ViewActivityPeriodDays_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ActivityServer).ViewActivityPeriodDays(ctx, req.(*ActivityPeriodDaysRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1946,6 +2014,14 @@ var Activity_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ViewActivityRatings",
 			Handler:    _Activity_ViewActivityRatings_Handler,
+		},
+		{
+			MethodName: "ViewActivityPeriod",
+			Handler:    _Activity_ViewActivityPeriod_Handler,
+		},
+		{
+			MethodName: "ViewActivityPeriodDays",
+			Handler:    _Activity_ViewActivityPeriodDays_Handler,
 		},
 		{
 			MethodName: "OwnActivityState",
