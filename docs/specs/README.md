@@ -8,6 +8,8 @@
   полей, enrichment и отображения Activity.
 - [`activity-panel-v1.md`](activity-panel-v1.md) — контракт разделяемых панелей
   Activity v1.
+- [`../proposals/activity-period-v1.md`](../proposals/activity-period-v1.md) —
+  контракт недели/месяца панели (`period-v1`, `/view/period`, `/period-days`).
 - [`team-os-activity-v1-integration.md`](team-os-activity-v1-integration.md) —
   контракт интеграции новой вкладки TeamOS с Activity.
 - [`lead-distribution-v1/`](lead-distribution-v1/README.md) — действующие бизнес-правила,

@@ -5,6 +5,7 @@ package activity
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
@@ -28,6 +29,10 @@ type Service struct {
 	events      serviceapi.CRMEvents
 	gateway     serviceapi.Gateway
 	shareOrigin string
+	// now and periodScanBudget are test seams; zero values use the wall
+	// clock and serviceapi.ActivityPeriodScanBudget.
+	now              func() time.Time
+	periodScanBudget time.Duration
 }
 
 func New(store Repository, policy serviceapi.Policy, events serviceapi.CRMEvents, gateway serviceapi.Gateway) *Service {
@@ -37,6 +42,13 @@ func New(store Repository, policy serviceapi.Policy, events serviceapi.CRMEvents
 func (s *Service) WithShareOrigin(origin string) *Service {
 	s.shareOrigin = strings.TrimRight(strings.TrimSpace(origin), "/")
 	return s
+}
+
+func (s *Service) clock() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }
 
 var _ serviceapi.Activity = (*Service)(nil)

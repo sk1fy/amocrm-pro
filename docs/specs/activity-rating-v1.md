@@ -80,3 +80,12 @@ The rounding oracle in `docs/fixtures/activity-rating-rounding-v1.json` checks
 1,041,840 count pairs against JavaScript, including the 72 cases that differ
 if the original multiplication order is reassociated. Numeric pipeline IDs are
 normalized as decimal strings, including ordinary seven- and nine-digit CRM IDs.
+
+## Week and month (`period-v1`)
+
+`GET /api/v1/activity/view/period` and `/view/employees/{employeeId}/period-days`
+reuse the `dashboard-v1` occupancy, two-minute segments, pipeline filter, cutoff
+rule and card fallback per day, so a day's `roundedRating(active, elapsed)` —
+`Math.round((active / elapsed) * 100 * 10) / 10`, in this order — equals this rating
+for the same events, window and cutoff (`period_facts_test.go`). Contract:
+[`docs/proposals/activity-period-v1.md`](../proposals/activity-period-v1.md).

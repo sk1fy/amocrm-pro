@@ -170,13 +170,19 @@ func TestRevocationStopsLocalAdapterBeforeDataAccess(t *testing.T) {
 }
 
 func TestSettingsBounds(t *testing.T) {
-	for _, s := range []serviceapi.Settings{{}, {InitialDays: 32, RetentionDays: 30}, {InitialDays: 7, RetentionDays: 2}, {InitialDays: 2, RetentionDays: 32}} {
+	for _, s := range []serviceapi.Settings{{}, {InitialDays: 32, RetentionDays: 30}, {InitialDays: 7, RetentionDays: 2}, {InitialDays: 2, RetentionDays: 34}} {
 		if ValidateSettings(s) == nil {
 			t.Fatalf("accepted %+v", s)
 		}
 	}
 	if err := ValidateSettings(Defaults()); err != nil {
 		t.Fatal(err)
+	}
+	if d := Defaults(); d.InitialDays != 31 || d.RetentionDays != 33 {
+		t.Fatalf("defaults %+v", d)
+	}
+	if err := ValidateSettings(serviceapi.Settings{InitialDays: 31, RetentionDays: 33}); err != nil {
+		t.Fatalf("33-day retention rejected: %v", err)
 	}
 	ignored := Defaults()
 	ignored.UpdatedAt = 99

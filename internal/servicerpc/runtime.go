@@ -31,8 +31,11 @@ const MaxConcurrent = 32
 const RPCTimeout = 10 * time.Second
 
 func rpcCallTimeout(method string) time.Duration {
-	if method == pb.Activity_ViewActivityRatings_FullMethodName {
+	switch method {
+	case pb.Activity_ViewActivityRatings_FullMethodName:
 		return serviceapi.ActivityRatingTimeout
+	case pb.Activity_ViewActivityPeriod_FullMethodName, pb.Activity_ViewActivityPeriodDays_FullMethodName:
+		return serviceapi.ActivityPeriodTimeout
 	}
 	return RPCTimeout
 }
