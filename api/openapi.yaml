@@ -2411,12 +2411,14 @@ components:
           type: integer
           minimum: 1
           maximum: 31
-          default: 2
+          default: 31
         retention_days:
           type: integer
           minimum: 2
-          maximum: 31
-          default: 7
+          maximum: 33
+          default: 33
+          description: Raw CRM events are kept at most 33 days (period-v1 week/month comparison); initial history
+            and backfill stay at most 31 days.
       required:
       - initial_days
       - retention_days

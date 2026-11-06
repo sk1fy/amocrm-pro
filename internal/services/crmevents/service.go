@@ -146,8 +146,8 @@ func normalizeCommand(c serviceapi.Command, now time.Time) (serviceapi.Command, 
 	if c.RetentionDays == 0 {
 		c.RetentionDays = serviceapi.DefaultSettings().RetentionDays
 	}
-	if c.InitialDays < 1 || c.InitialDays > 31 || c.RetentionDays < 2 || c.RetentionDays > 31 || c.RetentionDays < c.InitialDays {
-		return c, serviceapi.Fail(serviceapi.InvalidArgument, "initial days 1..31; retention days 2..31 and at least initial days")
+	if c.InitialDays < 1 || c.InitialDays > 31 || c.RetentionDays < 2 || c.RetentionDays > serviceapi.RetentionDaysMax || c.RetentionDays < c.InitialDays {
+		return c, serviceapi.Fail(serviceapi.InvalidArgument, "initial days 1..31; retention days 2..33 and at least initial days")
 	}
 	switch c.Kind {
 	case "enable", "sync", "disable":
