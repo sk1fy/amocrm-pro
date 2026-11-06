@@ -88,6 +88,8 @@ func (h *handler) users(w http.ResponseWriter, r *http.Request) {
 	response := usersResponse{Source: "core", ObservedAt: h.now(), AccountID: accountID}
 	var readError *ReadError
 	switch {
+	case r.Context().Err() != nil:
+		return
 	case err == nil:
 		total := len(snapshot.Users)
 		fresh := snapshot.FreshUntil.UTC()

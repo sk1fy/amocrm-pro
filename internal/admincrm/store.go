@@ -10,8 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store selects the reading connection. It reads only identifiers and status
-// columns; credentials stay with the OAuth token provider.
+// Store selects the reading connection. It reads credential metadata only.
 type Store struct {
 	Pool    *pgxpool.Pool
 	Timeout time.Duration
@@ -28,7 +27,7 @@ func (s *Store) ResolveConnection(ctx context.Context, accountID int64) (Connect
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var connection Connection
-	err := s.Pool.QueryRow(ctx, `SELECT i.id, i.integration_id, ig.code
+	err := s.Pool.QueryRow(ctx, `SELECT i.id, i.integration_id, ig.code, oc.token_version
 FROM installations i
 JOIN integrations ig ON ig.id = i.integration_id
 JOIN oauth_credentials oc ON oc.installation_id = i.id
@@ -37,7 +36,7 @@ WHERE i.account_id = $1
   AND ig.status = 'active'
   AND COALESCE(i.settings->>'origin', '') <> 'fixture'
 ORDER BY COALESCE(oc.refreshed_at, oc.created_at) DESC, i.updated_at DESC, i.id DESC
-LIMIT 1`, accountID).Scan(&connection.InstallationID, &connection.IntegrationID, &connection.IntegrationCode)
+LIMIT 1`, accountID).Scan(&connection.InstallationID, &connection.IntegrationID, &connection.IntegrationCode, &connection.credentialVersion)
 	if err == nil {
 		return connection, nil
 	}

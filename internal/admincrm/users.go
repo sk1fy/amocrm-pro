@@ -36,7 +36,7 @@ const (
 const (
 	// FreshFor matches the crmreferences snapshot lifetime used for TeamOS.
 	FreshFor        = 5 * time.Minute
-	fetchTimeout    = 30 * time.Second
+	usersTimeout    = 8 * time.Second // Leave time to send the response before Admin's 10s timeout.
 	maxCacheEntries = 256
 )
 
@@ -47,9 +47,10 @@ var (
 
 // Connection is the installation whose OAuth credentials read the account.
 type Connection struct {
-	InstallationID  uuid.UUID
-	IntegrationID   uuid.UUID
-	IntegrationCode string
+	InstallationID    uuid.UUID
+	IntegrationID     uuid.UUID
+	IntegrationCode   string
+	credentialVersion int64
 }
 
 // User is the admin projection of an amoCRM user. Contact fields, group, role
@@ -80,6 +81,10 @@ type ReadError struct {
 func (e *ReadError) Error() string { return "read amoCRM users: " + e.State }
 func (e *ReadError) Unwrap() error { return e.Err }
 
+type connectionChanged struct{ current Connection }
+
+func (*connectionChanged) Error() string { return "reading connection changed during amoCRM read" }
+
 type Resolver interface {
 	ResolveConnection(ctx context.Context, accountID int64) (Connection, error)
 }
@@ -105,30 +110,68 @@ func (s *Service) now() time.Time {
 	return time.Now().UTC()
 }
 
-// Users resolves the reading connection on every call, so a revoked or
-// reauthorized installation never serves a cached list, then returns a cached
-// snapshot younger than FreshFor or reads amoCRM once per account.
+// Users returns a recent snapshot for the account's current reading connection.
 func (s *Service) Users(ctx context.Context, accountID int64) (Snapshot, error) {
-	connection, err := s.Resolver.ResolveConnection(ctx, accountID)
+	deadline := time.Now().Add(usersTimeout)
+	waitCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+	connection, err := s.Resolver.ResolveConnection(waitCtx, accountID)
 	if err != nil {
+		return Snapshot{}, err
+	}
+	for attempt := 0; ; attempt++ {
+		snapshot, err := s.readUsers(waitCtx, deadline, accountID, connection)
+		if err := ctx.Err(); err != nil {
+			return Snapshot{}, err
+		}
+		if err := waitCtx.Err(); err != nil {
+			return Snapshot{}, &ReadError{State: StateNetworkError, Connection: connection, Err: err}
+		}
+		var changed *connectionChanged
+		if !errors.As(err, &changed) {
+			return snapshot, err
+		}
+		if attempt == 1 {
+			return Snapshot{}, &ReadError{State: StateInternalError, Connection: connection, Err: err}
+		}
+		connection = changed.current
+	}
+}
+
+func (s *Service) readUsers(ctx context.Context, deadline time.Time, accountID int64, connection Connection) (Snapshot, error) {
+	if err := ctx.Err(); err != nil {
 		return Snapshot{}, err
 	}
 	if cached, ok := s.cached(accountID, connection); ok {
 		return cached, nil
 	}
-	key := fmt.Sprintf("%d/%s", accountID, connection.InstallationID)
+	key := fmt.Sprintf("%d/%s/%s/%q/%d", accountID, connection.InstallationID, connection.IntegrationID, connection.IntegrationCode, connection.credentialVersion)
 	result := s.flights.DoChan(key, func() (any, error) {
 		if cached, ok := s.cached(accountID, connection); ok {
 			return cached, nil
 		}
 		// One caller leaving must not fail the others waiting on this read.
-		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchTimeout)
+		fetchCtx, cancel := context.WithDeadline(context.WithoutCancel(ctx), deadline)
 		defer cancel()
 		started := s.now()
 		raw, err := s.CRM.CRMUsers(fetchCtx, connection.InstallationID)
+		if fetchErr := fetchCtx.Err(); fetchErr != nil {
+			return Snapshot{}, &ReadError{State: StateNetworkError, Connection: connection, Err: fetchErr}
+		}
 		if err != nil {
 			state, retryAfter := Classify(err)
 			return Snapshot{}, &ReadError{State: state, RetryAfter: retryAfter, Connection: connection, Err: err}
+		}
+		fetchedAt := s.now()
+		current, err := s.Resolver.ResolveConnection(fetchCtx, accountID)
+		if fetchErr := fetchCtx.Err(); fetchErr != nil {
+			return Snapshot{}, &ReadError{State: StateNetworkError, Connection: connection, Err: fetchErr}
+		}
+		if err != nil {
+			return Snapshot{}, err
+		}
+		if current != connection {
+			return Snapshot{}, &connectionChanged{current: current}
 		}
 		users := make([]User, 0, len(raw))
 		for _, item := range raw {
@@ -136,7 +179,7 @@ func (s *Service) Users(ctx context.Context, accountID int64) (Snapshot, error) 
 			users = append(users, User{ID: item.ID, Name: item.Name, IsActive: active, IsAdmin: item.Rights.IsAdmin})
 		}
 		sort.Slice(users, func(i, j int) bool { return users[i].ID < users[j].ID })
-		snapshot := Snapshot{Connection: connection, FetchedAt: s.now(), FreshUntil: started.Add(FreshFor), Users: users}
+		snapshot := Snapshot{Connection: connection, FetchedAt: fetchedAt, FreshUntil: started.Add(FreshFor), Users: users}
 		s.store(accountID, snapshot)
 		return snapshot, nil
 	})
@@ -167,6 +210,11 @@ func (s *Service) store(accountID int64, snapshot Snapshot) {
 	defer s.mu.Unlock()
 	if s.cache == nil {
 		s.cache = map[int64]Snapshot{}
+	}
+	if current, exists := s.cache[accountID]; exists &&
+		current.Connection.InstallationID == snapshot.Connection.InstallationID &&
+		current.Connection.credentialVersion > snapshot.Connection.credentialVersion {
+		return
 	}
 	if _, exists := s.cache[accountID]; !exists && len(s.cache) >= maxCacheEntries {
 		var oldest int64

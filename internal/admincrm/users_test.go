@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -80,7 +81,7 @@ func (c *clock) Add(d time.Duration) {
 }
 
 func testConnection() Connection {
-	return Connection{InstallationID: uuid.MustParse("11111111-1111-4111-8111-111111111111"), IntegrationID: uuid.MustParse("22222222-2222-4222-8222-222222222222"), IntegrationCode: "widget-fixture-a"}
+	return Connection{InstallationID: uuid.MustParse("11111111-1111-4111-8111-111111111111"), IntegrationID: uuid.MustParse("22222222-2222-4222-8222-222222222222"), IntegrationCode: "widget-fixture-a", credentialVersion: 1}
 }
 
 func TestUsersProjectsSortsAndCaches(t *testing.T) {
@@ -187,6 +188,48 @@ func TestUsersSharesOneReadAndSurvivesCallerCancel(t *testing.T) {
 	if reader.calls.Load() != 1 {
 		t.Fatalf("calls=%d", reader.calls.Load())
 	}
+}
+
+func TestUsersDoesNotJoinReadFromPreviousCredentials(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		connection := testConnection()
+		resolver := &fakeResolver{connection: connection}
+		release := make(chan struct{})
+		var calls atomic.Int32
+		reader := readerFunc(func(ctx context.Context, _ uuid.UUID) ([]amocrm.CRMUser, error) {
+			if calls.Add(1) == 1 {
+				select {
+				case <-release:
+					return []amocrm.CRMUser{crmUser(1, "До обновления", true, false)}, nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}
+			return []amocrm.CRMUser{crmUser(2, "После обновления", true, false)}, nil
+		})
+		service := &Service{Resolver: resolver, CRM: reader}
+		assertNewUsers := func(snapshot Snapshot, err error) {
+			t.Helper()
+			if err != nil || len(snapshot.Users) != 1 || snapshot.Users[0].ID != 2 {
+				t.Errorf("users=%+v err=%v", snapshot.Users, err)
+			}
+		}
+		firstDone := make(chan struct{})
+		go func() {
+			defer close(firstDone)
+			assertNewUsers(service.Users(t.Context(), 1))
+		}()
+		synctest.Wait()
+		connection.credentialVersion++
+		resolver.set(connection, nil)
+		assertNewUsers(service.Users(t.Context(), 1))
+		close(release)
+		<-firstDone
+		assertNewUsers(service.Users(t.Context(), 1))
+		if calls.Load() != 2 {
+			t.Fatalf("CRM reads=%d, want one per credential version", calls.Load())
+		}
+	})
 }
 
 func TestUsersCacheIsBounded(t *testing.T) {
