@@ -1,13 +1,17 @@
 package admincrm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
@@ -49,7 +53,7 @@ func TestUsersRouteReturnsProjection(t *testing.T) {
 		t.Fatalf("headers=%v", rec.Header())
 	}
 	raw := rec.Body.String()
-	for _, forbidden := range []string{"email", "rights", "group", "role", "leads", "token", "secret", "phone"} {
+	for _, forbidden := range []string{"email", "rights", "group", "role", "leads", "token", "secret", "phone", "credential_version"} {
 		if strings.Contains(strings.ToLower(raw), forbidden) {
 			t.Fatalf("response mentions %q: %s", forbidden, raw)
 		}
@@ -103,6 +107,30 @@ func TestUsersRouteStates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUsersRouteReturnsNetworkErrorWithinAdminClientTimeout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		release := make(chan struct{})
+		defer close(release)
+		reader := readerFunc(func(context.Context, uuid.UUID) ([]amocrm.CRMUser, error) {
+			select {
+			case <-time.After(12 * time.Second):
+			case <-release:
+			}
+			return []amocrm.CRMUser{crmUser(1, "Поздний ответ", true, false)}, nil
+		})
+		service := &Service{Resolver: &fakeResolver{connection: testConnection()}, CRM: reader}
+		started := time.Now()
+		rec := serve(t, Router(nil, testToken, service), "/admin/v1/accounts/7/crm-users", testToken)
+		body := decode(t, rec)
+		if rec.Code != http.StatusOK || body["state"] != StateNetworkError || body["items"] != nil || body["total"] != nil || body["connection"] == nil {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		if elapsed := time.Since(started); elapsed >= 10*time.Second {
+			t.Fatalf("response took %s; Admin's client times out at 10s", elapsed)
+		}
+	})
 }
 
 func TestUsersRouteErrors(t *testing.T) {

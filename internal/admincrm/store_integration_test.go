@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/testkit"
 )
 
@@ -69,6 +70,32 @@ func TestResolveConnectionPrefersRecentAuthorizedRealInstallation(t *testing.T) 
 	insertInstallation(t, pool, unauthorized, active, 11111111, "reauth_required", `{}`, now)
 	if _, err := store.ResolveConnection(ctx, 11111111); !errors.Is(err, ErrNoAuthorizedConnection) {
 		t.Fatalf("unauthorized account err=%v", err)
+	}
+}
+
+func TestUsersReloadsAfterReauthorizationOfSameInstallation(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	ctx := t.Context()
+	const account = int64(31415926)
+	installation := uuid.New()
+	integration := insertIntegration(t, pool, "widget-fixture-a", "active")
+	now := time.Now().UTC()
+	insertInstallation(t, pool, installation, integration, account, "active", `{}`, now)
+	insertCredentials(t, pool, installation, now)
+	reader := &fakeReader{users: []amocrm.CRMUser{crmUser(1, "Первый", true, false)}}
+	service := &Service{Resolver: &Store{Pool: pool}, CRM: reader}
+	first, err := service.Users(ctx, account)
+	if err != nil || len(first.Users) != 1 || first.Users[0].ID != 1 {
+		t.Fatalf("before reauthorization: users=%+v err=%v", first.Users, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE oauth_credentials SET token_version = token_version + 1 WHERE installation_id = $1`, installation); err != nil {
+		t.Fatal(err)
+	}
+	reader.users = []amocrm.CRMUser{crmUser(2, "Второй", true, false)}
+	second, err := service.Users(ctx, account)
+	if err != nil || second.Connection.InstallationID != installation || len(second.Users) != 1 || second.Users[0].ID != 2 {
+		t.Fatalf("after reauthorization: users=%+v err=%v", second.Users, err)
 	}
 }
 

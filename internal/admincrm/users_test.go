@@ -41,6 +41,12 @@ type fakeReader struct {
 	err   error
 }
 
+type readerFunc func(context.Context, uuid.UUID) ([]amocrm.CRMUser, error)
+
+func (f readerFunc) CRMUsers(ctx context.Context, id uuid.UUID) ([]amocrm.CRMUser, error) {
+	return f(ctx, id)
+}
+
 func (f *fakeReader) CRMUsers(ctx context.Context, _ uuid.UUID) ([]amocrm.CRMUser, error) {
 	f.calls.Add(1)
 	if f.gate != nil {
