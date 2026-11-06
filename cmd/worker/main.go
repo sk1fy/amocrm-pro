@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/admincommand"
+	"github.com/sk1fy/amocrm-pro/internal/admincrm"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
@@ -243,9 +244,23 @@ func run() error {
 		}
 		taskControlServer = httpserver.New(taskControlConfig.Address, taskControlRouter)
 	}
-	errChannel := make(chan error, 5)
+	var adminCRMServer *http.Server
+	if cfg.AdminCRMHTTPAddress != "" {
+		// Admin CRM reads share this process's OAuth provider and outbound
+		// budget; the api admin listener never calls amoCRM (ADR-0042).
+		adminCRM := &admincrm.Service{Resolver: &admincrm.Store{Pool: pool, Timeout: cfg.DatabaseTimeout}, CRM: amocrmAPI}
+		adminCRMServer = httpserver.New(cfg.AdminCRMHTTPAddress, admincrm.Router(logger, cfg.AdminAPIToken, adminCRM))
+	}
+	errChannel := make(chan error, 6)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if adminCRMServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- httpserver.Run(ctx, adminCRMServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	if taskControlServer != nil {
 		processes.Add(1)
 		go func() {

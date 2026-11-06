@@ -70,3 +70,43 @@ func TestAuthenticate(t *testing.T) {
 		t.Fatalf("envelope=%s", rec.Body.String())
 	}
 }
+
+func TestExportedAuthenticateMatchesAdminListener(t *testing.T) {
+	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
+	router.Use(Authenticate("admin-dev-credential"))
+	router.Get("/ok", func(w http.ResponseWriter, r *http.Request) {
+		if ActorFromContext(r.Context()) != "automation:sync" {
+			t.Errorf("actor=%q", ActorFromContext(r.Context()))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	for _, tc := range []struct {
+		auth, actor string
+		want        int
+	}{
+		{"Bearer admin-dev-credential", "automation:sync", http.StatusNoContent},
+		{"Bearer wrong", "automation:sync", http.StatusUnauthorized},
+		{"Bearer admin-dev-credential", "no-prefix", http.StatusUnauthorized},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+		req.Header.Set("Authorization", tc.auth)
+		req.Header.Set("X-Admin-Actor", tc.actor)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Fatalf("%q/%q=%d %s", tc.auth, tc.actor, rec.Code, rec.Body.String())
+		}
+	}
+	empty := chi.NewRouter()
+	empty.Use(Authenticate(""))
+	empty.Get("/ok", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	req.Header.Set("Authorization", "Bearer admin-dev-credential")
+	req.Header.Set("X-Admin-Actor", "automation:sync")
+	rec := httptest.NewRecorder()
+	empty.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("empty token=%d", rec.Code)
+	}
+}

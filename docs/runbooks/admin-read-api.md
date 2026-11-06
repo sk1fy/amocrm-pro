@@ -80,7 +80,36 @@ Listener выдаёт `serviceapi.Auth` с `Kind=operator` и `actor_id=0`
   все метрики в одном запросе. Ноль — реальное значение; неизвестное
   (latency без попыток) — `null`.
 
+## Пользователи amoCRM (listener worker)
+
+`GET /admin/v1/accounts/{account_id}/crm-users` обслуживает не `api`,
+а worker: только он ходит в amoCRM ([ADR-0042](../adr/0042-admin-crm-users-read.md)).
+
+- Включение: `ADMIN_CRM_HTTP_ADDRESS` (Compose `:8085`) и тот же
+  `ADMIN_API_TOKEN`, что у admin listener. Адрес без токена —
+  worker не стартует; без адреса listener выключен.
+- Сеть `amocrm-admin-link`, alias `core-admin-crm`; на хосте только
+  loopback `127.0.0.1:8085` (activity-стек `127.0.0.1:18085`).
+- Заголовки те же: `Authorization: Bearer`, `X-Admin-Actor`.
+
+```sh
+curl -sS \
+  -H "Authorization: Bearer ${ADMIN_API_TOKEN}" \
+  -H "X-Admin-Actor: employee:11111111-1111-1111-1111-111111111111" \
+  http://127.0.0.1:8085/admin/v1/accounts/31415926/crm-users
+```
+
+Ответ `200` всегда содержит `state`. `ok` — список (`id`, `name`,
+`is_active`, `is_admin`) и `fresh_until`; снимок живёт в памяти
+worker 5 минут. Остальные состояния — `no_authorized_connection`,
+`auth_error`, `rate_limited` (+ `retry_after_seconds`), `incomplete`,
+`network_error`, `internal_error` — несут `items: null`: список
+неизвестен. Аккаунт без установок — `404`. Email, телефон, группы и
+права не возвращаются. Причина отказа пишется в лог worker
+(`admin crm users unavailable`, `reason_code`, `upstream_status`).
+
 Контракт: [`api/admin-openapi.yaml`](../../api/admin-openapi.yaml).
 Решение: [ADR-0025](../adr/0025-admin-read-listener.md).
 Дополнение диагностики: [ADR-0026](../adr/0026-admin-read-diagnostics.md).
 Принципал Activity: [ADR-0028](../adr/0028-admin-activity-principal.md).
+Пользователи amoCRM: [ADR-0042](../adr/0042-admin-crm-users-read.md).

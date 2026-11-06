@@ -391,3 +391,42 @@ func setWorkerEnvironment(t *testing.T) {
 	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
 	t.Setenv("PUBLIC_BASE_URL", "https://hooks.example.test")
 }
+
+func TestWorkerAdminCRMListener(t *testing.T) {
+	for _, tc := range []struct {
+		name, environment, address, token, wantError string
+		wantAddress                                  string
+	}{
+		{name: "disabled by default", environment: "development"},
+		{name: "token alone keeps it off", environment: "development", token: "fixture-admin-credential"},
+		{name: "enabled", environment: "development", address: ":8085", token: "fixture-admin-credential", wantAddress: ":8085"},
+		{name: "missing token", environment: "development", address: ":8085", wantError: "requires ADMIN_API_TOKEN"},
+		{name: "health conflict", environment: "development", address: ":8081", token: "fixture-admin-credential", wantError: "must not conflict"},
+		{name: "invalid address", environment: "development", address: "8084", token: "fixture-admin-credential", wantError: "ADMIN_CRM_HTTP_ADDRESS"},
+		{name: "production development token", environment: "production", address: ":8085", token: developmentAdminToken, wantError: "development admin token"},
+		{name: "production custom token", environment: "production", address: ":8085", token: "synthetic-admin-credential-for-test", wantAddress: ":8085"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setWorkerEnvironment(t)
+			t.Setenv("APP_ENV", tc.environment)
+			if tc.environment != "development" {
+				t.Setenv("ENCRYPTION_KEYS", "1:"+base64.StdEncoding.EncodeToString([]byte(strings.Repeat("x", 32))))
+			}
+			t.Setenv("ADMIN_CRM_HTTP_ADDRESS", tc.address)
+			t.Setenv("ADMIN_API_TOKEN", tc.token)
+			worker, err := LoadWorker()
+			if tc.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+					t.Fatalf("expected %q, got %v", tc.wantError, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if worker.AdminCRMHTTPAddress != tc.wantAddress || (tc.wantAddress == "") != (worker.AdminAPIToken == "") {
+				t.Fatalf("address=%q token set=%v", worker.AdminCRMHTTPAddress, worker.AdminAPIToken != "")
+			}
+		})
+	}
+}

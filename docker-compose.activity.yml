@@ -116,6 +116,9 @@ services:
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-https://hooks.example.invalid}"
       WORKER_CONCURRENCY: "2"
       WORKER_INTEGRATION_CONCURRENCY: "1"
+      ADMIN_CRM_HTTP_ADDRESS: ":8085"
+      ADMIN_API_TOKEN: "${ADMIN_API_TOKEN:-admin-dev-token-change-me}"
+    ports: ["127.0.0.1:${ACTIVITY_ADMIN_CRM_PORT:-18085}:8085"]
     volumes: ["gateway-identity:/identity:ro"]
     depends_on:
       migrate-core: {condition: service_completed_successfully}

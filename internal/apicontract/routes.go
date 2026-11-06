@@ -156,4 +156,10 @@ var (
 		AdminStats,
 		AdminStatsAccounts,
 	}
+
+	// AdminCRMUsers is served by the worker admin CRM listener
+	// (ADMIN_CRM_HTTP_ADDRESS), not the api admin listener: the worker is the
+	// only owner of outgoing amoCRM traffic (ADR-0019/0029).
+	AdminCRMUsers  = Route{Method: http.MethodGet, Path: "/admin/v1/accounts/{account_id}/crm-users"}
+	AdminCRMRoutes = []Route{AdminCRMUsers}
 )

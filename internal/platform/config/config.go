@@ -91,6 +91,10 @@ type Worker struct {
 	WebhookInboxRetention    time.Duration
 	WebhookDeliveryRetention time.Duration
 	AmoCRMBudget             AmoCRMBudget
+	// AdminCRMHTTPAddress enables the worker admin CRM read listener; empty
+	// keeps it off. AdminAPIToken is then required (ADR-0042).
+	AdminCRMHTTPAddress string
+	AdminAPIToken       string
 }
 
 // AmoCRMBudget configures the outgoing amoCRM API v4 budgets of this process.
@@ -474,6 +478,11 @@ func LoadWorker() (Worker, error) {
 		return Worker{}, err
 	}
 
+	adminCRMAddress, adminToken, err := loadWorkerAdminCRM(common)
+	if err != nil {
+		return Worker{}, err
+	}
+
 	workerID := strings.TrimSpace(os.Getenv("WORKER_ID"))
 	if workerID == "" {
 		hostname, hostErr := os.Hostname()
@@ -494,7 +503,33 @@ func LoadWorker() (Worker, error) {
 		WebhookInboxRetention:    webhookInboxRetention,
 		WebhookDeliveryRetention: webhookDeliveryRetention,
 		AmoCRMBudget:             amocrmBudget,
+		AdminCRMHTTPAddress:      adminCRMAddress,
+		AdminAPIToken:            adminToken,
 	}, nil
+}
+
+// loadWorkerAdminCRM configures the optional worker admin CRM read listener
+// (ADR-0042). It shares ADMIN_API_TOKEN with the api admin listener and stays
+// off unless both variables are set.
+func loadWorkerAdminCRM(common Common) (string, string, error) {
+	address := strings.TrimSpace(os.Getenv("ADMIN_CRM_HTTP_ADDRESS"))
+	token := strings.TrimSpace(os.Getenv("ADMIN_API_TOKEN"))
+	if address == "" {
+		return "", "", nil
+	}
+	if token == "" {
+		return "", "", errors.New("ADMIN_CRM_HTTP_ADDRESS requires ADMIN_API_TOKEN")
+	}
+	if common.Environment != "development" && token == developmentAdminToken {
+		return "", "", errors.New("the public development admin token is forbidden outside APP_ENV=development")
+	}
+	if err := validateListenAddress(address); err != nil {
+		return "", "", fmt.Errorf("ADMIN_CRM_HTTP_ADDRESS: %w", err)
+	}
+	if addressesConflict(common.HTTPAddress, address) {
+		return "", "", errors.New("ADMIN_CRM_HTTP_ADDRESS must not conflict with HTTP_ADDRESS")
+	}
+	return address, token, nil
 }
 
 // loadAmoCRMBudget reads the outgoing budget settings. Defaults match the
