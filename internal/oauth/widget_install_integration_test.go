@@ -116,7 +116,7 @@ func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 		exchanges.Add(1)
 		return Token{}, upstream
 	}}
-	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 0.001, Burst: 8, InactiveTTL: 3 * time.Hour, MaxEntries: 10_000})
 	if serviceErr != nil {
 		t.Fatal(serviceErr)
 	}
@@ -130,9 +130,7 @@ func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 			t.Fatalf("untouched burst %d = %v", i, err)
 		}
 	}
-	bounded, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-	defer cancel()
-	if _, err := service.InstallCallback(bounded, integration.ClientID, "ninth", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
+	if _, err := service.InstallCallback(ctx, integration.ClientID, "ninth", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
 		t.Errorf("post-claim rate wait = %v, want permanent restart", err)
 	}
 	if exchanges.Load() != 8 {
