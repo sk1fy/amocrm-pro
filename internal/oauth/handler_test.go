@@ -353,7 +353,7 @@ func TestCallbackRejectsOversizedClientIDWithoutFlow(t *testing.T) {
 
 func TestInstallCapacityHTTPIsRetryableBeforeClaim(t *testing.T) {
 	h := testHandler(fakeFlow{install: func(context.Context, string, string, string) (InstallationResult, error) {
-		return InstallationResult{}, errInstallCapacity
+		return InstallationResult{}, withCallbackOutcome(errInstallCapacity, callbackRepeatable)
 	}}, nil)
 	w := requestIDRecorder()
 	h.Callback(w, httptest.NewRequest("GET", "/oauth/amocrm/callback?from_widget=1&client_id=client&code=x&referer=fixture.amocrm.ru", nil))

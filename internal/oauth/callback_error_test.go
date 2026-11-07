@@ -23,8 +23,10 @@ func TestCallbackFailureOutcomeAndCause(t *testing.T) {
 	if withCallbackOutcome(nil, callbackConsumed) != nil {
 		t.Fatal("successful callback became a failure")
 	}
-	if callbackOutcomeOf(errors.New("unknown")) != callbackUncertain {
-		t.Fatal("unknown callback failure treated as repeatable")
+	for _, unclassified := range []error{errors.New("unknown"), errInstallCapacity} {
+		if callbackOutcomeOf(unclassified) != callbackUncertain {
+			t.Fatalf("unclassified callback failure treated as repeatable: %v", unclassified)
+		}
 	}
 }
 

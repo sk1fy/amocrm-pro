@@ -30,8 +30,5 @@ func callbackOutcomeOf(err error) callbackOutcome {
 	if errors.As(err, &failure) {
 		return failure.outcome
 	}
-	if errors.Is(err, errInstallCapacity) {
-		return callbackRepeatable
-	}
 	return callbackUncertain
 }

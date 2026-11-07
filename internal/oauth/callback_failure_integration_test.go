@@ -136,6 +136,7 @@ func TestCallbackLostMutationReplyIsTerminal(t *testing.T) {
 			var drop atomic.Bool
 			config := pool.Config()
 			config.MaxConns = 1
+			config.ShouldPing = func(context.Context, pgxpool.ShouldPingParams) bool { return false }
 			config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 			config.ConnConfig.DialFunc = func(ctx context.Context, network, address string) (net.Conn, error) {
 				conn, err := (&net.Dialer{}).DialContext(ctx, network, address)
