@@ -183,13 +183,16 @@ func (s *Store) CreateState(
 // so a replayed or concurrent widget-install callback is rejected like a used
 // state. Only the hash is stored; cleanup removes it after ttl.
 func (s *Store) ClaimInstallCode(ctx context.Context, integrationID uuid.UUID, code string, ttl time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return withCallbackOutcome(err, callbackRepeatable)
+	}
 	hash := installCodeHash(code)
 	tag, err := s.pool.Exec(ctx, `
 		INSERT INTO oauth_states (integration_id, state_hash, metadata, expires_at, consumed_at)
 		VALUES ($1, $2, '{"kind":"widget_install"}', $3, now())
 		ON CONFLICT (state_hash) DO NOTHING`, integrationID, hash[:], time.Now().UTC().Add(ttl))
 	if err != nil {
-		return fmt.Errorf("claim install code: %w", err)
+		return withCallbackOutcome(fmt.Errorf("claim install code: %w", err), callbackUncertain)
 	}
 	if tag.RowsAffected() != 1 {
 		return ErrInvalidState
@@ -211,6 +214,9 @@ func (s *Store) HasInstallCodeClaim(ctx context.Context, code string) (bool, err
 }
 
 func (s *Store) ConsumeState(ctx context.Context, rawState string) (State, error) {
+	if err := ctx.Err(); err != nil {
+		return State{}, withCallbackOutcome(err, callbackRepeatable)
+	}
 	hash := sha256.Sum256([]byte(rawState))
 	var state State
 	var events json.RawMessage
@@ -243,10 +249,10 @@ func (s *Store) ConsumeState(ctx context.Context, rawState string) (State, error
 		return State{}, ErrInvalidState
 	}
 	if err != nil {
-		return State{}, fmt.Errorf("consume OAuth state: %w", err)
+		return State{}, withCallbackOutcome(fmt.Errorf("consume OAuth state: %w", err), callbackUncertain)
 	}
 	if err := json.Unmarshal(events, &state.Integration.WebhookEvents); err != nil {
-		return State{}, fmt.Errorf("decode integration webhook events: %w", err)
+		return State{}, withCallbackOutcome(fmt.Errorf("decode integration webhook events: %w", err), callbackConsumed)
 	}
 	return state, nil
 }

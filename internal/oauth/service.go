@@ -74,7 +74,8 @@ func (s *Service) Callback(ctx context.Context, rawState, code, referer string) 
 	if err != nil {
 		return InstallationResult{}, err
 	}
-	return s.authorize(ctx, state.Integration, accountURL.Host, code)
+	result, err := s.authorize(ctx, state.Integration, accountURL.Host, code)
+	return result, withCallbackOutcome(err, callbackConsumed)
 }
 
 // InstallCallback completes the authorization amoCRM sends by itself when a
@@ -96,34 +97,35 @@ func (s *Service) InstallCallback(ctx context.Context, rawClientID, code, refere
 		return InstallationResult{}, ErrInvalidState
 	}
 	if err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	permit, err := s.installAdmission.acquire(integration.ID)
 	if err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	defer permit.release()
 	claimed, err := s.store.HasInstallCodeClaim(ctx, code)
 	if err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	if claimed {
 		return InstallationResult{}, ErrInvalidState
 	}
 	clientSecret, err := s.decryptSecret(integration)
 	if err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	if err := permit.wait(ctx); err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	if err := ctx.Err(); err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	if err := s.store.ClaimInstallCode(ctx, integration.ID, code, installCodeTTL); err != nil {
 		return InstallationResult{}, err
 	}
-	return s.exchangeAndSave(ctx, integration, accountURL.Host, code, clientSecret)
+	result, err := s.exchangeAndSave(ctx, integration, accountURL.Host, code, clientSecret)
+	return result, withCallbackOutcome(err, callbackConsumed)
 }
 
 func (s *Service) decryptSecret(integration Integration) ([]byte, error) {

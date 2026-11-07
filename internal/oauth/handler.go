@@ -91,17 +91,17 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		status := http.StatusBadGateway
 		code := "unavailable"
-		retryable := true
+		retryable := callbackOutcomeOf(err) == callbackRepeatable
 		if errors.Is(err, ErrInvalidState) {
 			status = http.StatusBadRequest
 			code = "invalid_argument"
 			retryable = false
 		}
 		message := "authorization failed"
-		if errors.Is(err, ErrInvalidState) {
+		if !retryable {
 			message = "authorization failed; restart authorization"
 		}
-		if errors.Is(err, errInstallCapacity) {
+		if retryable && errors.Is(err, errInstallCapacity) {
 			status, code, retryable = http.StatusTooManyRequests, "rate_limited", true
 			w.Header().Set("Retry-After", "1")
 		}

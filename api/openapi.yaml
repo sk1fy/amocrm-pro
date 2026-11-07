@@ -91,8 +91,13 @@ paths:
         Codes and states cannot be replayed. Missing code or an invalid account
         referer fails before normal state consumption. Installation capacity
         or bounded rate-wait rejection returns retryable 429 before claiming
-        the code. A claimed code stays consumed after a failed or uncertain
-        token exchange; restarting authorization requires a new code.
+        the code. Callback failures return retryable=true only when the service
+        knows it has not attempted state consumption or code claiming. After
+        consumption, or if the mutation acknowledgement is lost, exchange,
+        account lookup, persistence, cancellation and deadline failures return
+        502 unavailable with retryable=false and a restart instruction. A
+        consumed state or claimed code is never reopened; restart authorization
+        to obtain a new state and code.
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - name: state
@@ -2636,6 +2641,11 @@ components:
               type: string
             retryable:
               type: boolean
+              description: >-
+                True only when the callback is known not to have attempted its
+                one-time state consumption or code claim, including preclaim
+                capacity/rate denial. Consumed, uncertain and unclassified
+                failures are false and require restarting authorization.
           required:
           - code
           - message
@@ -3380,7 +3390,11 @@ components:
           schema:
             $ref: '#/components/schemas/OAuthError'
     OAuthUnavailable:
-      description: amoCRM OAuth exchange or account lookup failed.
+      description: >-
+        OAuth dependency, persistence, cancellation or deadline failure. The
+        response is retryable only before a known unattempted state/code
+        mutation. A consumed or uncertain callback is nonretryable and instructs
+        the caller to restart authorization, including lost mutation replies.
       headers:
         X-Request-ID:
           $ref: '#/components/headers/RequestID'
