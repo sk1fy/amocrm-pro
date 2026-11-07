@@ -166,7 +166,7 @@ func TestCallbackCreatesInstallationAndMapsErrors(t *testing.T) {
 		t.Fatalf("upstream status=%d", w.Code)
 	}
 	code, message, _, retryable = decodeOAuthError(t, w.Body.Bytes())
-	if code != "unavailable" || message != "authorization failed" || !retryable || strings.Contains(w.Body.String(), "token endpoint") {
+	if code != "unavailable" || message != "authorization failed; restart authorization" || retryable || strings.Contains(w.Body.String(), "token endpoint") {
 		t.Fatalf("upstream envelope=%s", w.Body.String())
 	}
 }
@@ -360,5 +360,25 @@ func TestInstallCapacityHTTPIsRetryableBeforeClaim(t *testing.T) {
 	code, _, _, retryable := decodeOAuthError(t, w.Body.Bytes())
 	if w.Code != 429 || w.Header().Get("Retry-After") != "1" || code != "rate_limited" || !retryable {
 		t.Fatalf("capacity response=%d %s %s", w.Code, w.Header(), w.Body)
+	}
+}
+
+func TestCallbackUnclassifiedFailureRequiresRestart(t *testing.T) {
+	for _, query := range []string{
+		"state=once&code=code&referer=fixture.amocrm.ru",
+		"from_widget=1&client_id=client&code=code&referer=fixture.amocrm.ru",
+	} {
+		t.Run(query, func(t *testing.T) {
+			failure := func(context.Context, string, string, string) (InstallationResult, error) {
+				return InstallationResult{}, context.DeadlineExceeded
+			}
+			h := testHandler(fakeFlow{callback: failure, install: failure}, nil)
+			w := requestIDRecorder()
+			h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?"+query, nil))
+			code, message, _, retryable := decodeOAuthError(t, w.Body.Bytes())
+			if w.Code != http.StatusBadGateway || code != "unavailable" || retryable || message != "authorization failed; restart authorization" {
+				t.Fatalf("ambiguous callback outcome must require restart: status=%d body=%s", w.Code, w.Body)
+			}
+		})
 	}
 }
