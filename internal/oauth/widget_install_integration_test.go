@@ -145,14 +145,24 @@ func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 			t.Fatalf("untouched burst %d = %v", i, err)
 		}
 	}
-	if _, err := service.InstallCallback(ctx, integration.ClientID, "ninth", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
-		t.Errorf("post-claim rate wait = %v, want permanent restart", err)
+	for i := range 21 {
+		r := httptest.NewRequest("GET", fmt.Sprintf("/oauth/amocrm/callback?from_widget=1&client_id=%s&code=denied-%d&referer=fixture.amocrm.ru", integration.ClientID, i), nil)
+		r.RemoteAddr = fmt.Sprintf("203.0.113.%d:9", i+1)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "1" || !strings.Contains(w.Body.String(), `"retryable":true`) {
+			t.Errorf("denied code %d status=%d retry-after=%q body=%s", i, w.Code, w.Header().Get("Retry-After"), w.Body)
+		}
 	}
 	if exchanges.Load() != 8 {
 		t.Errorf("exchange attempts = %d, want 8", exchanges.Load())
 	}
-	if err := store.ClaimInstallCode(ctx, integration.ID, "ninth", installCodeTTL); !errors.Is(err, ErrInvalidState) {
-		t.Errorf("unsent code claim reopened: %v", err)
+	var claims int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM oauth_states`).Scan(&claims); err != nil {
+		t.Fatal(err)
+	}
+	if claims != 9 {
+		t.Errorf("claim rows=%d, want 9 (one known replay plus eight admitted codes)", claims)
 	}
 }
 
