@@ -382,3 +382,14 @@ func TestCallbackUnclassifiedFailureRequiresRestart(t *testing.T) {
 		})
 	}
 }
+
+func assertInstallRateLimitHTTP(t *testing.T, service *Service, clientID, code string) {
+	t.Helper()
+	h := NewHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	w := requestIDRecorder()
+	h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?from_widget=1&client_id="+clientID+"&code="+code+"&referer=fixture.amocrm.ru", nil))
+	gotCode, _, _, retryable := decodeOAuthError(t, w.Body.Bytes())
+	if w.Code != http.StatusTooManyRequests || gotCode != "rate_limited" || !retryable || w.Header().Get("Retry-After") != "1" {
+		t.Fatalf("preclaim denial status=%d headers=%v body=%s", w.Code, w.Header(), w.Body)
+	}
+}

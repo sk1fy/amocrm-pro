@@ -34,6 +34,7 @@ func TestInstallDeniedCodeCanRetryAfterRefill(t *testing.T) {
 	if _, err := service.InstallCallback(ctx, integration.ClientID, "retry", "fixture.amocrm.ru"); !errors.Is(err, errInstallCapacity) {
 		t.Fatalf("rate denial=%v", err)
 	}
+	assertInstallRateLimitHTTP(t, service, integration.ClientID, "retry")
 	if claimed, err := store.HasInstallCodeClaim(ctx, "retry"); err != nil || claimed {
 		t.Fatalf("denied claim=%v err=%v", claimed, err)
 	}

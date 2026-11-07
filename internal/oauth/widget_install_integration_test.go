@@ -62,6 +62,7 @@ func TestInstallCapacityRejectsBeforeClaimAndKeepsStateRecovery(t *testing.T) {
 	if _, err := service.InstallCallback(ctx, integration.ClientID, "no-capacity", "fixture.amocrm.ru"); !errors.Is(err, errInstallCapacity) {
 		t.Fatalf("capacity rejection=%v", err)
 	}
+	assertInstallRateLimitHTTP(t, service, integration.ClientID, "no-capacity")
 	if err := store.ClaimInstallCode(ctx, integration.ID, "no-capacity", installCodeTTL); err != nil {
 		t.Fatalf("capacity denial consumed code: %v", err)
 	}
