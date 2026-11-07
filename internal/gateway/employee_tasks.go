@@ -238,7 +238,7 @@ func (s *Service) ownTask(ctx context.Context, api employeeTaskAPI, p serviceapi
 	task := tasks[0]
 	// A rejected payload carries no owner, so it cannot be attributed.
 	if task.Invalid {
-		return serviceapi.TaskDetail{}, serviceapi.Fail(serviceapi.ResourceExhausted, "task exceeds supported size")
+		return serviceapi.TaskDetail{}, serviceapi.Fail(serviceapi.NotFound, "task not found")
 	}
 	// Another employee's task is reported as denied before any of its fields.
 	if task.ResponsibleUserID != p.ActorID {

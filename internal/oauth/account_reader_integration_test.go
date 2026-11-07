@@ -35,7 +35,10 @@ func TestOAuthAccountReaderUsesConsumedStateAndNoLocalFallback(t *testing.T) {
 		}
 		return Account{ID: 991, Subdomain: "reader"}, remoteError
 	})
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 	state, _, err := store.CreateState(context.Background(), integration.ID, "/widget", time.Minute)
 	if err != nil {
 		t.Fatal(err)

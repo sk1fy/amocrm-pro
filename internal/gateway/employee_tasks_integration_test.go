@@ -309,7 +309,7 @@ func TestTaskQueueBacksOffAfterRateLimitAndServesStale(t *testing.T) {
 }
 
 func TestTaskQueueExpiredLeaseIsTakenOverAndFenced(t *testing.T) {
-	pool, scope, api := taskFixture(t)
+	pool, scope, _ := taskFixture(t)
 	store := NewTaskQueueStore(pool)
 	ctx := context.Background()
 	stale, _, ok, err := store.acquire(ctx, scope, 7)
@@ -328,12 +328,22 @@ func TestTaskQueueExpiredLeaseIsTakenOverAndFenced(t *testing.T) {
 	if err != nil || len(snap.Tasks) != 1 {
 		t.Fatalf("takeover %+v %v", snap, err)
 	}
-	// The expired holder finishes late; its token no longer matches.
-	tag, err := pool.Exec(ctx, `UPDATE activity_task_queues SET payload='[]' WHERE installation_id=$1 AND user_id=7 AND lease_token=$2`, scope.InstallationID, stale)
-	if err != nil || tag.RowsAffected() != 0 {
-		t.Fatalf("stale holder overwrote the snapshot: %d %v", tag.RowsAffected(), err)
+	if _, err := store.refresh(ctx, scope, 7, stale, 0, queueRow{}, false, func(context.Context) ([]storedTask, bool, error) {
+		return []storedTask{{ID: 99}}, true, nil
+	}); err != nil {
+		t.Fatal(err)
 	}
-	_ = api
+	_, _ = store.refresh(ctx, scope, 7, stale, 0, queueRow{}, false, func(context.Context) ([]storedTask, bool, error) {
+		return nil, false, serviceapi.Fail(serviceapi.Unavailable, "old holder failed")
+	})
+	row, found, err := store.read(ctx, scope, 7)
+	if err != nil || !found {
+		t.Fatalf("replacement snapshot missing: found=%v err=%v", found, err)
+	}
+	current, err := row.snapshot(false)
+	if err != nil || len(current.Tasks) != 1 || current.Tasks[0].ID != 1 || row.errorCode != "" || !row.retryAt.Before(row.now) {
+		t.Fatalf("late holder changed replacement snapshot: %+v err=%v", current, err)
+	}
 }
 
 func TestTaskQueueCompletionDuringLoadPublishesDueSnapshot(t *testing.T) {
@@ -369,6 +379,21 @@ func TestOwnTaskDeniesOtherEmployeesTask(t *testing.T) {
 	detail, err := s.OwnTask(context.Background(), serviceapi.OwnTaskRequest{Auth: serviceapi.Auth{Token: "employee:7"}, TaskID: 1, WithContext: true})
 	if err != nil || detail.TaskTypeName != "Звонок" || detail.Entity.Name != "Lead 3" || detail.Entity.PipelineName != "Sales" || detail.Entity.StatusColor != "#fff" {
 		t.Fatalf("own task %+v %v", detail, err)
+	}
+}
+
+func TestInvalidTaskIsPermanentAndNeverPatched(t *testing.T) {
+	pool, scope, api := taskFixture(t)
+	api.tasks[1] = amocrm.Task{ID: 1, Invalid: true}
+	s := replica(pool, scope, api)
+	auth := serviceapi.Auth{Token: "employee:7"}
+	detail, err := s.OwnTask(context.Background(), serviceapi.OwnTaskRequest{Auth: auth, TaskID: 1})
+	if serviceapi.ErrorCode(err) != serviceapi.NotFound || detail.ID != 0 {
+		t.Errorf("invalid detail = %+v, code=%s, want not_found", detail, serviceapi.ErrorCode(err))
+	}
+	detail, err = s.CompleteOwnTask(context.Background(), serviceapi.CompleteTaskRequest{Auth: auth, TaskID: 1, Result: "Done"})
+	if serviceapi.ErrorCode(err) != serviceapi.NotFound || detail.ID != 0 || api.patches.Load() != 0 {
+		t.Errorf("invalid completion = %+v, code=%s, patches=%d", detail, serviceapi.ErrorCode(err), api.patches.Load())
 	}
 }
 

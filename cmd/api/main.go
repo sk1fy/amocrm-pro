@@ -147,14 +147,20 @@ func run() error {
 		}
 		logger.Info("integration bootstrap applied", "integration_id", integration.ID, "integration_code", integration.Code)
 	}
-	oauthService := oauthflow.NewService(
+	oauthService, err := oauthflow.NewService(
 		oauthStore, keyRing, oauthGateway, cfg.OAuthStateTTL, cfg.ExternalRequestTimeout,
+		oauthflow.InstallLimits{Rate: cfg.OAuthIdentityRate, Burst: cfg.OAuthIdentityBurst,
+			InactiveTTL: cfg.OAuthLimiterInactiveTTL, MaxEntries: cfg.OAuthLimiterMaxEntries},
 	)
+	if err != nil {
+		return err
+	}
 	oauthHandler := oauthflow.NewHandler(oauthService, logger)
 	oauthLimiter, err := oauthlimit.New(oauthlimit.Config{
 		IPRate: cfg.OAuthIPRate, IPBurst: cfg.OAuthIPBurst,
 		IdentityRate: cfg.OAuthIdentityRate, IdentityBurst: cfg.OAuthIdentityBurst,
 		InactiveTTL: cfg.OAuthLimiterInactiveTTL, MaxEntries: cfg.OAuthLimiterMaxEntries,
+		TrustedProxies: cfg.OAuthTrustedProxyCIDRs,
 	}, registry)
 	if err != nil {
 		return err

@@ -91,14 +91,22 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		status := http.StatusBadGateway
 		code := "unavailable"
-		retryable := true
+		retryable := callbackOutcomeOf(err) == callbackRepeatable
 		if errors.Is(err, ErrInvalidState) {
 			status = http.StatusBadRequest
 			code = "invalid_argument"
 			retryable = false
 		}
+		message := "authorization failed"
+		if !retryable {
+			message = "authorization failed; restart authorization"
+		}
+		if retryable && errors.Is(err, errInstallCapacity) {
+			status, code = http.StatusTooManyRequests, "rate_limited"
+			w.Header().Set("Retry-After", "1")
+		}
 		h.logger.Error("complete OAuth", "error", err, "request_id", httpmiddleware.RequestIDFromContext(r.Context()))
-		writeOAuthError(w, status, code, "authorization failed", retryable)
+		writeOAuthError(w, status, code, message, retryable)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

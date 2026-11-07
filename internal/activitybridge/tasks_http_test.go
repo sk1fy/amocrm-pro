@@ -143,6 +143,16 @@ func TestTaskRoutesForwardUpstreamRetryAfter(t *testing.T) {
 	}
 }
 
+func TestTaskRoutesKeepNotFoundPermanentAndPrivate(t *testing.T) {
+	b := New(nil, &issuedPolicy{}, &taskActivity{err: serviceapi.Fail(serviceapi.NotFound, "sensitive task owner payload")}, nil)
+	for _, tt := range []struct{ method, target, body string }{{"GET", "/api/v1/widget/activity/tasks/1", ""}, {"POST", "/api/v1/widget/activity/tasks/1/complete", `{"result":"Done"}`}} {
+		w := serveTask(t, b, tt.method, tt.target, tt.body)
+		if w.Code != 404 || w.Header().Get("Retry-After") != "" || !strings.Contains(w.Body.String(), `"code":"not_found"`) || !strings.Contains(w.Body.String(), `"retryable":false`) || strings.Contains(w.Body.String(), "sensitive") || strings.Contains(w.Body.String(), "responsible_user_id") {
+			t.Fatalf("unsafe task rejection: %d %s %s", w.Code, w.Header(), w.Body)
+		}
+	}
+}
+
 func TestTaskTimingsRequireVerifiedPrincipal(t *testing.T) {
 	b := New(nil, &issuedPolicy{}, &taskActivity{}, nil)
 	w := httptest.NewRecorder()

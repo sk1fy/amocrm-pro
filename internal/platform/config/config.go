@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
@@ -57,6 +58,7 @@ type API struct {
 	OAuthIPBurst              int
 	OAuthIdentityRate         float64
 	OAuthIdentityBurst        int
+	OAuthTrustedProxyCIDRs    []netip.Prefix
 	OAuthLimiterInactiveTTL   time.Duration
 	OAuthLimiterMaxEntries    int
 	ActivityAppOrigins        []string
@@ -285,6 +287,20 @@ func LoadAPI() (API, error) {
 	if oauthLimiterInactiveTTL < time.Second || oauthLimiterInactiveTTL.Seconds() < float64(oauthIPBurst)/oauthIPRate || oauthLimiterInactiveTTL.Seconds() < float64(oauthIdentityBurst)/oauthIdentityRate {
 		return API{}, errors.New("OAUTH_LIMITER_INACTIVE_TTL must cover a full burst refill and be at least 1s")
 	}
+	var oauthTrustedProxyCIDRs []netip.Prefix
+	for _, raw := range strings.Split(os.Getenv("OAUTH_TRUSTED_PROXY_CIDRS"), ",") {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(strings.TrimSpace(raw))
+		if err != nil {
+			return API{}, errors.New("OAUTH_TRUSTED_PROXY_CIDRS must contain explicit IP CIDRs")
+		}
+		if prefix.Addr().Is4In6() && prefix.Bits() >= 96 {
+			prefix = netip.PrefixFrom(prefix.Addr().Unmap(), prefix.Bits()-96)
+		}
+		oauthTrustedProxyCIDRs = append(oauthTrustedProxyCIDRs, prefix.Masked())
+	}
 
 	origins, publicOrigin, managementToken, err := loadActivityShare()
 	if err != nil {
@@ -308,6 +324,7 @@ func LoadAPI() (API, error) {
 		BootstrapIntegration: bootstrap,
 		OAuthIPRate:          oauthIPRate, OAuthIPBurst: oauthIPBurst,
 		OAuthIdentityRate: oauthIdentityRate, OAuthIdentityBurst: oauthIdentityBurst,
+		OAuthTrustedProxyCIDRs:  oauthTrustedProxyCIDRs,
 		OAuthLimiterInactiveTTL: oauthLimiterInactiveTTL, OAuthLimiterMaxEntries: oauthLimiterMaxEntries,
 		ActivityAppOrigins: origins, ActivityAppPublicOrigin: publicOrigin, ActivityManagementToken: managementToken,
 	}, nil

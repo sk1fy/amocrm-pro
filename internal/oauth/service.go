@@ -16,20 +16,26 @@ import (
 const installCodeTTL = 20 * time.Minute
 
 type Service struct {
-	store        *Store
-	cipher       Cipher
-	gateway      OAuthGateway
-	stateTTL     time.Duration
-	requestTTL   time.Duration
-	authorizeURL string
+	store            *Store
+	cipher           Cipher
+	gateway          OAuthGateway
+	stateTTL         time.Duration
+	requestTTL       time.Duration
+	authorizeURL     string
+	installAdmission *installAdmission
 }
 
-func NewService(store *Store, cipher Cipher, gateway OAuthGateway, stateTTL, requestTTL time.Duration) *Service {
+func NewService(store *Store, cipher Cipher, gateway OAuthGateway, stateTTL, requestTTL time.Duration, limits InstallLimits) (*Service, error) {
+	admission, err := newInstallAdmission(limits)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		store: store, cipher: cipher, gateway: gateway,
 		stateTTL: stateTTL, requestTTL: requestTTL,
-		authorizeURL: "https://www.amocrm.ru/oauth",
-	}
+		authorizeURL:     "https://www.amocrm.ru/oauth",
+		installAdmission: admission,
+	}, nil
 }
 
 func (s *Service) Start(ctx context.Context, integrationCode, returnURL string) (string, error) {
@@ -57,18 +63,19 @@ func (s *Service) Start(ctx context.Context, integrationCode, returnURL string) 
 }
 
 func (s *Service) Callback(ctx context.Context, rawState, code, referer string) (InstallationResult, error) {
+	if strings.TrimSpace(code) == "" {
+		return InstallationResult{}, ErrInvalidState
+	}
+	accountURL, err := amocrm.AccountBaseURL(referer)
+	if err != nil {
+		return InstallationResult{}, fmt.Errorf("%w: invalid account referer", ErrInvalidState)
+	}
 	state, err := s.store.ConsumeState(ctx, strings.TrimSpace(rawState))
 	if err != nil {
 		return InstallationResult{}, err
 	}
-	if strings.TrimSpace(code) == "" {
-		return InstallationResult{}, errors.New("authorization code is required")
-	}
-	accountURL, err := amocrm.AccountBaseURL(referer)
-	if err != nil {
-		return InstallationResult{}, fmt.Errorf("invalid account referer: %w", err)
-	}
-	return s.authorize(ctx, state.Integration, accountURL.Host, code)
+	result, err := s.authorize(ctx, state.Integration, accountURL.Host, code)
+	return result, withCallbackOutcome(err, callbackConsumed)
 }
 
 // InstallCallback completes the authorization amoCRM sends by itself when a
@@ -90,24 +97,58 @@ func (s *Service) InstallCallback(ctx context.Context, rawClientID, code, refere
 		return InstallationResult{}, ErrInvalidState
 	}
 	if err != nil {
-		return InstallationResult{}, err
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
+	}
+	permit, err := s.installAdmission.acquire(integration.ID)
+	if err != nil {
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
+	}
+	defer permit.release()
+	claimed, err := s.store.HasInstallCodeClaim(ctx, code)
+	if err != nil {
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
+	}
+	if claimed {
+		return InstallationResult{}, ErrInvalidState
+	}
+	clientSecret, err := s.decryptSecret(integration)
+	if err != nil {
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
+	}
+	if err := permit.wait(ctx); err != nil {
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
+	}
+	if err := ctx.Err(); err != nil {
+		return InstallationResult{}, withCallbackOutcome(err, callbackRepeatable)
 	}
 	if err := s.store.ClaimInstallCode(ctx, integration.ID, code, installCodeTTL); err != nil {
 		return InstallationResult{}, err
 	}
-	return s.authorize(ctx, integration, accountURL.Host, code)
+	result, err := s.exchangeAndSave(ctx, integration, accountURL.Host, code, clientSecret)
+	return result, withCallbackOutcome(err, callbackConsumed)
 }
 
-func (s *Service) authorize(ctx context.Context, integration Integration, accountDomain, code string) (InstallationResult, error) {
+func (s *Service) decryptSecret(integration Integration) ([]byte, error) {
 	clientSecret, err := s.cipher.Open(
 		integration.ClientSecretKeyVersion,
 		integration.ClientSecretCiphertext,
 		integrationSecretAAD(integration.ID),
 	)
 	if err != nil {
-		return InstallationResult{}, fmt.Errorf("decrypt integration secret: %w", err)
+		return nil, fmt.Errorf("decrypt integration secret: %w", err)
 	}
+	return clientSecret, nil
+}
 
+func (s *Service) authorize(ctx context.Context, integration Integration, accountDomain, code string) (InstallationResult, error) {
+	secret, err := s.decryptSecret(integration)
+	if err != nil {
+		return InstallationResult{}, err
+	}
+	return s.exchangeAndSave(ctx, integration, accountDomain, code, secret)
+}
+
+func (s *Service) exchangeAndSave(ctx context.Context, integration Integration, accountDomain, code string, clientSecret []byte) (InstallationResult, error) {
 	requestContext, cancel := context.WithTimeout(ctx, s.requestTTL)
 	token, err := s.gateway.ExchangeCode(
 		requestContext,
