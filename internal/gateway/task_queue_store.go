@@ -16,13 +16,14 @@ import (
 
 // The old PHP proxy kept a queue for 30 seconds; tabs poll it every minute.
 const (
-	TaskQueueTTL          = 30 * time.Second
-	taskQueueLease        = 20 * time.Second
-	taskQueueLoadTimeout  = 15 * time.Second
-	taskQueueWait         = 8 * time.Second
-	taskQueuePoll         = 200 * time.Millisecond
-	taskQueuePermanentGap = time.Minute
-	taskQueueMaxBackoff   = time.Minute
+	TaskQueueTTL             = 30 * time.Second
+	taskQueueLease           = 20 * time.Second
+	taskQueueLoadTimeout     = 15 * time.Second
+	taskQueueFinalizeTimeout = 2 * time.Second
+	taskQueueWait            = 8 * time.Second
+	taskQueuePoll            = 200 * time.Millisecond
+	taskQueuePermanentGap    = time.Minute
+	taskQueueMaxBackoff      = time.Minute
 	// The completion lease outlives its holder's bounded amoCRM work
 	// (re-read and PATCH, then a reconciling read; HTTP timeout is 15 s).
 	taskCompletionLease     = 45 * time.Second
@@ -211,8 +212,10 @@ func (s *TaskQueueStore) refresh(ctx context.Context, scope serviceapi.Scope, us
 	loadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), taskQueueLoadTimeout)
 	defer cancel()
 	tasks, complete, fetchErr := fetch(loadCtx)
+	finalizeCtx, cancelFinalize := context.WithTimeout(context.WithoutCancel(ctx), taskQueueFinalizeTimeout)
+	defer cancelFinalize()
 	if fetchErr != nil {
-		retry, err := s.recordFailure(loadCtx, scope, userID, token, fetchErr)
+		retry, err := s.recordFailure(finalizeCtx, scope, userID, token, fetchErr)
 		if err != nil {
 			return queueSnapshot{}, err
 		}
@@ -231,7 +234,7 @@ func (s *TaskQueueStore) refresh(ctx context.Context, scope serviceapi.Scope, us
 	// A completion during this load bumps the version: keep the rows for
 	// display but leave them due and stale, so the next read loads again.
 	var current bool
-	err = s.pool.QueryRow(loadCtx, `UPDATE activity_task_queues SET payload=$4, complete=$5, fetched_at=now(),
+	err = s.pool.QueryRow(finalizeCtx, `UPDATE activity_task_queues SET payload=$4, complete=$5, fetched_at=now(),
  fresh_until=CASE WHEN version=$6 THEN now()+make_interval(secs=>$7) ELSE now() END,
  lease_until=NULL, failures=0, retry_at=now(), error_code='', accessed_at=now()
  WHERE installation_id=$1 AND user_id=$2 AND lease_token=$3 RETURNING fetched_at,fresh_until,version=$6`, scope.InstallationID, userID, token, payload, complete, version, s.ttl.Seconds()).Scan(&out.FetchedAt, &out.FreshUntil, &current)
@@ -245,7 +248,7 @@ func (s *TaskQueueStore) refresh(ctx context.Context, scope serviceapi.Scope, us
 		return queueSnapshot{}, serviceapi.Fail(serviceapi.Unavailable, "task queue store is unavailable")
 	}
 	out.Stale = !current
-	s.sweep(loadCtx)
+	s.sweep(finalizeCtx)
 	return out, nil
 }
 

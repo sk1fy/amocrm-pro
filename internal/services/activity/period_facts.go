@@ -206,14 +206,18 @@ func DayStatFrom(facts DayFacts, w periodWindow, cut *int, selected []int64) day
 	hours := w.hours()
 	stat.Hours = make([][3]int, len(hours))
 	for i, h := range hours {
-		stat.Hours[i][2] = max(0, min(end, h*60+60)-max(w.Start, h*60))
+		stat.Hours[i][2] = max(0, min(end, w.End, h*60+60)-max(w.Start, h*60))
 	}
 	idle := 0
 	for left := w.Start; left < end; left += periodSegmentMinutes {
 		right := min(left+periodSegmentMinutes, end)
 		zone := zoneNone
+		hourZone := zoneNone
 		for m := left; m < right; m++ {
 			zone = max(zone, minutes[m])
+			if m < w.End {
+				hourZone = max(hourZone, minutes[m])
+			}
 		}
 		if zone == zoneNone {
 			if stat.First != nil {
@@ -225,15 +229,15 @@ func DayStatFrom(facts DayFacts, w periodWindow, cut *int, selected []int64) day
 		// dashboard-v1 lets a cutoff in hour floor(end/60) extend the range
 		// past the window end; those segments have no column in hours.
 		hour := left/60 - w.Start/60
-		inHours := hour < len(stat.Hours)
-		if inHours {
-			stat.Hours[hour][0] += right - left
+		if hour < len(stat.Hours) && hourZone != zoneNone {
+			length := min(right, w.End) - left
+			stat.Hours[hour][0] += length
+			if hourZone == zoneCalls {
+				stat.Hours[hour][1] += length
+			}
 		}
 		if zone == zoneCalls {
 			stat.Call += periodSegmentMinutes
-			if inHours {
-				stat.Hours[hour][1] += right - left
-			}
 		}
 		if stat.First == nil {
 			stat.First = &left
