@@ -90,9 +90,9 @@ paths:
         an active integration. A supplied state always selects the normal flow.
         Codes and states cannot be replayed. Missing code or an invalid account
         referer fails before normal state consumption. Installation capacity
-        rejection returns retryable 429 before claiming the code. If bounded
-        rate waiting fails after the code is claimed, 400 requires restarting
-        authorization even when no token exchange was sent.
+        or bounded rate-wait rejection returns retryable 429 before claiming
+        the code. A claimed code stays consumed after a failed or uncertain
+        token exchange; restarting authorization requires a new code.
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - name: state

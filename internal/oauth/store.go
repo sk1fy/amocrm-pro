@@ -183,7 +183,7 @@ func (s *Store) CreateState(
 // so a replayed or concurrent widget-install callback is rejected like a used
 // state. Only the hash is stored; cleanup removes it after ttl.
 func (s *Store) ClaimInstallCode(ctx context.Context, integrationID uuid.UUID, code string, ttl time.Duration) error {
-	hash := sha256.Sum256([]byte("amocrm-install-code\x00" + code))
+	hash := installCodeHash(code)
 	tag, err := s.pool.Exec(ctx, `
 		INSERT INTO oauth_states (integration_id, state_hash, metadata, expires_at, consumed_at)
 		VALUES ($1, $2, '{"kind":"widget_install"}', $3, now())
@@ -195,6 +195,19 @@ func (s *Store) ClaimInstallCode(ctx context.Context, integrationID uuid.UUID, c
 		return ErrInvalidState
 	}
 	return nil
+}
+
+func installCodeHash(code string) [sha256.Size]byte {
+	return sha256.Sum256([]byte("amocrm-install-code\x00" + code))
+}
+
+func (s *Store) HasInstallCodeClaim(ctx context.Context, code string) (bool, error) {
+	hash := installCodeHash(code)
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM oauth_states WHERE state_hash = $1)`, hash[:]).Scan(&exists); err != nil {
+		return false, fmt.Errorf("find install code claim: %w", err)
+	}
+	return exists, nil
 }
 
 func (s *Store) ConsumeState(ctx context.Context, rawState string) (State, error) {

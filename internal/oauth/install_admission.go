@@ -83,13 +83,17 @@ func (g *installAdmission) acquire(id uuid.UUID) (*installPermit, error) {
 }
 
 func (p *installPermit) wait(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	waitCtx, cancel := context.WithTimeout(ctx, installRateWait)
 	defer cancel()
-	if err := p.entry.limiter.Wait(waitCtx); err != nil {
-		return ErrInvalidState
+	err := p.entry.limiter.Wait(waitCtx)
+	if parentErr := ctx.Err(); parentErr != nil {
+		return parentErr
 	}
-	if waitCtx.Err() != nil {
-		return ErrInvalidState
+	if err != nil || waitCtx.Err() != nil {
+		return errInstallCapacity
 	}
 	return nil
 }

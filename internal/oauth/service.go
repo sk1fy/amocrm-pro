@@ -103,14 +103,24 @@ func (s *Service) InstallCallback(ctx context.Context, rawClientID, code, refere
 		return InstallationResult{}, err
 	}
 	defer permit.release()
+	claimed, err := s.store.HasInstallCodeClaim(ctx, code)
+	if err != nil {
+		return InstallationResult{}, err
+	}
+	if claimed {
+		return InstallationResult{}, ErrInvalidState
+	}
 	clientSecret, err := s.decryptSecret(integration)
 	if err != nil {
 		return InstallationResult{}, err
 	}
-	if err := s.store.ClaimInstallCode(ctx, integration.ID, code, installCodeTTL); err != nil {
+	if err := permit.wait(ctx); err != nil {
 		return InstallationResult{}, err
 	}
-	if err := permit.wait(ctx); err != nil {
+	if err := ctx.Err(); err != nil {
+		return InstallationResult{}, err
+	}
+	if err := s.store.ClaimInstallCode(ctx, integration.ID, code, installCodeTTL); err != nil {
 		return InstallationResult{}, err
 	}
 	return s.exchangeAndSave(ctx, integration, accountURL.Host, code, clientSecret)

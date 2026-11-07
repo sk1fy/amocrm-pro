@@ -71,7 +71,7 @@ func TestInstallAdmissionEvictsOnlyInactiveRefilledEntries(t *testing.T) {
 	p.release()
 }
 
-func TestInstallWaitCancellationRequiresRestart(t *testing.T) {
+func TestInstallWaitPropagatesParentCancellation(t *testing.T) {
 	g, err := newInstallAdmission(InstallLimits{Rate: 1, Burst: 1, InactiveTTL: time.Minute, MaxEntries: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +83,52 @@ func TestInstallWaitCancellationRequiresRestart(t *testing.T) {
 	defer p.release()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := p.wait(ctx); !errors.Is(err, ErrInvalidState) {
-		t.Fatalf("cancelled claimed wait=%v", err)
+	if err := p.wait(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled admission wait=%v", err)
+	}
+}
+
+func TestInstallWaitRefusalIsCapacity(t *testing.T) {
+	g, err := newInstallAdmission(InstallLimits{Rate: 0.1, Burst: 1, InactiveTTL: time.Minute, MaxEntries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := g.acquire(uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.release()
+	if err := p.wait(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, deadline := range []time.Duration{time.Minute, 200 * time.Millisecond} {
+		ctx, cancel := context.WithTimeout(context.Background(), deadline)
+		err := p.wait(ctx)
+		if !errors.Is(err, errInstallCapacity) || ctx.Err() != nil {
+			t.Errorf("predicted refusal=%v parent=%v", err, ctx.Err())
+		}
+		cancel()
+	}
+}
+
+func TestInstallWaitCancellationDuringAdmission(t *testing.T) {
+	g, err := newInstallAdmission(InstallLimits{Rate: 2, Burst: 1, InactiveTTL: time.Minute, MaxEntries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := g.acquire(uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.release()
+	if err := p.wait(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	timer := time.AfterFunc(50*time.Millisecond, cancel)
+	defer timer.Stop()
+	if err := p.wait(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("parent cancellation during wait=%v", err)
 	}
 }
