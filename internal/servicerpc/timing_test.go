@@ -22,7 +22,9 @@ import (
 type timingGateway struct {
 	taskGateway
 	expected uuid.UUID
-	delay    bool
+	entered  chan<- struct{}
+	release  <-chan struct{}
+	failure  error
 	disabled bool
 }
 
@@ -38,10 +40,17 @@ func (g timingGateway) OwnTasks(ctx context.Context, r serviceapi.OwnTasksReques
 		return serviceapi.TaskQueue{}, serviceapi.Fail(serviceapi.Internal, "correlation lost")
 	}
 	end := requesttiming.Measure(ctx, requesttiming.AmoHTTP)
-	if g.delay {
-		<-ctx.Done()
+	if g.entered != nil {
+		g.entered <- struct{}{}
+	}
+	if g.release != nil {
+		<-g.release
 		end(ctx.Err())
 		return serviceapi.TaskQueue{}, ctx.Err()
+	}
+	if g.failure != nil {
+		end(g.failure)
+		return serviceapi.TaskQueue{}, g.failure
 	}
 	end(nil)
 	return g.taskGateway.OwnTasks(ctx, r)
@@ -97,13 +106,31 @@ func TestTimingTwoHopMTLSMergesOnceAndKeepsCorrelation(t *testing.T) {
 func TestTimingDeadlineBeforeTrailerIsIncomplete(t *testing.T) {
 	ca := newCA(t)
 	id := uuid.New()
-	address := startTimingServer(t, ca, "gateway", &Endpoints{Gateway: timingGateway{expected: id, delay: true}})
+	entered := make(chan struct{}, 1)
+	release := make(chan struct{})
+	address := startTimingServer(t, ca, "gateway", &Endpoints{Gateway: timingGateway{expected: id, entered: entered, release: release}})
+	t.Cleanup(func() { close(release) })
 	client := dialTest(t, ca, address, "activity").Gateway.(serviceapi.EmployeeTasks)
 	ctx := requesttiming.Start(context.Background(), id, requesttiming.Core, requesttiming.Local)
-	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	if _, err := client.OwnTasks(ctx, serviceapi.OwnTasksRequest{}); serviceapi.ErrorCode(err) != serviceapi.DeadlineExceeded {
-		t.Fatalf("deadline changed: %v", err)
+	finished := make(chan error, 1)
+	go func() {
+		_, err := client.OwnTasks(ctx, serviceapi.OwnTasksRequest{})
+		finished <- err
+	}()
+	select {
+	case <-entered:
+	case <-ctx.Done():
+		t.Fatal("server did not enter the blocked call")
+	}
+	select {
+	case err := <-finished:
+		if serviceapi.ErrorCode(err) != serviceapi.DeadlineExceeded {
+			t.Fatalf("deadline changed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("client did not finish at its deadline")
 	}
 	s := requesttiming.Snapshot(ctx)
 	if !s.Incomplete {
@@ -115,6 +142,30 @@ func TestTimingDeadlineBeforeTrailerIsIncomplete(t *testing.T) {
 		}
 	}
 }
+func TestTimingServerDeadlineWithTrailerIsComplete(t *testing.T) {
+	ca := newCA(t)
+	id := uuid.New()
+	address := startTimingServer(t, ca, "gateway", &Endpoints{Gateway: timingGateway{expected: id, failure: context.DeadlineExceeded}})
+	client := dialTest(t, ca, address, "activity").Gateway.(serviceapi.EmployeeTasks)
+	ctx := requesttiming.Start(context.Background(), id, requesttiming.Core, requesttiming.Local)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if _, err := client.OwnTasks(ctx, serviceapi.OwnTasksRequest{}); serviceapi.ErrorCode(err) != serviceapi.DeadlineExceeded {
+		t.Fatalf("server deadline changed: %v", err)
+	}
+	s := requesttiming.Snapshot(ctx)
+	if s.Incomplete {
+		t.Fatalf("received remote evidence reported incomplete: %+v", s)
+	}
+	counts := map[requesttiming.Stage]uint32{}
+	for i := 0; i < s.Count; i++ {
+		counts[s.Cells[i].Stage] += s.Cells[i].Count
+	}
+	if counts[requesttiming.RPCClient] != 1 || counts[requesttiming.RPCServer] != 1 || counts[requesttiming.AmoHTTP] != 1 {
+		t.Fatalf("server deadline lost remote evidence: %v", counts)
+	}
+}
+
 func TestTimingMetadataValidatedAfterMTLSAuthorization(t *testing.T) {
 	ca := newCA(t)
 	address := startTimingServer(t, ca, "gateway", &Endpoints{Gateway: taskGateway{}})
