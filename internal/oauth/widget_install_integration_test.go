@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/oauthlimit"
 )
 
 func TestInstallCapacityRejectsBeforeClaimAndKeepsStateRecovery(t *testing.T) {
@@ -120,9 +125,19 @@ func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 	if serviceErr != nil {
 		t.Fatal(serviceErr)
 	}
-	for range 20 {
-		if _, err := service.InstallCallback(ctx, integration.ClientID, "already-claimed", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
-			t.Fatalf("replay = %v", err)
+	ingress, err := oauthlimit.New(oauthlimit.Config{IPRate: 5, IPBurst: 20, IdentityRate: 2, IdentityBurst: 8, InactiveTTL: time.Minute, MaxEntries: 100}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oauthHandler := NewHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	handler := ingress.Middleware(http.HandlerFunc(oauthHandler.Callback))
+	for i := range 20 {
+		r := httptest.NewRequest("GET", "/oauth/amocrm/callback?from_widget=1&client_id="+integration.ClientID+"&code=already-claimed&referer=fixture.amocrm.ru", nil)
+		r.RemoteAddr = fmt.Sprintf("198.51.100.%d:9", i+1)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("admitted replay status=%d body=%s", w.Code, w.Body)
 		}
 	}
 	for i := range 8 {
