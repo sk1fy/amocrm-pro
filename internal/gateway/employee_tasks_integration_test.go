@@ -372,6 +372,21 @@ func TestOwnTaskDeniesOtherEmployeesTask(t *testing.T) {
 	}
 }
 
+func TestInvalidTaskIsPermanentAndNeverPatched(t *testing.T) {
+	pool, scope, api := taskFixture(t)
+	api.tasks[1] = amocrm.Task{ID: 1, Invalid: true}
+	s := replica(pool, scope, api)
+	auth := serviceapi.Auth{Token: "employee:7"}
+	detail, err := s.OwnTask(context.Background(), serviceapi.OwnTaskRequest{Auth: auth, TaskID: 1})
+	if serviceapi.ErrorCode(err) != serviceapi.NotFound || detail.ID != 0 {
+		t.Errorf("invalid detail = %+v, code=%s, want not_found", detail, serviceapi.ErrorCode(err))
+	}
+	detail, err = s.CompleteOwnTask(context.Background(), serviceapi.CompleteTaskRequest{Auth: auth, TaskID: 1, Result: "Done"})
+	if serviceapi.ErrorCode(err) != serviceapi.NotFound || detail.ID != 0 || api.patches.Load() != 0 {
+		t.Errorf("invalid completion = %+v, code=%s, patches=%d", detail, serviceapi.ErrorCode(err), api.patches.Load())
+	}
+}
+
 func TestCompleteOwnTaskIsIdempotentAndDropsQueueRow(t *testing.T) {
 	pool, scope, api := taskFixture(t)
 	s := replica(pool, scope, api)

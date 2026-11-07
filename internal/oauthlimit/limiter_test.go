@@ -200,9 +200,9 @@ func TestConfigurationRejectsUnsafeRatesAndEarlyEviction(t *testing.T) {
 	}
 }
 
-func TestWidgetInstallCallbackUsesClientIDBucket(t *testing.T) {
+func TestWidgetInstallCallbackUsesSourceAndCodeBucket(t *testing.T) {
 	install := httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=x&client_id=client-a&from_widget=1", nil)
-	if got := requestIdentity(install); got != "i\x00client-a" {
+	if got := requestIdentity(install); got != "i\x00"+remoteIP(install)+"\x00x" {
 		t.Fatalf("install identity = %q", got)
 	}
 	// A stateless callback without from_widget keeps the state bucket and still
@@ -214,5 +214,27 @@ func TestWidgetInstallCallbackUsesClientIDBucket(t *testing.T) {
 	stated := httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?state=s1&code=x&client_id=client-a&from_widget=1", nil)
 	if got := requestIdentity(stated); got != "s\x00s1" {
 		t.Fatalf("stated identity = %q", got)
+	}
+}
+
+func TestRejectedSourceCannotFillIdentityCache(t *testing.T) {
+	now := time.Now()
+	config := testConfig()
+	config.IPBurst = 1
+	config.MaxEntries = 3
+	l, err := newLimiter(config, nil, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := l.allow("198.51.100.1", "first"); !ok {
+		t.Fatal("initial admission")
+	}
+	for _, identity := range []string{"a", "b", "c", "d"} {
+		if ok, _ := l.allow("198.51.100.1", identity); ok {
+			t.Fatal("source budget bypassed")
+		}
+	}
+	if ok, _ := l.allow("198.51.100.2", "unrelated"); !ok {
+		t.Fatalf("rejected source filled identity cache: identities=%d", len(l.identities))
 	}
 }
