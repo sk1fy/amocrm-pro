@@ -97,8 +97,16 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 			code = "invalid_argument"
 			retryable = false
 		}
+		message := "authorization failed"
+		if errors.Is(err, ErrInvalidState) {
+			message = "authorization failed; restart authorization"
+		}
+		if errors.Is(err, errInstallCapacity) {
+			status, code, retryable = http.StatusTooManyRequests, "rate_limited", true
+			w.Header().Set("Retry-After", "1")
+		}
 		h.logger.Error("complete OAuth", "error", err, "request_id", httpmiddleware.RequestIDFromContext(r.Context()))
-		writeOAuthError(w, status, code, "authorization failed", retryable)
+		writeOAuthError(w, status, code, message, retryable)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

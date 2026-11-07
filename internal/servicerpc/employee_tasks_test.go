@@ -21,10 +21,30 @@ func (g taskGateway) OwnTasks(_ context.Context, r serviceapi.OwnTasksRequest) (
 	return serviceapi.TaskQueue{Tasks: []serviceapi.QueueTask{{ID: 1, EntityID: 3, EntityType: "leads", EntityName: "Deal", Text: "Call", CompleteTill: 100, TaskTypeID: 2, TaskTypeName: "Звонок", Related: "Anna", UpdatedAt: 50}}, FetchedAt: 10, FreshUntil: 40, Complete: true, Stale: true, ErrorCode: "resource_exhausted", RetryAfterSeconds: r.LeadID}, nil
 }
 func (g taskGateway) OwnTask(_ context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+	if g.err != nil {
+		return serviceapi.TaskDetail{}, g.err
+	}
 	return serviceapi.TaskDetail{ID: r.TaskID, ResponsibleUserID: 7, IsCompleted: r.WithContext, ResultText: "ok", Entity: serviceapi.EntityContext{ID: 3, EntityType: "leads", Name: "Deal", PipelineID: 11, PipelineName: "Sales", StatusID: 12, StatusName: "New", StatusColor: "#fff"}}, nil
 }
 func (g taskGateway) CompleteOwnTask(_ context.Context, r serviceapi.CompleteTaskRequest) (serviceapi.TaskDetail, error) {
+	if g.err != nil {
+		return serviceapi.TaskDetail{}, g.err
+	}
 	return serviceapi.TaskDetail{ID: r.TaskID, IsCompleted: true, ResultText: r.Result}, nil
+}
+
+func TestEmployeeTaskRPCPreservesPermanentNotFound(t *testing.T) {
+	ca := newCA(t)
+	address := start(t, ca, &Endpoints{Gateway: taskGateway{err: serviceapi.Fail(serviceapi.NotFound, "task not found")}})
+	tasks := dialTest(t, ca, address, serviceapi.ActivityService).Gateway.(serviceapi.EmployeeTasks)
+	_, detailErr := tasks.OwnTask(context.Background(), serviceapi.OwnTaskRequest{TaskID: 1})
+	_, completeErr := tasks.CompleteOwnTask(context.Background(), serviceapi.CompleteTaskRequest{TaskID: 1, Result: "Done"})
+	for _, err := range []error{detailErr, completeErr} {
+		var domain *serviceapi.Error
+		if !errors.As(err, &domain) || domain.Code != serviceapi.NotFound || domain.RetryAfter != 0 {
+			t.Fatalf("permanent task rejection changed: %v", err)
+		}
+	}
 }
 func (g taskGateway) OwnLead(_ context.Context, r serviceapi.OwnLeadRequest) (serviceapi.EntityContext, error) {
 	return serviceapi.EntityContext{ID: r.LeadID, EntityType: "leads", Restricted: true}, nil

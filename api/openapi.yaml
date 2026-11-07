@@ -81,20 +81,38 @@ paths:
     get:
       tags: [OAuth]
       operationId: completeAmoCRMOAuth
-      summary: Consume OAuth state and create or update an installation.
+      summary: Complete amoCRM authorization and create or update an installation.
       description: |
         `code` and `referer` are required for a successful callback. When
         amoCRM returns `error`, the state is consumed and the request fails.
-        State is one-time and cannot be replayed.
+        Normal callbacks require one-time `state`. Widget installation callbacks
+        may omit `state` when `from_widget` is present and `client_id` identifies
+        an active integration. A supplied state always selects the normal flow.
+        Codes and states cannot be replayed. Missing code or an invalid account
+        referer fails before normal state consumption. Installation capacity
+        rejection returns retryable 429 before claiming the code. If bounded
+        rate waiting fails after the code is claimed, 400 requires restarting
+        authorization even when no token exchange was sent.
       parameters:
         - $ref: '#/components/parameters/RequestID'
         - name: state
           in: query
-          required: true
+          required: false
+          description: Required unless from_widget is present with client_id.
           schema:
             type: string
             minLength: 1
             maxLength: 256
+        - name: from_widget
+          in: query
+          required: false
+          description: Presence selects installation flow only when state is absent.
+          schema: {type: string}
+        - name: client_id
+          in: query
+          required: false
+          description: Active integration client UUID required for installation flow.
+          schema: {type: string, maxLength: 64}
         - name: code
           in: query
           required: false
@@ -1284,7 +1302,7 @@ paths:
     get:
       operationId: getOwnActivityLead
       summary: Name the lead of an Imbox dialog for the employee's interval.
-      description: Name, pipeline and status are returned only when the employee is responsible for the lead or has an open task on it; otherwise restricted=true and only the ID is returned.
+      description: Name, pipeline and status are returned only when the employee is responsible for the lead or has an open task on it; otherwise restricted=true and only the ID is returned. Nonempty query parameters are rejected with 400.
       security: [{widgetToken: []}, {widgetBearer: []}]
       parameters:
         - name: leadID
@@ -1297,6 +1315,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ActivityEntityContext'}
+        '400': {$ref: '#/components/responses/ActivityShareError'}
         '401': {$ref: '#/components/responses/ActivityShareError'}
         '403': {$ref: '#/components/responses/ActivityShareError'}
         '404': {$ref: '#/components/responses/ActivityShareError'}

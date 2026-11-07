@@ -38,7 +38,10 @@ func TestServiceCallbackConsumesStateOnceConcurrently(t *testing.T) {
 			return Account{ID: 501, Subdomain: "callback-race"}, nil
 		},
 	}
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 
 	start := make(chan struct{})
 	results := make(chan InstallationResult, 2)
@@ -133,7 +136,10 @@ func TestServiceCallbackAtomicallyPersistsAuthorization(t *testing.T) {
 			return Account{ID: 90210, Subdomain: "callback-success"}, nil
 		},
 	}
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 
 	result, err := service.Callback(
 		context.Background(),

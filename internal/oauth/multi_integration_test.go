@@ -50,7 +50,10 @@ func TestOAuthIsolatesIntegrationsInSameAccount(t *testing.T) {
 			return Account{ID: 42, Subdomain: "shared"}, nil
 		},
 	}
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 	start := func(input IntegrationInput) string {
 		t.Helper()
 		authorizeURL, err := service.Start(ctx, input.Code, "/widget/"+input.Code)

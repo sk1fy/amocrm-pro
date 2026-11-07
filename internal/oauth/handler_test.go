@@ -153,7 +153,7 @@ func TestCallbackCreatesInstallationAndMapsErrors(t *testing.T) {
 		t.Fatalf("invalid state status=%d", w.Code)
 	}
 	code, message, _, retryable := decodeOAuthError(t, w.Body.Bytes())
-	if code != "invalid_argument" || message != "authorization failed" || retryable {
+	if code != "invalid_argument" || message != "authorization failed; restart authorization" || retryable {
 		t.Fatalf("invalid state envelope=%s", w.Body.String())
 	}
 
@@ -348,5 +348,17 @@ func TestCallbackRejectsOversizedClientIDWithoutFlow(t *testing.T) {
 	h.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?code=x&from_widget=1&client_id="+strings.Repeat("c", maxClientID+1), nil))
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d", w.Code)
+	}
+}
+
+func TestInstallCapacityHTTPIsRetryableBeforeClaim(t *testing.T) {
+	h := testHandler(fakeFlow{install: func(context.Context, string, string, string) (InstallationResult, error) {
+		return InstallationResult{}, errInstallCapacity
+	}}, nil)
+	w := requestIDRecorder()
+	h.Callback(w, httptest.NewRequest("GET", "/oauth/amocrm/callback?from_widget=1&client_id=client&code=x&referer=fixture.amocrm.ru", nil))
+	code, _, _, retryable := decodeOAuthError(t, w.Body.Bytes())
+	if w.Code != 429 || w.Header().Get("Retry-After") != "1" || code != "rate_limited" || !retryable {
+		t.Fatalf("capacity response=%d %s %s", w.Code, w.Header(), w.Body)
 	}
 }

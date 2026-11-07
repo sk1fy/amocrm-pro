@@ -4,12 +4,102 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+func TestInstallCapacityRejectsBeforeClaimAndKeepsStateRecovery(t *testing.T) {
+	pool := testkitPostgresForServiceCallback(t)
+	keys := oauthTestKeyRing(t)
+	store := NewStore(pool, keys)
+	integration := oauthTestIntegration(t, store)
+	ctx := context.Background()
+	other, err := store.EnsureIntegration(ctx, IntegrationInput{Code: "other", ClientID: uuid.NewString(), ClientSecret: "synthetic-secret", RedirectURI: "https://example.test/oauth", WebhookEvents: []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := make(chan struct{}, 8)
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+	upstream := errors.New("synthetic exchange failure")
+	gateway := &serviceCallbackGateway{exchangeCode: func(_ context.Context, _, _, _, _, code string) (Token, error) {
+		if strings.HasPrefix(code, "held-") {
+			started <- struct{}{}
+			<-release
+		}
+		return Token{}, upstream
+	}}
+	service, err := NewService(store, keys, gateway, time.Minute, time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: time.Minute, MaxEntries: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	finished := make(chan error, 8)
+	for i := range 8 {
+		go func() {
+			_, err := service.InstallCallback(ctx, integration.ClientID, fmt.Sprintf("held-%d", i), "fixture.amocrm.ru")
+			finished <- err
+		}()
+	}
+	for range 8 {
+		select {
+		case <-started:
+		case <-time.After(3 * time.Second):
+			t.Fatal("exchange did not start")
+		}
+	}
+	if _, err := service.InstallCallback(ctx, integration.ClientID, "no-capacity", "fixture.amocrm.ru"); !errors.Is(err, errInstallCapacity) {
+		t.Fatalf("capacity rejection=%v", err)
+	}
+	if err := store.ClaimInstallCode(ctx, integration.ID, "no-capacity", installCodeTTL); err != nil {
+		t.Fatalf("capacity denial consumed code: %v", err)
+	}
+	state, _, err := store.CreateState(ctx, integration.ID, "", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Callback(ctx, state, "recovery", "fixture.amocrm.ru"); !errors.Is(err, upstream) {
+		t.Fatalf("state recovery blocked: %v", err)
+	}
+	if _, err := service.InstallCallback(ctx, other.ClientID, "other-code", "fixture.amocrm.ru"); !errors.Is(err, upstream) {
+		t.Fatalf("other integration blocked: %v", err)
+	}
+	unblock()
+	for range 8 {
+		if err := <-finished; !errors.Is(err, upstream) {
+			t.Fatalf("held exchange=%v", err)
+		}
+	}
+}
+
+func TestMalformedCallbackPreservesUnusedState(t *testing.T) {
+	pool := testkitPostgresForServiceCallback(t)
+	keys := oauthTestKeyRing(t)
+	store := NewStore(pool, keys)
+	integration := oauthTestIntegration(t, store)
+	service, err := NewService(store, keys, &serviceCallbackGateway{}, time.Minute, time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: time.Minute, MaxEntries: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct{ code, referer string }{{"", "fixture.amocrm.ru"}, {"code", "evil.example.test"}} {
+		state, _, err := store.CreateState(context.Background(), integration.ID, "", time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.Callback(context.Background(), state, tt.code, tt.referer); !errors.Is(err, ErrInvalidState) {
+			t.Errorf("malformed callback=%v", err)
+		}
+		if _, err := store.ConsumeState(context.Background(), state); err != nil {
+			t.Errorf("malformed callback consumed state: %v", err)
+		}
+	}
+}
 
 func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 	pool := testkitPostgresForServiceCallback(t)
@@ -26,7 +116,10 @@ func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 		exchanges.Add(1)
 		return Token{}, upstream
 	}}
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 	for range 20 {
 		if _, err := service.InstallCallback(ctx, integration.ClientID, "already-claimed", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
 			t.Fatalf("replay = %v", err)
@@ -37,7 +130,7 @@ func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
 			t.Fatalf("untouched burst %d = %v", i, err)
 		}
 	}
-	bounded, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	bounded, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	defer cancel()
 	if _, err := service.InstallCallback(bounded, integration.ClientID, "ninth", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
 		t.Errorf("post-claim rate wait = %v, want permanent restart", err)
@@ -75,7 +168,10 @@ func TestInstallCallbackReactivatesExistingInstallationOnce(t *testing.T) {
 			return Account{ID: 31391206, Subdomain: "reinstall"}, nil
 		},
 	}
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 
 	first, err := service.InstallCallback(ctx, integration.ClientID, "install-code-1", "reinstall.amocrm.ru")
 	if err != nil {
@@ -126,7 +222,10 @@ func TestInstallCallbackRejectsUnknownOrDisabledIntegrationBeforeExchange(t *tes
 			return Token{}, nil
 		},
 	}
-	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	service, serviceErr := NewService(store, keys, gateway, time.Minute, 5*time.Second, InstallLimits{Rate: 2, Burst: 8, InactiveTTL: 10 * time.Minute, MaxEntries: 10_000})
+	if serviceErr != nil {
+		t.Fatal(serviceErr)
+	}
 
 	for name, call := range map[string][3]string{
 		"unknown client":  {uuid.NewString(), "code", "acc.amocrm.ru"},

@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -236,5 +237,69 @@ func TestRejectedSourceCannotFillIdentityCache(t *testing.T) {
 	}
 	if ok, _ := l.allow("198.51.100.2", "unrelated"); !ok {
 		t.Fatalf("rejected source filled identity cache: identities=%d", len(l.identities))
+	}
+}
+
+func TestClientIPTrustsOnlyStrictRealIPFromConfiguredPeer(t *testing.T) {
+	for _, tt := range []struct {
+		name, peer string
+		headers    []string
+		trust      bool
+		want       string
+	}{
+		{"no trust", "192.0.2.1:9", []string{"198.51.100.1"}, false, "192.0.2.1"},
+		{"untrusted", "203.0.113.1:9", []string{"198.51.100.1"}, true, "203.0.113.1"},
+		{"trusted IPv4", "192.0.2.1:9", []string{"198.51.100.1"}, true, "198.51.100.1"},
+		{"trusted IPv6", "[2001:db8::1]:9", []string{"2001:db8:1::1"}, true, "2001:db8:1::1"},
+		{"mapped", "[::ffff:192.0.2.1]:9", []string{"::ffff:198.51.100.1"}, true, "198.51.100.1"},
+		{"multiple", "192.0.2.1:9", []string{"198.51.100.1", "198.51.100.2"}, true, "192.0.2.1"},
+		{"comma", "192.0.2.1:9", []string{"198.51.100.1, 198.51.100.2"}, true, "192.0.2.1"},
+		{"whitespace", "192.0.2.1:9", []string{" 198.51.100.1"}, true, "192.0.2.1"},
+		{"port", "192.0.2.1:9", []string{"198.51.100.1:123"}, true, "192.0.2.1"},
+		{"zone", "192.0.2.1:9", []string{"fe80::1%eth0"}, true, "192.0.2.1"},
+		{"XFF ignored", "192.0.2.1:9", nil, true, "192.0.2.1"},
+		{"invalid peer", "not-an-ip:9", []string{"198.51.100.1"}, true, "unknown"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			config := testConfig()
+			if tt.trust {
+				config.TrustedProxies = []netip.Prefix{netip.MustParsePrefix("192.0.2.0/24"), netip.MustParsePrefix("2001:db8::/64")}
+			}
+			l, err := New(config, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest("GET", "/oauth/amocrm/callback", nil)
+			r.RemoteAddr = tt.peer
+			r.Header["X-Real-Ip"] = tt.headers
+			r.Header.Set("X-Forwarded-For", "198.51.100.99")
+			if got := l.clientIP(r); got != tt.want {
+				t.Fatalf("source = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWidgetInstallCodesAndSourcesAreIndependent(t *testing.T) {
+	config := testConfig()
+	l, err := New(config, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := l.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) }))
+	for i, tt := range []struct {
+		peer, code string
+		want       int
+	}{
+		{"198.51.100.1:9", "first", 204}, {"198.51.100.1:9", "first", 429},
+		{"198.51.100.1:9", "second", 204}, {"198.51.100.2:9", "first", 204},
+	} {
+		r := httptest.NewRequest("GET", "/oauth/amocrm/callback?from_widget=1&client_id=same&code="+tt.code, nil)
+		r.RemoteAddr = tt.peer
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != tt.want {
+			t.Fatalf("request %d = %d, want %d", i, w.Code, tt.want)
+		}
 	}
 }

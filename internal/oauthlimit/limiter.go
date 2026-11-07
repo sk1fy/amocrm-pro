@@ -1,6 +1,6 @@
 // Package oauthlimit bounds unauthenticated OAuth start/callback traffic per API
 // process. Buckets are keyed by hashed client IP and hashed integration_code,
-// state or widget-install client_id so admission cannot reveal whether an
+// state or source plus widget-install code so admission cannot reveal whether an
 // integration exists.
 package oauthlimit
 
@@ -12,6 +12,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,12 +27,13 @@ const (
 )
 
 type Config struct {
-	IPRate        float64
-	IPBurst       int
-	IdentityRate  float64
-	IdentityBurst int
-	InactiveTTL   time.Duration
-	MaxEntries    int
+	IPRate         float64
+	IPBurst        int
+	IdentityRate   float64
+	IdentityBurst  int
+	InactiveTTL    time.Duration
+	MaxEntries     int
+	TrustedProxies []netip.Prefix
 }
 
 type bucket struct {
@@ -99,6 +101,13 @@ func (l *Limiter) allow(ip, identity string) (bool, time.Duration) {
 	ipKey := hashKey("ip", ip)
 	idKey := hashKey("id", identity)
 	ipBucket, idBucket := l.ips[ipKey], l.identities[idKey]
+	if ipBucket != nil {
+		refill(ipBucket, now, l.config.IPRate, l.config.IPBurst)
+		if ipBucket.tokens < 1 {
+			l.decisions.WithLabelValues("ip", "rejected").Inc()
+			return false, time.Duration(math.Ceil((1 - ipBucket.tokens) / l.config.IPRate * float64(time.Second)))
+		}
+	}
 	if (ipBucket == nil && len(l.ips) >= l.config.MaxEntries) ||
 		(idBucket == nil && len(l.identities) >= l.config.MaxEntries) {
 		l.evictLocked(now)
@@ -155,7 +164,8 @@ func refill(b *bucket, now time.Time, rate float64, burst int) {
 
 func (l *Limiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		allowed, retry := l.allow(remoteIP(r), requestIdentity(r))
+		ip := l.clientIP(r)
+		allowed, retry := l.allow(ip, identityForSource(r, ip))
 		if !allowed {
 			w.Header().Set("Retry-After", strconv.FormatInt(max(1, int64(math.Ceil(retry.Seconds()))), 10))
 			w.Header().Set("Cache-Control", "no-store")
@@ -217,17 +227,51 @@ func hashKey(kind, value string) [32]byte {
 func remoteIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
 	if err != nil {
-		return strings.TrimSpace(r.RemoteAddr)
+		return "unknown"
 	}
-	return host
+	ip, err := netip.ParseAddr(host)
+	if err != nil || ip.Zone() != "" {
+		return "unknown"
+	}
+	return ip.Unmap().String()
+}
+
+func (l *Limiter) clientIP(r *http.Request) string {
+	peer := remoteIP(r)
+	ip, err := netip.ParseAddr(peer)
+	if err != nil {
+		return peer
+	}
+	for _, prefix := range l.config.TrustedProxies {
+		if !prefix.Contains(ip) {
+			continue
+		}
+		values := r.Header.Values("X-Real-IP")
+		if len(values) != 1 {
+			return peer
+		}
+		forwarded, err := netip.ParseAddr(values[0])
+		if err != nil || forwarded.Zone() != "" {
+			return peer
+		}
+		return forwarded.Unmap().String()
+	}
+	return peer
 }
 
 func requestIdentity(r *http.Request) string {
+	return identityForSource(r, remoteIP(r))
+}
+
+func identityForSource(r *http.Request, source string) string {
 	if strings.HasSuffix(r.URL.Path, "/callback") {
 		query := r.URL.Query()
-		// Widget-install callbacks have no state; their bucket is the client_id.
 		if query.Get("state") == "" && query.Has("from_widget") {
-			return "i\x00" + clip(query.Get("client_id"), maxHashedState)
+			code := query.Get("code")
+			if strings.TrimSpace(code) == "" || len(code) > 2048 {
+				return "invalid-install"
+			}
+			return "i\x00" + source + "\x00" + code
 		}
 		return "s\x00" + clip(query.Get("state"), maxHashedState)
 	}
