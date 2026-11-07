@@ -3,12 +3,52 @@ package oauth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+func TestInstallCallbackReplayDoesNotSpendExchangeBurst(t *testing.T) {
+	pool := testkitPostgresForServiceCallback(t)
+	keys := oauthTestKeyRing(t)
+	store := NewStore(pool, keys)
+	integration := oauthTestIntegration(t, store)
+	ctx := context.Background()
+	if err := store.ClaimInstallCode(ctx, integration.ID, "already-claimed", installCodeTTL); err != nil {
+		t.Fatal(err)
+	}
+	var exchanges atomic.Int32
+	upstream := errors.New("synthetic exchange failure")
+	gateway := &serviceCallbackGateway{exchangeCode: func(context.Context, string, string, string, string, string) (Token, error) {
+		exchanges.Add(1)
+		return Token{}, upstream
+	}}
+	service := NewService(store, keys, gateway, time.Minute, 5*time.Second)
+	for range 20 {
+		if _, err := service.InstallCallback(ctx, integration.ClientID, "already-claimed", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
+			t.Fatalf("replay = %v", err)
+		}
+	}
+	for i := range 8 {
+		if _, err := service.InstallCallback(ctx, integration.ClientID, fmt.Sprintf("new-%d", i), "fixture.amocrm.ru"); !errors.Is(err, upstream) {
+			t.Fatalf("untouched burst %d = %v", i, err)
+		}
+	}
+	bounded, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer cancel()
+	if _, err := service.InstallCallback(bounded, integration.ClientID, "ninth", "fixture.amocrm.ru"); !errors.Is(err, ErrInvalidState) {
+		t.Errorf("post-claim rate wait = %v, want permanent restart", err)
+	}
+	if exchanges.Load() != 8 {
+		t.Errorf("exchange attempts = %d, want 8", exchanges.Load())
+	}
+	if err := store.ClaimInstallCode(ctx, integration.ID, "ninth", installCodeTTL); !errors.Is(err, ErrInvalidState) {
+		t.Errorf("unsent code claim reopened: %v", err)
+	}
+}
 
 func TestInstallCallbackReactivatesExistingInstallationOnce(t *testing.T) {
 	pool := testkitPostgresForServiceCallback(t)
