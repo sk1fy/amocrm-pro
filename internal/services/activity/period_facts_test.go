@@ -259,6 +259,36 @@ func TestPeriodCutPastWindowEndKeepsDashboardRule(t *testing.T) {
 	}
 }
 
+func TestPeriodHoursClipFractionalWindowEnd(t *testing.T) {
+	const day = "2026-10-26"
+	loc, start := periodTestDay(t, day)
+	cutoff := clock(start, 18, 45, 0)
+	tests := []struct {
+		name   string
+		window periodWindow
+		events []periodEvent
+		want   [3]int
+	}{
+		{"even end excludes later task", periodWindow{540, 1110}, []periodEvent{pevent(clock(start, 18, 32, 0), "task_added", nil)}, [3]int{0, 0, 30}},
+		{"odd end excludes boundary task", periodWindow{540, 1109}, []periodEvent{pevent(clock(start, 18, 29, 0), "task_added", nil)}, [3]int{0, 0, 29}},
+		{"odd start excludes boundary task", periodWindow{541, 1110}, []periodEvent{pevent(clock(start, 18, 30, 0), "task_added", nil)}, [3]int{0, 0, 30}},
+		{"clips active segment", periodWindow{540, 1109}, []periodEvent{pevent(clock(start, 18, 28, 0), "task_added", nil)}, [3]int{1, 0, 29}},
+		{"clips call segment", periodWindow{541, 1110}, []periodEvent{pevent(clock(start, 18, 29, 0), "outgoing_call", number(120))}, [3]int{1, 1, 30}},
+		{"outside call cannot upgrade task", periodWindow{540, 1109}, []periodEvent{pevent(clock(start, 18, 28, 0), "task_added", nil), pevent(clock(start, 18, 29, 0), "outgoing_call", number(60))}, [3]int{1, 0, 29}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stat := assertDashboardParity(t, tt.events, day, loc, tt.window, &cutoff)
+			if got := stat.Hours[len(stat.Hours)-1]; got != tt.want {
+				t.Fatalf("final hour = %v, want %v", got, tt.want)
+			}
+			if stat.Elapsed != 1125-tt.window.Start || stat.Active != 2 || stat.ActiveSegments != 1 {
+				t.Fatalf("aggregate compatibility changed: elapsed=%d active=%d segments=%d", stat.Elapsed, stat.Active, stat.ActiveSegments)
+			}
+		})
+	}
+}
+
 func TestPeriodCountedWeekend(t *testing.T) {
 	loc, saturday := periodTestDay(t, "2026-10-31")
 	w := periodWindow{540, 1080}
