@@ -149,7 +149,6 @@ func (h *Handler) Enter(w http.ResponseWriter, r *http.Request) {
 			respondError(w, e)
 			return
 		}
-		// A known association must never create a replacement after remote deletion.
 		if previous != uuid.Nil {
 			in.Intent = "enter"
 		}

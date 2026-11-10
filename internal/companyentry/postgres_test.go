@@ -106,7 +106,6 @@ func TestCompanyEntryHTTPRealJWTLiveCRMAndDurableReplay(t *testing.T) {
 		t.Fatal("revoked rights accepted", w.Code, calls)
 	}
 	crm.profile.Rights.IsAdmin = true
-	// The durable observation cannot be overwritten even after an upstream commit.
 	_, err = pool.Exec(ctx, `UPDATE teamos_account_companies SET company_id=$1 WHERE account_id=42`, uuid.New())
 	if err != nil {
 		t.Fatal(err)
