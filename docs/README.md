@@ -49,3 +49,5 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 Сырые логи, временные снимки, патчи и checksum-манифесты в `docs/` не хранить.
 
 - [Контроль задач: обновление сервера и приёмка MVP](runbooks/task-control-mvp.md)
+
+- [Вход в компанию из виджетов amoCRM](runbooks/company-entry.md).
