@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/admincrm"
+	"github.com/sk1fy/amocrm-pro/internal/companyentry"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
@@ -244,6 +245,18 @@ func run() error {
 		}
 		taskControlServer = httpserver.New(taskControlConfig.Address, taskControlRouter)
 	}
+	companyEntryConfig, err := companyentry.LoadConfig()
+	if err != nil {
+		return err
+	}
+	var companyEntryServer *http.Server
+	if companyEntryConfig.Address != "" {
+		entryRouter, e := companyentry.Router(ctx, pool, keyRing, amocrmAPI, companyEntryConfig)
+		if e != nil {
+			return e
+		}
+		companyEntryServer = httpserver.New(companyEntryConfig.Address, entryRouter)
+	}
 	var adminCRMServer *http.Server
 	if cfg.AdminCRMHTTPAddress != "" {
 		// Admin CRM reads share this process's OAuth provider and outbound
@@ -251,9 +264,16 @@ func run() error {
 		adminCRM := &admincrm.Service{Resolver: &admincrm.Store{Pool: pool, Timeout: cfg.DatabaseTimeout}, CRM: amocrmAPI}
 		adminCRMServer = httpserver.New(cfg.AdminCRMHTTPAddress, admincrm.Router(logger, cfg.AdminAPIToken, adminCRM))
 	}
-	errChannel := make(chan error, 6)
+	errChannel := make(chan error, 7)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if companyEntryServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- httpserver.Run(ctx, companyEntryServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	if adminCRMServer != nil {
 		processes.Add(1)
 		go func() {

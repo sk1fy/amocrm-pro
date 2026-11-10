@@ -1,0 +1,268 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Core widget company entry",
+    "version": "1.0.0",
+    "description": "Actual TeamOS account company authority. Each browser request requires fresh disposable JWT and current exact active non-free CRM admin. No product grant prerequisite. One-use handoff 60s. Subject callback is private, Service authenticated and makes live CRM request."
+  },
+  "paths": {
+    "/api/v1/widget/company/status": {
+      "post": {
+        "operationId": "getWidgetCompanyStatus",
+        "security": [
+          {
+            "WidgetJWT": []
+          },
+          {
+            "WidgetBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful current observation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "state"
+                  ],
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "absent",
+                        "present",
+                        "blocked"
+                      ]
+                    },
+                    "companyId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Missing, invalid or consumed credential"
+          },
+          "403": {
+            "description": "Current actor or installation denied"
+          },
+          "409": {
+            "description": "Company changed or mapping conflict"
+          },
+          "422": {
+            "description": "New user profile unavailable"
+          },
+          "503": {
+            "description": "Authority, CRM or durable storage unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/widget/company/entries": {
+      "post": {
+        "operationId": "createWidgetCompanyEntry",
+        "security": [
+          {
+            "WidgetJWT": []
+          },
+          {
+            "WidgetBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "intent"
+                ],
+                "properties": {
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "create",
+                      "enter"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful current observation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "redirectUrl",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "redirectUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Missing, invalid or consumed credential"
+          },
+          "403": {
+            "description": "Current actor or installation denied"
+          },
+          "409": {
+            "description": "Company changed or mapping conflict"
+          },
+          "422": {
+            "description": "New user profile unavailable"
+          },
+          "503": {
+            "description": "Authority, CRM or durable storage unavailable"
+          }
+        }
+      }
+    },
+    "/internal/v1/company-entry/subject-check": {
+      "post": {
+        "operationId": "checkCompanyEntrySubject",
+        "security": [
+          {
+            "SubjectService": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accountId",
+                  "actorId",
+                  "integrationId",
+                  "installationId"
+                ],
+                "properties": {
+                  "accountId": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "actorId": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "integrationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "installationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful current observation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "allowed"
+                  ],
+                  "properties": {
+                    "allowed": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Missing, invalid or consumed credential"
+          },
+          "403": {
+            "description": "Current actor or installation denied"
+          },
+          "409": {
+            "description": "Company changed or mapping conflict"
+          },
+          "422": {
+            "description": "New user profile unavailable"
+          },
+          "503": {
+            "description": "Authority, CRM or durable storage unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "WidgetJWT": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Auth-Token"
+      },
+      "SubjectService": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Service <separate subject-check key>"
+      },
+      "WidgetBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Fresh amoCRM disposable JWT. Alternative to X-Auth-Token."
+      }
+    }
+  }
+}
