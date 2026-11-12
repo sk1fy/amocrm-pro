@@ -27,7 +27,7 @@ services:
       target: migrate
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.26.10}"
+        GO_VERSION: "${GO_VERSION:-1.26.11}"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
       MIGRATIONS_DIR: /migrations
@@ -48,7 +48,7 @@ services:
       target: integrations
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.26.10}"
+        GO_VERSION: "${GO_VERSION:-1.26.11}"
     environment:
       APP_ENV: "${APP_ENV:-development}"
       DATABASE_URL: "${DATABASE_URL:-postgres://amocrm:amocrm@postgres:5432/amocrm?sslmode=disable}"
@@ -73,7 +73,7 @@ services:
       target: api
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.26.10}"
+        GO_VERSION: "${GO_VERSION:-1.26.11}"
     init: true
     environment:
       APP_ENV: "${APP_ENV:-development}"
@@ -156,7 +156,7 @@ services:
       target: worker
       args:
         BUILD_REVISION: "${BUILD_REVISION:-unknown}"
-        GO_VERSION: "${GO_VERSION:-1.26.10}"
+        GO_VERSION: "${GO_VERSION:-1.26.11}"
     init: true
     environment:
       APP_ENV: "${APP_ENV:-development}"
