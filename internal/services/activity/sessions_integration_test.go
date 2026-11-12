@@ -2,18 +2,21 @@ package activity
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sk1fy/amocrm-pro/internal/platform/migrations"
-	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/platform/migrations"
+	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
 
-func TestSessionsLifecycleReplayConcurrencyAndIsolation(t *testing.T) {
+func sessionTestStore(t *testing.T) *Postgres {
+	t.Helper()
 	dsn := os.Getenv("ACTIVITY_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("ACTIVITY_TEST_DATABASE_URL not set")
@@ -22,21 +25,27 @@ func TestSessionsLifecycleReplayConcurrencyAndIsolation(t *testing.T) {
 	if err != nil || !strings.HasSuffix(config.ConnConfig.Database, "_test") {
 		t.Fatal("requires _test")
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	if err = migrations.New(pool, "../../../migrations/activity").Up(ctx); err != nil {
 		t.Fatal(err)
 	}
-	store := NewPostgres(pool)
+	return NewPostgres(pool)
+}
+
+func TestSessionsLifecycleReplayConcurrencyAndIsolation(t *testing.T) {
+	ctx := t.Context()
+	store := sessionTestStore(t)
+	pool := store.pool
 	p := serviceapi.Principal{Scope: serviceapi.Scope{InstallationID: uuid.New(), IntegrationID: uuid.New()}, ActorID: 7, Kind: serviceapi.PrincipalKindEmployee}
 	s := New(store, panelPolicy{principal: p}, nil, nil)
 	auth := serviceapi.Auth{Token: "verified"}
 	command := serviceapi.SessionCommand{Auth: auth, CommandID: uuid.NewString(), Action: "work", Context: serviceapi.SessionContext{TaskID: 1, TaskName: "Synthetic task", EntityID: 100, EntityType: "leads", PipelineID: 10, StatusID: 11}}
-	if _, err = s.ApplySession(ctx, command); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+	if _, err := s.ApplySession(ctx, command); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
 		t.Fatalf("disabled panel accepted %v", err)
 	}
 	settings, err := store.SaveTaskPanel(ctx, p.Scope, serviceapi.TaskPanelSettings{Enabled: true, EmployeeIDs: []int64{7}})
@@ -187,4 +196,223 @@ func TestSessionsLifecycleReplayConcurrencyAndIsolation(t *testing.T) {
 		t.Fatal("watchdog truncated duration", duration, err)
 	}
 
+}
+
+type taskStartGateway struct {
+	serviceapi.Gateway
+	serviceapi.EmployeeTasks
+	resolve func(context.Context, serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error)
+}
+
+func (g taskStartGateway) OwnTask(ctx context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+	return g.resolve(ctx, r)
+}
+
+func taskStartFixture() (serviceapi.Principal, serviceapi.SessionCommand) {
+	p := serviceapi.Principal{Scope: serviceapi.Scope{InstallationID: uuid.New(), IntegrationID: uuid.New()}, ActorID: 7, Kind: serviceapi.PrincipalKindEmployee}
+	c := serviceapi.SessionCommand{
+		Auth: serviceapi.Auth{Token: "verified"}, CommandID: uuid.NewString(), Action: serviceapi.SessionActionStartTask,
+		HasExpectedSession: true, Context: serviceapi.SessionContext{TaskID: 9, ClientID: uuid.NewString()},
+	}
+	return p, c
+}
+
+func TestTaskStartUsesLiveContextAndReplaysReceipt(t *testing.T) {
+	ctx := t.Context()
+	store := sessionTestStore(t)
+	p, c := taskStartFixture()
+	task := serviceapi.TaskDetail{
+		ID: 9, ResponsibleUserID: 7, Text: "a\x00" + strings.Repeat("я", 1001), TaskTypeID: 2, TaskTypeName: "Call", EntityType: "contacts", EntityID: 26,
+		Entity: serviceapi.EntityContext{ID: 26, EntityType: "contacts", Name: "Resolved card"},
+	}
+	reads := 0
+	s := New(store, panelPolicy{principal: p}, nil, taskStartGateway{resolve: func(_ context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+		reads++
+		if !r.WithContext || r.Auth != c.Auth || r.TaskID != task.ID {
+			t.Fatalf("wrong live lookup: %+v", r)
+		}
+		if task.ResponsibleUserID != p.ActorID {
+			return serviceapi.TaskDetail{}, serviceapi.Fail(serviceapi.PermissionDenied, "task belongs to another employee")
+		}
+		return task, nil
+	}})
+	if _, err := s.ApplySession(ctx, c); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied || reads != 0 {
+		t.Fatalf("disabled panel reached CRM: %v, reads=%d", err, reads)
+	}
+	settings, err := store.SaveTaskPanel(ctx, p.Scope, serviceapi.TaskPanelSettings{Enabled: true, EmployeeIDs: []int64{7, 8}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := c
+	invalid.Context.EntityID = 100
+	if _, err := s.ApplySession(ctx, invalid); serviceapi.ErrorCode(err) != serviceapi.InvalidArgument || reads != 0 {
+		t.Fatalf("caller entity data reached CRM: %v, reads=%d", err, reads)
+	}
+	task.IsCompleted = true
+	if _, err := s.ApplySession(ctx, c); serviceapi.ErrorCode(err) != serviceapi.Conflict {
+		t.Fatalf("completed task accepted: %v", err)
+	}
+	task.IsCompleted, task.ResponsibleUserID = false, 8
+	if _, err := s.ApplySession(ctx, c); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("foreign task accepted: %v", err)
+	}
+	if current, err := store.CurrentSession(ctx, p.Scope, p.ActorID); err != nil || current.ID != "" {
+		t.Fatalf("rejected start wrote a session: %+v %v", current, err)
+	}
+
+	task.ResponsibleUserID = p.ActorID
+	first, err := s.ApplySession(ctx, c)
+	if err != nil || first.ID == "" || first.Kind != "work" || first.EmployeeID != p.ActorID || first.StoppedAt != 0 ||
+		first.Context.ClientID != c.Context.ClientID || first.Context.TaskID != 9 || first.Context.TaskTypeName != "Call" ||
+		first.Context.EntityID != 26 || first.Context.EntityType != "contacts" || first.Context.EntityName != "Resolved card" ||
+		len(first.Context.TaskName) > serviceapi.SessionContextTextLimit || !utf8.ValidString(first.Context.TaskName) {
+		t.Fatalf("wrong work receipt: %+v %v", first, err)
+	}
+	if reads != 3 {
+		t.Fatalf("new commands read CRM %d times", reads)
+	}
+	task.ResponsibleUserID = 8
+	settings.Enabled = false
+	if _, err := store.SaveTaskPanel(ctx, p.Scope, settings); err != nil {
+		t.Fatal(err)
+	}
+	restarted := New(store, panelPolicy{principal: p}, nil, nil)
+	c.Auth.Token = "fresh-delegation"
+	if replay, err := restarted.ApplySession(ctx, c); err != nil || replay != first {
+		t.Fatalf("lost response did not replay original receipt: %+v %v", replay, err)
+	}
+	for _, change := range []func(*serviceapi.SessionCommand){
+		func(c *serviceapi.SessionCommand) { c.Context.TaskID++ },
+		func(c *serviceapi.SessionCommand) { c.Context.ClientID = uuid.NewString() },
+		func(c *serviceapi.SessionCommand) { c.ExpectedSessionID = first.ID },
+		func(c *serviceapi.SessionCommand) { c.Action = "work" },
+	} {
+		modified := c
+		change(&modified)
+		if receipt, err := restarted.ApplySession(ctx, modified); serviceapi.ErrorCode(err) != serviceapi.Conflict || receipt.ID != "" {
+			t.Fatalf("changed intent replay accepted: %+v %v", receipt, err)
+		}
+	}
+	foreign := p
+	foreign.ActorID = 8
+	if receipt, err := New(store, panelPolicy{principal: foreign}, nil, nil).ApplySession(ctx, c); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied || receipt.ID != "" {
+		t.Fatalf("receipt was exposed to another employee: %+v %v", receipt, err)
+	}
+	if receipt, err := restarted.ApplySession(ctx, serviceapi.SessionCommand{CommandID: c.CommandID, Action: c.Action, HasExpectedSession: true, Context: c.Context}); serviceapi.ErrorCode(err) != serviceapi.Unauthenticated || receipt.ID != "" {
+		t.Fatalf("unauthenticated receipt was exposed: %+v %v", receipt, err)
+	}
+	page, err := store.ReadSessions(ctx, p.Scope, p.ActorID, 0, time.Now().Add(time.Second).Unix(), "")
+	if err != nil || len(page.Items) != 1 || page.Items[0].ID != first.ID || page.Items[0].StoppedAt != 0 {
+		t.Fatalf("retry changed session history: %+v %v", page, err)
+	}
+
+	settings.Enabled = true
+	settings.Revision++
+	settings, err = store.SaveTaskPanel(ctx, p.Scope, settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	switchTask := c
+	switchTask.CommandID = uuid.NewString()
+	switchTask.ExpectedSessionID = first.ID
+	switchTask.Context.TaskID = 10
+	revokeDuringRead := New(store, panelPolicy{principal: p}, nil, taskStartGateway{resolve: func(ctx context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+		settings.Enabled = false
+		var err error
+		settings, err = store.SaveTaskPanel(ctx, p.Scope, settings)
+		return serviceapi.TaskDetail{ID: r.TaskID}, err
+	}})
+	if _, err := revokeDuringRead.ApplySession(ctx, switchTask); serviceapi.ErrorCode(err) != serviceapi.PermissionDenied {
+		t.Fatalf("start bypassed task panel revocation: %v", err)
+	}
+	if current, err := store.CurrentSession(ctx, p.Scope, p.ActorID); err != nil || current.ID != first.ID {
+		t.Fatalf("denied start closed the existing interval: %+v %v", current, err)
+	}
+	settings.Enabled = true
+	if _, err := store.SaveTaskPanel(ctx, p.Scope, settings); err != nil {
+		t.Fatal(err)
+	}
+	partial := New(store, panelPolicy{principal: p}, nil, taskStartGateway{resolve: func(_ context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+		return serviceapi.TaskDetail{ID: r.TaskID, EntityType: "leads", EntityID: 42}, nil
+	}})
+	next, err := partial.ApplySession(ctx, switchTask)
+	if err != nil || next.ID == "" || next.ID == first.ID || next.Context.EntityType != "leads" || next.Context.EntityID != 42 {
+		t.Fatalf("guarded switch lost authoritative card identity: %+v %v", next, err)
+	}
+	var stopped bool
+	if err := store.pool.QueryRow(ctx, `SELECT stopped_at IS NOT NULL FROM work_sessions WHERE id=$1`, first.ID).Scan(&stopped); err != nil || !stopped {
+		t.Fatalf("guarded switch did not close previous interval: %v", err)
+	}
+}
+
+func TestConcurrentTaskStartsKeepOneInterval(t *testing.T) {
+	store := sessionTestStore(t)
+	for _, tc := range []struct {
+		name         string
+		duplicate    bool
+		preflightErr error
+	}{
+		{name: "different commands"},
+		{name: "same command", duplicate: true},
+		{name: "same command after preflight denial", duplicate: true, preflightErr: serviceapi.Fail(serviceapi.PermissionDenied, "task was reassigned")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			defer cancel()
+			p, first := taskStartFixture()
+			if _, err := store.SaveTaskPanel(ctx, p.Scope, serviceapi.TaskPanelSettings{Enabled: true, EmployeeIDs: []int64{p.ActorID}}); err != nil {
+				t.Fatal(err)
+			}
+			second := first
+			if !tc.duplicate {
+				second.CommandID = uuid.NewString()
+			}
+			firstReading, release := make(chan struct{}), make(chan struct{})
+			firstRead := taskStartGateway{resolve: func(ctx context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+				close(firstReading)
+				select {
+				case <-release:
+					return serviceapi.TaskDetail{ID: r.TaskID, Text: "first CRM snapshot"}, tc.preflightErr
+				case <-ctx.Done():
+					return serviceapi.TaskDetail{}, ctx.Err()
+				}
+			}}
+			secondRead := taskStartGateway{resolve: func(_ context.Context, r serviceapi.OwnTaskRequest) (serviceapi.TaskDetail, error) {
+				return serviceapi.TaskDetail{ID: r.TaskID, Text: "second CRM snapshot"}, nil
+			}}
+			type outcome struct {
+				receipt serviceapi.WorkSession
+				err     error
+			}
+			done := make(chan outcome, 1)
+			go func() {
+				receipt, err := New(store, panelPolicy{principal: p}, nil, firstRead).ApplySession(ctx, first)
+				done <- outcome{receipt, err}
+			}()
+			select {
+			case <-firstReading:
+			case out := <-done:
+				t.Fatalf("first command did not reach live lookup: %+v", out)
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			winner, err := New(store, panelPolicy{principal: p}, nil, secondRead).ApplySession(ctx, second)
+			close(release)
+			if err != nil || winner.Context.TaskName != "second CRM snapshot" {
+				t.Fatalf("second command blocked by in-flight CRM lookup: %+v %v", winner, err)
+			}
+			out := <-done
+			if first.CommandID == second.CommandID {
+				if out.err != nil || out.receipt != winner {
+					t.Fatalf("concurrent retry did not return original receipt: %+v", out)
+				}
+			} else if serviceapi.ErrorCode(out.err) != serviceapi.Conflict || out.receipt.ID != "" {
+				t.Fatalf("stale command replaced winner: %+v", out)
+			}
+			page, err := store.ReadSessions(ctx, p.Scope, p.ActorID, 0, time.Now().Add(time.Second).Unix(), "")
+			if err != nil || len(page.Items) != 1 || page.Items[0].ID != winner.ID || page.Items[0].StoppedAt != 0 {
+				t.Fatalf("concurrent starts wrote extra intervals: %+v %v", page, err)
+			}
+		})
+	}
 }

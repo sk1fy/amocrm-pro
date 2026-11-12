@@ -233,6 +233,9 @@ func decode(w http.ResponseWriter, r *http.Request, into any) error {
 	if err != nil || len(bytes.TrimSpace(body)) == 0 || bytes.TrimSpace(body)[0] != '{' {
 		return serviceapi.Fail(serviceapi.InvalidArgument, "one JSON object required")
 	}
+	return decodeJSON(body, into)
+}
+func decodeJSON(body []byte, into any) error {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(into); err != nil {

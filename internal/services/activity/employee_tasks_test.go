@@ -15,7 +15,10 @@ type panelStore struct {
 func (s panelStore) CurrentSession(context.Context, serviceapi.Scope, int64) (serviceapi.WorkSession, error) {
 	return serviceapi.WorkSession{}, nil
 }
-func (s panelStore) ApplySession(context.Context, serviceapi.Principal, serviceapi.SessionCommand) (serviceapi.WorkSession, error) {
+func (s panelStore) SessionReceipt(context.Context, serviceapi.Principal, serviceapi.SessionCommand) (serviceapi.WorkSession, bool, error) {
+	return serviceapi.WorkSession{}, false, nil
+}
+func (s panelStore) ApplySession(context.Context, serviceapi.Principal, serviceapi.SessionCommand, serviceapi.SessionContext) (serviceapi.WorkSession, error) {
 	return serviceapi.WorkSession{}, nil
 }
 func (s panelStore) ReadSessions(context.Context, serviceapi.Scope, int64, int64, int64, string) (serviceapi.SessionPage, error) {

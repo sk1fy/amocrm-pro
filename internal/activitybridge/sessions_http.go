@@ -2,11 +2,13 @@ package activitybridge
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
-	"net/http"
-	"time"
 )
 
 func (b *Bridge) SessionWriteHTTP(w http.ResponseWriter, r *http.Request) {
@@ -14,25 +16,15 @@ func (b *Bridge) SessionWriteHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var input struct {
-		ExpectedSessionID *string                   `json:"expected_session_id"`
-		Action            string                    `json:"action"`
-		SessionID         string                    `json:"session_id"`
-		Context           serviceapi.SessionContext `json:"context"`
-	}
-	if err := decode(w, r, &input); err != nil {
-		writeError(w, err)
-		return
-	}
-	commandID, err := uuidIdempotencyKey(r)
+	command, err := decodeSessionWrite(w, r)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	command := serviceapi.SessionCommand{CommandID: commandID, Action: input.Action, SessionID: input.SessionID, Context: input.Context}
-	if input.ExpectedSessionID != nil {
-		command.ExpectedSessionID = *input.ExpectedSessionID
-		command.HasExpectedSession = true
+	command.CommandID, err = uuidIdempotencyKey(r)
+	if err != nil {
+		writeError(w, err)
+		return
 	}
 	if err := serviceapi.ValidateSessionCommand(command); err != nil {
 		writeError(w, err)
@@ -40,14 +32,51 @@ func (b *Bridge) SessionWriteHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	auth, err := b.policy.Issue(ctx, serviceapi.IssueRequest{Scope: serviceapi.Scope{InstallationID: p.InstallationID, IntegrationID: p.IntegrationID}, ActorID: p.UserID, Kind: serviceapi.PrincipalKindEmployee, Consumer: serviceapi.ActivityService, RequestID: uuid.NewString(), Grants: []serviceapi.Grant{{Audience: serviceapi.ActivityService, Action: serviceapi.ActionSessions}}})
+	if command.Action == serviceapi.SessionActionStartTask {
+		command.Auth, err = b.taskAuth(ctx, p, false)
+	} else {
+		command.Auth, err = b.employeeAuth(ctx, p)
+	}
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	command.Auth = auth
 	result, err := b.activity.ApplySession(ctx, command)
 	respond(w, http.StatusOK, result, err)
+}
+
+func decodeSessionWrite(w http.ResponseWriter, r *http.Request) (serviceapi.SessionCommand, error) {
+	var body json.RawMessage
+	if err := decode(w, r, &body); err != nil {
+		return serviceapi.SessionCommand{}, err
+	}
+	var input struct {
+		ExpectedSessionID *string                   `json:"expected_session_id"`
+		Action            string                    `json:"action"`
+		SessionID         string                    `json:"session_id"`
+		Context           serviceapi.SessionContext `json:"context"`
+	}
+	if err := decodeJSON(body, &input); err != nil {
+		return serviceapi.SessionCommand{}, err
+	}
+	if input.Action == serviceapi.SessionActionStartTask {
+		var start struct {
+			Action            string  `json:"action"`
+			ExpectedSessionID *string `json:"expected_session_id"`
+			Context           struct {
+				TaskID   int64  `json:"task_id"`
+				ClientID string `json:"client_id"`
+			} `json:"context"`
+		}
+		if err := decodeJSON(body, &start); err != nil {
+			return serviceapi.SessionCommand{}, err
+		}
+	}
+	command := serviceapi.SessionCommand{Action: input.Action, SessionID: input.SessionID, Context: input.Context}
+	if input.ExpectedSessionID != nil {
+		command.ExpectedSessionID, command.HasExpectedSession = *input.ExpectedSessionID, true
+	}
+	return command, nil
 }
 func (b *Bridge) ViewSessionsHTTP(w http.ResponseWriter, r *http.Request) {
 	auth, err := b.issueViewer(r)
