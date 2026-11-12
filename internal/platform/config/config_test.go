@@ -342,6 +342,30 @@ func TestAPIRejectsInvalidHTTPAddress(t *testing.T) {
 	}
 }
 
+func TestAPIWidgetJWTMaxLifetime(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ENCRYPTION_KEYS", "1:"+developmentEncryptionKey)
+	for _, tc := range []struct {
+		name, value string
+		want        time.Duration
+	}{
+		{name: "default", want: 30 * time.Minute},
+		{name: "explicit override", value: "15m", want: 15 * time.Minute},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("WIDGET_JWT_MAX_LIFETIME", tc.value)
+			api, err := LoadAPI()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if api.WidgetJWTMaxLifetime != tc.want {
+				t.Fatalf("widget JWT maximum lifetime = %s, want %s", api.WidgetJWTMaxLifetime, tc.want)
+			}
+		})
+	}
+}
+
 func TestAPIRejectsInvalidOAuthAndJWTDeadlines(t *testing.T) {
 	for _, testCase := range []struct {
 		name, variable, value, errorText string
