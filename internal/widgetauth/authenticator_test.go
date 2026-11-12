@@ -150,6 +150,8 @@ func TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAuthFixture(t)
+	expiresAt := testNow.Add(29 * time.Minute) // The fixture token was issued one minute ago.
+	fixture.claims["exp"] = expiresAt.Unix()
 	rawToken := signClaims(t, fixture.claims, fixture.secret, jwt.SigningMethodHS256)
 	principal, err := fixture.authenticator.Authenticate(context.Background(), rawToken)
 	if err != nil {
@@ -176,7 +178,7 @@ func TestAuthenticateReturnsVerifiedPrincipalAndConsumesToken(t *testing.T) {
 	}
 	used := fixture.repository.consumed[0]
 	if used.TokenID != testTokenID || used.Issuer != "https://subdomain.amocrm.ru" ||
-		!used.ExpiresAt.Equal(testNow.Add(10*time.Minute)) {
+		!used.ExpiresAt.Equal(expiresAt) {
 		t.Fatalf("consumed token = %+v", used)
 	}
 }
@@ -312,7 +314,7 @@ func TestAuthenticateStrictClaimsValidation(t *testing.T) {
 		"missing expiry":       func(claims jwt.MapClaims) { delete(claims, "exp") },
 		"expired":              func(claims jwt.MapClaims) { claims["exp"] = testNow.Unix() },
 		"expiry before issue":  func(claims jwt.MapClaims) { claims["exp"] = testNow.Add(-2 * time.Minute).Unix() },
-		"lifetime too long":    func(claims jwt.MapClaims) { claims["exp"] = testNow.Add(16 * time.Minute).Unix() },
+		"lifetime too long":    func(claims jwt.MapClaims) { claims["exp"] = testNow.Add(29*time.Minute + time.Second).Unix() },
 		"missing account":      func(claims jwt.MapClaims) { delete(claims, "account_id") },
 		"zero user":            func(claims jwt.MapClaims) { claims["user_id"] = int64(0) },
 	}

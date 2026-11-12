@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
+	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
 const developmentEncryptionKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -246,7 +247,7 @@ func LoadAPI() (API, error) {
 	if widgetJWTLeeway > time.Minute {
 		return API{}, errors.New("WIDGET_JWT_LEEWAY must be at most 1m")
 	}
-	widgetJWTMaxLifetime, err := duration("WIDGET_JWT_MAX_LIFETIME", 15*time.Minute)
+	widgetJWTMaxLifetime, err := duration("WIDGET_JWT_MAX_LIFETIME", widgetauth.DefaultMaxTokenLifetime)
 	if err != nil {
 		return API{}, err
 	}

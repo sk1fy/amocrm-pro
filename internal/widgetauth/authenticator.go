@@ -19,10 +19,10 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 )
 
-const (
-	maxTokenLength          = 16 * 1024
-	defaultMaxTokenLifetime = 15 * time.Minute
-)
+const maxTokenLength = 16 * 1024
+
+// DefaultMaxTokenLifetime matches the 30-minute lifetime of amoCRM disposable JWTs.
+const DefaultMaxTokenLifetime = 30 * time.Minute
 
 var integerJSON = regexp.MustCompile(`^(0|-?[1-9][0-9]*)$`)
 
@@ -75,8 +75,7 @@ func WithLeeway(leeway time.Duration) Option {
 }
 
 // WithMaxLifetime bounds replay-row retention and limits how long a stolen
-// disposable token can remain acceptable. amoCRM widget tokens are expected
-// to be short lived; the default is 15 minutes.
+// disposable token can remain acceptable. The default is DefaultMaxTokenLifetime.
 func WithMaxLifetime(lifetime time.Duration) Option {
 	return func(authenticator *Authenticator) error {
 		if lifetime <= 0 {
@@ -108,7 +107,7 @@ func NewAuthenticator(repository Repository, secrets SecretOpener, options ...Op
 		repository:  repository,
 		secrets:     secrets,
 		clock:       time.Now,
-		maxLifetime: defaultMaxTokenLifetime,
+		maxLifetime: DefaultMaxTokenLifetime,
 	}
 	for _, option := range options {
 		if option == nil {
