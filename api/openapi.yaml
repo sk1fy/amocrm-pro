@@ -1155,7 +1155,16 @@ paths:
     post:
       operationId: applyActivitySession
       summary: Start or stop the authenticated employee's work, activity or pause interval.
-      description: Requires a fresh disposable widget JWT and an enabled employee in task-panel settings. Start atomically closes a previous interval; stop requires its session_id. Server timestamps are authoritative. Idempotency-Key must be a UUID and reused on retries with a fresh JWT.
+      description: >-
+        Requires a fresh disposable widget JWT. Starting an interval requires
+        the employee to be enabled in task-panel settings and atomically closes
+        the previous interval. Stop requires its session_id. Use start_task to
+        start work from a live amoCRM task: the task must still be open and
+        assigned to the employee. The receipt uses the task's linked card
+        type and ID, with card names and pipeline details when available.
+        Server timestamps are authoritative. Reuse the Idempotency-Key and the
+        same command with a fresh JWT on retries. A saved start_task receipt is
+        returned without rechecking the task in amoCRM.
       security: [{widgetToken: []}, {widgetBearer: []}]
       parameters:
         - name: Idempotency-Key
@@ -1167,14 +1176,32 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: false
-              required: [action]
-              properties:
-                action: {type: string, enum: [work, activity, pause, stop]}
-                expected_session_id: {type: string, description: "CAS guard; empty means no current session."}
-                session_id: {type: string, format: uuid}
-                context: {$ref: '#/components/schemas/ActivitySessionContext'}
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [action, expected_session_id, context]
+                  properties:
+                    action: {type: string, enum: [start_task]}
+                    expected_session_id:
+                      description: "The observed active session ID; empty means no active session."
+                      oneOf:
+                        - {type: string, enum: ['']}
+                        - {type: string, format: uuid, minLength: 1}
+                    context:
+                      type: object
+                      additionalProperties: false
+                      required: [task_id, client_id]
+                      properties:
+                        task_id: {type: integer, format: int64, minimum: 1}
+                        client_id: {type: string, format: uuid}
+                - type: object
+                  additionalProperties: false
+                  required: [action]
+                  properties:
+                    action: {type: string, enum: [work, activity, pause, stop]}
+                    expected_session_id: {type: string, description: "CAS guard; empty means no current session."}
+                    session_id: {type: string, format: uuid}
+                    context: {$ref: '#/components/schemas/ActivitySessionContext'}
       responses:
         '200':
           description: Original result on retry; no duplicated intervals.
@@ -1184,8 +1211,10 @@ paths:
         '400': {$ref: '#/components/responses/ActivityShareError'}
         '401': {$ref: '#/components/responses/ActivityShareError'}
         '403': {$ref: '#/components/responses/ActivityShareError'}
+        '404': {$ref: '#/components/responses/ActivityShareError'}
         '409': {$ref: '#/components/responses/ActivityShareError'}
         '503': {$ref: '#/components/responses/ActivityShareError'}
+        '504': {$ref: '#/components/responses/ActivityShareError'}
         '429':
           description: Ingress or downstream capacity exhausted.
           content:

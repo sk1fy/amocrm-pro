@@ -2,7 +2,6 @@ package activity
 
 import (
 	"context"
-	"slices"
 
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
@@ -29,7 +28,7 @@ func (s *Service) taskGateway(ctx context.Context, auth serviceapi.Auth, require
 	if err != nil {
 		return nil, serviceapi.TaskPanelSettings{}, err
 	}
-	if requireEnabled && !(settings.Enabled && slices.Contains(settings.EmployeeIDs, p.ActorID)) {
+	if requireEnabled && !taskPanelEnabled(settings, p.ActorID) {
 		return nil, serviceapi.TaskPanelSettings{}, serviceapi.Fail(serviceapi.PermissionDenied, "task panel is disabled for this employee")
 	}
 	return tasks, settings, nil

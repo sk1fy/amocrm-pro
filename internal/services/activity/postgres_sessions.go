@@ -8,15 +8,16 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
-	"slices"
-	"strconv"
-	"time"
 )
 
 const sessionSelect = `SELECT id::text,employee_id,kind,extract(epoch from started_at)::bigint,coalesce(extract(epoch from stopped_at)::bigint,0),context FROM work_sessions`
+const sessionReceiptSelect = `SELECT request_hash,result FROM session_commands WHERE installation_id=$1 AND integration_id=$2 AND employee_id=$3 AND command_id=$4`
 
 func scanSession(row panelRow, now int64) (serviceapi.WorkSession, error) {
 	var s serviceapi.WorkSession
@@ -73,7 +74,47 @@ func (s *Postgres) SaveTaskPanel(ctx context.Context, scope serviceapi.Scope, se
 	}
 	return settings, nil
 }
-func (s *Postgres) ApplySession(ctx context.Context, p serviceapi.Principal, c serviceapi.SessionCommand) (serviceapi.WorkSession, error) {
+func sessionRequestHash(c serviceapi.SessionCommand) [sha256.Size]byte {
+	if c.Action == serviceapi.SessionActionStartTask {
+		canonical, _ := json.Marshal(struct {
+			Action, ClientID, Expected string
+			TaskID                     int64
+		}{c.Action, c.Context.ClientID, c.ExpectedSessionID, c.Context.TaskID})
+		return sha256.Sum256(canonical)
+	}
+	canonical, _ := json.Marshal(struct {
+		Action, SessionID, Expected string
+		HasExpected                 bool
+		Context                     serviceapi.SessionContext
+	}{c.Action, c.SessionID, c.ExpectedSessionID, c.HasExpectedSession, c.Context})
+	return sha256.Sum256(canonical)
+}
+
+func scanSessionReceipt(row panelRow, hash [sha256.Size]byte) (serviceapi.WorkSession, bool, error) {
+	var oldHash, result []byte
+	err := row.Scan(&oldHash, &result)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return serviceapi.WorkSession{}, false, nil
+	}
+	if err != nil {
+		return serviceapi.WorkSession{}, false, err
+	}
+	if !bytes.Equal(hash[:], oldHash) {
+		return serviceapi.WorkSession{}, false, serviceapi.Fail(serviceapi.Conflict, "command_id has different content")
+	}
+	var receipt serviceapi.WorkSession
+	if err := json.Unmarshal(result, &receipt); err != nil {
+		return serviceapi.WorkSession{}, false, err
+	}
+	return receipt, true, nil
+}
+
+func (s *Postgres) SessionReceipt(ctx context.Context, p serviceapi.Principal, c serviceapi.SessionCommand) (serviceapi.WorkSession, bool, error) {
+	row := s.pool.QueryRow(ctx, sessionReceiptSelect, p.InstallationID, p.IntegrationID, p.ActorID, c.CommandID)
+	return scanSessionReceipt(row, sessionRequestHash(c))
+}
+
+func (s *Postgres) ApplySession(ctx context.Context, p serviceapi.Principal, c serviceapi.SessionCommand, sessionContext serviceapi.SessionContext) (serviceapi.WorkSession, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return serviceapi.WorkSession{}, err
@@ -83,26 +124,12 @@ func (s *Postgres) ApplySession(ctx context.Context, p serviceapi.Principal, c s
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, int64(binary.BigEndian.Uint64(lock[:8]))); err != nil {
 		return serviceapi.WorkSession{}, err
 	}
-	canonical, _ := json.Marshal(struct {
-		Action, SessionID, Expected string
-		HasExpected                 bool
-		Context                     serviceapi.SessionContext
-	}{c.Action, c.SessionID, c.ExpectedSessionID, c.HasExpectedSession, c.Context})
-	hash := sha256.Sum256(canonical)
-	var oldHash, result []byte
-	err = tx.QueryRow(ctx, `SELECT request_hash,result FROM session_commands WHERE installation_id=$1 AND integration_id=$2 AND employee_id=$3 AND command_id=$4`, p.InstallationID, p.IntegrationID, p.ActorID, c.CommandID).Scan(&oldHash, &result)
-	if err == nil {
-		if !bytes.Equal(hash[:], oldHash) {
-			return serviceapi.WorkSession{}, serviceapi.Fail(serviceapi.Conflict, "command_id has different content")
-		}
-		var replay serviceapi.WorkSession
-		if err = json.Unmarshal(result, &replay); err != nil {
-			return replay, err
-		}
-		return replay, tx.Commit(ctx)
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	hash := sessionRequestHash(c)
+	row := tx.QueryRow(ctx, sessionReceiptSelect, p.InstallationID, p.IntegrationID, p.ActorID, c.CommandID)
+	if receipt, found, err := scanSessionReceipt(row, hash); err != nil {
 		return serviceapi.WorkSession{}, err
+	} else if found {
+		return receipt, tx.Commit(ctx)
 	}
 	var settingsRaw []byte
 	err = tx.QueryRow(ctx, `SELECT settings FROM task_panel_settings WHERE installation_id=$1 AND integration_id=$2 FOR SHARE`, p.InstallationID, p.IntegrationID).Scan(&settingsRaw)
@@ -120,7 +147,7 @@ func (s *Postgres) ApplySession(ctx context.Context, p serviceapi.Principal, c s
 		if err = json.Unmarshal(settingsRaw, &settings); err != nil {
 			return serviceapi.WorkSession{}, err
 		}
-		if !settings.Enabled || !slices.Contains(settings.EmployeeIDs, p.ActorID) {
+		if !taskPanelEnabled(settings, p.ActorID) {
 			return serviceapi.WorkSession{}, serviceapi.Fail(serviceapi.PermissionDenied, "task panel is disabled for employee")
 		}
 	}
@@ -137,14 +164,18 @@ func (s *Postgres) ApplySession(ctx context.Context, p serviceapi.Principal, c s
 		return serviceapi.WorkSession{}, serviceapi.Fail(serviceapi.Conflict, "session is no longer active")
 	}
 	if currentID != "" {
-		if _, err = tx.Exec(ctx, `UPDATE work_sessions SET stopped_at=greatest(started_at,$1),context=CASE WHEN $3::text='' THEN context ELSE jsonb_set(context,'{task_result}',to_jsonb($3::text)) END WHERE id=$2`, now, currentID, c.Context.TaskResult); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE work_sessions SET stopped_at=greatest(started_at,$1),context=CASE WHEN $3::text='' THEN context ELSE jsonb_set(context,'{task_result}',to_jsonb($3::text)) END WHERE id=$2`, now, currentID, sessionContext.TaskResult); err != nil {
 			return serviceapi.WorkSession{}, err
 		}
 	}
 	id := currentID
 	if c.Action != "stop" {
 		id = uuid.NewString()
-		if _, err = tx.Exec(ctx, `INSERT INTO work_sessions(id,installation_id,integration_id,employee_id,kind,started_at,context) VALUES($1,$2,$3,$4,$5,$6,$7)`, id, p.InstallationID, p.IntegrationID, p.ActorID, c.Action, now, c.Context); err != nil {
+		kind := c.Action
+		if kind == serviceapi.SessionActionStartTask {
+			kind = "work"
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO work_sessions(id,installation_id,integration_id,employee_id,kind,started_at,context) VALUES($1,$2,$3,$4,$5,$6,$7)`, id, p.InstallationID, p.IntegrationID, p.ActorID, kind, now, sessionContext); err != nil {
 			return serviceapi.WorkSession{}, err
 		}
 	}
@@ -152,7 +183,7 @@ func (s *Postgres) ApplySession(ctx context.Context, p serviceapi.Principal, c s
 	if err != nil {
 		return serviceapi.WorkSession{}, err
 	}
-	result, err = json.Marshal(session)
+	result, err := json.Marshal(session)
 	if err != nil {
 		return serviceapi.WorkSession{}, err
 	}

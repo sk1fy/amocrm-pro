@@ -2,12 +2,15 @@ package serviceapi
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
 	"slices"
+
+	"github.com/google/uuid"
 )
 
 const ActionSessions = "sessions"
 const PrincipalKindEmployee = "employee"
+const SessionActionStartTask = "start_task"
+const SessionContextTextLimit = 2000
 
 type SessionContext struct {
 	ClientID     string `json:"client_id"`
@@ -67,7 +70,7 @@ func ValidateSessionCommand(c SessionCommand) error {
 	if id, e := uuid.Parse(c.CommandID); e != nil || id == uuid.Nil {
 		return Fail(InvalidArgument, "command_id must be a UUID")
 	}
-	if c.Action != "work" && c.Action != "activity" && c.Action != "pause" && c.Action != "stop" {
+	if c.Action != SessionActionStartTask && c.Action != "work" && c.Action != "activity" && c.Action != "pause" && c.Action != "stop" {
 		return Fail(InvalidArgument, "invalid session action")
 	}
 	if c.HasExpectedSession && c.ExpectedSessionID != "" {
@@ -79,6 +82,18 @@ func ValidateSessionCommand(c SessionCommand) error {
 		if id, e := uuid.Parse(c.Context.ClientID); e != nil || id == uuid.Nil {
 			return Fail(InvalidArgument, "invalid client_id")
 		}
+	}
+	if c.Action == SessionActionStartTask {
+		if !c.HasExpectedSession {
+			return Fail(InvalidArgument, "start_task requires expected_session_id")
+		}
+		if c.SessionID != "" || c.Context != (SessionContext{TaskID: c.Context.TaskID, ClientID: c.Context.ClientID}) {
+			return Fail(InvalidArgument, "start_task accepts only task_id and client_id as context")
+		}
+		if c.Context.ClientID == "" {
+			return Fail(InvalidArgument, "start_task requires client_id")
+		}
+		return ValidateTaskID(c.Context.TaskID)
 	}
 	if c.Action == "stop" {
 		if id, e := uuid.Parse(c.SessionID); e != nil || id == uuid.Nil {
@@ -98,7 +113,7 @@ func ValidateSessionCommand(c SessionCommand) error {
 		return Fail(InvalidArgument, "invalid entity type")
 	}
 	for _, s := range []string{c.Context.TaskName, c.Context.TaskResult, c.Context.ActivityName, c.Context.EntityName, c.Context.PipelineName, c.Context.StatusName, c.Context.TaskTypeName} {
-		if len(s) > 2000 {
+		if len(s) > SessionContextTextLimit {
 			return Fail(InvalidArgument, "session context text too long")
 		}
 	}
