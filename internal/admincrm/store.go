@@ -20,6 +20,16 @@ type Store struct {
 // integration with stored OAuth credentials, preferring the most recently
 // refreshed credentials. The order is deterministic for equal timestamps.
 func (s *Store) ResolveConnection(ctx context.Context, accountID int64) (Connection, error) {
+	return s.resolveConnection(ctx, accountID, "")
+}
+
+// ResolveActivityConnection restricts the employee directory to installations
+// authorized for Activity on the requested account.
+func (s *Store) ResolveActivityConnection(ctx context.Context, accountID int64) (Connection, error) {
+	return s.resolveConnection(ctx, accountID, "activity")
+}
+
+func (s *Store) resolveConnection(ctx context.Context, accountID int64, serviceCode string) (Connection, error) {
 	timeout := s.Timeout
 	if timeout <= 0 {
 		timeout = 2 * time.Second
@@ -35,8 +45,12 @@ WHERE i.account_id = $1
   AND i.status = 'active'
   AND ig.status = 'active'
   AND COALESCE(i.settings->>'origin', '') <> 'fixture'
+  AND ($2 = '' OR EXISTS (
+      SELECT 1 FROM integration_services grant_row
+      WHERE grant_row.integration_id = ig.id AND grant_row.service_code = $2 AND grant_row.enabled
+  ))
 ORDER BY COALESCE(oc.refreshed_at, oc.created_at) DESC, i.updated_at DESC, i.id DESC
-LIMIT 1`, accountID).Scan(&connection.InstallationID, &connection.IntegrationID, &connection.IntegrationCode, &connection.credentialVersion)
+LIMIT 1`, accountID, serviceCode).Scan(&connection.InstallationID, &connection.IntegrationID, &connection.IntegrationCode, &connection.credentialVersion)
 	if err == nil {
 		return connection, nil
 	}
