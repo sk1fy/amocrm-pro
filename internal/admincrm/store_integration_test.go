@@ -73,6 +73,41 @@ func TestResolveConnectionPrefersRecentAuthorizedRealInstallation(t *testing.T) 
 	}
 }
 
+func TestResolveActivityConnectionRequiresGrantForRequestedAccount(t *testing.T) {
+	pool := testkit.Postgres(t)
+	testkit.Reset(t, pool)
+	ctx := t.Context()
+	store := &Store{Pool: pool}
+	const account, otherAccount = int64(31415926), int64(27182818)
+	now := time.Now().UTC()
+	granted := insertIntegration(t, pool, "widget-activity", "active")
+	ungranted := insertIntegration(t, pool, "widget-other", "active")
+	activity, other, recent := uuid.New(), uuid.New(), uuid.New()
+	insertInstallation(t, pool, activity, granted, account, "active", `{}`, now)
+	insertCredentials(t, pool, activity, now.Add(-time.Minute))
+	insertInstallation(t, pool, other, granted, otherAccount, "active", `{}`, now)
+	insertCredentials(t, pool, other, now)
+	insertInstallation(t, pool, recent, ungranted, account, "active", `{}`, now)
+	insertCredentials(t, pool, recent, now)
+
+	if _, err := store.ResolveActivityConnection(ctx, account); !errors.Is(err, ErrNoAuthorizedConnection) {
+		t.Fatalf("connection without Activity grant: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO integration_services(integration_id,service_code,enabled) VALUES($1,'activity',true)`, granted); err != nil {
+		t.Fatal(err)
+	}
+	for accountID, want := range map[int64]uuid.UUID{account: activity, otherAccount: other} {
+		connection, err := store.ResolveActivityConnection(ctx, accountID)
+		if err != nil || connection.InstallationID != want {
+			t.Fatalf("account %d: connection=%+v err=%v", accountID, connection, err)
+		}
+	}
+	connection, err := store.ResolveConnection(ctx, account)
+	if err != nil || connection.InstallationID != recent {
+		t.Fatalf("generic directory: connection=%+v err=%v", connection, err)
+	}
+}
+
 func TestUsersReloadsAfterReauthorizationOfSameInstallation(t *testing.T) {
 	pool := testkit.Postgres(t)
 	testkit.Reset(t, pool)

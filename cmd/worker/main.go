@@ -19,6 +19,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/companyentry"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	"github.com/sk1fy/amocrm-pro/internal/distribution"
+	"github.com/sk1fy/amocrm-pro/internal/employeeimport"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
 	"github.com/sk1fy/amocrm-pro/internal/maintenance"
@@ -261,8 +262,12 @@ func run() error {
 	if cfg.AdminCRMHTTPAddress != "" {
 		// Admin CRM reads share this process's OAuth provider and outbound
 		// budget; the api admin listener never calls amoCRM (ADR-0042).
-		adminCRM := &admincrm.Service{Resolver: &admincrm.Store{Pool: pool, Timeout: cfg.DatabaseTimeout}, CRM: amocrmAPI}
-		adminCRMServer = httpserver.New(cfg.AdminCRMHTTPAddress, admincrm.Router(logger, cfg.AdminAPIToken, adminCRM))
+		resolver := &admincrm.Store{Pool: pool, Timeout: cfg.DatabaseTimeout}
+		adminCRM := &admincrm.Service{Resolver: resolver, CRM: amocrmAPI}
+		mux := http.NewServeMux()
+		mux.Handle("/", admincrm.Router(logger, cfg.AdminAPIToken, adminCRM))
+		employeeimport.Mount(mux, cfg.AdminAPIToken, resolver, amocrmAPI)
+		adminCRMServer = httpserver.New(cfg.AdminCRMHTTPAddress, mux)
 	}
 	errChannel := make(chan error, 7)
 	var processes sync.WaitGroup

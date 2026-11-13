@@ -12,6 +12,7 @@ import (
 type CRMUser struct {
 	ID     int64     `json:"id"`
 	Name   string    `json:"name"`
+	Email  string    `json:"-"`
 	Rights CRMRights `json:"rights"`
 }
 type CRMRights struct {
@@ -37,7 +38,10 @@ func (c *Client) CRMUsers(ctx context.Context, id uuid.UUID) ([]CRMUser, error) 
 	for page := 1; page <= 4; page++ {
 		var r struct {
 			Embedded struct {
-				Users []CRMUser `json:"users"`
+				Users []struct {
+					CRMUser
+					Email string `json:"email"`
+				} `json:"users"`
 			} `json:"_embedded"`
 			Links struct {
 				Next struct {
@@ -51,8 +55,10 @@ func (c *Client) CRMUsers(ctx context.Context, id uuid.UUID) ([]CRMUser, error) 
 		if r.Embedded.Users == nil || len(r.Embedded.Users) > 250 || r.Links.Next.Href != "" && len(r.Embedded.Users) == 0 {
 			return nil, ErrIncompleteResponse
 		}
-		for _, u := range r.Embedded.Users {
-			if u.ID <= 0 || u.Rights.IsActive == nil || len(u.Name) > 512 || seen[u.ID] {
+		for _, entry := range r.Embedded.Users {
+			u := entry.CRMUser
+			u.Email = entry.Email
+			if u.ID <= 0 || u.Rights.IsActive == nil || len(u.Name) > 512 || len(u.Email) > 320 || seen[u.ID] {
 				return nil, ErrIncompleteResponse
 			}
 			seen[u.ID] = true
