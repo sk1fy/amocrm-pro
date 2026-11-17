@@ -28,10 +28,15 @@ type accountFilters struct {
 	UsersMin       *int
 	UsersMax       *int
 	Limit          int
+	Portrait       *portraitFilter `json:"-"`
 }
 
 func (f accountFilters) hash() [32]byte {
 	body, _ := json.Marshal(f)
+	if f.Portrait != nil {
+		portrait, _ := json.Marshal(f.Portrait)
+		body = append(append(append([]byte("portrait-search-v1\x00"), body...), 0), portrait...)
+	}
 	return sha256.Sum256(body)
 }
 
@@ -125,10 +130,21 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 		return page, accountSeek{}, err
 	}
 	args := []any{f.Q, f.Classification, f.Product, f.LicenseBefore, f.UsersMin, f.UsersMax}
+	from := accountListFrom
+	filterArgs, predicate, err := portraitAccountListPredicate(ctx, tx, f.Portrait, len(args)+2)
+	if err != nil {
+		return page, accountSeek{}, err
+	}
+	if f.Portrait != nil {
+		from = accountListJoins + ` LEFT JOIN platform_manager.account_portraits pf USING(account_id) ` + accountListWhere + predicate
+	}
+	listArgs := func(param7 any) []any {
+		return append(append(args, param7), filterArgs...)
+	}
 	err = tx.QueryRow(ctx, `
 		SELECT transaction_timestamp(),count(*)::integer
-		FROM (SELECT 1 `+accountListFrom+` LIMIT $7) matching`,
-		append(args, accountSnapshotRows+1)...).Scan(&page.SnapshotAt, &page.Summary.Total)
+		FROM (SELECT 1 `+from+` LIMIT $7) matching`,
+		listArgs(accountSnapshotRows+1)...).Scan(&page.SnapshotAt, &page.Summary.Total)
 	if err != nil {
 		return page, accountSeek{}, err
 	}
@@ -137,8 +153,8 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 		return page, accountSeek{}, errManagerSnapshotLimit
 	}
 	if page.Summary.Total <= f.Limit {
-		rows, err := tx.Query(ctx, `SELECT `+accountSummaryJSON+accountListFrom+` ORDER BY `+accountOrder(f.Sort)+` LIMIT $7`,
-			append(args, f.Limit)...)
+		rows, err := tx.Query(ctx, `SELECT `+accountSummaryJSON+from+` ORDER BY `+accountOrder(f.Sort)+` LIMIT $7`,
+			listArgs(f.Limit)...)
 		if err != nil {
 			return page, accountSeek{}, err
 		}
@@ -154,8 +170,8 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO platform_manager.account_snapshot_items(snapshot_id,ordinal,item)
-		SELECT $7,row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer,`+accountSummaryJSON+accountListFrom,
-		append(args, snapshot)...)
+		SELECT $7,row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer,`+accountSummaryJSON+from,
+		listArgs(snapshot)...)
 	if err != nil {
 		return page, accountSeek{}, err
 	}
@@ -190,8 +206,12 @@ func saveAccountSnapshot(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor man
 	return err
 }
 
-const accountListFrom = `
-	FROM platform_manager.visible_accounts a ` + accountObservationJoins + `
+const accountListFrom = accountListJoins + accountListWhere
+
+const accountListJoins = `
+	FROM platform_manager.visible_accounts a ` + accountObservationJoins
+
+const accountListWhere = `
 	WHERE ($1='' OR strpos(a.amo_account_id::text,$1)>0 OR strpos(lower(COALESCE(p.display_name,i.display_name)),lower($1))>0
 		OR strpos(lower(i.current_domain),lower($1))>0
 		OR EXISTS (SELECT FROM platform_manager.account_domains d WHERE d.account_id=a.account_id
