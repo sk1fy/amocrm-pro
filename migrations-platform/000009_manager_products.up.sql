@@ -90,13 +90,13 @@ BEGIN
 END
 $$;
 REVOKE ALL ON FUNCTION platform_manager.advance_product_catalog() FROM PUBLIC;
-CREATE TRIGGER catalog_products_revision AFTER INSERT OR UPDATE OR DELETE ON platform_lifecycle.products
+CREATE TRIGGER catalog_products_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON platform_lifecycle.products
     FOR EACH STATEMENT EXECUTE FUNCTION platform_manager.advance_product_catalog();
-CREATE TRIGGER catalog_integrations_revision AFTER INSERT OR UPDATE OR DELETE ON platform_lifecycle.integrations
+CREATE TRIGGER catalog_integrations_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON platform_lifecycle.integrations
     FOR EACH STATEMENT EXECUTE FUNCTION platform_manager.advance_product_catalog();
-CREATE TRIGGER catalog_policy_revision AFTER INSERT OR UPDATE OR DELETE ON platform_lifecycle.initial_term_policies
+CREATE TRIGGER catalog_policy_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON platform_lifecycle.initial_term_policies
     FOR EACH STATEMENT EXECUTE FUNCTION platform_manager.advance_product_catalog();
-CREATE TRIGGER catalog_trial_history_revision AFTER INSERT OR UPDATE OR DELETE ON platform_lifecycle.product_trial_revisions
+CREATE TRIGGER catalog_trial_history_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON platform_lifecycle.product_trial_revisions
     FOR EACH STATEMENT EXECUTE FUNCTION platform_manager.advance_product_catalog();
 
 ALTER TABLE platform_manager.commands

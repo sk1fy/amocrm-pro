@@ -67,17 +67,23 @@ func (s managerStore) mutate(ctx context.Context, cmd managerCommand, input any,
 			return outcome, err
 		}
 		err := tx.QueryRow(ctx, `
-			SELECT status,response,etag FROM platform_manager.commands
+			SELECT status,response,etag,resource_id FROM platform_manager.commands
 			WHERE id=$1 AND subject_id=$2 AND idempotency_key=$3 AND kind=$4
 			  AND account_id IS NOT DISTINCT FROM $5 AND product_id IS NOT DISTINCT FROM $6
-			  AND resource_id IS NOT DISTINCT FROM $7 AND expected_version IS NOT DISTINCT FROM $8 AND body_hash=$9`,
+			  AND ($4='product.create' OR resource_id IS NOT DISTINCT FROM $7)
+			  AND expected_version IS NOT DISTINCT FROM $8 AND body_hash=$9`,
 			cmd.ID, cmd.Subject, cmd.Key, cmd.Kind, account, product, resource, version, hash[:]).
-			Scan(&outcome.status, &outcome.body, &outcome.etag)
+			Scan(&outcome.status, &outcome.body, &outcome.etag, &resource)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return outcome, errManagerConflict
 		}
 		if err != nil {
 			return outcome, err
+		}
+		if cmd.Kind == productCreateCommandKind && outcome.status == http.StatusCreated {
+			if err := requireCommandScope(ctx, tx, productUpdateCommandKind, nil, nil, resource); err != nil {
+				return outcome, err
+			}
 		}
 		return outcome, tx.Commit(ctx)
 	}

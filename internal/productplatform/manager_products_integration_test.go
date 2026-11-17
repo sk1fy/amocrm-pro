@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -175,6 +176,28 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	if read.Version != 3 || read.Trial.Kind != "none" || read.Tariff != nil || read.Availability != "archived" {
 		t.Fatalf("catalog did not persist: %+v", read)
 	}
+
+	beforeTruncate := managerJSON[productPage](t, managerRequest(t, client, http.MethodGet, first.private+base+"?limit=1",
+		editor, managerTestCommand{}, "", http.StatusOK).body)
+	if beforeTruncate.Next == nil {
+		t.Fatal("catalog fixture did not have a continuation before owner truncate")
+	}
+	_, err = owner.Exec(ctx, `TRUNCATE platform_lifecycle.integrations CASCADE`)
+	mustManager(t, err)
+	managerRequest(t, client, http.MethodGet, second.private+base+"?limit=1&cursor="+url.QueryEscape(*beforeTruncate.Next),
+		editor, managerTestCommand{}, "", http.StatusBadRequest).requireCode(t, "invalid_cursor")
+	_, err = owner.Exec(ctx, `INSERT INTO platform_lifecycle.integrations(id,product_id)
+		VALUES($1,$2),($3,(SELECT id FROM platform_lifecycle.products WHERE code='other-review'))`,
+		pilot.integration, pilot.product, pilot.otherIntegration)
+	mustManager(t, err)
+	_, err = owner.Exec(ctx, `INSERT INTO platform_lifecycle.scope(integration_id,amo_account_id)
+		VALUES($1,9007199254740993),($1,88221),($2,2542)`, pilot.integration, pilot.otherIntegration)
+	mustManager(t, err)
+	restored := managerJSON[managerProduct](t, managerRequest(t, client, http.MethodGet, first.private+productPath,
+		editor, managerTestCommand{}, "", http.StatusOK).body)
+	if len(restored.Integrations) != 1 || restored.Integrations[0] != pilot.integration {
+		t.Fatal("owner fixture did not restore integration refs")
+	}
 }
 
 func deliverProductEvent(t *testing.T, p managerPilot, client *http.Client, base string, e wire.Event) {
@@ -190,4 +213,59 @@ func deliverProductEvent(t *testing.T, p managerPilot, client *http.Client, base
 	if response.StatusCode != http.StatusAccepted {
 		t.Fatalf("lifecycle %s returned %d", e.Kind, response.StatusCode)
 	}
+}
+
+func TestPlatformProductCreateReplayAfterBootstrap(t *testing.T) {
+	for _, name := range []string{"PLATFORM_TEST_BINARY", "PLATFORM_TEST_CERTS_DIR", "PLATFORM_TEST_OWNER_DSN", "PLATFORM_TEST_JOBS_DSN", "PLATFORM_TEST_ACCESS_DSN"} {
+		if os.Getenv(name) == "" {
+			t.Skip("run make platform-test for Platform manager process checks")
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	owner, err := storage.Open(ctx, os.Getenv("PLATFORM_TEST_OWNER_DSN"), storage.Owner, 2)
+	mustManager(t, err)
+	defer owner.Close()
+	_, err = owner.Exec(ctx, `TRUNCATE platform_lifecycle.manifest,platform_lifecycle.products,platform_lifecycle.accounts,
+		platform_lifecycle.cursors,platform_lifecycle.inbox,platform_lifecycle.reconciliation,platform_manager.snapshots CASCADE`)
+	mustManager(t, err)
+	client := tlsClient(t, os.Getenv("PLATFORM_TEST_CERTS_DIR"), "manager-bff")
+	client.Timeout = 5 * time.Second
+	first, second := startManagerProcess(t), startManagerProcess(t)
+	editor := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "catalog.manage"}}
+	integration := uuid.New()
+	cmd := newManagerTestCommand(uuid.Nil, 0)
+	body := fmt.Sprintf(`{"code":"late-bootstrap","display_name":"Late product","line":"TOP","availability":"draft",
+		"integration_refs":[%q],"tariff_version":null,"trial_policy":{"kind":"none","duration_days":null},"links":[]}`, integration)
+	path := managerPath + "products"
+	rejected := managerRequest(t, client, http.MethodPost, first.private+path, editor, cmd, body, http.StatusUnprocessableEntity)
+	rejected.requireCode(t, "integration_mapping_mismatch")
+	manifest, err := json.Marshal(wire.Manifest{Version: 1, Integrations: []wire.Mapping{
+		{Integration: integration, ProductCode: "late-bootstrap", Accounts: []string{"2542"}},
+	}})
+	mustManager(t, err)
+	mustManager(t, BootstrapLifecycle(ctx, owner, manifest))
+	var id uuid.UUID
+	mustManager(t, owner.QueryRow(ctx, `SELECT id FROM platform_lifecycle.products WHERE code='late-bootstrap'`).Scan(&id))
+	predicted := uuid.NewSHA1(uuid.NameSpaceURL, []byte("amocrm.platform.v1/products/late-bootstrap"))
+	if id == predicted {
+		t.Fatal("fixture did not install an independently assigned P03 product UUID")
+	}
+	replayed := managerRequest(t, client, http.MethodPost, second.private+path, editor, cmd, body, http.StatusUnprocessableEntity)
+	if !bytes.Equal(replayed.body, rejected.body) {
+		t.Fatalf("bootstrap changed the recorded rejection: %s / %s", rejected.body, replayed.body)
+	}
+	managerRequest(t, client, http.MethodPost, first.private+path, editor, cmd, strings.Replace(body, "Late product", "Changed product", 1), http.StatusConflict).
+		requireCode(t, "idempotency_conflict")
+	acceptedCmd := newManagerTestCommand(uuid.Nil, 0)
+	accepted := managerRequest(t, client, http.MethodPost, first.private+path, editor, acceptedCmd, body, http.StatusCreated)
+	if product := managerJSON[managerProduct](t, accepted.body); product.ID != id {
+		t.Fatalf("new valid command did not adopt the P03 product: %s", accepted.body)
+	}
+
+	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.products SET catalog_version=NULL,availability=NULL,links=NULL,
+		tariff_version=NULL,catalog_policy_version=NULL WHERE id=$1`, id)
+	mustManager(t, err)
+	managerRequest(t, client, http.MethodGet, second.private+acceptedCmd.receiptPath(), editor, managerTestCommand{}, "", http.StatusNotFound)
+	managerRequest(t, client, http.MethodPost, second.private+path, editor, acceptedCmd, body, http.StatusNotFound)
 }
