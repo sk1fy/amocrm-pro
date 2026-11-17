@@ -125,3 +125,106 @@ var CoreInstallations_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/proto/platform_v1.proto",
 }
+
+const (
+	CoreAccountObservations_ObserveAccount_FullMethodName = "/amocrm.platform.v1.CoreAccountObservations/ObserveAccount"
+)
+
+// CoreAccountObservationsClient is the client API for CoreAccountObservations service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CoreAccountObservationsClient interface {
+	ObserveAccount(ctx context.Context, in *ObserveAccountRequest, opts ...grpc.CallOption) (*AccountObservation, error)
+}
+
+type coreAccountObservationsClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCoreAccountObservationsClient(cc grpc.ClientConnInterface) CoreAccountObservationsClient {
+	return &coreAccountObservationsClient{cc}
+}
+
+func (c *coreAccountObservationsClient) ObserveAccount(ctx context.Context, in *ObserveAccountRequest, opts ...grpc.CallOption) (*AccountObservation, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AccountObservation)
+	err := c.cc.Invoke(ctx, CoreAccountObservations_ObserveAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CoreAccountObservationsServer is the server API for CoreAccountObservations service.
+// All implementations must embed UnimplementedCoreAccountObservationsServer
+// for forward compatibility.
+type CoreAccountObservationsServer interface {
+	ObserveAccount(context.Context, *ObserveAccountRequest) (*AccountObservation, error)
+	mustEmbedUnimplementedCoreAccountObservationsServer()
+}
+
+// UnimplementedCoreAccountObservationsServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCoreAccountObservationsServer struct{}
+
+func (UnimplementedCoreAccountObservationsServer) ObserveAccount(context.Context, *ObserveAccountRequest) (*AccountObservation, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ObserveAccount not implemented")
+}
+func (UnimplementedCoreAccountObservationsServer) mustEmbedUnimplementedCoreAccountObservationsServer() {
+}
+func (UnimplementedCoreAccountObservationsServer) testEmbeddedByValue() {}
+
+// UnsafeCoreAccountObservationsServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CoreAccountObservationsServer will
+// result in compilation errors.
+type UnsafeCoreAccountObservationsServer interface {
+	mustEmbedUnimplementedCoreAccountObservationsServer()
+}
+
+func RegisterCoreAccountObservationsServer(s grpc.ServiceRegistrar, srv CoreAccountObservationsServer) {
+	// If the following call pancis, it indicates UnimplementedCoreAccountObservationsServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CoreAccountObservations_ServiceDesc, srv)
+}
+
+func _CoreAccountObservations_ObserveAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ObserveAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreAccountObservationsServer).ObserveAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreAccountObservations_ObserveAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreAccountObservationsServer).ObserveAccount(ctx, req.(*ObserveAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CoreAccountObservations_ServiceDesc is the grpc.ServiceDesc for CoreAccountObservations service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CoreAccountObservations_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "amocrm.platform.v1.CoreAccountObservations",
+	HandlerType: (*CoreAccountObservationsServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ObserveAccount",
+			Handler:    _CoreAccountObservations_ObserveAccount_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/proto/platform_v1.proto",
+}

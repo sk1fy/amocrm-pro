@@ -3,6 +3,8 @@ syntax = "proto3";
 package amocrm.platform.v1;
 option go_package = "github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb";
 
+import "google/protobuf/timestamp.proto";
+
 // Only the Platform service identity may read the Core-owned snapshot.
 // Core policy checks the installation scope carried by auth on every call.
 service CoreInstallations {
@@ -33,4 +35,48 @@ message InstallationSnapshot {
   optional uint64 generation = 7;
   optional uint64 sequence = 8;
   optional uint64 authorization_sequence = 9;
+}
+
+service CoreAccountObservations {
+  rpc ObserveAccount(ObserveAccountRequest) returns (AccountObservation);
+}
+
+enum AccountObservationComponent {
+  ACCOUNT_OBSERVATION_COMPONENT_UNSPECIFIED = 0;
+  ACCOUNT_OBSERVATION_COMPONENT_LICENSE = 1;
+  ACCOUNT_OBSERVATION_COMPONENT_USERS = 2;
+}
+
+message ObserveAccountRequest {
+  int64 amo_account_id = 1;
+  string core_installation_id = 2;
+  string integration_id = 3;
+  uint64 generation = 4;
+  uint64 authorization_sequence = 5;
+  AccountObservationComponent component = 6;
+}
+
+message AccountObservation {
+  google.protobuf.Timestamp observed_at = 1;
+  oneof result {
+    AccountIdentity identity = 2;
+    CRMUserRoster roster = 3;
+  }
+}
+
+message AccountIdentity {
+  string current_domain = 1;
+  string display_name = 2;
+  optional string time_zone = 3;
+}
+
+message CRMUserRoster {
+  repeated ObservedCRMUser users = 1;
+}
+
+message ObservedCRMUser {
+  int64 id = 1;
+  string name = 2;
+  bool is_active = 3;
+  bool is_admin = 4;
 }
