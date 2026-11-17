@@ -22,6 +22,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/productplatform"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
+	"github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
 )
 
@@ -40,6 +41,7 @@ type config struct {
 	proofVerifier           *platformaccess.Verifier
 	accessOrigin            string
 	manager                 *productplatform.ManagerOptions
+	accountGateway          accountGatewayConfig
 }
 
 func main() {
@@ -91,20 +93,40 @@ func run() error {
 		return fmt.Errorf("open jobs pool: %w", err)
 	}
 	defer jobs.Close()
-	if cfg.manager != nil {
-		if _, err := jobs.Exec(startup, "SELECT 1 FROM platform_manager.installations LIMIT 0"); err != nil {
+	if cfg.manager != nil || cfg.accountGateway.address != "" {
+		if _, err := jobs.Exec(startup, "SELECT 1 FROM platform_manager.visible_accounts LIMIT 0"); err != nil {
 			return errors.New("run Platform migrations and verify manager schema grants")
 		}
 	}
 	cancel()
+	var accountObserver *productplatform.AccountObserver
+	if cfg.accountGateway.address != "" {
+		conn, err := cfg.accountGateway.connect()
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		accountObserver = productplatform.NewAccountObserver(jobs, platformpb.NewCoreAccountObservationsClient(conn))
+	}
 
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	lifecycle := productplatform.NewLifecycleStore(jobs)
 	var runWorker func(context.Context)
 	if cfg.workers > 0 {
-		worker := queue.NewWorker(queue.NewStore(jobs), map[queue.Kind]queue.Handler{productplatform.DrainKind: lifecycle.DrainJob}, queue.DefaultConfig(cfg.workers), registry)
-		runWorker = worker.Run
+		handlers := map[queue.Kind]queue.Handler{productplatform.DrainKind: queue.SimpleHandler(lifecycle.DrainJob)}
+		if accountObserver != nil {
+			handlers[productplatform.AccountRefreshJob] = accountObserver.RefreshJob
+		}
+		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queue.DefaultConfig(cfg.workers), registry)
+		runWorker = func(ctx context.Context) {
+			var group sync.WaitGroup
+			if accountObserver != nil {
+				group.Go(func() { accountObserver.Enroll(ctx) })
+			}
+			group.Go(func() { worker.Run(ctx) })
+			group.Wait()
+		}
 	}
 	public := productplatform.HealthHandler(checkAccess, readinessTimeout)
 	if cfg.proofVerifier != nil {
@@ -114,7 +136,7 @@ func run() error {
 	}
 	management := productplatform.HealthHandler(checkAccess, readinessTimeout)
 	management.Handle("GET /metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	private := newServer(cfg.private, productplatform.PrivateHandler(productplatform.LifecycleHandler(lifecycle), productplatform.ManagerHandler(jobs, cfg.manager)))
+	private := newServer(cfg.private, productplatform.PrivateHandler(productplatform.LifecycleHandler(lifecycle), productplatform.ManagerHandler(jobs, cfg.manager, accountObserver != nil)))
 	private.TLSConfig = tlsConfig
 
 	return serve(ctx, runWorker,
@@ -243,6 +265,10 @@ func loadConfig(getenv func(string) string) (config, error) {
 		}
 	}
 	cfg.manager, err = productplatform.ParseManagerOptions(getenv("PLATFORM_MANAGER_CURSOR_KEY"), getenv("PLATFORM_MANAGER_TIME_ZONE"))
+	if err != nil {
+		return config{}, err
+	}
+	cfg.accountGateway, err = readAccountGatewayConfig(getenv)
 	if err != nil {
 		return config{}, err
 	}

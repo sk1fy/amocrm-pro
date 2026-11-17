@@ -11,7 +11,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type Handler func(context.Context, Job) error
+type Handler func(context.Context, Job) Completion
+
+func SimpleHandler(handle func(context.Context, Job) error) Handler {
+	return func(ctx context.Context, job Job) Completion {
+		return Completion{Outcome: legacyOutcome(handle(ctx, job))}
+	}
+}
 
 type Config struct {
 	Workers        int
@@ -86,9 +92,9 @@ func (w Worker) doJob(ctx context.Context) bool {
 	}
 
 	handlerCtx, cancel := context.WithTimeout(ctx, w.config.HandlerTimeout)
-	handlerErr := w.handlers[lease.Kind](handlerCtx, lease.Job)
-	if handlerErr == nil {
-		handlerErr = handlerCtx.Err()
+	completion := w.handlers[lease.Kind](handlerCtx, lease.Job)
+	if handlerCtx.Err() != nil && completion.Publish == nil && completion.Outcome.FailureCode == "" {
+		completion.Outcome = legacyOutcome(handlerCtx.Err())
 	}
 	cancel()
 	if ctx.Err() != nil {
@@ -97,7 +103,7 @@ func (w Worker) doJob(ctx context.Context) bool {
 
 	queryCtx, cancel = context.WithTimeout(ctx, w.config.QueryTimeout)
 	defer cancel()
-	status, err := w.store.Finish(queryCtx, lease, handlerErr)
+	status, err := w.store.finish(queryCtx, lease, completion)
 	switch {
 	case errors.Is(err, ErrLeaseLost):
 		w.metrics.outcomes.WithLabelValues("lease_lost").Inc()

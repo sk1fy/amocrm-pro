@@ -151,17 +151,23 @@ func applyReview(ctx context.Context, tx pgx.Tx, item *managerInstallation, cmd 
 }
 
 type managerReceipt struct {
-	ID    uuid.UUID `json:"id"`
-	Kind  string    `json:"kind"`
-	State string    `json:"state"`
+	ID          uuid.UUID  `json:"id"`
+	Kind        string     `json:"kind"`
+	State       string     `json:"state"`
+	OperationID *uuid.UUID `json:"operation_id,omitempty"`
 }
 
 func (s managerStore) receipt(ctx context.Context, id, subject uuid.UUID) (managerReceipt, error) {
 	var receipt managerReceipt
 	err := s.pool.QueryRow(ctx, `
-		SELECT c.id,c.kind, CASE WHEN c.status=200 THEN 'completed' ELSE 'rejected' END
-		FROM platform_manager.commands c JOIN platform_manager.installations i ON i.id=c.episode_id
-		WHERE c.id=$1 AND c.subject_id=$2`, id, subject).Scan(&receipt.ID, &receipt.Kind, &receipt.State)
+		SELECT c.id,c.kind,
+			CASE c.status WHEN 200 THEN 'completed' WHEN 202 THEN 'accepted' ELSE 'rejected' END,
+			CASE WHEN c.status=202 THEN c.id END
+		FROM platform_manager.commands c
+		LEFT JOIN platform_manager.installations i ON i.id=c.episode_id
+		LEFT JOIN platform_manager.visible_accounts a ON a.account_id=c.account_id
+		WHERE c.id=$1 AND c.subject_id=$2 AND (i.id IS NOT NULL OR a.account_id IS NOT NULL)`,
+		id, subject).Scan(&receipt.ID, &receipt.Kind, &receipt.State, &receipt.OperationID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return receipt, errManagerNotFound
 	}

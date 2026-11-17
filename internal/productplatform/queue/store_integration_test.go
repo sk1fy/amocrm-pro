@@ -161,14 +161,14 @@ func TestQueueRuntime(t *testing.T) {
 		cfg.PollInterval = 10 * time.Millisecond
 		cfg.SweepInterval = 20 * time.Millisecond
 		runtime := NewWorker(store, map[Kind]Handler{
-			kind: func(_ context.Context, job Job) error {
+			kind: SimpleHandler(func(_ context.Context, job Job) error {
 				attempt := attempts.Add(1)
 				calls <- job
 				if attempt == 1 {
 					return failure
 				}
 				return nil
-			},
+			}),
 		}, cfg, reg)
 		workerCtx, stop := context.WithCancel(ctx)
 		done := make(chan struct{})

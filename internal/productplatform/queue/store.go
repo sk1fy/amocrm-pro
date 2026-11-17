@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -54,7 +55,7 @@ func (s Store) Claim(ctx context.Context, kinds []Kind, ttl time.Duration) (Leas
 			LIMIT 1 FOR UPDATE SKIP LOCKED
 		)
 		UPDATE platform_jobs.jobs AS job
-		SET status = 'running', attempt = attempt + 1, lease_until = clock_timestamp() + ($2::bigint * interval '1 millisecond')
+		SET status = 'running', attempt = attempt + 1, updated_at = clock_timestamp(), lease_until = clock_timestamp() + ($2::bigint * interval '1 millisecond')
 		FROM next WHERE job.id = next.id
 		RETURNING job.id, job.kind, job.payload, job.attempt, job.max_attempts
 	`, kinds, ttl.Milliseconds()).Scan(&lease.ID, &lease.Kind, &lease.Payload, &lease.Attempt, &lease.MaxAttempts)
@@ -64,22 +65,81 @@ func (s Store) Claim(ctx context.Context, kinds []Kind, ttl time.Duration) (Leas
 	return lease, err == nil, err
 }
 
+type Outcome struct {
+	FailureCode string
+	Retry       bool
+	RetryAfter  time.Duration
+}
+
+type Completion struct {
+	Outcome Outcome
+	// Publish runs after the lease is locked. The returned outcome and its
+	// database effects are committed together or discarded together.
+	Publish func(context.Context, pgx.Tx) (Outcome, error)
+}
+
+func legacyOutcome(err error) Outcome {
+	if err != nil {
+		return Outcome{FailureCode: "job_failed", Retry: true}
+	}
+	return Outcome{}
+}
+
 func (s Store) Finish(ctx context.Context, lease Lease, handlerErr error) (Status, error) {
+	return s.finish(ctx, lease, Completion{Outcome: legacyOutcome(handlerErr)})
+}
+
+func (s Store) finish(ctx context.Context, lease Lease, completion Completion) (Status, error) {
+	if completion.Publish == nil {
+		return finishLease(ctx, s.pool, lease, completion.Outcome)
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id uuid.UUID
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM platform_jobs.jobs
+		WHERE id=$1 AND attempt=$2 AND status='running' AND lease_until>clock_timestamp()
+		FOR UPDATE`, lease.ID, lease.Attempt).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrLeaseLost
+	}
+	if err != nil {
+		return "", err
+	}
+	outcome, err := completion.Publish(ctx, tx)
+	if err != nil {
+		return "", err
+	}
+	status, err := finishLease(ctx, tx, lease, outcome)
+	if err != nil {
+		return "", err
+	}
+	return status, tx.Commit(ctx)
+}
+
+type leaseExecutor interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+func finishLease(ctx context.Context, db leaseExecutor, lease Lease, outcome Outcome) (Status, error) {
 	status := Succeeded
 	var retryAfter time.Duration
-	if handlerErr != nil {
+	if outcome.FailureCode != "" {
 		status = Dead
-		if lease.Attempt < lease.MaxAttempts {
+		if outcome.Retry && lease.Attempt < lease.MaxAttempts {
 			status = Queued
-			retryAfter = min(time.Second<<(lease.Attempt-1), time.Minute)
+			retryAfter = max(min(time.Second<<(lease.Attempt-1), time.Minute), outcome.RetryAfter)
 		}
 	}
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := db.Exec(ctx, `
 		UPDATE platform_jobs.jobs
-		SET status = $3, lease_until = NULL,
-			available_at = CASE WHEN $3 = 'queued' THEN clock_timestamp() + ($4::bigint * interval '1 millisecond') ELSE available_at END
-		WHERE id = $1 AND attempt = $2 AND status = 'running' AND lease_until > clock_timestamp()
-	`, lease.ID, lease.Attempt, status, retryAfter.Milliseconds())
+		SET status=$3, lease_until=NULL, updated_at=clock_timestamp(), failure_code=NULLIF($5,''),
+			available_at=CASE WHEN $3='queued' THEN clock_timestamp()+($4::bigint*interval '1 millisecond') ELSE available_at END
+		WHERE id=$1 AND attempt=$2 AND status='running' AND lease_until>clock_timestamp()
+	`, lease.ID, lease.Attempt, status, retryAfter.Milliseconds(), outcome.FailureCode)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +159,7 @@ func (s Store) Recover(ctx context.Context) (retried, dead int64, err error) {
 		), recovered AS (
 			UPDATE platform_jobs.jobs AS job
 			SET status = CASE WHEN attempt = max_attempts THEN 'dead' ELSE 'queued' END,
-				lease_until = NULL, available_at = clock_timestamp()
+				lease_until = NULL, available_at = clock_timestamp(), updated_at = clock_timestamp(), failure_code = 'lease_expired'
 			FROM expired WHERE job.id = expired.id
 			RETURNING job.status
 		)

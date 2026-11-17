@@ -46,21 +46,29 @@ func ParseManagerOptions(key, zone string) (*ManagerOptions, error) {
 	return &ManagerOptions{cursorKey: secret, zone: loc}, nil
 }
 
-func ManagerHandler(pool *pgxpool.Pool, options *ManagerOptions) http.Handler {
+func ManagerHandler(pool *pgxpool.Pool, options *ManagerOptions, accountGateway bool) http.Handler {
 	if options == nil {
 		return nil
 	}
-	api := managerHTTP{store: managerStore{pool: pool}, options: options}
+	api := managerHTTP{store: managerStore{pool: pool}, options: options, accountGateway: accountGateway}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+managerPath+"installations", managerAuthorized("clients.read", false, api.list))
 	mux.HandleFunc("PUT "+managerPath+"installations/{id}/review", managerAuthorized("clients.write", true, api.review))
 	mux.HandleFunc("GET "+managerPath+"commands/{id}", managerAuthorized("clients.write", false, api.receipt))
+	mux.HandleFunc("GET "+managerPath+"accounts", managerAuthorized("clients.read", false, api.accounts))
+	mux.HandleFunc("GET "+managerPath+"accounts/{id}", managerAuthorized("clients.read", false, api.account))
+	mux.HandleFunc("GET "+managerPath+"accounts/{id}/crm-users", managerAuthorized("clients.read", false, api.crmUsers))
+	mux.HandleFunc("GET "+managerPath+"accounts/{id}/license-history", managerAuthorized("clients.read", false, api.licenseHistory))
+	mux.HandleFunc("GET "+managerPath+"accounts/{id}/widgets", managerAuthorized("clients.read", false, api.accountWidgets))
+	mux.HandleFunc("POST "+managerPath+"accounts/{id}/refresh", managerAuthorized("clients.write", true, api.refreshAccount))
+	mux.HandleFunc("GET "+managerPath+"operations/{id}", managerAuthorized("clients.write", false, api.operation))
 	return mux
 }
 
 type managerHTTP struct {
-	store   managerStore
-	options *ManagerOptions
+	store          managerStore
+	options        *ManagerOptions
+	accountGateway bool
 }
 
 type managerActor struct {
@@ -107,7 +115,12 @@ func (m managerHTTP) list(w http.ResponseWriter, r *http.Request, env managerEnv
 		writeManagerError(w, http.StatusBadRequest, "validation_failed", env.RequestID, 0)
 		return
 	}
+	m.writeInstallations(w, r, env, filters, cursor)
+}
+
+func (m managerHTTP) writeInstallations(w http.ResponseWriter, r *http.Request, env managerEnvelope, filters installationFilters, cursor string) {
 	var seek installationSeek
+	var err error
 	if cursor != "" {
 		seek, err = m.options.parseCursor(cursor, env.Actor, filters.hash())
 		if err != nil {
@@ -426,8 +439,12 @@ func (o ManagerOptions) parseCursor(raw string, actor managerActor, query [32]by
 }
 
 func (o ManagerOptions) cursorMAC(body []byte, actor managerActor, query [32]byte) []byte {
+	return o.routeCursorMAC("platform-installations-v1", body, actor, query)
+}
+
+func (o ManagerOptions) routeCursorMAC(route string, body []byte, actor managerActor, query [32]byte) []byte {
 	mac := hmac.New(sha256.New, o.cursorKey)
-	mac.Write([]byte("platform-installations-v1"))
+	mac.Write([]byte(route))
 	mac.Write(actor.Subject[:])
 	var grantsVersion [8]byte
 	binary.BigEndian.PutUint64(grantsVersion[:], uint64(actor.GrantsVersion))

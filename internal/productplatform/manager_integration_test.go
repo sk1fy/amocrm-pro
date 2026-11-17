@@ -308,12 +308,13 @@ func (c managerTestCommand) reviewPath() string {
 func (c managerTestCommand) receiptPath() string { return managerPath + "commands/" + c.id.String() }
 
 type observedManagerResponse struct {
-	status int
-	body   []byte
-	etag   string
-	retry  string
-	cache  string
-	err    error
+	status   int
+	body     []byte
+	etag     string
+	retry    string
+	cache    string
+	location string
+	err      error
 }
 
 func managerCall(client *http.Client, method, url string, actor managerTestActor, cmd managerTestCommand, body string) observedManagerResponse {
@@ -337,9 +338,11 @@ func managerCall(client *http.Client, method, url string, actor managerTestActor
 		}
 		req.Header.Set("X-Platform-Actor", base64.RawURLEncoding.EncodeToString(raw))
 	}
-	if method == http.MethodPut {
+	if cmd.id != uuid.Nil {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", cmd.key.String())
+	}
+	if method == http.MethodPut {
 		req.Header.Set("If-Match", strconv.Quote(strconv.FormatInt(cmd.version, 10)))
 	}
 	res, err := client.Do(req)
@@ -350,7 +353,7 @@ func managerCall(client *http.Client, method, url string, actor managerTestActor
 	raw, err := io.ReadAll(res.Body)
 	return observedManagerResponse{
 		status: res.StatusCode, body: raw, etag: res.Header.Get("ETag"), retry: res.Header.Get("Retry-After"),
-		cache: res.Header.Get("Cache-Control"), err: err,
+		cache: res.Header.Get("Cache-Control"), location: res.Header.Get("Location"), err: err,
 	}
 }
 
@@ -405,13 +408,13 @@ func mustManager(t *testing.T, err error) {
 }
 
 type managerProcess struct {
-	public, private string
-	command         *exec.Cmd
-	done            chan error
-	stopped         bool
+	public, private, management string
+	command                     *exec.Cmd
+	done                        chan error
+	stopped                     bool
 }
 
-func startManagerProcess(t *testing.T) *managerProcess {
+func startManagerProcess(t *testing.T, overrides ...string) *managerProcess {
 	t.Helper()
 	certs := filepath.Join(os.Getenv("PLATFORM_TEST_CERTS_DIR"), "platform")
 	command := exec.Command(os.Getenv("PLATFORM_TEST_BINARY"))
@@ -426,12 +429,13 @@ func startManagerProcess(t *testing.T) *managerProcess {
 		"PLATFORM_MANAGER_TIME_ZONE=Europe/Moscow", "PLATFORM_JOBS_POOL_MAX_CONNS=4",
 		"PLATFORM_WORKERS=0", "PLATFORM_PUBLIC_HTTP_ADDRESS=127.0.0.1:0", "PLATFORM_PRIVATE_HTTP_ADDRESS=127.0.0.1:0",
 		"PLATFORM_MANAGEMENT_HTTP_ADDRESS=127.0.0.1:0")
+	command.Env = append(command.Env, overrides...)
 	logs, err := command.StderrPipe()
 	mustManager(t, err)
 	mustManager(t, command.Start())
 	proc := &managerProcess{command: command, done: make(chan error, 1)}
 	t.Cleanup(func() { proc.stop(t) })
-	started := make(chan [2]string, 1)
+	started := make(chan [3]string, 1)
 	go func() {
 		var other []string
 		scanner := bufio.NewScanner(logs)
@@ -447,9 +451,10 @@ func startManagerProcess(t *testing.T) *managerProcess {
 			}
 			parts := strings.Fields(addresses)
 			if len(parts) == 3 {
-				started <- [2]string{
+				started <- [3]string{
 					"http://" + strings.TrimPrefix(parts[0], "public="),
 					"https://localhost:" + strings.TrimPrefix(parts[1], "private=127.0.0.1:"),
+					"http://" + strings.TrimPrefix(parts[2], "management="),
 				}
 			}
 		}
@@ -461,7 +466,7 @@ func startManagerProcess(t *testing.T) *managerProcess {
 	}()
 	select {
 	case addresses := <-started:
-		proc.public, proc.private = addresses[0], addresses[1]
+		proc.public, proc.private, proc.management = addresses[0], addresses[1], addresses[2]
 	case err := <-proc.done:
 		proc.stopped = true
 		t.Fatalf("Platform exited before listeners opened: %v", err)

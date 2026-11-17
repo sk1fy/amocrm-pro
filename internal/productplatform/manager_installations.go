@@ -64,6 +64,8 @@ type managerInstallation struct {
 type installationFilters struct {
 	Q, Review, Kind, LastLifecycle, Line, Activation, Access string
 	Product                                                  *uuid.UUID
+	Account                                                  *uuid.UUID `json:"Account,omitempty"`
+	Lifecycle                                                string     `json:"Lifecycle,omitempty"`
 	From, To, Zone                                           string
 	start, before                                            *time.Time
 	Limit                                                    int
@@ -146,6 +148,15 @@ func (s managerStore) list(ctx context.Context, actor managerActor, filters inst
 	if after.Snapshot != uuid.Nil {
 		return continueInstallations(ctx, tx, actor, filters, after, page, queryHash)
 	}
+	if filters.Account != nil {
+		var visible bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM platform_manager.visible_accounts WHERE account_id=$1)`, filters.Account).Scan(&visible); err != nil {
+			return page, installationSeek{}, err
+		}
+		if !visible {
+			return page, installationSeek{}, errManagerNotFound
+		}
+	}
 	if err = tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&page.SnapshotAt); err != nil {
 		return page, installationSeek{}, err
 	}
@@ -163,9 +174,11 @@ func (s managerStore) list(ctx context.Context, actor managerActor, filters inst
 		  AND ($8='' OR COALESCE(valid_until>$11 AND term_source IN ('own_trial','free','own_paid','manual'), false) = ($8='active'))
 		  AND ($9::timestamptz IS NULL OR opened_at >= $9)
 		  AND ($10::timestamptz IS NULL OR opened_at < $10)
-		ORDER BY `+installationOrder(filters.Ascending, "opened_at", "id")+` LIMIT $12`,
+		  AND ($12::uuid IS NULL OR account_id=$12)
+		  AND ($13='' OR lifecycle=$13)
+		ORDER BY `+installationOrder(filters.Ascending, "opened_at", "id")+` LIMIT $14`,
 		filters.Q, filters.Review, filters.Kind, filters.LastLifecycle, filters.Product, filters.Line, filters.Activation,
-		filters.Access, filters.start, filters.before, page.SnapshotAt, managerSnapshotRows+1)
+		filters.Access, filters.start, filters.before, page.SnapshotAt, filters.Account, filters.Lifecycle, managerSnapshotRows+1)
 	if err != nil {
 		return page, installationSeek{}, err
 	}
