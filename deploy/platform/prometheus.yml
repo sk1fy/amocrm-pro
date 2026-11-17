@@ -1,0 +1,11 @@
+# Join the release Compose network; management must never be host-published.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - alerts.yml
+scrape_configs:
+  - job_name: platform
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["platform:8081"]

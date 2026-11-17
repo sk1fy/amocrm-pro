@@ -252,3 +252,11 @@ platform-test: ## Verify Platform migrations, roles, mTLS, queue, and manager AP
 .PHONY: platform-lifecycle-test
 platform-lifecycle-test: ## Verify Core lifecycle delivery and Platform access against two isolated PostgreSQL databases
 	DOCKER="$(DOCKER)" GO_VERSION="$(GO_VERSION)" sh scripts/platform-lifecycle-test.sh
+
+.PHONY: platform-release-check platform-observability-test
+platform-release-check: ## Exercise release artifact verifier rejection and safe-manifest cases
+	python3 scripts/test-platform-release-verify.py
+
+platform-observability-test: ## Validate release scrape config and Platform queue alert behavior
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/platform:/config:ro" $(PROMETHEUS_IMAGE) check config /config/prometheus.yml
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/platform:/config:ro" $(PROMETHEUS_IMAGE) test rules /config/alerts.test.yml

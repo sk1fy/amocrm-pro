@@ -1,0 +1,70 @@
+# Invoke with --env-file outside the repository. All image references must pass
+# scripts/platform-release-verify.py before starting this project.
+services:
+  platform-migrate:
+    image: ${PLATFORM_MIGRATOR_IMAGE:?immutable migrator image required}
+    environment:
+      DATABASE_URL: ${PLATFORM_OWNER_DATABASE_URL:?owner DSN required}
+    restart: "no"
+  platform-lifecycle:
+    image: ${PLATFORM_LIFECYCLE_IMAGE:?immutable lifecycle image required}
+    profiles: [operations]
+    environment:
+      DATABASE_URL: ${PLATFORM_OWNER_DATABASE_URL:?owner DSN required}
+    volumes:
+      - type: bind
+        source: ${PLATFORM_MANIFEST_DIR:?operator manifest directory required}
+        target: /manifests
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: "no"
+  platform:
+    image: ${PLATFORM_IMAGE:?immutable Platform image required}
+    environment:
+      PLATFORM_ACCESS_DATABASE_URL: ${PLATFORM_ACCESS_DATABASE_URL:?access DSN required}
+      PLATFORM_JOBS_DATABASE_URL: ${PLATFORM_JOBS_DATABASE_URL:?jobs DSN required}
+      PLATFORM_ACCESS_POOL_MAX_CONNS: ${PLATFORM_ACCESS_POOL_MAX_CONNS:-4}
+      PLATFORM_JOBS_POOL_MAX_CONNS: ${PLATFORM_JOBS_POOL_MAX_CONNS:-4}
+      PLATFORM_WORKERS: ${PLATFORM_WORKERS:-2}
+      PLATFORM_MANAGER_CURSOR_KEY: ${PLATFORM_MANAGER_CURSOR_KEY:?operator cursor key required}
+      PLATFORM_MANAGER_TIME_ZONE: ${PLATFORM_MANAGER_TIME_ZONE:-Europe/Moscow}
+      PLATFORM_ACCESS_PROOF_PUBLIC_KEYS: ${PLATFORM_ACCESS_PROOF_PUBLIC_KEYS:-}
+      PLATFORM_ACCESS_PILOT_ORIGIN: ${PLATFORM_ACCESS_PILOT_ORIGIN:-}
+      PLATFORM_ACCOUNT_GATEWAY_ADDRESS: ${PLATFORM_ACCOUNT_GATEWAY_ADDRESS:-}
+      PLATFORM_ACCOUNT_GATEWAY_IDENTITY_DIR: ${PLATFORM_ACCOUNT_GATEWAY_ADDRESS:+/gateway-identity}
+      PLATFORM_ACCOUNT_GATEWAY_SERVER_NAME: ${PLATFORM_ACCOUNT_GATEWAY_SERVER_NAME:-}
+      PLATFORM_PUBLIC_HTTP_ADDRESS: :8080
+      PLATFORM_PRIVATE_HTTP_ADDRESS: :8443
+      PLATFORM_MANAGEMENT_HTTP_ADDRESS: :8081
+      PLATFORM_TLS_CERT_FILE: /tls/tls.crt
+      PLATFORM_TLS_KEY_FILE: /tls/tls.key
+      PLATFORM_TLS_CLIENT_CA_FILE: /tls/ca.crt
+    volumes:
+      - type: bind
+        source: ${PLATFORM_TLS_DIR:?operator TLS directory required}
+        target: /tls
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        # Reuse the existing Platform identity when Gateway is disabled or shares it.
+        source: ${PLATFORM_GATEWAY_IDENTITY_DIR:-${PLATFORM_TLS_DIR:?operator TLS directory required}}
+        target: /gateway-identity
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "${PLATFORM_PUBLIC_BIND:-127.0.0.1}:${PLATFORM_PUBLIC_PORT:-18080}:8080"
+      - "${PLATFORM_PRIVATE_BIND:-127.0.0.1}:${PLATFORM_PRIVATE_PORT:-18443}:8443"
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8081/ready]
+      interval: 10s
+      timeout: 2s
+      start_period: 5s
+      retries: 6
+    depends_on:
+      platform-migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 12s
+    restart: unless-stopped

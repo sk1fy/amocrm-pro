@@ -1,5 +1,7 @@
 # Запустить Platform V1
 
+Для выпуска с внешней PostgreSQL используйте [руководство выпуска](platform-v1-release.md).
+
 ## Локальный запуск
 
 Запустите Docker и выполните команды из корня репозитория.
@@ -63,7 +65,7 @@ PostgreSQL или запретите ролям Platform подключатьс�
 Для `/internal/platform/v1/core-events` Platform требует один URI SAN
 `spiffe://amocrm-pro/core`. Для `/internal/platform/v1/managers/*` требуется
 один URI SAN `spiffe://amocrm-pro/manager-bff`. Клиент из другой группы
-получает 403. События принимаются только по `POST`. Менеджерские операции пока возвращают 404.
+получает 403. События принимаются только по `POST`. Менеджерские маршруты возвращают 404, если `PLATFORM_MANAGER_CURSOR_KEY` не задан. При заданном ключе доступны операции менеджеров P05–P09.
 Бизнес-операции описывает [контракт Platform V1](../platform-v1-contract.md).
 
 `make platform-certs` выпускает 30-дневный локальный комплект в

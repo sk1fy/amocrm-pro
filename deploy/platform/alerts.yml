@@ -1,0 +1,46 @@
+groups:
+  - name: platform-v1
+    rules:
+      - record: platform:queue_depth:max
+        expr: max by (job, status) (platform_queue_depth{job="platform",status=~"queued|running"})
+      - alert: PlatformScrapeUnavailable
+        expr: up{job="platform"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform management scrape is unavailable
+      - alert: PlatformQueueSnapshotUnavailable
+        expr: min by (job) (platform_queue_snapshot_ok{job="platform"}) == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform queue database sample is unavailable
+      - alert: PlatformQueueStalled
+        expr: (max by (job) (platform_queue_oldest_ready_seconds{job="platform"}) > 300) and on (job) (min by (job) (platform_queue_snapshot_ok{job="platform"}) == 1) and on (job) (platform:queue_depth:max{status="queued"} > 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform ready queue is not draining
+      - alert: PlatformExpiredLeases
+        expr: (max by (job) (platform_queue_expired_leases{job="platform"}) > 0) and on (job) (min by (job) (platform_queue_snapshot_ok{job="platform"}) == 1)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform expired leases persist
+      - alert: PlatformDeadJobs
+        expr: sum by (job) (increase(platform_queue_outcomes_total{job="platform",outcome=~"dead|recovered_dead"}[5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform jobs exhausted attempts
+      - alert: PlatformQueueDatabaseErrors
+        expr: sum by (job) (increase(platform_queue_database_errors_total{job="platform"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform queue database operations are failing
