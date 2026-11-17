@@ -53,6 +53,7 @@ wait_db "$platform" platform_owner amocrm_platform
         DATABASE_URL="$PLATFORM_TEST_OWNER_DSN" MIGRATION_TARGET=platform MIGRATIONS_DIR=/src/migrations-platform go run ./cmd/migrate up
         go run ./cmd/service-certs --platform "$PLATFORM_TEST_CERTS_DIR"
         go test -race -count=1 -v ./internal/corelifecycle
+        go test -race -count=1 -v -run "^TestPlatformAccountGatewayAcrossCoreAndProvider$" ./cmd/worker
         go test -race -count=1 -v -run "^TestPlatformLifecycleAcrossOwners$" ./internal/productplatform
         go build -race -o /tmp/platform-access-test ./cmd/platform
         PLATFORM_TEST_BINARY=/tmp/platform-access-test go test -race -count=1 -v -run "^TestPlatformAccessAcrossOwners$" ./cmd/api
