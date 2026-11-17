@@ -77,6 +77,34 @@ ENV MIGRATIONS_DIR=/migrations
 ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
 CMD ["up"]
 
+FROM runtime AS platform-migrate
+
+COPY --from=migrate-build --chown=app:app /out/amocrm-migrate /usr/local/bin/amocrm-migrate
+COPY --from=migrate-build --chown=app:app /src/migrations-platform /migrations
+
+ENV MIGRATIONS_DIR=/migrations \
+    MIGRATION_TARGET=platform
+
+ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
+CMD ["up"]
+
+FROM source AS platform-build
+
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-platform ./cmd/platform
+
+FROM runtime AS platform
+
+COPY --from=platform-build --chown=app:app /out/amocrm-platform /usr/local/bin/amocrm-platform
+
+EXPOSE 8080 8443
+
+HEALTHCHECK --interval=2s --timeout=2s --start-period=5s --retries=6 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ready || exit 1
+
+ENTRYPOINT ["/usr/local/bin/amocrm-platform"]
+
 FROM source AS integrations-build
 
 # Declare in each build stage for classic Docker builder compatibility.

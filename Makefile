@@ -221,3 +221,30 @@ integration-current-test: ## Run current Core PostgreSQL suites using the previo
 .PHONY: distribution-team-bridge-test
 distribution-team-bridge-test: ## Verify actual signed Core/TeamOS decision execution with separate disposable databases
 	sh scripts/distribution-team-bridge-test.sh
+
+PLATFORM_COMPOSE_PROJECT ?= amocrm-platform
+PLATFORM_DEV_CERTS_DIR ?= $(CURDIR)/tmp/platform-certs
+PLATFORM_COMPOSE = PLATFORM_UID=$(UID) PLATFORM_GID=$(GID) PLATFORM_DEV_CERTS_DIR="$(PLATFORM_DEV_CERTS_DIR)" $(COMPOSE) -p $(PLATFORM_COMPOSE_PROJECT) -f docker-compose.platform.yml
+
+.PHONY: platform-certs platform-up platform-down platform-test
+platform-certs: ## Create a disposable local Platform CA and cert bundle if absent
+	@if [ ! -d "$(PLATFORM_DEV_CERTS_DIR)" ]; then \
+		umask 077; \
+		cert_dir="$(PLATFORM_DEV_CERTS_DIR)"; \
+		mkdir -p "$$(dirname "$$cert_dir")"; \
+		$(DOCKER) run --rm --user "$(UID):$(GID)" -e HOME=/tmp -e GOCACHE=/tmp/go-build \
+			-v "$(CURDIR):/src:ro" -v "$$(cd "$$(dirname "$$cert_dir")" && pwd):/certs" -w /src \
+			$(GO_IMAGE) go run ./cmd/service-certs --platform "/certs/$$(basename "$$cert_dir")"; \
+	fi
+
+platform-up: platform-certs ## Migrate Platform's isolated PostgreSQL and start Platform
+	$(PLATFORM_COMPOSE) build platform-migrate platform
+	$(PLATFORM_COMPOSE) up --detach --wait postgres
+	$(PLATFORM_COMPOSE) run --rm --no-deps platform-migrate
+	$(PLATFORM_COMPOSE) up --detach --wait --no-deps platform
+
+platform-down: ## Stop Platform while preserving its PostgreSQL volume
+	$(PLATFORM_COMPOSE) down
+
+platform-test: ## Verify Platform migrations, PostgreSQL roles, mTLS, and queue on an isolated stack
+	COMPOSE="$(COMPOSE)" sh scripts/platform-test.sh

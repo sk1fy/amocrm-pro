@@ -18,6 +18,11 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 - [Внутренний API админки](../api/admin-openapi.yaml).
 - [Server observability](../deploy/observability/server/README.md).
 
+## Platform V1
+
+- [Контракт](platform-v1-contract.md).
+- [Локальный запуск и конфигурация](runbooks/platform-v1.md).
+
 ## Распределение
 
 - [Спецификация](specs/lead-distribution-v1/README.md).
