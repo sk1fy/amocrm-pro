@@ -38,11 +38,16 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 mkdir "$work/proof" "$work/certs"
-# Extract the executable from each real release image, never rebuild an approximation.
+mkdir "$work/proof/zoneinfo"
+# Extract the executable and time-zone data from each real release image.
 docker create --name "$extract_current" "$PLATFORM_RECOVERY_CURRENT_IMAGE" >/dev/null
 docker cp "$extract_current:/usr/local/bin/amocrm-platform" "$work/proof/current"
+docker cp "$extract_current:/usr/share/zoneinfo" "$work/proof/zoneinfo/current"
+test -s "$work/proof/zoneinfo/current/Europe/Moscow" || { echo 'Current image lacks Europe/Moscow time-zone data' >&2; exit 1; }
 docker create --name "$extract_rollback" "$PLATFORM_RECOVERY_ROLLBACK_IMAGE" >/dev/null
 docker cp "$extract_rollback:/usr/local/bin/amocrm-platform" "$work/proof/rollback"
+docker cp "$extract_rollback:/usr/share/zoneinfo" "$work/proof/zoneinfo/rollback"
+test -s "$work/proof/zoneinfo/rollback/Europe/Moscow" || { echo 'P09 image lacks Europe/Moscow time-zone data' >&2; exit 1; }
 chmod +x "$work/proof/current" "$work/proof/rollback"
 test "$(dd if="$work/proof/current" bs=1 count=4 2>/dev/null | od -An -tx1 | tr -d ' \n')" = 7f454c46
 test "$(dd if="$work/proof/rollback" bs=1 count=4 2>/dev/null | od -An -tx1 | tr -d ' \n')" = 7f454c46
@@ -69,7 +74,7 @@ ledger() {
 start_pg "$source_pg"
 migrate "$source_pg"
 docker run -d --name "$runner" --network "$network" -v "$root:/src:ro" -v "$work/proof:/proof" -v "$work/certs:/certificates" \
-    -w /src --entrypoint sh "$PLATFORM_RECOVERY_TEST_IMAGE" -c 'while :; do sleep 60; done' >/dev/null
+    -e ZONEINFO=/proof/zoneinfo/current -w /src --entrypoint sh "$PLATFORM_RECOVERY_TEST_IMAGE" -c 'while :; do sleep 60; done' >/dev/null
 # Verify image labels against the actual ELF revision before accepting proof evidence.
 test "$(docker exec "$runner" /proof/current --version)" = "$current_revision"
 test "$(docker exec "$runner" /proof/rollback --version)" = "$rollback_revision"
@@ -81,7 +86,7 @@ phase() {
     docker exec -e "PLATFORM_TEST_OWNER_DSN=postgres://platform_owner:platform_owner_dev@$1:5432/amocrm_platform?sslmode=disable" \
         -e "PLATFORM_TEST_ACCESS_DSN=postgres://platform_access:platform_access_dev@$1:5432/amocrm_platform?sslmode=disable" \
         -e "PLATFORM_TEST_JOBS_DSN=postgres://platform_jobs:platform_jobs_dev@$1:5432/amocrm_platform?sslmode=disable" \
-        -e PLATFORM_TEST_CERTS_DIR=/certificates/generated -e "PLATFORM_TEST_BINARY=/proof/$2" \
+        -e PLATFORM_TEST_CERTS_DIR=/certificates/generated -e "PLATFORM_TEST_BINARY=/proof/$2" -e "ZONEINFO=/proof/zoneinfo/$2" \
         -e "PLATFORM_RECOVERY_PHASE=$3" -e PLATFORM_RECOVERY_FACTS=/proof/facts.json \
         "$runner" /proof/integration.test -test.v -test.count=1 -test.run '^TestPlatformRecovery$'
 }

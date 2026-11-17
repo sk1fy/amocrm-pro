@@ -178,6 +178,8 @@ PLATFORM_RECOVERY_TEST_IMAGE="$TEST_BASE_IMAGE_ID" \
 ```
 
 Все четыре входа recovery должны быть полными `sha256:` image IDs. Test-base
-собирается из текущего исходного commit. PostgreSQL по умолчанию использует
+собирается из текущего исходного commit. Скрипт извлекает tzdata из каждого
+образа Platform и передаёт его бинарю через `ZONEINFO` в соответствующей фазе.
+PostgreSQL по умолчанию использует
 `postgres:17-alpine`, разрешённый в image ID до запуска. Скрипт не принимает
 внешние DSN, создаёт собственные source и restore базы и удаляет их при выходе.
