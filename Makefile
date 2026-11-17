@@ -246,7 +246,7 @@ platform-up: platform-certs ## Migrate Platform's isolated PostgreSQL and start 
 platform-down: ## Stop Platform while preserving its PostgreSQL volume
 	$(PLATFORM_COMPOSE) down
 
-platform-test: ## Verify Platform migrations, PostgreSQL roles, mTLS, and queue on an isolated stack
+platform-test: ## Verify Platform migrations, roles, mTLS, queue, and manager API
 	COMPOSE="$(COMPOSE)" sh scripts/platform-test.sh
 
 .PHONY: platform-lifecycle-test

@@ -39,6 +39,7 @@ type config struct {
 	certificate, key, ca    string
 	proofVerifier           *platformaccess.Verifier
 	accessOrigin            string
+	manager                 *productplatform.ManagerOptions
 }
 
 func main() {
@@ -90,6 +91,11 @@ func run() error {
 		return fmt.Errorf("open jobs pool: %w", err)
 	}
 	defer jobs.Close()
+	if cfg.manager != nil {
+		if _, err := jobs.Exec(startup, "SELECT 1 FROM platform_manager.installations LIMIT 0"); err != nil {
+			return errors.New("run Platform migrations and verify manager schema grants")
+		}
+	}
 	cancel()
 
 	registry := prometheus.NewRegistry()
@@ -108,7 +114,7 @@ func run() error {
 	}
 	management := productplatform.HealthHandler(checkAccess, readinessTimeout)
 	management.Handle("GET /metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	private := newServer(cfg.private, productplatform.PrivateHandler(productplatform.LifecycleHandler(lifecycle), nil))
+	private := newServer(cfg.private, productplatform.PrivateHandler(productplatform.LifecycleHandler(lifecycle), productplatform.ManagerHandler(jobs, cfg.manager)))
 	private.TLSConfig = tlsConfig
 
 	return serve(ctx, runWorker,
@@ -235,6 +241,10 @@ func loadConfig(getenv func(string) string) (config, error) {
 		if err != nil || cfg.accessOrigin != rawOrigin || cfg.proofVerifier == nil {
 			return config{}, errors.New("PLATFORM_ACCESS_PILOT_ORIGIN requires access proof keys and one canonical HTTPS origin")
 		}
+	}
+	cfg.manager, err = productplatform.ParseManagerOptions(getenv("PLATFORM_MANAGER_CURSOR_KEY"), getenv("PLATFORM_MANAGER_TIME_ZONE"))
+	if err != nil {
+		return config{}, err
 	}
 	return cfg, nil
 }

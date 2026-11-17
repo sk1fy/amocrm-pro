@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	wire "github.com/sk1fy/amocrm-pro/internal/platformlifecycle"
 )
 
@@ -61,6 +62,10 @@ func requireIdentity(identity string, next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
+		}
+		if identity == managerBFFIdentity {
+			writeManagerError(w, http.StatusForbidden, "permission_denied", uuid.Nil, 0)
+			return
 		}
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 	})

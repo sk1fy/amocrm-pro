@@ -8,6 +8,7 @@ export PLATFORM_DEV_CERTS_DIR="$test_dir/certs"
 export PLATFORM_UID=$(id -u) PLATFORM_GID=$(id -g)
 export PLATFORM_PUBLIC_PORT=0 PLATFORM_PRIVATE_PORT=0
 export PLATFORM_JOBS_POOL_MAX_CONNS=1 PLATFORM_MANAGEMENT_HTTP_ADDRESS=:8081
+export PLATFORM_MANAGER_CURSOR_KEY=
 
 compose() {
     ${COMPOSE:-docker-compose} -p "$project" --profile tests -f docker-compose.platform.yml "$@"
@@ -67,3 +68,8 @@ compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestPl
 compose stop platform
 test "$(compose ps -a --format '{{.State}}:{{.ExitCode}}' platform)" = "exited:0"
 compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestQueueRuntime$' ./internal/productplatform/queue
+
+compose run --rm --no-deps platform-test sh -ceu '
+    go build -race -o /tmp/platform-manager-test ./cmd/platform
+    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatformManagerAcrossReplicas$" ./internal/productplatform
+'
