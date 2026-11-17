@@ -216,6 +216,9 @@ func (c *stream) apply(ctx context.Context, tx pgx.Tx, e wire.Event) (string, er
 		if accountID == uuid.Nil {
 			return "account_product_conflict", nil
 		}
+		if err := grantInitialTerm(ctx, tx, accountID, product, e); err != nil {
+			return "", err
+		}
 	}
 	var sameScope bool
 	err = tx.QueryRow(ctx, `

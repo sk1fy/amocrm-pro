@@ -25,6 +25,10 @@ type Mapping struct {
 
 var productCode = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)*$`)
 
+func ValidProductCode(code string) bool {
+	return len(code) <= 63 && productCode.MatchString(code)
+}
+
 func DecodeManifest(raw []byte) (Manifest, string, error) {
 	var manifest Manifest
 	if err := Decode(raw, &manifest); err != nil {
@@ -35,7 +39,7 @@ func DecodeManifest(raw []byte) (Manifest, string, error) {
 	}
 	slices.SortFunc(manifest.Integrations, func(a, b Mapping) int { return strings.Compare(a.Integration.String(), b.Integration.String()) })
 	for i, mapping := range manifest.Integrations {
-		if mapping.Integration == uuid.Nil || len(mapping.ProductCode) > 63 || !productCode.MatchString(mapping.ProductCode) || len(mapping.Accounts) == 0 {
+		if mapping.Integration == uuid.Nil || !ValidProductCode(mapping.ProductCode) || len(mapping.Accounts) == 0 {
 			return manifest, "", errors.New("invalid Platform pilot mapping")
 		}
 		if i > 0 && manifest.Integrations[i-1].Integration == mapping.Integration {

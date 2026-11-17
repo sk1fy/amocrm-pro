@@ -32,7 +32,7 @@ PostgreSQL или запретите ролям Platform подключатьс�
 | Роль | Назначение |
 | --- | --- |
 | `platform_owner` | Владеет БД. Передайте её `DATABASE_URL` одноразовым утилитам `platform-migrate` и `platform-lifecycle bootstrap-platform`. Мигратор применяет SQL из `migrations-platform`. |
-| `platform_access` | Читает `platform_access.runtime_probe`. Передайте её DSN как `PLATFORM_ACCESS_DATABASE_URL`. |
+| `platform_access` | Читает `platform_access.runtime_probe` и `platform_access.current_access`. Передайте её DSN как `PLATFORM_ACCESS_DATABASE_URL`. |
 | `platform_jobs` | Обслуживает очередь и записывает lifecycle inbox, проекции и сверку. Продолжение обработки lifecycle ставится в очередь через отдельную SQL-функцию. Передайте её DSN как `PLATFORM_JOBS_DATABASE_URL`. |
 
 Включите проверку сертификата PostgreSQL для удалённого подключения
@@ -47,7 +47,7 @@ PostgreSQL или запретите ролям Platform подключатьс�
 
 | Listener | Адрес по умолчанию | Назначение |
 | --- | --- | --- |
-| `PLATFORM_PUBLIC_HTTP_ADDRESS` | `:8080` | `GET /live` и `GET /ready`. |
+| `PLATFORM_PUBLIC_HTTP_ADDRESS` | `:8080` | `GET /live`, `GET /ready` и публичный access при включённом пилоте. |
 | `PLATFORM_PRIVATE_HTTP_ADDRESS` | `:8443` | HTTPS с обязательной проверкой клиентского сертификата. |
 | `PLATFORM_MANAGEMENT_HTTP_ADDRESS` | `127.0.0.1:8081` | `GET /metrics`, `GET /live` и `GET /ready`. |
 
@@ -72,7 +72,7 @@ PostgreSQL или запретите ролям Platform подключатьс�
 ## Проверить очередь
 
 `PLATFORM_WORKERS` задаёт число воркеров на реплику. Значение по умолчанию
-равно двум. Для продолжения применения lifecycle зарегистрирован обработчик `lifecycle.drain`. Воркер выполняет
+равно двум. При `PLATFORM_WORKERS=0` процесс не запускает очередь и не восстанавливает lease. Закрытый listener продолжает принимать события. Для продолжения применения lifecycle зарегистрирован обработчик `lifecycle.drain`. Воркер выполняет
 попытку с контекстом на 30 секунд и получает lease на 45 секунд. После ошибки
 воркер возвращает задачу с задержкой от секунды до минуты. После последней
 попытки задача получает статус `dead`. Просроченный lease освобождается
@@ -177,14 +177,113 @@ DATABASE_URL="$CORE_OPERATOR_DSN" platform-lifecycle bootstrap-core pilot.json
   повторного списка. Повторный reconcile использует реестр URL и
   текущий ключ. Историю с неизвестным прежним ключом сверяйте вручную.
 
-Срок и его источник хранятся на паре аккаунт/продукт. P03 создаёт
-эпизоды и историю. Политику сроков, выдачу proof и публичный доступ
-включает P04.
+## Включить пилот access
 
-## Проверить доставку lifecycle локально
+Примените миграции обеих БД и настройте общий lifecycle manifest.
+Задайте политику точного продукта до подтверждения первой установки.
+Подключитесь к БД Platform как `platform_owner`, укажите в SQL фактический
+`products.code`, версию и ссылку на утверждённую карточку продукта.
+Запрос должен вернуть одну строку.
+
+```sh
+psql "$PLATFORM_OWNER_DSN" -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO platform_lifecycle.initial_term_policies(product_id, rule, version, evidence)
+SELECT id, 'top_90d', 1, 'catalog/example/approved-v1'
+FROM platform_lifecycle.products
+WHERE code = 'example'
+RETURNING product_id, rule, version;
+SQL
+```
+
+| Правило | Срок от подтверждённого `installed.occurred_at` в UTC |
+| --- | --- |
+| `free` | Плюс 10 календарных лет. 29 февраля переходит на 28 февраля, если итоговый год невисокосный. |
+| `top_90d` | 90 суток. |
+| `pro_7d`, `pro_14d` | 7 или 14 суток согласно подтверждённой версии карточки этого продукта. |
+
+Platform сохраняет правило, версию, ссылку на карточку, время и ID
+исходного события вместе со сроком. Повторы, reconnect и reinstall
+сохраняют запись. Пары, уже применённые в P03 или появившиеся без
+утверждённой политики, автоматически срока не получают. Для будущих
+установок меняйте правило, ссылку и версию вместе через `platform_owner`.
+Роли `platform_jobs` и `platform_access` не могут менять политику.
+
+Создайте отдельный Ed25519 ключ proof. Храните закрытый PKCS#8 только
+у Core. Передавайте Platform только публичный SPKI PEM. Используйте
+другие ключи для mTLS и snapshot delegation.
+
+```sh
+proof_dir="$(pwd)/tmp/platform-access-pilot"
+mkdir -p "$proof_dir/core" "$proof_dir/platform"
+(umask 077; openssl genpkey -algorithm ED25519 -out "$proof_dir/core/pilot.key")
+openssl pkey -in "$proof_dir/core/pilot.key" -pubout -out "$proof_dir/platform/pilot.pub"
+```
+
+При запуске бинарников передайте Core `CORE_PLATFORM_ACCESS_PROOF_KID=pilot`
+и `CORE_PLATFORM_ACCESS_PROOF_KEY_FILE=$proof_dir/core/pilot.key`.
+Передайте Platform `PLATFORM_ACCESS_PROOF_PUBLIC_KEYS` с JSON-объектом
+`{"pilot":"/absolute/path/platform/pilot.pub"}`, а также DSN access/jobs
+и свой mTLS-комплект. По умолчанию оба маршрута выключены. Для браузера
+задайте один точный HTTPS origin amoCRM в `PLATFORM_ACCESS_PILOT_ORIGIN`.
+Запросы без Origin используют bearer proof. Синхронизируйте часы Core
+и Platform, потому что проверка proof не даёт дополнительного времени.
+
+Пример для локального Compose с уже настроенными БД, manifest и доставкой.
+Остановите обычный контейнер каждого listener, если он занимает тот же порт.
+Выполните команды в разных терминалах. Перед запуском Platform задайте
+`PLATFORM_DEV_CERTS_DIR` с комплектом сертификатов из раздела mTLS.
+
+```sh
+proof_dir="$(pwd)/tmp/platform-access-pilot"
+docker-compose -f docker-compose.yml run --build --rm --no-deps --service-ports \
+  --user "$(id -u):$(id -g)" \
+  -e CORE_PLATFORM_ACCESS_PROOF_KID=pilot \
+  -e CORE_PLATFORM_ACCESS_PROOF_KEY_FILE=/access-keys/pilot.key \
+  -v "$proof_dir/core:/access-keys:ro" api
+```
+
+```sh
+proof_dir="$(pwd)/tmp/platform-access-pilot"
+PLATFORM_UID="$(id -u)" PLATFORM_GID="$(id -g)" \
+  docker-compose -p "${PLATFORM_COMPOSE_PROJECT:-amocrm-platform}" -f docker-compose.platform.yml \
+  run --build --rm --no-deps --service-ports \
+  -e 'PLATFORM_ACCESS_PROOF_PUBLIC_KEYS={"pilot":"/access-keys/pilot.pub"}' \
+  -e PLATFORM_ACCESS_PILOT_ORIGIN=https://example.amocrm.ru \
+  -v "$proof_dir/platform:/access-keys:ro" platform
+```
+
+### Проверить чтение и ротацию
+
+Отправьте свежий одноразовый JWT Web SDK в `X-Auth-Token` или `Authorization: Bearer`
+на `POST /api/v1/widget/platform-access-proof`. Сохраните значение `proof`
+в памяти клиента. Отправьте его как bearer на
+`GET /v1/access/{amo_account_id}/{product_code}`. Оба ответа запрещают кэширование.
+Повторная проверка использует тот же proof до пяти минут, пока совпадают
+пара, установка, поколение, версия авторизации и публичный ключ.
+
+Для ротации добавьте новый публичный ключ с новым `kid` в карту проверяющих
+реплик Platform и перезапустите их. Затем переведите Core на новую пару
+`kid` и закрытого ключа. Через пять минут после последней выдачи старым ключом
+уберите его из карты и перезапустите Platform. При отзыве ключа уберите его
+сразу. Не используйте один `kid` для разных ключей.
+
+После доставки отзыва следующий локальный read отклоняет прежний proof.
+Если доставка Core остановлена, ещё не доставленный отзыв ограничен
+истечением выданного proof. При истечении собственного срока
+`active=false`, а `own_until`, `valid_until` и `source` сохраняют его
+границу и источник. При отсутствующем сроке обе даты равны `null`.
+Отказ PostgreSQL возвращает 503 с `Retry-After`.
+
+## Проверить доставку lifecycle и access локально
 
 Запустите `make platform-lifecycle-test` из корня репозитория. Команда
 создаёт две отдельные PostgreSQL 17, применяет миграции каждого владельца
-и выпускает тестовые сертификаты. Тест проверяет откат OAuth при отказе
+и выпускает тестовые сертификаты. Тесты проверяют откат OAuth при отказе
 очереди, запись событий по mTLS, повторы, пропуски и новый эпизод с прежним
-сроком. Проверка P02 по-прежнему запускается через `make platform-test`.
+сроком. Тест P04 выдаёт proof через widget admission Core и читает его в
+отдельном процессе Platform с `PLATFORM_WORKERS=0`. Admin и Gateway в
+этом сценарии не запускаются. Тест останавливает Core HTTP, проверяет
+истечение срока, ротацию ключей и отличает отказ PostgreSQL от неактивного
+доступа. В журнале теста выводится локальное время от начала доставки
+до первого отказа и от receipt до отказа. Рабочие TTL и SLA определяются
+отдельно. Проверка P02 запускается через `make platform-test`.

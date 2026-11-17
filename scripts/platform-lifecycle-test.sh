@@ -45,6 +45,7 @@ wait_db "$platform" platform_owner amocrm_platform
     -e TEST_DATABASE_URL=postgres://amocrm:core_db_test@core-db:5432/amocrm_test?sslmode=disable \
     -e TEST_DATABASE_RESET_ALLOWED=true \
     -e PLATFORM_TEST_OWNER_DSN=postgres://platform_owner:platform_owner_dev@platform-db:5432/amocrm_platform?sslmode=disable \
+    -e PLATFORM_TEST_ACCESS_DSN=postgres://platform_access:platform_access_dev@platform-db:5432/amocrm_platform?sslmode=disable \
     -e PLATFORM_TEST_JOBS_DSN=postgres://platform_jobs:platform_jobs_dev@platform-db:5432/amocrm_platform?sslmode=disable \
     -e PLATFORM_TEST_CERTS_DIR=/tmp/platform-lifecycle-certs \
     "$project" sh -ceu '
@@ -53,4 +54,6 @@ wait_db "$platform" platform_owner amocrm_platform
         go run ./cmd/service-certs --platform "$PLATFORM_TEST_CERTS_DIR"
         go test -race -count=1 -v ./internal/corelifecycle
         go test -race -count=1 -v -run "^TestPlatformLifecycleAcrossOwners$" ./internal/productplatform
+        go build -race -o /tmp/platform-access-test ./cmd/platform
+        PLATFORM_TEST_BINARY=/tmp/platform-access-test go test -race -count=1 -v -run "^TestPlatformAccessAcrossOwners$" ./cmd/api
     '

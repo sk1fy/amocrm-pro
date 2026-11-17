@@ -250,5 +250,5 @@ platform-test: ## Verify Platform migrations, PostgreSQL roles, mTLS, and queue 
 	COMPOSE="$(COMPOSE)" sh scripts/platform-test.sh
 
 .PHONY: platform-lifecycle-test
-platform-lifecycle-test: ## Verify Core lifecycle delivery against two isolated PostgreSQL databases over mTLS
+platform-lifecycle-test: ## Verify Core lifecycle delivery and Platform access against two isolated PostgreSQL databases
 	DOCKER="$(DOCKER)" GO_VERSION="$(GO_VERSION)" sh scripts/platform-lifecycle-test.sh
