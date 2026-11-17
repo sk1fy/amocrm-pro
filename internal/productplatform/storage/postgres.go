@@ -70,7 +70,9 @@ func CheckAccess(ctx context.Context, pool *pgxpool.Pool) error {
 func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, `
 		SELECT a.account_id,p.version,c.product_id,c.resource_id,pt.version,
-		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version
+		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version,
+		       catalog.catalog_version,catalog.catalog_policy_version,catalog.tariff_version,revision.version,
+		       history.source_version,tariff.evidence,verified.rule,active.own_until
 		FROM platform_manager.visible_accounts a
 		CROSS JOIN platform_manager.account_profiles p
 		CROSS JOIN platform_manager.commands c
@@ -80,6 +82,12 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		CROSS JOIN platform_manager.portrait_template t
 		CROSS JOIN platform_manager.portrait_audit_dates ad
 		CROSS JOIN platform_lifecycle.terms term
+		CROSS JOIN platform_lifecycle.products catalog
+		CROSS JOIN platform_manager.product_catalog_revision revision
+		CROSS JOIN platform_lifecycle.product_trial_revisions history
+		CROSS JOIN platform_lifecycle.verified_tariff_versions tariff
+		CROSS JOIN platform_lifecycle.verified_trial_policies verified
+		CROSS JOIN platform_manager.product_access active
 		LIMIT 0`); err != nil {
 		return errors.New("manager read schema is unavailable")
 	}
@@ -87,6 +95,11 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	err := pool.QueryRow(ctx, `
 		SELECT has_table_privilege('platform_manager.account_change_events', 'INSERT')
 		   AND has_table_privilege('platform_manager.account_event_outbox', 'INSERT')
+		   AND has_table_privilege('platform_lifecycle.product_trial_revisions','INSERT')
+		   AND has_function_privilege('platform_manager.apply_catalog_policy(uuid,bigint)','EXECUTE')
+		   AND has_function_privilege('platform_manager.adopt_trial_evidence(uuid)','EXECUTE')
+		   AND (SELECT bool_and(has_column_privilege('platform_lifecycle.products',field,'UPDATE'))
+		        FROM unnest(ARRAY['catalog_version','catalog_policy_version','display_name','line','availability','links','tariff_version']) field)
 		   AND (SELECT bool_and(
 		            has_column_privilege('platform_lifecycle.terms', field, 'INSERT')
 		        AND has_column_privilege('platform_lifecycle.terms', field, 'UPDATE'))

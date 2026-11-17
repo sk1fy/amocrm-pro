@@ -79,5 +79,5 @@ compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestQu
 
 compose run --rm --no-deps platform-test sh -ceu '
     go build -race -o /tmp/platform-manager-test ./cmd/platform
-    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform((Manager|Accounts|AccountProfile|Portrait)AcrossReplicas|ManualRenewal)$" ./internal/productplatform
+    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform((Manager|Accounts|AccountProfile|Portrait|Products)AcrossReplicas|ManualRenewal)$" ./internal/productplatform
 '

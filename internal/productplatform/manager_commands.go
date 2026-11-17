@@ -154,19 +154,25 @@ func (s managerStore) receipt(ctx context.Context, id uuid.UUID, actor managerAc
 		return receipt, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var episode, account, product *uuid.UUID
+	var episode, account, product, resource *uuid.UUID
 	err = tx.QueryRow(ctx, `
 		SELECT id,kind,
 			CASE status WHEN 202 THEN 'accepted' WHEN 409 THEN 'rejected' WHEN 422 THEN 'rejected' ELSE 'completed' END,
-			CASE WHEN status=202 THEN id END,episode_id,account_id,product_id
+			CASE WHEN status=202 THEN id END,episode_id,account_id,product_id,resource_id
 		FROM platform_manager.commands WHERE id=$1 AND subject_id=$2`, id, actor.Subject).
-		Scan(&receipt.ID, &receipt.Kind, &receipt.State, &receipt.OperationID, &episode, &account, &product)
+		Scan(&receipt.ID, &receipt.Kind, &receipt.State, &receipt.OperationID, &episode, &account, &product, &resource)
 	if err != nil {
 		return receipt, accountReadError(err)
 	}
 	grant := commandGrant(receipt.Kind)
 	if grant == "" {
 		return receipt, errManagerNotFound
+	}
+	if receipt.Kind == productCreateCommandKind {
+		product = resource
+		if err := requireCommandScope(ctx, tx, productUpdateCommandKind, nil, nil, product); err != nil && receipt.State != "rejected" {
+			return receipt, err
+		}
 	}
 	if err := requireCommandScope(ctx, tx, receipt.Kind, episode, account, product); err != nil {
 		return receipt, err
@@ -183,6 +189,8 @@ func commandGrant(kind string) string {
 		return "clients.write"
 	case renewalCommandKind:
 		return "clients.renew"
+	case productCreateCommandKind, productUpdateCommandKind:
+		return "catalog.manage"
 	case portraitTemplateCommandKind, portraitNicheCreateCommandKind, portraitNicheUpdateCommandKind,
 		portraitNicheDeleteCommandKind, portraitNicheMergeCommandKind:
 		return "configuration.manage"
@@ -199,6 +207,10 @@ func requireCommandScope(ctx context.Context, tx pgx.Tx, kind string, episode, a
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.installations WHERE id=$1)`, episode).Scan(&visible)
 	case accountRefreshKind, profileCommandKind, portraitCommandKind, portraitAuditCommandKind:
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.visible_accounts WHERE account_id=$1)`, account).Scan(&visible)
+	case productCreateCommandKind:
+		return nil
+	case productUpdateCommandKind:
+		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_lifecycle.products WHERE id=$1 AND catalog_version IS NOT NULL)`, product).Scan(&visible)
 	case renewalCommandKind:
 		err = tx.QueryRow(ctx, `
 			SELECT EXISTS(SELECT FROM platform_manager.account_memberships WHERE account_id=$1 AND product_id=$2)`,

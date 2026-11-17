@@ -65,6 +65,7 @@ func ManagerHandler(pool *pgxpool.Pool, options *ManagerOptions, accountGateway 
 	mux.HandleFunc("GET "+managerPath+"operations/{id}", managerAuthorized("clients.write", false, api.operation))
 	mux.HandleFunc("POST "+managerPath+"accounts/{id}/renewals", managerAuthorized("clients.renew", true, api.createAccountRenewal))
 	registerManagerPortrait(mux, api)
+	registerManagerProducts(mux, api)
 	return mux
 }
 
