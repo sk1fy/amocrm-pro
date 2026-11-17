@@ -416,8 +416,13 @@ type managerProcess struct {
 
 func startManagerProcess(t *testing.T, overrides ...string) *managerProcess {
 	t.Helper()
+	return startManagerBinaryProcess(t, os.Getenv("PLATFORM_TEST_BINARY"), overrides...)
+}
+
+func startManagerBinaryProcess(t *testing.T, binary string, overrides ...string) *managerProcess {
+	t.Helper()
 	certs := filepath.Join(os.Getenv("PLATFORM_TEST_CERTS_DIR"), "platform")
-	command := exec.Command(os.Getenv("PLATFORM_TEST_BINARY"))
+	command := exec.Command(binary)
 	command.Env = append(os.Environ(),
 		"PLATFORM_ACCESS_DATABASE_URL="+os.Getenv("PLATFORM_TEST_ACCESS_DSN"),
 		"PLATFORM_JOBS_DATABASE_URL="+os.Getenv("PLATFORM_TEST_JOBS_DSN"),
