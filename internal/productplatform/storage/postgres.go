@@ -66,3 +66,34 @@ func CheckAccess(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	return nil
 }
+
+func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
+	if _, err := pool.Exec(ctx, `
+		SELECT a.account_id,p.version,c.product_id,c.resource_id,pt.version,
+		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version
+		FROM platform_manager.visible_accounts a
+		CROSS JOIN platform_manager.account_profiles p
+		CROSS JOIN platform_manager.commands c
+		CROSS JOIN platform_manager.account_portraits pt
+		CROSS JOIN platform_manager.portrait_niches n
+		CROSS JOIN platform_manager.portrait_niche_revision nr
+		CROSS JOIN platform_manager.portrait_template t
+		CROSS JOIN platform_manager.portrait_audit_dates ad
+		CROSS JOIN platform_lifecycle.terms term
+		LIMIT 0`); err != nil {
+		return errors.New("manager read schema is unavailable")
+	}
+	var allowed bool
+	err := pool.QueryRow(ctx, `
+		SELECT has_table_privilege('platform_manager.account_change_events', 'INSERT')
+		   AND has_table_privilege('platform_manager.account_event_outbox', 'INSERT')
+		   AND (SELECT bool_and(
+		            has_column_privilege('platform_lifecycle.terms', field, 'INSERT')
+		        AND has_column_privilege('platform_lifecycle.terms', field, 'UPDATE'))
+		        FROM unnest(ARRAY['valid_until','source','reason','entitlement_version']) AS field)
+	`).Scan(&allowed)
+	if err != nil || !allowed {
+		return errors.New("manager mutation grants are unavailable")
+	}
+	return nil
+}

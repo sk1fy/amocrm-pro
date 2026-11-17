@@ -169,12 +169,17 @@ func (m managerHTTP) account(w http.ResponseWriter, r *http.Request, env manager
 	if !m.accountGateway {
 		refresh.ReasonCodes = append(refresh.ReasonCodes, "source_unavailable")
 	}
-	profile := accountCapability{Action: profileCommandKind, Allowed: env.Actor.Grants["clients.write"],
-		RequiredGrants: []string{"clients.write"}, ReasonCodes: []string{}}
-	if !profile.Allowed {
-		profile.ReasonCodes = append(profile.ReasonCodes, "permission_denied")
+	capabilities := []accountCapability{refresh}
+	for _, action := range []string{profileCommandKind, portraitCommandKind, portraitAuditCommandKind, renewalCommandKind} {
+		grant := commandGrant(action)
+		capability := accountCapability{Action: action, Allowed: env.Actor.Grants[grant],
+			RequiredGrants: []string{grant}, ReasonCodes: []string{}}
+		if !capability.Allowed {
+			capability.ReasonCodes = append(capability.ReasonCodes, "permission_denied")
+		}
+		capabilities = append(capabilities, capability)
 	}
-	body, version, err := readAccountDetail(r.Context(), m.store.pool, id, []accountCapability{refresh, profile})
+	body, version, err := readAccountDetail(r.Context(), m.store.pool, id, capabilities)
 	if err != nil {
 		writeManagerStoreError(w, env.RequestID, err)
 		return

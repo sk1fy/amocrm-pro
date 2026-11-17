@@ -63,6 +63,14 @@ expect_start_failure -e PLATFORM_JOBS_DATABASE_URL=postgres://platform_access:pl
 start_error="open access pool"
 expect_start_failure -e PLATFORM_ACCESS_DATABASE_URL=postgres://platform_access:platform_access_dev@127.0.0.1:1/amocrm_platform?sslmode=disable
 
+term_grant() {
+    compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U platform_owner -d amocrm_platform -c "$1"
+}
+term_grant 'REVOKE UPDATE (entitlement_version) ON platform_lifecycle.terms FROM platform_jobs'
+start_error="manager mutation grants are unavailable"
+expect_start_failure -e PLATFORM_MANAGER_CURSOR_KEY=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
+term_grant 'GRANT UPDATE (entitlement_version) ON platform_lifecycle.terms TO platform_jobs'
+
 compose up --detach --wait --no-deps platform
 compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestPlatformProcess$' ./internal/productplatform
 compose stop platform
@@ -71,5 +79,5 @@ compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestQu
 
 compose run --rm --no-deps platform-test sh -ceu '
     go build -race -o /tmp/platform-manager-test ./cmd/platform
-    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform(Manager|Accounts)AcrossReplicas$" ./internal/productplatform
+    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform((Manager|Accounts|AccountProfile|Portrait)AcrossReplicas|ManualRenewal)$" ./internal/productplatform
 '

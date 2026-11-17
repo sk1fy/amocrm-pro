@@ -93,7 +93,11 @@ func run() error {
 		return fmt.Errorf("open jobs pool: %w", err)
 	}
 	defer jobs.Close()
-	if cfg.manager != nil || cfg.accountGateway.address != "" {
+	if cfg.manager != nil {
+		if err := storage.CheckManager(startup, jobs); err != nil {
+			return fmt.Errorf("run Platform migrations and verify manager schema grants: %w", err)
+		}
+	} else if cfg.accountGateway.address != "" {
 		if _, err := jobs.Exec(startup, "SELECT 1 FROM platform_manager.visible_accounts LIMIT 0"); err != nil {
 			return errors.New("run Platform migrations and verify manager schema grants")
 		}
