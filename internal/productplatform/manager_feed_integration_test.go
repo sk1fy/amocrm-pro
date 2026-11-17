@@ -185,7 +185,6 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 			t.Fatal("public ID is not durable source ID")
 		}
 	}
-	// Freeze membership, then insert a late applied lifecycle fact with an older occurred_at.
 	frozen := get(first.private, "feed?limit=1", all)
 	if frozen.Next == nil {
 		t.Fatal("missing membership cursor")
@@ -274,7 +273,6 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 	_, err = owner.Exec(ctx, `DELETE FROM platform_lifecycle.history WHERE event_id=$1`, held.ID)
 	mustManager(t, err)
 	managerRequest(t, manager, http.MethodGet, second.private+managerPath+"feed?limit=1&cursor="+url.QueryEscape(*frozen.Next), all, none, "", http.StatusBadRequest).requireCode(t, "invalid_cursor")
-	// A public UUID collision across durable sources fails even without pagination.
 	var lifecycleID, profileID uuid.UUID
 	mustManager(t, owner.QueryRow(ctx, `SELECT id FROM platform_manager.account_change_events WHERE command_id=$1`, profile.id).Scan(&profileID))
 	mustManager(t, owner.QueryRow(ctx, `SELECT event_id FROM platform_lifecycle.history LIMIT 1`).Scan(&lifecycleID))
