@@ -169,12 +169,17 @@ func (m managerHTTP) account(w http.ResponseWriter, r *http.Request, env manager
 	if !m.accountGateway {
 		refresh.ReasonCodes = append(refresh.ReasonCodes, "source_unavailable")
 	}
-	body, err := m.store.accountDetail(r.Context(), id, []accountCapability{refresh})
+	profile := accountCapability{Action: profileCommandKind, Allowed: env.Actor.Grants["clients.write"],
+		RequiredGrants: []string{"clients.write"}, ReasonCodes: []string{}}
+	if !profile.Allowed {
+		profile.ReasonCodes = append(profile.ReasonCodes, "permission_denied")
+	}
+	body, version, err := readAccountDetail(r.Context(), m.store.pool, id, []accountCapability{refresh, profile})
 	if err != nil {
 		writeManagerStoreError(w, env.RequestID, err)
 		return
 	}
-	w.Header().Set("ETag", `"1"`)
+	w.Header().Set("ETag", managerETag(version))
 	writeLifecycleJSON(w, http.StatusOK, body)
 }
 

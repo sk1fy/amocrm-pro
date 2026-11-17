@@ -54,9 +54,10 @@ func ManagerHandler(pool *pgxpool.Pool, options *ManagerOptions, accountGateway 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+managerPath+"installations", managerAuthorized("clients.read", false, api.list))
 	mux.HandleFunc("PUT "+managerPath+"installations/{id}/review", managerAuthorized("clients.write", true, api.review))
-	mux.HandleFunc("GET "+managerPath+"commands/{id}", managerAuthorized("clients.write", false, api.receipt))
+	mux.HandleFunc("GET "+managerPath+"commands/{id}", managerAuthorized("", false, api.receipt))
 	mux.HandleFunc("GET "+managerPath+"accounts", managerAuthorized("clients.read", false, api.accounts))
 	mux.HandleFunc("GET "+managerPath+"accounts/{id}", managerAuthorized("clients.read", false, api.account))
+	mux.HandleFunc("PATCH "+managerPath+"accounts/{id}/profile", managerAuthorized("clients.write", true, api.updateAccountProfile))
 	mux.HandleFunc("GET "+managerPath+"accounts/{id}/crm-users", managerAuthorized("clients.read", false, api.crmUsers))
 	mux.HandleFunc("GET "+managerPath+"accounts/{id}/license-history", managerAuthorized("clients.read", false, api.licenseHistory))
 	mux.HandleFunc("GET "+managerPath+"accounts/{id}/widgets", managerAuthorized("clients.read", false, api.accountWidgets))
@@ -91,7 +92,7 @@ func managerAuthorized(grant string, mutation bool, next func(http.ResponseWrite
 			writeManagerError(w, http.StatusUnauthorized, "authentication_required", uuid.Nil, 0)
 			return
 		}
-		if !env.Actor.Grants[grant] {
+		if grant != "" && !env.Actor.Grants[grant] {
 			writeManagerError(w, http.StatusForbidden, "permission_denied", env.RequestID, 0)
 			return
 		}
@@ -171,13 +172,7 @@ func (m managerHTTP) review(w http.ResponseWriter, r *http.Request, env managerE
 		writeManagerStoreError(w, env.RequestID, err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	if outcome.etag != nil {
-		w.Header().Set("ETag", *outcome.etag)
-	}
-	w.WriteHeader(outcome.status)
-	_, _ = w.Write(outcome.body)
+	writeManagerOutcome(w, outcome)
 }
 
 func (m managerHTTP) receipt(w http.ResponseWriter, r *http.Request, env managerEnvelope) {
@@ -186,7 +181,7 @@ func (m managerHTTP) receipt(w http.ResponseWriter, r *http.Request, env manager
 		writeManagerError(w, http.StatusBadRequest, "validation_failed", env.RequestID, 0)
 		return
 	}
-	receipt, err := m.store.receipt(r.Context(), id, env.Actor.Subject)
+	receipt, err := m.store.receipt(r.Context(), id, env.Actor)
 	if err != nil {
 		writeManagerStoreError(w, env.RequestID, err)
 		return
@@ -273,7 +268,8 @@ func readManagerObject(raw []byte, fields map[string]any) error {
 		}
 		delete(fields, name)
 		var member json.RawMessage
-		if err := decoder.Decode(&member); err != nil || bytes.Equal(member, []byte("null")) || json.Unmarshal(member, dst) != nil {
+		_, nullable := dst.(*json.RawMessage)
+		if err := decoder.Decode(&member); err != nil || (!nullable && bytes.Equal(member, []byte("null"))) || json.Unmarshal(member, dst) != nil {
 			return errManagerInput
 		}
 	}
@@ -493,6 +489,8 @@ func writeManagerError(w http.ResponseWriter, status int, code string, requestID
 
 func writeManagerStoreError(w http.ResponseWriter, requestID uuid.UUID, err error) {
 	switch {
+	case errors.Is(err, errManagerPermission):
+		writeManagerError(w, http.StatusForbidden, "permission_denied", requestID, 0)
 	case errors.Is(err, errManagerNotFound):
 		writeManagerError(w, http.StatusNotFound, "resource_not_found", requestID, 0)
 	case errors.Is(err, errManagerConflict):

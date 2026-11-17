@@ -54,7 +54,8 @@ type accountSeek struct {
 
 const accountObservationJoins = `
 	LEFT JOIN platform_manager.account_identities i USING(account_id)
-	LEFT JOIN platform_manager.account_rosters u USING(account_id)`
+	LEFT JOIN platform_manager.account_rosters u USING(account_id)
+	LEFT JOIN platform_manager.account_profiles p USING(account_id)`
 
 const rosterObservationState = `
 	CASE WHEN u.observed_at IS NULL THEN 'unknown'
@@ -73,7 +74,7 @@ const accountSummaryJSON = `jsonb_build_object(
 	'account_id',a.account_id,'amo_account_id',a.amo_account_id::text,'current_domain',i.current_domain,
 	'domain_aliases',(SELECT array_agg(d.domain ORDER BY d.domain) FROM platform_manager.account_domains d
 		WHERE d.account_id=a.account_id AND d.domain<>i.current_domain),
-	'display_name',i.display_name,'classification',NULL,'version',1,
+	'display_name',COALESCE(p.display_name,i.display_name),'classification',p.classification,'version',COALESCE(p.version,1),
 	'active_products_count',a.active_products_count,'license',` + unsupportedAccountObservation + `,
 	'active_users',jsonb_strip_nulls(jsonb_build_object('value',u.active_count,` + rosterObservationFields + `)))`
 
@@ -82,7 +83,7 @@ func accountOrder(sort string) string {
 	case "current_domain":
 		return "lower(i.current_domain) NULLS LAST, a.amo_account_id, a.account_id"
 	case "display_name":
-		return "lower(i.display_name) NULLS LAST, a.amo_account_id, a.account_id"
+		return "lower(COALESCE(p.display_name,i.display_name)) NULLS LAST, a.amo_account_id, a.account_id"
 	default:
 		// License dates are unknown for every account, so both license sorts use the same tie breaker.
 		return "a.amo_account_id, a.account_id"
@@ -191,11 +192,11 @@ func saveAccountSnapshot(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor man
 
 const accountListFrom = `
 	FROM platform_manager.visible_accounts a ` + accountObservationJoins + `
-	WHERE ($1='' OR strpos(a.amo_account_id::text,$1)>0 OR strpos(lower(i.display_name),lower($1))>0
+	WHERE ($1='' OR strpos(a.amo_account_id::text,$1)>0 OR strpos(lower(COALESCE(p.display_name,i.display_name)),lower($1))>0
 		OR strpos(lower(i.current_domain),lower($1))>0
 		OR EXISTS (SELECT FROM platform_manager.account_domains d WHERE d.account_id=a.account_id
 			AND d.domain<>i.current_domain AND strpos(lower(d.domain),lower($1))>0))
-	  AND COALESCE(cardinality($2::text[]),0)=0
+	  AND (COALESCE(cardinality($2::text[]),0)=0 OR p.classification=ANY($2))
 	  AND ($3::uuid IS NULL OR EXISTS (
 		SELECT FROM platform_manager.account_memberships p WHERE p.account_id=a.account_id AND p.product_id=$3))
 	  AND $4::timestamptz IS NULL
@@ -240,13 +241,15 @@ func readAccountSnapshotItems(ctx context.Context, tx pgx.Tx, after accountSeek,
 	return pgx.CollectRows(rows, pgx.RowTo[json.RawMessage])
 }
 
-func (s managerStore) accountDetail(ctx context.Context, id uuid.UUID, actions []accountCapability) (json.RawMessage, error) {
+func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID, actions []accountCapability) (json.RawMessage, int64, error) {
 	var body json.RawMessage
-	err := s.pool.QueryRow(ctx, `
+	var version int64
+	err := db.QueryRow(ctx, `
 		SELECT `+accountSummaryJSON+` || jsonb_build_object(
-			'note',NULL,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb)
-		FROM platform_manager.visible_accounts a `+accountObservationJoins+` WHERE a.account_id=$1`, id, actions).Scan(&body)
-	return body, accountReadError(err)
+			'note',p.note,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb),
+			COALESCE(p.version,1)
+		FROM platform_manager.visible_accounts a `+accountObservationJoins+` WHERE a.account_id=$1`, id, actions).Scan(&body, &version)
+	return body, version, accountReadError(err)
 }
 
 func (s managerStore) accountCRMUsers(ctx context.Context, id uuid.UUID, active, admin *bool) (json.RawMessage, error) {

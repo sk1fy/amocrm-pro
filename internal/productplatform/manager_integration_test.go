@@ -342,7 +342,7 @@ func managerCall(client *http.Client, method, url string, actor managerTestActor
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", cmd.key.String())
 	}
-	if method == http.MethodPut {
+	if method == http.MethodPut || cmd.version != 0 {
 		req.Header.Set("If-Match", strconv.Quote(strconv.FormatInt(cmd.version, 10)))
 	}
 	res, err := client.Do(req)
