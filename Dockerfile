@@ -88,6 +88,18 @@ ENV MIGRATIONS_DIR=/migrations \
 ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
 CMD ["up"]
 
+FROM source AS platform-lifecycle-build
+
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/platform-lifecycle ./cmd/platform-lifecycle
+
+FROM runtime AS platform-lifecycle
+
+COPY --from=platform-lifecycle-build --chown=app:app /out/platform-lifecycle /usr/local/bin/platform-lifecycle
+
+ENTRYPOINT ["/usr/local/bin/platform-lifecycle"]
+
 FROM source AS platform-build
 
 ARG BUILD_REVISION=unknown

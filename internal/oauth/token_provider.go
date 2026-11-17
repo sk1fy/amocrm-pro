@@ -10,19 +10,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
 
 type TokenProvider struct {
-	pool         *pgxpool.Pool
-	cipher       Cipher
-	gateway      OAuthGateway
-	refreshAhead time.Duration
-	uninstallID  uuid.UUID
-	leaseTTL     time.Duration
-	leasePoll    time.Duration
-	mu           sync.Mutex
-	pending      map[uuid.UUID]pendingRotation
+	pool             *pgxpool.Pool
+	cipher           Cipher
+	gateway          OAuthGateway
+	refreshAhead     time.Duration
+	uninstallID      uuid.UUID
+	uninstallAttempt uuid.UUID
+	leaseTTL         time.Duration
+	leasePoll        time.Duration
+	mu               sync.Mutex
+	pending          map[uuid.UUID]pendingRotation
 }
 
 // pendingRotation keeps tokens after amoCRM accepted a one-time refresh and
@@ -57,12 +59,13 @@ var errRefreshFenceLost = errors.New("OAuth refresh claim was superseded")
 // NewUninstallTokenProvider is an operator-only capability bound to one already
 // uninstalled installation. It shares the normal refresh/fencing implementation
 // without reopening product access or changing installation status.
-func NewUninstallTokenProvider(pool *pgxpool.Pool, cipher Cipher, gateway OAuthGateway, installationID uuid.UUID) (*TokenProvider, error) {
+func NewUninstallTokenProvider(pool *pgxpool.Pool, cipher Cipher, gateway OAuthGateway, installationID, attempt uuid.UUID) (*TokenProvider, error) {
 	if installationID == uuid.Nil {
 		return nil, errors.New("uninstall installation id is required")
 	}
 	p := NewTokenProvider(pool, cipher, gateway)
 	p.uninstallID = installationID
+	p.uninstallAttempt = attempt
 	return p, nil
 }
 
@@ -73,7 +76,14 @@ func (p *TokenProvider) load(ctx context.Context, q credentialQuerier, id uuid.U
 	if id != p.uninstallID {
 		return credential{}, errors.New("uninstall credential scope mismatch")
 	}
-	return loadCredentialFiltered(ctx, q, id, lock, ` AND installation.status='uninstalled'`)
+	if p.uninstallAttempt != uuid.Nil {
+		return loadCredentialFiltered(ctx, q, id, lock, ` AND installation.status='uninstalled'
+			AND EXISTS(SELECT 1 FROM platform_lifecycle_uninstalls u
+				WHERE u.installation_id=installation.id AND u.id=$2 AND u.state='pending' AND NOT u.key_rotated)`, p.uninstallAttempt)
+	}
+	return loadCredentialFiltered(ctx, q, id, lock, ` AND installation.status='uninstalled'
+		AND NOT EXISTS(SELECT 1 FROM platform_lifecycle_scope s
+			WHERE s.integration_id=installation.integration_id AND s.account_id=installation.account_id)`)
 }
 
 func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID) (amocrm.AccessToken, error) {
@@ -84,7 +94,7 @@ func (p *TokenProvider) Token(ctx context.Context, installationID uuid.UUID) (am
 	if snapshot.ExpiresAt.After(time.Now().Add(p.refreshAhead)) {
 		return p.decryptAccess(snapshot)
 	}
-	return p.refreshIfVersion(ctx, installationID, snapshot.TokenVersion, false)
+	return p.refreshAndCheckUninstall(ctx, installationID, snapshot.TokenVersion, false)
 }
 
 func (p *TokenProvider) RefreshIfCurrent(
@@ -94,7 +104,22 @@ func (p *TokenProvider) RefreshIfCurrent(
 	if observed.InstallationID == uuid.Nil || observed.TokenVersion <= 0 {
 		return amocrm.AccessToken{}, errors.New("observed OAuth token identity and version are required")
 	}
-	return p.refreshIfVersion(ctx, observed.InstallationID, observed.TokenVersion, true)
+	return p.refreshAndCheckUninstall(ctx, observed.InstallationID, observed.TokenVersion, true)
+}
+
+func (p *TokenProvider) refreshAndCheckUninstall(ctx context.Context, id uuid.UUID, version int64, forced bool) (amocrm.AccessToken, error) {
+	access, err := p.refreshIfVersion(ctx, id, version, forced)
+	if err != nil || p.uninstallAttempt == uuid.Nil {
+		return access, err
+	}
+	current, err := p.load(ctx, p.pool, id, false)
+	if err != nil {
+		return amocrm.AccessToken{}, err
+	}
+	if current.TokenVersion != access.TokenVersion {
+		return amocrm.AccessToken{}, corelifecycle.ErrStaleUninstall
+	}
+	return access, nil
 }
 
 func (p *TokenProvider) refreshIfVersion(
@@ -397,23 +422,23 @@ func (p *TokenProvider) MarkReauthRequired(
 	if observedVersion <= 0 {
 		return errors.New("observed OAuth token version is required")
 	}
+	if p.uninstallID != uuid.Nil {
+		return nil
+	}
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin reauthorization state update: %w", err)
 	}
 	defer func() { _ = rollbackTokenTransaction(tx) }()
 
-	var installationStatus string
-	err = tx.QueryRow(ctx, `
-		SELECT status FROM installations WHERE id=$1 FOR UPDATE`, installationID,
-	).Scan(&installationStatus)
+	installation, err := corelifecycle.LockInstallation(ctx, tx, installationID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("lock installation for reauthorization state: %w", err)
 	}
-	if installationStatus == "disabled" || installationStatus == "uninstalled" {
+	if installation.Status == "disabled" || installation.Status == "uninstalled" {
 		if err := tx.Commit(ctx); err != nil {
 			return fmt.Errorf("commit skipped reauthorization state: %w", err)
 		}
@@ -444,6 +469,9 @@ func (p *TokenProvider) MarkReauthRequired(
 	); err != nil {
 		return fmt.Errorf("mark installation reauthorization required: %w", err)
 	}
+	if err := p.recordReauth(ctx, tx, installation, "token_rejected"); err != nil {
+		return err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit reauthorization state: %w", err)
 	}
@@ -460,20 +488,29 @@ func (p *TokenProvider) rejectClaim(id, lease uuid.UUID, version int64) error {
 		return err
 	}
 	defer func() { _ = rollbackTokenTransaction(tx) }()
-	var state string
-	if err := tx.QueryRow(ctx, `SELECT status FROM installations WHERE id=$1 FOR UPDATE`, id).Scan(&state); err != nil {
+	installation, err := corelifecycle.LockInstallation(ctx, tx, id)
+	if err != nil {
 		return err
 	}
 	tag, err := tx.Exec(ctx, `UPDATE oauth_credentials SET lease_token=NULL,lease_until=NULL,updated_at=now() WHERE installation_id=$1 AND token_version=$2 AND lease_token=$3`, id, version, lease)
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() == 1 && state != "disabled" && state != "uninstalled" {
+	if tag.RowsAffected() == 1 && installation.Status != "disabled" && installation.Status != "uninstalled" {
 		if _, err := tx.Exec(ctx, `UPDATE installations SET status='reauth_required',updated_at=now() WHERE id=$1`, id); err != nil {
+			return err
+		}
+		if err := p.recordReauth(ctx, tx, installation, "refresh_definitively_rejected"); err != nil {
 			return err
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+func (p *TokenProvider) recordReauth(ctx context.Context, tx pgx.Tx, installation corelifecycle.Installation, reason string) error {
+	before := corelifecycle.EffectiveAuthorization(installation.IntegrationStatus, installation.Status)
+	after := corelifecycle.EffectiveAuthorization(installation.IntegrationStatus, "reauth_required")
+	return corelifecycle.NewStore(p.pool).RecordAuthorization(ctx, tx, installation, before, after, reason, uuid.New())
 }
 
 func (p *TokenProvider) decryptAccess(credential credential) (amocrm.AccessToken, error) {
@@ -586,7 +623,7 @@ func loadCredentialRow(ctx context.Context, query credentialQuerier, installatio
 	return loadCredentialFiltered(ctx, query, installationID, lock, statusFilter)
 }
 
-func loadCredentialFiltered(ctx context.Context, query credentialQuerier, installationID uuid.UUID, lock bool, statusFilter string) (credential, error) {
+func loadCredentialFiltered(ctx context.Context, query credentialQuerier, installationID uuid.UUID, lock bool, statusFilter string, args ...any) (credential, error) {
 	lockClause := ""
 	if lock {
 		lockClause = " FOR UPDATE OF credentials"
@@ -605,7 +642,7 @@ func loadCredentialFiltered(ctx context.Context, query credentialQuerier, instal
 		JOIN installations installation ON installation.id = credentials.installation_id
 		JOIN integrations integration ON integration.id = installation.integration_id
 		WHERE credentials.installation_id = $1`+statusFilter+lockClause,
-		installationID,
+		append([]any{installationID}, args...)...,
 	).Scan(
 		&value.InstallationID,
 		&value.IntegrationID,

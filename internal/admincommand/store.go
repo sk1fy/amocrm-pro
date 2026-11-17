@@ -194,7 +194,7 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 		if req.Command != "uninstall" {
 			return data, nil, installationID, nil
 		}
-		job, err := s.enqueueExternal(ctx, tx, receiptID, id, actor, UninstallJobType)
+		job, err := s.enqueueExternal(ctx, tx, receiptID, id, actor, UninstallJobType, result.UninstallAttempt)
 		if err != nil {
 			return nil, nil, installationID, err
 		}
@@ -224,7 +224,7 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 			if status == "disabled" || status == "uninstalled" || integrationStatus != "active" {
 				return nil, nil, installationID, integrations.ErrInvalidState
 			}
-			job, err := s.enqueueExternal(ctx, tx, receiptID, id, actor, CheckJobType)
+			job, err := s.enqueueExternal(ctx, tx, receiptID, id, actor, CheckJobType, uuid.Nil)
 			return map[string]any{}, &job.ID, installationID, err
 		case "reconcile":
 			job, err := webhook.EnqueueReconcileTx(ctx, tx, s.jobs, id, actor)
@@ -259,9 +259,13 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, actor string, receiptID uu
 	return nil, nil, nil, invalid("unsupported command")
 }
 
-func (s *Store) enqueueExternal(ctx context.Context, tx pgx.Tx, receiptID, installationID uuid.UUID, actor, kind string) (jobs.Job, error) {
+func (s *Store) enqueueExternal(ctx context.Context, tx pgx.Tx, receiptID, installationID uuid.UUID, actor, kind string, attempt uuid.UUID) (jobs.Job, error) {
+	payload := map[string]uuid.UUID{"receipt_id": receiptID}
+	if attempt != uuid.Nil {
+		payload["uninstall_attempt_id"] = attempt
+	}
 	return s.jobs.EnqueueTx(ctx, tx, jobs.EnqueueParams{InstallationID: &installationID, Type: kind, ActorType: "admin", ActorID: actor,
-		ResourceType: "admin_command", ResourceID: receiptID.String(), Payload: map[string]string{"receipt_id": receiptID.String()}, MaxAttempts: 1})
+		ResourceType: "admin_command", ResourceID: receiptID.String(), Payload: payload, MaxAttempts: 1})
 }
 
 func (s *Store) Get(ctx context.Context, id uuid.UUID) (Receipt, error) {

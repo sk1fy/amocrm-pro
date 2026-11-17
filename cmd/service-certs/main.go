@@ -103,9 +103,7 @@ func generate(dir string, platform bool) error {
 			names = append(names, "api")
 		}
 		usages := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
-		if platform && identity == "platform" {
-			usages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-		} else if platform {
+		if platform && identity == "manager-bff" {
 			usages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 		}
 		cert := &x509.Certificate{SerialNumber: big.NewInt(int64(i + 2)), Subject: pkix.Name{CommonName: identity},
@@ -129,6 +127,17 @@ func generate(dir string, platform bool) error {
 		}
 	}
 	if platform {
+		_, signing, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		der, err := x509.MarshalPKCS8PrivateKey(signing)
+		if err != nil {
+			return err
+		}
+		if err := writeExclusive(filepath.Join(dir, "core", "snapshot-delegation.key"), "PRIVATE KEY", der); err != nil {
+			return err
+		}
 		fmt.Fprintln(os.Stderr, "service-certs: wrote Platform development identities (30-day localhost).")
 		return nil
 	}

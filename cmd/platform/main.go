@@ -80,10 +80,11 @@ func run() error {
 	checkAccess := func(ctx context.Context) error { return storage.CheckAccess(ctx, access) }
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	worker := queue.NewWorker(queue.NewStore(jobs), nil, queue.DefaultConfig(cfg.workers), registry)
+	lifecycle := productplatform.NewLifecycleStore(jobs)
+	worker := queue.NewWorker(queue.NewStore(jobs), map[queue.Kind]queue.Handler{productplatform.DrainKind: lifecycle.DrainJob}, queue.DefaultConfig(cfg.workers), registry)
 	management := productplatform.HealthHandler(checkAccess, readinessTimeout)
 	management.Handle("GET /metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	private := newServer(cfg.private, productplatform.PrivateHandler(nil, nil))
+	private := newServer(cfg.private, productplatform.PrivateHandler(productplatform.LifecycleHandler(lifecycle), nil))
 	private.TLSConfig = tlsConfig
 
 	return serve(ctx, worker,

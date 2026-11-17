@@ -23,7 +23,7 @@ import (
 type WorkerExecutor struct {
 	pool         *pgxpool.Pool
 	Check        func(context.Context, uuid.UUID) error
-	Unregister   func(context.Context, uuid.UUID) error
+	Unregister   func(context.Context, uuid.UUID, uuid.UUID) error
 	Distribution *distribution.AssignmentWorker
 }
 
@@ -45,12 +45,12 @@ func NewWorkerExecutor(pool *pgxpool.Pool, client *amocrm.Client, keys *cryptox.
 			}
 			return nil
 		},
-		Unregister: func(ctx context.Context, id uuid.UUID) error {
-			tokens, err := oauth.NewUninstallTokenProvider(pool, keys, gateway, id)
+		Unregister: func(ctx context.Context, id, attempt uuid.UUID) error {
+			tokens, err := oauth.NewUninstallTokenProvider(pool, keys, gateway, id, attempt)
 			if err != nil {
 				return err
 			}
-			return webhook.Unregister(ctx, webhook.NewReconcileStore(pool, keys), client.WithTokenProvider(tokens), id)
+			return webhook.UnregisterAttempt(ctx, webhook.NewReconcileStore(pool, keys), client.WithTokenProvider(tokens), id, attempt)
 		},
 	}
 }
@@ -99,8 +99,15 @@ func (w *WorkerExecutor) Handler(ctx context.Context, job jobs.Job) (json.RawMes
 		result.Outcome = classification
 		result.Result = map[string]any{"classification": classification, "verification": classification, "observed_at": observed, "retry_after": retryAfter}
 	case command == "uninstall" && job.Type == UninstallJobType:
+		var input struct {
+			ReceiptID uuid.UUID `json:"receipt_id"`
+			AttemptID uuid.UUID `json:"uninstall_attempt_id"`
+		}
+		if json.Unmarshal(job.Payload, &input) != nil || input.ReceiptID != receiptID {
+			return nil, jobs.Permanent("invalid_admin_job", errors.New("invalid uninstall receipt"))
+		}
 		result.Result = map[string]any{"installation_id": job.InstallationID, "status": "uninstalled"}
-		if err := w.Unregister(ctx, *job.InstallationID); err != nil {
+		if err := w.Unregister(ctx, *job.InstallationID, input.AttemptID); err != nil {
 			result.State, result.Outcome = "partial", "webhook_error"
 			message := "remote webhook unregister failed; inspect the installation before retrying"
 			if errors.Is(err, oauth.ErrRefreshOutcomeUnknown) {

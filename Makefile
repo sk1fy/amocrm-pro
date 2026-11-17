@@ -248,3 +248,7 @@ platform-down: ## Stop Platform while preserving its PostgreSQL volume
 
 platform-test: ## Verify Platform migrations, PostgreSQL roles, mTLS, and queue on an isolated stack
 	COMPOSE="$(COMPOSE)" sh scripts/platform-test.sh
+
+.PHONY: platform-lifecycle-test
+platform-lifecycle-test: ## Verify Core lifecycle delivery against two isolated PostgreSQL databases over mTLS
+	DOCKER="$(DOCKER)" GO_VERSION="$(GO_VERSION)" sh scripts/platform-lifecycle-test.sh

@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	wire "github.com/sk1fy/amocrm-pro/internal/platformlifecycle"
 )
 
 const (
-	coreIdentity       = "spiffe://amocrm-pro/core"
+	coreIdentity       = wire.CoreIdentity
 	managerBFFIdentity = "spiffe://amocrm-pro/manager-bff"
-	coreEventsPath     = "/internal/platform/v1/core-events"
+	coreEventsPath     = wire.EventsPath
 	managerPath        = "/internal/platform/v1/managers/"
 )
 

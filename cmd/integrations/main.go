@@ -66,12 +66,12 @@ func run(args []string, input io.Reader, output io.Writer) error {
 	}
 	if command.Action == "uninstall" {
 		httpClient := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-		tokens, err := oauth.NewUninstallTokenProvider(pool, keys, oauth.NewGateway(amocrm.NewOAuthClient(httpClient)), command.InstallationID)
+		tokens, err := oauth.NewUninstallTokenProvider(pool, keys, oauth.NewGateway(amocrm.NewOAuthClient(httpClient)), command.InstallationID, result.UninstallAttempt)
 		if err != nil {
 			return err
 		}
 		client := amocrm.NewClient(httpClient, tokens)
-		if uerr := webhook.Unregister(ctx, webhook.NewReconcileStore(pool, keys), client, command.InstallationID); uerr != nil {
+		if uerr := webhook.UnregisterAttempt(ctx, webhook.NewReconcileStore(pool, keys), client, command.InstallationID, result.UninstallAttempt); uerr != nil {
 			result.WebhookError = "remote webhook unregister failed; rerun uninstall to retry"
 			if errors.Is(uerr, oauth.ErrRefreshOutcomeUnknown) {
 				result.WebhookError = "OAuth refresh outcome unknown; recover the pending refresh or reauthorize before retrying uninstall"

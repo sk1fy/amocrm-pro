@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/admincrm"
 	"github.com/sk1fy/amocrm-pro/internal/companyentry"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	"github.com/sk1fy/amocrm-pro/internal/employeeimport"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
@@ -170,6 +172,17 @@ func run() error {
 		go func() { _ = recoveryWorker.Run(ctx) }()
 	}
 	registry.MustRegister(distribution.NewDeliveryCollector(pool))
+
+	handlers[corelifecycle.JobType] = func(context.Context, jobs.Job) (json.RawMessage, error) {
+		return nil, errors.New("Platform lifecycle delivery is not configured")
+	}
+	if origin := os.Getenv("PLATFORM_DELIVERY_ORIGIN"); origin != "" {
+		handler, err := corelifecycle.DeliveryHandler(corelifecycle.NewStore(pool), origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		if err != nil {
+			return err
+		}
+		handlers[corelifecycle.JobType] = handler
+	}
 
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
 	handlers[admincommand.DistributionReconcileJobType] = adminExecutor.Handler

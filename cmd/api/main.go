@@ -272,8 +272,31 @@ func run() error {
 		admincommand.Register(adminRouter, admincommand.NewStore(pool, keyRing, cfg.DatabaseTimeout, cfg.PublicBaseURL, components.Bridge, leadstatus.NewRuleStore(pool)))
 		servers = append(servers, httpserver.New(cfg.AdminHTTPAddress, adminRouter))
 	}
+	var snapshotOutcome <-chan error
+	if address := os.Getenv("PLATFORM_SNAPSHOT_RPC_ADDRESS"); address != "" {
+		snapshotServer, outcome, err := startPlatformSnapshot(pool, address)
+		if err != nil {
+			return err
+		}
+		defer snapshotServer.Stop()
+		snapshotOutcome = outcome
+	}
+	snapshotFailure := make(chan error, 1)
+	go func() {
+		select {
+		case err := <-snapshotOutcome:
+			snapshotFailure <- err
+			stop()
+		case <-ctx.Done():
+		}
+	}()
 	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, servers...); err != nil {
 		return err
 	}
-	return components.Err()
+	select {
+	case err := <-snapshotFailure:
+		return err
+	default:
+		return components.Err()
+	}
 }
