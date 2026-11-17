@@ -70,6 +70,14 @@ term_grant 'REVOKE UPDATE (entitlement_version) ON platform_lifecycle.terms FROM
 start_error="manager mutation grants are unavailable"
 expect_start_failure -e PLATFORM_MANAGER_CURSOR_KEY=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
 term_grant 'GRANT UPDATE (entitlement_version) ON platform_lifecycle.terms TO platform_jobs'
+term_grant 'REVOKE SELECT ON platform_manager.business_events FROM platform_jobs'
+start_error="manager read schema is unavailable"
+expect_start_failure -e PLATFORM_MANAGER_CURSOR_KEY=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
+term_grant 'GRANT SELECT ON platform_manager.business_events TO platform_jobs'
+term_grant 'REVOKE INSERT ON platform_manager.feed_snapshot_items FROM platform_jobs'
+start_error="manager mutation grants are unavailable"
+expect_start_failure -e PLATFORM_MANAGER_CURSOR_KEY=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
+term_grant 'GRANT INSERT ON platform_manager.feed_snapshot_items TO platform_jobs'
 
 compose up --detach --wait --no-deps platform
 compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestPlatformProcess$' ./internal/productplatform
@@ -79,5 +87,5 @@ compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestQu
 
 compose run --rm --no-deps platform-test sh -ceu '
     go build -race -o /tmp/platform-manager-test ./cmd/platform
-    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform((Manager|Accounts|AccountProfile|Portrait|Products)AcrossReplicas|ManualRenewal|ProductCreateReplayAfterBootstrap)$" ./internal/productplatform
+    PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform((Manager|Accounts|AccountProfile|Portrait|Products|Feed)AcrossReplicas|ManualRenewal|ProductCreateReplayAfterBootstrap)$" ./internal/productplatform
 '

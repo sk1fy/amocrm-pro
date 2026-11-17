@@ -72,7 +72,9 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		SELECT a.account_id,p.version,c.product_id,c.resource_id,pt.version,
 		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version,
 		       catalog.catalog_version,catalog.catalog_policy_version,catalog.tariff_version,revision.version,
-		       history.source_version,tariff.evidence,verified.rule,active.own_until
+		       history.source_version,tariff.evidence,verified.rule,active.own_until,
+		       event.source,event.id,event.kind,event.occurred_at,event.recorded_at,event.account_id,event.product_id,event.episode_id,
+		       snapshot.route,snapshot.account_id,snapshot.query_hash,snapshot.scope_hash,snapshot.total,item.ordinal,item.source,item.event_id
 		FROM platform_manager.visible_accounts a
 		CROSS JOIN platform_manager.account_profiles p
 		CROSS JOIN platform_manager.commands c
@@ -88,12 +90,22 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		CROSS JOIN platform_lifecycle.verified_tariff_versions tariff
 		CROSS JOIN platform_lifecycle.verified_trial_policies verified
 		CROSS JOIN platform_manager.product_access active
+		CROSS JOIN platform_manager.business_events event
+		CROSS JOIN platform_manager.feed_snapshots snapshot
+		CROSS JOIN platform_manager.feed_snapshot_items item
 		LIMIT 0`); err != nil {
 		return errors.New("manager read schema is unavailable")
 	}
 	var allowed bool
 	err := pool.QueryRow(ctx, `
-		SELECT has_table_privilege('platform_manager.account_change_events', 'INSERT')
+		SELECT has_table_privilege('platform_manager.business_events','SELECT')
+		   AND has_table_privilege('platform_manager.feed_snapshots','SELECT')
+		   AND has_table_privilege('platform_manager.feed_snapshots','INSERT')
+		   AND has_table_privilege('platform_manager.feed_snapshots','DELETE')
+		   AND has_table_privilege('platform_manager.feed_snapshot_items','SELECT')
+		   AND has_table_privilege('platform_manager.feed_snapshot_items','INSERT')
+		   AND has_column_privilege('platform_manager.account_snapshot_admission','marker','UPDATE')
+		   AND has_table_privilege('platform_manager.account_change_events', 'INSERT')
 		   AND has_table_privilege('platform_manager.account_event_outbox', 'INSERT')
 		   AND has_table_privilege('platform_lifecycle.product_trial_revisions','INSERT')
 		   AND has_function_privilege('platform_manager.apply_catalog_policy(uuid,bigint)','EXECUTE')
