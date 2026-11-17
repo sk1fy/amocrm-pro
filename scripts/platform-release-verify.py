@@ -55,7 +55,7 @@ def verify(images, revision, config_id, identity_id):
     result = {}
     for role, info in resolved.items():
         cfg = info["Config"]
-        if cfg.get("Labels", {}).get("org.opencontainers.image.revision") != revision:
+        if (cfg.get("Labels") or {}).get("org.opencontainers.image.revision") != revision:
             raise ValueError("image revision mismatch")
         user = cfg.get("User", "").split(":")[0]
         if not user or user in ("0", "root"):
