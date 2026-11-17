@@ -282,6 +282,10 @@ func run() error {
 		employeeimport.Mount(mux, cfg.AdminAPIToken, resolver, amocrmAPI)
 		adminCRMServer = httpserver.New(cfg.AdminCRMHTTPAddress, mux)
 	}
+	platformGateway, _, platformGatewayFailed, err := startPlatformAccountGateway(pool, amocrmAPI, os.Getenv("PLATFORM_ACCOUNT_GATEWAY_GRPC_ADDRESS"))
+	if err != nil {
+		return err
+	}
 	errChannel := make(chan error, 7)
 	var processes sync.WaitGroup
 	processes.Add(3)
@@ -331,9 +335,13 @@ func run() error {
 	case <-signalContext.Done():
 	case <-components.Failed():
 		runError = components.Err()
+	case runError = <-platformGatewayFailed:
 	case runError = <-errChannel:
 	}
 	cancelAll()
+	if platformGateway != nil {
+		platformGateway.Stop()
+	}
 	processes.Wait()
 	if runError != nil && !errors.Is(runError, context.Canceled) {
 		return runError

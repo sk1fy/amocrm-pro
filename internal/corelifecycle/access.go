@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sk1fy/amocrm-pro/internal/platformaccess"
 	"github.com/sk1fy/amocrm-pro/internal/widgetauth"
@@ -14,14 +15,30 @@ var ErrAccessProofDenied = errors.New("Core installation is not authorized for a
 var ErrAccessProofPolicy = errors.New("Core installation has no unambiguous access proof policy")
 
 func (s *Store) AccessProofScope(ctx context.Context, principal widgetauth.Principal) (platformaccess.Scope, error) {
-	scope := platformaccess.Scope{
-		Account: strconv.FormatInt(principal.AccountID, 10), Integration: principal.IntegrationID,
-		Installation: principal.InstallationID,
+	authority, err := s.platformInstallationAuthority(ctx, principal.AccountID, principal.InstallationID, principal.IntegrationID)
+	if err != nil {
+		return platformaccess.Scope{}, err
 	}
+	return platformaccess.Scope{
+		Account: strconv.FormatInt(principal.AccountID, 10), Product: authority.productCode,
+		Integration: principal.IntegrationID, Installation: principal.InstallationID,
+		Generation: authority.generation, AuthorizationSequence: authority.authorizationSequence,
+	}, nil
+}
+
+type platformInstallationAuthority struct {
+	productCode           string
+	domain                string
+	generation            int64
+	authorizationSequence int64
+}
+
+func (s *Store) platformInstallationAuthority(ctx context.Context, account int64, installation, integration uuid.UUID) (platformInstallationAuthority, error) {
+	var authority platformInstallationAuthority
 	var product *string
 	var unambiguous, authorized bool
 	err := s.pool.QueryRow(ctx, `
-		SELECT m.product_code,
+		SELECT m.product_code,i.account_domain,
 			p.account_id IS NOT NULL
 				AND EXISTS(SELECT 1 FROM platform_lifecycle_manifest WHERE version=1)
 				AND NOT EXISTS(
@@ -39,18 +56,18 @@ func (s *Store) AccessProofScope(ctx context.Context, principal widgetauth.Princ
 		LEFT JOIN platform_lifecycle_cursors c ON c.installation_id=i.id
 		WHERE i.id=$1 AND i.integration_id=$2 AND i.account_id=$3
 			AND n.status='active' AND i.status='active'`,
-		principal.InstallationID, principal.IntegrationID, principal.AccountID).
-		Scan(&product, &unambiguous, &authorized, &scope.Generation, &scope.AuthorizationSequence)
+		installation, integration, account).
+		Scan(&product, &authority.domain, &unambiguous, &authorized, &authority.generation, &authority.authorizationSequence)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		return platformaccess.Scope{}, ErrAccessProofDenied
+		return platformInstallationAuthority{}, ErrAccessProofDenied
 	case err != nil:
-		return platformaccess.Scope{}, err
+		return platformInstallationAuthority{}, err
 	case product == nil || !unambiguous:
-		return platformaccess.Scope{}, ErrAccessProofPolicy
+		return platformInstallationAuthority{}, ErrAccessProofPolicy
 	case !authorized:
-		return platformaccess.Scope{}, ErrAccessProofDenied
+		return platformInstallationAuthority{}, ErrAccessProofDenied
 	}
-	scope.Product = *product
-	return scope, nil
+	authority.productCode = *product
+	return authority, nil
 }
