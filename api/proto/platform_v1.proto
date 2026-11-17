@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package amocrm.platform.v1;
+option go_package = "github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb";
+
+// Only the Platform service identity may read the Core-owned snapshot.
+// Core policy checks the installation scope carried by auth on every call.
+service CoreInstallations {
+  rpc GetSnapshot(GetSnapshotRequest) returns (InstallationSnapshot);
+}
+
+message GetSnapshotRequest {
+  string auth = 1; // Short-lived Core delegation for platform_installations/snapshot.
+  string core_installation_id = 2;
+}
+
+enum Authorization {
+  AUTHORIZATION_UNSPECIFIED = 0;
+  AUTHORIZATION_AUTHORIZED = 1;
+  AUTHORIZATION_REAUTH_REQUIRED = 2;
+  AUTHORIZATION_DISABLED = 3;
+  AUTHORIZATION_UNKNOWN = 4;
+}
+
+message InstallationSnapshot {
+  string core_installation_id = 1;
+  string integration_id = 2;
+  int64 amo_account_id = 3;
+  optional string current_domain = 4;
+  Authorization authorization = 5;
+  int64 observed_at_unix = 6;
+  // Legacy rows can lack a known lifecycle. Both fields are present or absent.
+  optional uint64 generation = 7;
+  optional uint64 sequence = 8;
+  optional uint64 authorization_sequence = 9;
+}

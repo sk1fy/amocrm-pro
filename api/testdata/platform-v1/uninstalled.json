@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "amo_account_id": "9007199254740993",
+  "integration_id": "eb48bba7-e53a-4d58-a139-813f4dc59788",
+  "core_installation_id": "fc491711-f785-423f-a7a8-c614d6779e8c",
+  "event_id": "57802473-b99e-4a41-a35d-c835303efa03",
+  "kind": "uninstalled",
+  "occurred_at": "2026-10-01T12:03:00Z",
+  "generation": 1,
+  "sequence": 3,
+  "evidence": {
+    "source": "core_uninstall",
+    "ref": "2b267994-859f-4b30-a283-0a98fe122c03"
+  }
+}
