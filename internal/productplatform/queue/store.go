@@ -129,17 +129,22 @@ func finishLease(ctx context.Context, db leaseExecutor, lease Lease, outcome Out
 	var retryAfter time.Duration
 	if outcome.FailureCode != "" {
 		status = Dead
+		retryAfter = outcome.RetryAfter
 		if outcome.Retry && lease.Attempt < lease.MaxAttempts {
 			status = Queued
 			retryAfter = max(min(time.Second<<(lease.Attempt-1), time.Minute), outcome.RetryAfter)
 		}
 	}
+	delayMilliseconds := retryAfter.Milliseconds()
+	if retryAfter%time.Millisecond > 0 {
+		delayMilliseconds++
+	}
 	tag, err := db.Exec(ctx, `
 		UPDATE platform_jobs.jobs
 		SET status=$3, lease_until=NULL, updated_at=clock_timestamp(), failure_code=NULLIF($5,''),
-			available_at=CASE WHEN $3='queued' THEN clock_timestamp()+($4::bigint*interval '1 millisecond') ELSE available_at END
+			available_at=CASE WHEN $4::bigint>0 THEN clock_timestamp()+($4*interval '1 millisecond') ELSE available_at END
 		WHERE id=$1 AND attempt=$2 AND status='running' AND lease_until>clock_timestamp()
-	`, lease.ID, lease.Attempt, status, retryAfter.Milliseconds(), outcome.FailureCode)
+	`, lease.ID, lease.Attempt, status, delayMilliseconds, outcome.FailureCode)
 	if err != nil {
 		return "", err
 	}

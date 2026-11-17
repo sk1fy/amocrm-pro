@@ -173,6 +173,51 @@ func TestPlatformAccountsAcrossReplicas(t *testing.T) {
 		t.Fatalf("successful explicit empty roster was not retained: %s", result.body)
 	}
 
+	worker.stop(t)
+	exhausted := newManagerTestCommand(account, 0)
+	managerRequest(t, manager, http.MethodPost, first.private+refreshPath, writer, exhausted, body, http.StatusAccepted)
+	_, err = owner.Exec(ctx, `UPDATE platform_jobs.jobs SET max_attempts=1
+		WHERE id=(SELECT job_id FROM platform_manager.account_refresh_work WHERE command_id=$1)`, exhausted.id)
+	mustManager(t, err)
+	startManagerProcess(t, append(env, "PLATFORM_WORKERS=2")...)
+	finished := nextAccountFixtureCall(t, ctx, gateway)
+	finished.answer <- accountFixtureAnswer{err: backoff.Err()}
+	exhaustedOperation := waitAccountOperation(t, ctx, manager, second.private+path(exhausted), writer, "failed")
+	if exhaustedOperation.Error == nil || exhaustedOperation.Error.Error.Code != "source_rate_limited" {
+		t.Fatalf("last attempt did not preserve the rate-limit failure: %+v", exhaustedOperation)
+	}
+	var cooldownUntil, attemptedAt time.Time
+	mustManager(t, owner.QueryRow(ctx, `SELECT j.available_at,j.updated_at FROM platform_jobs.jobs j
+		JOIN platform_manager.account_refresh_work w ON w.job_id=j.id WHERE w.command_id=$1`, exhausted.id).
+		Scan(&cooldownUntil, &attemptedAt))
+	if cooldownUntil.Sub(attemptedAt) < 2900*time.Millisecond {
+		t.Fatalf("last attempt dropped the supplier cooldown: available %s, finished %s", cooldownUntil, attemptedAt)
+	}
+	afterCooldown := newManagerTestCommand(account, 0)
+	managerRequest(t, manager, http.MethodPost, second.private+refreshPath, other, afterCooldown, body, http.StatusAccepted)
+	var nextAvailable time.Time
+	var attempts int
+	mustManager(t, owner.QueryRow(ctx, `SELECT j.available_at,j.attempt FROM platform_jobs.jobs j
+		JOIN platform_manager.account_refresh_work w ON w.job_id=j.id WHERE w.command_id=$1`, afterCooldown.id).
+		Scan(&nextAvailable, &attempts))
+	if !nextAvailable.Equal(cooldownUntil) || attempts != 0 {
+		t.Fatalf("new command bypassed the cooldown: available %s, want %s, attempts %d", nextAvailable, cooldownUntil, attempts)
+	}
+	waiting = waitAccountOperation(t, ctx, manager, first.private+path(afterCooldown), other, "waiting_external")
+	if waiting.RetryAfter < 1 {
+		t.Fatalf("new command did not report its inherited cooldown: %+v", waiting)
+	}
+	afterBackoff := nextAccountFixtureCall(t, ctx, gateway)
+	var claimedAt time.Time
+	mustManager(t, owner.QueryRow(ctx, `SELECT j.updated_at FROM platform_jobs.jobs j
+		JOIN platform_manager.account_refresh_work w ON w.job_id=j.id
+		WHERE w.command_id=$1 AND j.status='running'`, afterCooldown.id).Scan(&claimedAt))
+	if claimedAt.Before(cooldownUntil) {
+		t.Fatalf("worker called the Gateway from a lease claimed at %s before the cooldown ended at %s", claimedAt, cooldownUntil)
+	}
+	afterBackoff.answer <- accountFixtureAnswer{}
+	waitAccountOperation(t, ctx, manager, second.private+path(afterCooldown), other, "succeeded")
+
 	listURL := managerPath + "accounts?limit=1&sort=amo_account_id"
 	page := managerJSON[accountPage](t, managerRequest(t, manager, http.MethodGet, first.private+listURL,
 		writer, managerTestCommand{}, "", http.StatusOK).body)

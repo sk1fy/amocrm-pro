@@ -106,10 +106,13 @@ CREATE INDEX account_refresh_active ON platform_jobs.jobs (id)
 
 CREATE FUNCTION platform_manager.enqueue_account_refresh(account UUID, part TEXT, job UUID)
 RETURNS VOID LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
-    INSERT INTO platform_jobs.jobs(id, kind, payload)
-    SELECT job, 'accounts.refresh', jsonb_build_object('account_id', account, 'component', part)
-    WHERE EXISTS (SELECT 1 FROM platform_manager.account_refresh_slots s
-                      WHERE s.account_id=account AND s.component=part)
+    INSERT INTO platform_jobs.jobs(id, kind, payload, available_at)
+    SELECT job, 'accounts.refresh', jsonb_build_object('account_id', account, 'component', part),
+           GREATEST(statement_timestamp(), previous.available_at)
+    FROM platform_manager.account_refresh_slots s
+    LEFT JOIN platform_jobs.jobs previous ON previous.id=s.job_id
+        AND previous.status='dead' AND previous.failure_code='source_rate_limited'
+    WHERE s.account_id=account AND s.component=part
       AND EXISTS (SELECT 1 FROM platform_manager.visible_accounts a WHERE a.account_id=account)
 $$;
 REVOKE ALL ON FUNCTION platform_manager.enqueue_account_refresh(UUID, TEXT, UUID) FROM PUBLIC;

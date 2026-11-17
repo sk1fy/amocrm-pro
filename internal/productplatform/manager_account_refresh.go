@@ -176,7 +176,6 @@ func joinAccountRefresh(ctx context.Context, tx pgx.Tx, account uuid.UUID, part 
 
 type accountWorkState struct {
 	Status      queue.Status
-	Attempt     int
 	AvailableAt time.Time
 	UpdatedAt   time.Time
 	Failure     *string
@@ -185,7 +184,7 @@ type accountWorkState struct {
 func (s managerStore) accountOperation(ctx context.Context, id, actor, requestID uuid.UUID) (accountOperation, error) {
 	var operation accountOperation
 	rows, err := s.pool.Query(ctx, `
-		SELECT cmd.account_id,cmd.created_at,j.status,j.attempt,j.available_at,j.updated_at,j.failure_code,statement_timestamp()
+		SELECT cmd.account_id,cmd.created_at,j.status,j.available_at,j.updated_at,j.failure_code,statement_timestamp()
 		FROM platform_manager.commands cmd
 		JOIN platform_manager.visible_accounts a ON a.account_id=cmd.account_id
 		JOIN platform_manager.account_refresh_work w ON w.command_id=cmd.id
@@ -201,7 +200,7 @@ func (s managerStore) accountOperation(ctx context.Context, id, actor, requestID
 	var created, now time.Time
 	for rows.Next() {
 		var state accountWorkState
-		if err := rows.Scan(&account, &created, &state.Status, &state.Attempt, &state.AvailableAt, &state.UpdatedAt, &state.Failure, &now); err != nil {
+		if err := rows.Scan(&account, &created, &state.Status, &state.AvailableAt, &state.UpdatedAt, &state.Failure, &now); err != nil {
 			return operation, err
 		}
 		work = append(work, state)
@@ -229,7 +228,7 @@ func summarizeAccountOperation(id, account, requestID uuid.UUID, created, now ti
 			active = true
 		case queue.Queued:
 			pending = true
-			if state.Attempt > 0 && state.AvailableAt.After(now) {
+			if state.AvailableAt.After(now) {
 				delayed = true
 				delay := state.AvailableAt.Sub(now)
 				seconds := int(delay / time.Second)
