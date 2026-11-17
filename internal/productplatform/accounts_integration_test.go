@@ -239,6 +239,20 @@ func TestPlatformAccountsAcrossReplicas(t *testing.T) {
 	}
 	managerRequest(t, manager, http.MethodGet, second.private+secondPageURL, reader, managerTestCommand{}, "", http.StatusBadRequest)
 
+	_, err = owner.Exec(ctx, `INSERT INTO platform_manager.account_domains(account_id,domain) VALUES($1,'previous.amocrm.ru')`, account)
+	mustManager(t, err)
+	matched := managerJSON[accountPage](t, managerRequest(t, manager, http.MethodGet,
+		first.private+managerPath+"accounts?q=PREVIOUS&limit=1", writer, managerTestCommand{}, "", http.StatusOK).body)
+	if matched.Summary.Total != 1 || len(matched.Items) != 1 || matched.Next != nil ||
+		!bytes.Contains(matched.Items[0], []byte(`"domain_aliases":["previous.amocrm.ru"]`)) {
+		t.Fatalf("alias search did not return the only matching account: %+v", matched)
+	}
+	empty := managerJSON[accountPage](t, managerRequest(t, manager, http.MethodGet,
+		second.private+managerPath+"accounts?q=unmatched-domain", writer, managerTestCommand{}, "", http.StatusOK).body)
+	if empty.Summary.Total != 0 || empty.Items == nil || len(empty.Items) != 0 || empty.Next != nil {
+		t.Fatalf("short empty search did not return a present empty items array: %+v", empty)
+	}
+
 	_, err = owner.Exec(ctx, `DELETE FROM platform_lifecycle.scope WHERE integration_id=$1 AND amo_account_id=2542`, pilot.otherIntegration)
 	mustManager(t, err)
 	managerRequest(t, manager, http.MethodGet, first.private+usersPath, writer, managerTestCommand{}, "", http.StatusNotFound)

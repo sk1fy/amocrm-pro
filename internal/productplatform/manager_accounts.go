@@ -54,12 +54,7 @@ type accountSeek struct {
 
 const accountObservationJoins = `
 	LEFT JOIN platform_manager.account_identities i USING(account_id)
-	LEFT JOIN platform_manager.account_rosters u USING(account_id)
-	LEFT JOIN LATERAL (
-		SELECT array_agg(domain ORDER BY domain) AS aliases
-		FROM platform_manager.account_domains d
-		WHERE d.account_id=a.account_id AND d.domain<>i.current_domain
-	) d ON true`
+	LEFT JOIN platform_manager.account_rosters u USING(account_id)`
 
 const rosterObservationState = `
 	CASE WHEN u.observed_at IS NULL THEN 'unknown'
@@ -76,7 +71,9 @@ const unsupportedAccountObservation = `jsonb_build_object('state','unsupported',
 
 const accountSummaryJSON = `jsonb_build_object(
 	'account_id',a.account_id,'amo_account_id',a.amo_account_id::text,'current_domain',i.current_domain,
-	'domain_aliases',d.aliases,'display_name',i.display_name,'classification',NULL,'version',1,
+	'domain_aliases',(SELECT array_agg(d.domain ORDER BY d.domain) FROM platform_manager.account_domains d
+		WHERE d.account_id=a.account_id AND d.domain<>i.current_domain),
+	'display_name',i.display_name,'classification',NULL,'version',1,
 	'active_products_count',a.active_products_count,'license',` + unsupportedAccountObservation + `,
 	'active_users',jsonb_strip_nulls(jsonb_build_object('value',u.active_count,` + rosterObservationFields + `)))`
 
@@ -126,19 +123,11 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 	if _, err = tx.Exec(ctx, `UPDATE platform_manager.account_snapshot_admission SET marker=NOT marker WHERE id`); err != nil {
 		return page, accountSeek{}, err
 	}
-	snapshot := uuid.New()
+	args := []any{f.Q, f.Classification, f.Product, f.LicenseBefore, f.UsersMin, f.UsersMax}
 	err = tx.QueryRow(ctx, `
-		WITH matching AS MATERIALIZED (
-			SELECT row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer AS ordinal,
-			       `+accountSummaryJSON+` AS item
-			FROM platform_manager.visible_accounts a `+accountObservationJoins+`
-			`+accountListWhere+`
-			ORDER BY `+accountOrder(f.Sort)+` LIMIT $7
-		)
-		SELECT transaction_timestamp(),count(*)::integer,
-			COALESCE(jsonb_agg(item ORDER BY ordinal) FILTER (WHERE ordinal<=$8),'[]'::jsonb)
-		FROM matching`, f.Q, f.Classification, f.Product, f.LicenseBefore, f.UsersMin, f.UsersMax, accountSnapshotRows+1, f.Limit).
-		Scan(&page.SnapshotAt, &page.Summary.Total, &page.Items)
+		SELECT transaction_timestamp(),count(*)::integer
+		FROM (SELECT 1 `+accountListFrom+` LIMIT $7) matching`,
+		append(args, accountSnapshotRows+1)...).Scan(&page.SnapshotAt, &page.Summary.Total)
 	if err != nil {
 		return page, accountSeek{}, err
 	}
@@ -147,16 +136,37 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 		return page, accountSeek{}, errManagerSnapshotLimit
 	}
 	if page.Summary.Total <= f.Limit {
+		rows, err := tx.Query(ctx, `SELECT `+accountSummaryJSON+accountListFrom+` ORDER BY `+accountOrder(f.Sort)+` LIMIT $7`,
+			append(args, f.Limit)...)
+		if err != nil {
+			return page, accountSeek{}, err
+		}
+		page.Items, err = pgx.CollectRows(rows, pgx.RowTo[json.RawMessage])
+		if err != nil {
+			return page, accountSeek{}, err
+		}
 		return page, accountSeek{}, tx.Commit(ctx)
 	}
-	if err = saveAccountSnapshot(ctx, tx, snapshot, actor, f, page, queryHash); err != nil {
+	snapshot := uuid.New()
+	if err = saveAccountSnapshot(ctx, tx, snapshot, actor, page, queryHash); err != nil {
+		return page, accountSeek{}, err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO platform_manager.account_snapshot_items(snapshot_id,ordinal,item)
+		SELECT $7,row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer,`+accountSummaryJSON+accountListFrom,
+		append(args, snapshot)...)
+	if err != nil {
+		return page, accountSeek{}, err
+	}
+	page.Items, err = readAccountSnapshotItems(ctx, tx, accountSeek{Snapshot: snapshot}, f.Limit)
+	if err != nil {
 		return page, accountSeek{}, err
 	}
 	return page, accountSeek{Snapshot: snapshot, Ordinal: f.Limit}, tx.Commit(ctx)
 }
 
 func saveAccountSnapshot(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor managerActor,
-	f accountFilters, page accountPage, queryHash [32]byte) error {
+	page accountPage, queryHash [32]byte) error {
 	if _, err := tx.Exec(ctx, `
 		DELETE FROM platform_manager.account_snapshots WHERE expires_at<=transaction_timestamp()
 		  OR id IN (
@@ -172,24 +182,19 @@ func saveAccountSnapshot(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor man
 	if total >= accountGlobalSnapshots {
 		return errManagerSnapshotLimit
 	}
-	if _, err := tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 		INSERT INTO platform_manager.account_snapshots(id,subject_id,grants_version,query_hash,scope_hash,snapshot_at,expires_at,total)
 		VALUES($1,$2,$3,$4,`+approvedScopeHash+`,$5,$6,$7)`, id, actor.Subject, actor.GrantsVersion,
-		queryHash[:], page.SnapshotAt, page.SnapshotAt.Add(managerSnapshotTTL), page.Summary.Total); err != nil {
-		return err
-	}
-	_, err := tx.Exec(ctx, `
-		INSERT INTO platform_manager.account_snapshot_items(snapshot_id,ordinal,item)
-		SELECT $7,row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer,`+accountSummaryJSON+`
-		FROM platform_manager.visible_accounts a `+accountObservationJoins+accountListWhere,
-		f.Q, f.Classification, f.Product, f.LicenseBefore, f.UsersMin, f.UsersMax, id)
+		queryHash[:], page.SnapshotAt, page.SnapshotAt.Add(managerSnapshotTTL), page.Summary.Total)
 	return err
 }
 
-const accountListWhere = `
+const accountListFrom = `
+	FROM platform_manager.visible_accounts a ` + accountObservationJoins + `
 	WHERE ($1='' OR strpos(a.amo_account_id::text,$1)>0 OR strpos(lower(i.display_name),lower($1))>0
 		OR strpos(lower(i.current_domain),lower($1))>0
-		OR EXISTS (SELECT FROM unnest(d.aliases) AS alias WHERE strpos(lower(alias),lower($1))>0))
+		OR EXISTS (SELECT FROM platform_manager.account_domains d WHERE d.account_id=a.account_id
+			AND d.domain<>i.current_domain AND strpos(lower(d.domain),lower($1))>0))
 	  AND COALESCE(cardinality($2::text[]),0)=0
 	  AND ($3::uuid IS NULL OR EXISTS (
 		SELECT FROM platform_manager.account_memberships p WHERE p.account_id=a.account_id AND p.product_id=$3))
@@ -211,11 +216,7 @@ func continueAccounts(ctx context.Context, tx pgx.Tx, actor managerActor, f acco
 		return page, accountSeek{}, err
 	}
 	page.SnapshotAt = page.SnapshotAt.UTC()
-	err = tx.QueryRow(ctx, `
-		SELECT COALESCE(jsonb_agg(item ORDER BY ordinal),'[]'::jsonb) FROM (
-			SELECT ordinal,item FROM platform_manager.account_snapshot_items
-			WHERE snapshot_id=$1 AND ordinal>$2 ORDER BY ordinal LIMIT $3
-		) page`, after.Snapshot, after.Ordinal, f.Limit).Scan(&page.Items)
+	page.Items, err = readAccountSnapshotItems(ctx, tx, after, f.Limit)
 	if err != nil {
 		return page, accountSeek{}, err
 	}
@@ -227,6 +228,16 @@ func continueAccounts(ctx context.Context, tx pgx.Tx, actor managerActor, f acco
 		after = accountSeek{}
 	}
 	return page, after, tx.Commit(ctx)
+}
+
+func readAccountSnapshotItems(ctx context.Context, tx pgx.Tx, after accountSeek, limit int) ([]json.RawMessage, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT item FROM platform_manager.account_snapshot_items
+		WHERE snapshot_id=$1 AND ordinal>$2 ORDER BY ordinal LIMIT $3`, after.Snapshot, after.Ordinal, limit)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[json.RawMessage])
 }
 
 func (s managerStore) accountDetail(ctx context.Context, id uuid.UUID, actions []accountCapability) (json.RawMessage, error) {
