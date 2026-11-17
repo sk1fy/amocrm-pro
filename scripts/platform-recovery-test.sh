@@ -75,7 +75,7 @@ test "$(docker exec "$runner" /proof/current --version)" = "$current_revision"
 test "$(docker exec "$runner" /proof/rollback --version)" = "$rollback_revision"
 test "$(docker run --rm "$PLATFORM_RECOVERY_MIGRATE_IMAGE" --version)" = "$current_revision"
 # Compile once; every phase below runs this exact test executable.
-docker exec "$runner" go test -c -o /proof/integration.test ./internal/productplatform
+docker exec "$runner" go test -race -c -o /proof/integration.test ./internal/productplatform
 docker exec "$runner" go run ./cmd/service-certs --platform /certificates/generated
 phase() {
     docker exec -e "PLATFORM_TEST_OWNER_DSN=postgres://platform_owner:platform_owner_dev@$1:5432/amocrm_platform?sslmode=disable" \
