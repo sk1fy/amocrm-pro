@@ -228,3 +228,21 @@ func TestCompanySourceConfig(t *testing.T) {
 		t.Fatal("partial configuration accepted")
 	}
 }
+
+func TestCompanySourceRetryDeadline(t *testing.T) {
+	now := time.Now()
+	for _, raw := range []string{"172800", "9223372036854775807"} {
+		at := retryAt(raw, now)
+		if at == nil || at.Before(now.Add(48*time.Hour)) {
+			t.Fatalf("retry deadline shortened: %s %v", raw, at)
+		}
+	}
+	if retryAt("invalid", now) != nil {
+		t.Fatal("invalid retry header accepted")
+	}
+	future := now.Add(time.Hour).UTC().Truncate(time.Second)
+	at := retryAt(future.Format(http.TimeFormat), now)
+	if at == nil || !at.Equal(future) {
+		t.Fatal("HTTP-date retry lost")
+	}
+}

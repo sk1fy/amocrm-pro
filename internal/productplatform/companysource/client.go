@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 )
@@ -166,12 +167,15 @@ func read[T any](ctx context.Context, c *Client, path string) (Result[T], error)
 	if len(body) == 0 && resp.StatusCode != 200 {
 		return result, errors.New("company source failed without envelope")
 	}
+	if !utf8.Valid(body) {
+		return result, errors.New("invalid company source response encoding")
+	}
 	if err := json.Unmarshal(body, &result.Response); err != nil {
 		return result, errors.New("invalid company source response")
 	}
 	s := result.Response.Source
 	if s.RetryAfter > 0 {
-		at := now.Add(time.Duration(min(s.RetryAfter, 86400)) * time.Second)
+		at := now.Add(time.Duration(min(s.RetryAfter, int64((1<<63-1)/time.Second))) * time.Second)
 		if result.RetryAt == nil || at.After(*result.RetryAt) {
 			result.RetryAt = &at
 		}
@@ -188,7 +192,7 @@ func read[T any](ctx context.Context, c *Client, path string) (Result[T], error)
 }
 func retryAt(raw string, now time.Time) *time.Time {
 	if n, e := strconv.ParseInt(raw, 10, 64); e == nil && n > 0 {
-		t := now.Add(time.Duration(min(n, 86400)) * time.Second)
+		t := now.Add(time.Duration(min(n, int64((1<<63-1)/time.Second))) * time.Second)
 		return &t
 	}
 	if t, e := http.ParseTime(raw); e == nil && t.After(now) {

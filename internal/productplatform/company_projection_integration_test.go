@@ -95,6 +95,10 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 			w.WriteHeader(403)
 			return
 		}
+		if mode == "bare429" {
+			w.WriteHeader(429)
+			return
+		}
 		s := companycrm.Source{AccountID: 12, BindingRevision: "r1", State: "fresh", Complete: true, ObservedAt: &at, FreshUntil: &until}
 		if mode == "partial" {
 			s.Complete = false
@@ -401,7 +405,7 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 	})
 	// A failed full read retains the last complete generation and a shared cooldown.
 	mu.Lock()
-	mode = "rate"
+	mode = "bare429"
 	mu.Unlock()
 	_, err = owner.Exec(ctx, `UPDATE platform_company.source_components SET next_refresh=NULL`)
 	mustManager(t, err)
