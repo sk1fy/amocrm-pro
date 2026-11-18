@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/admincrm"
+	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/companyentry"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
 	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
@@ -286,9 +287,24 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	errChannel := make(chan error, 7)
+	companyConfig, err := companycrm.LoadConfig()
+	if err != nil {
+		return err
+	}
+	companyServer, err := companyCRMServer(ctx, pool, amocrmAPI, tokenProvider, companyConfig)
+	if err != nil {
+		return err
+	}
+	errChannel := make(chan error, 8)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if companyServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- runCompanyCRM(ctx, companyServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	if companyEntryServer != nil {
 		processes.Add(1)
 		go func() {

@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info:
+  title: Core company CRM reads
+  version: 1.0.0
+  description: Private singleton worker HTTPS listener. No caller-selected credential, host, account or provider path.
+servers:
+  - url: https://core-company-crm
+security:
+  - serviceMTLS: []
+paths:
+  /v1/company-crm/staff:
+    get:
+      operationId: Staff
+      description: Only exact SPIFFE admin-company-directory. Missing activity is unknown; absence never proves removal.
+      responses:
+        '200':
+          description: Complete fresh or retained stale staff snapshot.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        nullable: true
+                        items:
+                          type: object
+                          required: [id, name, email, activity]
+                          properties:
+                            id: {type: integer, format: int64}
+                            name: {type: string}
+                            email: {type: string}
+                            activity: {type: string, enum: [active, inactive, unknown]}
+        '400': {description: Query parameters are rejected.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/Busy'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/company-crm/clients:
+    get:
+      operationId: Clients
+      description: Only exact SPIFFE platform-company-crm. No query parameters. Account resolution never uses name, email or Web.
+      responses:
+        '200':
+          description: Complete fresh or retained stale companies and contacts. Multiple accounts may share a company.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        nullable: true
+                        required: [companies, contacts]
+                        properties:
+                          companies:
+                            type: array
+                            items:
+                              type: object
+                              required: [company_id, name, account_ids, resolution]
+                              properties:
+                                company_id: {type: integer, format: int64}
+                                name: {type: string}
+                                account_ids: {type: array, items: {type: integer, format: int64}}
+                                resolution: {type: string, enum: [zero, one, multiple, unknown]}
+                          contacts:
+                            type: array
+                            items:
+                              type: object
+                              required: [id, name, company_ids]
+                              properties:
+                                id: {type: integer, format: int64}
+                                name: {type: string}
+                                company_ids: {type: array, items: {type: integer, format: int64}}
+        '400': {description: Query parameters are rejected.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/Busy'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/company-crm/workflow-metadata:
+    get:
+      operationId: WorkflowMetadata
+      description: Only exact SPIFFE platform-company-crm. Required-field readiness remains unknown.
+      responses:
+        '200':
+          description: Pipeline stage IDs and observed lead custom fields. This is not write readiness.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        nullable: true
+                        required: [pipelines, lead_fields, required_fields_state]
+                        properties:
+                          required_fields_state: {type: string, enum: [unknown]}
+                          pipelines:
+                            type: array
+                            items:
+                              type: object
+                              required: [id, name, _embedded]
+                              properties:
+                                id: {type: integer, format: int64}
+                                name: {type: string}
+                                _embedded:
+                                  type: object
+                                  properties:
+                                    statuses:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id: {type: integer, format: int64}
+                                          name: {type: string}
+                                          pipeline_id: {type: integer, format: int64}
+                                          type: {type: integer}
+                          lead_fields:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id: {type: integer, format: int64}
+                                name: {type: string}
+                                type: {type: string}
+                                enums: {type: array, nullable: true, items: {type: object}}
+                                required_statuses: {type: array, nullable: true, items: {type: object}}
+        '400': {description: Query parameters are rejected.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/Busy'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/company-crm/validate-workflow:
+    post:
+      operationId: ValidateWorkflow
+      description: Read-only validation of pipeline/stage membership for platform-company-crm. Never enables effects.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [binding_revision, pipeline_id, stage_id]
+              properties:
+                binding_revision: {type: string}
+                pipeline_id: {type: integer, format: int64, minimum: 1}
+                stage_id: {type: integer, format: int64, minimum: 1}
+      responses:
+        '200':
+          description: Validation result with honest limited scope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [source, scope, valid, code, write_ready]
+                properties:
+                  source: {$ref: '#/components/schemas/Source'}
+                  scope: {type: string, enum: [pipeline_stage]}
+                  valid: {type: boolean}
+                  code: {type: string, enum: [source_unavailable, binding_mismatch, invalid_stage, pipeline_stage_valid]}
+                  write_ready: {type: boolean, enum: [false]}
+        '400': {description: Invalid or oversized body, unknown property or query parameter.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/Busy'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+components:
+  securitySchemes:
+    serviceMTLS:
+      type: http
+      scheme: mutualTLS
+      description: TLS 1.3 verified client certificate with exactly one authorized spiffe://amocrm-pro service URI. No CN/header fallback.
+  schemas:
+    Envelope:
+      type: object
+      required: [source, data]
+      properties:
+        source: {$ref: '#/components/schemas/Source'}
+        data: {nullable: true}
+    Source:
+      type: object
+      required: [account_id, binding_revision, complete, state, observed_at, fresh_until, retry_after]
+      properties:
+        account_id: {type: integer, format: int64}
+        binding_revision: {type: string}
+        complete: {type: boolean, description: Data is the last complete snapshot. Never describes a partial scan.}
+        state: {type: string, enum: [fresh, stale, error]}
+        observed_at: {type: string, format: date-time, nullable: true}
+        fresh_until: {type: string, format: date-time, nullable: true}
+        retry_after: {type: integer, format: int64, description: Seconds before retry.}
+        error_code: {type: string}
+  responses:
+    Forbidden:
+      description: Certificate identity cannot invoke this method. Missing or wrong-EKU certificates fail TLS before HTTP.
+    Busy:
+      description: Admission exhausted. Retry-After header is seconds.
+    Unavailable:
+      description: No complete snapshot is available. Source is error and data is null. Retry-After is seconds. Older complete data returns 200 stale under its original account/revision.
