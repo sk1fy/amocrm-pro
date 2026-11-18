@@ -28,7 +28,9 @@ verify provider account identity before scanning. A cold binding or provider
 failure returns HTTP 503 with null data and an incomplete error source. Reads
 recover after the existing retry interval when the dependency is healthy.
 Provider 429 cooldowns start on receipt and apply across methods. Use the response
-`X-Request-ID` for correlation. Each read retains its ten-second context.
+`X-Request-ID` for correlation. A read has up to 150 seconds, including time waiting for the provider.
+The contact scan allows up to 100 pages of 250 contacts. The Core cache serves
+the completed directory for four minutes before attempting another scan.
 The server certificate must verify for the hostname callers use. The
 existing service certificate tooling retains its CA layout. Provision
 separate client-auth certificates through the trusted service identity process

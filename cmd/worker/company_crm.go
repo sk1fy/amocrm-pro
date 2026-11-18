@@ -37,6 +37,7 @@ func companyCRMServer(pool *pgxpool.Pool, client *amocrm.Client, tokens amocrm.T
 	}
 	server := httpserver.New(cfg.Address, httpmiddleware.RequestID(companycrm.Router(service)))
 	server.TLSConfig = tlsConfig
+	server.WriteTimeout = companycrm.ReadTimeout + 5*time.Second
 	return server, nil
 }
 

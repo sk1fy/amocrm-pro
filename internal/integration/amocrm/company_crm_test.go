@@ -30,6 +30,26 @@ func TestCompanyCRMStaffPreservesUnknownAndReadsEveryPage(t *testing.T) {
 		t.Fatalf("users=%+v err=%v pages=%d", users, err, pages)
 	}
 }
+func TestCompanyCRMContactsReadPastFortyPages(t *testing.T) {
+	const totalPages = 41
+	page := 0
+	c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+		page++
+		if r.URL.Path != "/api/v4/contacts" || r.URL.Query().Get("page") != fmt.Sprint(page) {
+			t.Errorf("unexpected request: %s", r.URL)
+		}
+		var next string
+		if page < totalPages {
+			next = `,"_links":{"next":{"href":"next"}}`
+		}
+		fmt.Fprintf(w, `{"_page":%d,"_page_count":41,"_total_items":41,"_embedded":{"contacts":[{"id":%d,"account_id":7}]}%s}`, page, page, next)
+	})
+	contacts, err := c.CompanyCRMContacts(t.Context(), uuid.New(), 7)
+	if err != nil || len(contacts) != totalPages || contacts[totalPages-1].ID != totalPages {
+		t.Fatalf("scanned %d pages and got %d contacts: %v", page, len(contacts), err)
+	}
+}
+
 func TestCompanyCRMPageFailureNeverReturnsPartial(t *testing.T) {
 	c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("page") == "1" {

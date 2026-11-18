@@ -18,7 +18,10 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 )
 
-const MaxBody = 8 << 20
+const (
+	MaxBody     = 8 << 20
+	readTimeout = companycrm.ReadTimeout + 5*time.Second
+)
 
 type Config struct {
 	Origin, CAFile, CertFile, KeyFile string
@@ -88,8 +91,8 @@ func New(c Config) (*Client, error) {
 		}
 		return nil
 	}}
-	transport := &http.Transport{TLSClientConfig: t, Proxy: nil, DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext, TLSHandshakeTimeout: 3 * time.Second, ResponseHeaderTimeout: 10 * time.Second, MaxResponseHeaderBytes: 16 << 10, MaxIdleConnsPerHost: 2, IdleConnTimeout: time.Minute}
-	return &Client{config: c, http: &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("company source redirect rejected") }}}, nil
+	transport := &http.Transport{TLSClientConfig: t, Proxy: nil, DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext, TLSHandshakeTimeout: 3 * time.Second, ResponseHeaderTimeout: companycrm.ReadTimeout + 3*time.Second, MaxResponseHeaderBytes: 16 << 10, MaxIdleConnsPerHost: 2, IdleConnTimeout: time.Minute}
+	return &Client{config: c, http: &http.Client{Transport: transport, Timeout: readTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("company source redirect rejected") }}}, nil
 }
 func (c *Client) Close()                 { c.http.CloseIdleConnections() }
 func (c *Client) Scope() (int64, string) { return c.config.AccountID, c.config.Revision }
@@ -143,7 +146,7 @@ func (c *Client) WorkflowMetadata(ctx context.Context) (Result[companycrm.Workfl
 }
 func read[T any](ctx context.Context, c *Client, path string) (Result[T], error) {
 	var result Result[T]
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.Origin+path, nil)
 	if err != nil {

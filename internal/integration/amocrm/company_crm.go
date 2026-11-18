@@ -62,7 +62,11 @@ func (p *companyCRMPage) NoContent() { p.empty = true }
 func companyCRMPages[T any](ctx context.Context, c *Client, id uuid.UUID, path, key string, validate func(T) error) ([]T, error) {
 	result := []T{}
 	var total, pages *int
-	for page := 1; page <= 40; page++ {
+	maxPages := 40
+	if key == "contacts" {
+		maxPages = 100
+	}
+	for page := 1; page <= maxPages; page++ {
 		var body companyCRMPage
 		requestPath := fmt.Sprintf("%s?limit=250&page=%d", path, page)
 		if key == "pipelines" {
@@ -86,7 +90,7 @@ func companyCRMPages[T any](ctx context.Context, c *Client, id uuid.UUID, path, 
 			return nil, ErrIncompleteResponse
 		}
 		next := body.Links.Next != nil
-		if (body.Number != nil && *body.Number != page) || !agreePageMetadata(&total, body.Total, 10000) || !agreePageMetadata(&pages, body.Count, 40) {
+		if (body.Number != nil && *body.Number != page) || !agreePageMetadata(&total, body.Total, maxPages*250) || !agreePageMetadata(&pages, body.Count, maxPages) {
 			return nil, ErrIncompleteResponse
 		}
 		if page > 1 && len(rows) == 0 {
