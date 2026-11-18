@@ -314,7 +314,9 @@ func (m managerHTTP) setProductCompanyWorkflow(w http.ResponseWriter, r *http.Re
 				w.Header().Set("Retry-After", strconv.FormatInt(seconds, 10))
 			}
 		}
-		writeManagerError(w, 503, "company_metadata_unavailable", env.RequestID, 0)
+		problem := managerProblem(503, "company_metadata_unavailable", env.RequestID, 0, 0)
+		problem.Error.Retryable = true
+		writeLifecycleJSON(w, 503, problem)
 		return
 	}
 	if err != nil {

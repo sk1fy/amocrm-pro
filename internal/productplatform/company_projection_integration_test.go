@@ -40,6 +40,21 @@ func requireCompanyProcess(t *testing.T) {
 			t.Skip("run make platform-test for company projection process checks")
 		}
 	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		owner, e := storage.Open(ctx, os.Getenv("PLATFORM_TEST_OWNER_DSN"), storage.Owner, 1)
+		if e != nil {
+			t.Error(e)
+			return
+		}
+		defer owner.Close()
+		_, e = owner.Exec(ctx, `UPDATE platform_jobs.jobs SET status='dead',lease_until=NULL WHERE kind LIKE 'company.refresh.%' AND status IN ('queued','running')`)
+		if e != nil {
+			t.Error(e)
+		}
+	})
+
 }
 func companyWait(t *testing.T, f func() bool) {
 	t.Helper()
@@ -232,7 +247,10 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 		t.Fatal("stale metadata blocked committed replay")
 	}
 	retryCommand := newManagerTestCommand(pilot.product, 2)
-	managerRequest(t, client, "PUT", first.private+workflowPath, editor, retryCommand, body, 503)
+	transient := managerRequest(t, client, "PUT", first.private+workflowPath, editor, retryCommand, body, 503)
+	if !bytes.Contains(transient.body, []byte(`"retryable":true`)) {
+		t.Fatal("transient metadata failure marked definitive")
+	}
 	mustManager(t, owner.QueryRow(ctx, `SELECT count(*) FROM platform_manager.commands WHERE id=$1`, retryCommand.id).Scan(&count))
 	if count != 0 {
 		t.Fatal("transient command reserved")
@@ -376,6 +394,7 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 		t.Fatalf("ABA exposed old data: %s", currentPage.body)
 	}
 	restarted := startManagerProcess(t, sourceEnv...)
+	startManagerProcess(t, sourceEnv...)
 	companyWait(t, func() bool {
 		r := managerCall(client, "GET", restarted.private+managerPath+"companies", reader, managerTestCommand{}, "")
 		return r.status == 200 && bytes.Contains(r.body, []byte(id.String()))
@@ -450,10 +469,11 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	}
 	// Same timestamp and hash with stale source state must downgrade fresh evidence before expiry.
 	obs.source.State = "stale"
+	obs.source.ErrorCode = "source_unavailable"
 	publish(p, obs)
 	stale, err := (managerStore{jobs}).companyWorkflowMetadata(ctx)
 	mustManager(t, err)
-	if stale.Source.State != "stale" || stale.Generation == nil || *stale.Generation != *initial.Generation {
+	if stale.Source.State != "stale" || stale.Source.ErrorCode == nil || *stale.Source.ErrorCode != "source_unavailable" || stale.Generation == nil || *stale.Generation != *initial.Generation {
 		t.Fatalf("stale duplicate promoted: %+v", stale)
 	}
 	var count int
@@ -529,7 +549,10 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	_ = tx.Rollback(ctx)
 }
 
-type coreCompanyFixture struct{ binding companycrm.Binding }
+type coreCompanyFixture struct {
+	binding             companycrm.Binding
+	companies, contacts int
+}
 
 func (f coreCompanyFixture) Resolve(context.Context) (companycrm.Binding, error) {
 	return f.binding, nil
@@ -540,21 +563,35 @@ func (coreCompanyFixture) VerifyCompanyCRMAccount(context.Context, uuid.UUID, in
 func (coreCompanyFixture) CompanyCRMStaff(context.Context, uuid.UUID) ([]amocrm.CompanyCRMUser, error) {
 	return []amocrm.CompanyCRMUser{}, nil
 }
-func (coreCompanyFixture) CompanyCRMCompanies(context.Context, uuid.UUID, int64) ([]amocrm.CompanyCRMCompany, error) {
-	return []amocrm.CompanyCRMCompany{{ID: 71, AccountID: 12, Name: "Actual Core boundary"}}, nil
+func (f coreCompanyFixture) CompanyCRMCompanies(context.Context, uuid.UUID, int64) ([]amocrm.CompanyCRMCompany, error) {
+	result := make([]amocrm.CompanyCRMCompany, 0, max(1, f.companies))
+	for i := 0; i < max(1, f.companies); i++ {
+		var row amocrm.CompanyCRMCompany
+		_ = json.Unmarshal([]byte(fmt.Sprintf(`{"id":%d,"account_id":12,"name":"Actual Core boundary","custom_fields_values":[{"field_id":9,"field_type":"numeric","values":[{"value":"%d"}]}]}`, 71+i, 1000+i)), &row)
+		result = append(result, row)
+	}
+	return result, nil
 }
-func (coreCompanyFixture) CompanyCRMContacts(context.Context, uuid.UUID, int64) ([]amocrm.CompanyCRMContact, error) {
-	return []amocrm.CompanyCRMContact{}, nil
+func (f coreCompanyFixture) CompanyCRMContacts(context.Context, uuid.UUID, int64) ([]amocrm.CompanyCRMContact, error) {
+	result := make([]amocrm.CompanyCRMContact, 0, f.contacts)
+	for i := 0; i < f.contacts; i++ {
+		var row amocrm.CompanyCRMContact
+		_ = json.Unmarshal([]byte(fmt.Sprintf(`{"id":%d,"account_id":12,"name":"Contact","_embedded":{"companies":[{"id":%d},{"id":999999}]}}`, 10000+i, 71+i%max(1, f.companies))), &row)
+		result = append(result, row)
+	}
+	return result, nil
 }
 func (coreCompanyFixture) CompanyCRMFields(context.Context, uuid.UUID, string) ([]amocrm.CompanyCRMField, error) {
-	return []amocrm.CompanyCRMField{}, nil
+	return []amocrm.CompanyCRMField{{ID: 9, Type: "numeric", Name: "Customer accounts"}}, nil
 }
 func (coreCompanyFixture) CompanyCRMPipelines(context.Context, uuid.UUID, int64) ([]amocrm.CompanyCRMPipeline, error) {
 	p := amocrm.CompanyCRMPipeline{ID: 80, AccountID: 12, Name: "Core pipeline"}
 	p.Embedded.Statuses = []amocrm.CompanyCRMStage{{ID: 81, PipelineID: 80, AccountID: 12, Name: "Core stage"}}
 	return []amocrm.CompanyCRMPipeline{p}, nil
 }
-func TestPlatformCompanyCoreTLSChain(t *testing.T) {
+func TestPlatformCompanyCoreTLSChain(t *testing.T)          { testCompanyCoreTLSChain(t, 1, 0) }
+func TestPlatformCompanyRepresentativeCatalog(t *testing.T) { testCompanyCoreTLSChain(t, 500, 1000) }
+func testCompanyCoreTLSChain(t *testing.T, companies, contacts int) {
 	requireCompanyProcess(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
@@ -564,7 +601,9 @@ func TestPlatformCompanyCoreTLSChain(t *testing.T) {
 	_, err = owner.Exec(ctx, `TRUNCATE platform_company.source_scopes CASCADE`)
 	mustManager(t, err)
 	certs := os.Getenv("PLATFORM_TEST_CERTS_DIR")
-	fixture := coreCompanyFixture{companycrm.Binding{AccountID: 12, Revision: "core-boundary", InstallationID: uuid.New(), IntegrationID: uuid.New()}}
+	fixture := coreCompanyFixture{binding: companycrm.Binding{AccountID: 12, Revision: "core-boundary", InstallationID: uuid.New(), IntegrationID: uuid.New()}}
+	fixture.companies, fixture.contacts = companies, contacts
+	fixture.binding.AccountFieldID = 9
 	source := httptest.NewUnstartedServer(companycrm.Router(&companycrm.Service{Resolver: fixture, CRM: fixture}))
 	source.TLS, err = PrivateTLS(filepath.Join(certs, "core/tls.crt"), filepath.Join(certs, "core/tls.key"), filepath.Join(certs, "core/ca.crt"))
 	mustManager(t, err)
@@ -582,6 +621,12 @@ func TestPlatformCompanyCoreTLSChain(t *testing.T) {
 		r := managerCall(client, "GET", process.private+managerPath+"company-workflow-metadata", reader, managerTestCommand{}, "")
 		return r.status == 200 && bytes.Contains(r.body, []byte("Core stage"))
 	})
+	var companyCount, contactCount int
+	mustManager(t, owner.QueryRow(ctx, `SELECT count(*) FROM platform_company.company_rows`).Scan(&companyCount))
+	mustManager(t, owner.QueryRow(ctx, `SELECT count(*) FROM platform_company.contact_rows`).Scan(&contactCount))
+	if companyCount != companies || contactCount != contacts {
+		t.Fatalf("published catalog companies=%d contacts=%d", companyCount, contactCount)
+	}
 	// The same server rejects the manager certificate on the private source route.
 	request, err := http.NewRequestWithContext(ctx, "GET", origin+"/v1/company-crm/clients", nil)
 	mustManager(t, err)

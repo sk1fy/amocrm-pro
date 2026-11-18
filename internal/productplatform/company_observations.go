@@ -294,7 +294,7 @@ func publishCompanyObservation(ctx context.Context, tx pgx.Tx, p companyJobPaylo
 				if err != nil {
 					return outcome, err
 				}
-				if err = insertCompanyContent(ctx, tx, generation, o); err != nil {
+				if err = insertCompanyContent(ctx, tx, generation, p.Scope, o); err != nil {
 					return outcome, err
 				}
 			}
@@ -311,51 +311,104 @@ func publishCompanyObservation(ctx context.Context, tx pgx.Tx, p companyJobPaylo
 	if state == "" {
 		state = "error"
 	}
-	_, err = tx.Exec(ctx, `UPDATE platform_company.source_components SET attempt_state=$3,attempt_at=clock_timestamp(),error_code=NULLIF($4,''),next_refresh=clock_timestamp()+interval '1 minute' WHERE scope_id=$1 AND component=$2`, p.Scope, p.Component, state, o.code)
+	reportedCode := o.code
+	if reportedCode == "" {
+		reportedCode = safeCompanySourceCode(o.source.ErrorCode)
+	}
+	_, err = tx.Exec(ctx, `UPDATE platform_company.source_components SET attempt_state=$3,attempt_at=clock_timestamp(),error_code=NULLIF($4,''),next_refresh=clock_timestamp()+interval '1 minute' WHERE scope_id=$1 AND component=$2`, p.Scope, p.Component, state, reportedCode)
 	return outcome, err
 }
-func insertCompanyContent(ctx context.Context, tx pgx.Tx, g uuid.UUID, o companyObservation) error {
-	if o.clients != nil {
-		ids := make(map[int64]uuid.UUID, len(o.clients.Companies))
-		for _, c := range o.clients.Companies {
-			if _, err := tx.Exec(ctx, `INSERT INTO platform_company.company_identities(id,source_account_id,crm_company_id) VALUES($1,$2,$3) ON CONFLICT(source_account_id,crm_company_id) DO NOTHING`, uuid.New(), o.source.AccountID, c.CompanyID); err != nil {
-				return err
-			}
-			var id uuid.UUID
-			if err := tx.QueryRow(ctx, `SELECT id FROM platform_company.company_identities WHERE source_account_id=$1 AND crm_company_id=$2`, o.source.AccountID, c.CompanyID).Scan(&id); err != nil {
-				return err
-			}
-			ids[c.CompanyID] = id
-			if _, err := tx.Exec(ctx, `INSERT INTO platform_company.company_rows(generation_id,company_id,crm_company_id,name,source_resolution,scope_id,source_account_id) SELECT $1,$2,$3,$4,$5,g.scope_id,s.account_id FROM platform_company.generations g JOIN platform_company.source_scopes s ON s.id=g.scope_id WHERE g.id=$1`, g, id, c.CompanyID, c.Name, c.Resolution); err != nil {
-				return err
-			}
-			for _, a := range c.AccountIDs {
-				if _, err := tx.Exec(ctx, `INSERT INTO platform_company.company_account_claims VALUES($1,$2,$3)`, g, id, a); err != nil {
-					return err
-				}
+func insertCompanyContent(ctx context.Context, tx pgx.Tx, generation, scope uuid.UUID, o companyObservation) error {
+	if o.clients == nil {
+		pipelines := make([][]any, 0, len(o.metadata.Pipelines))
+		var stages [][]any
+		for _, p := range o.metadata.Pipelines {
+			pipelines = append(pipelines, []any{generation, p.ID, p.Name})
+			for _, s := range p.Embedded.Statuses {
+				stages = append(stages, []any{generation, p.ID, s.ID, s.Name})
 			}
 		}
-		for _, c := range o.clients.Contacts {
-			if _, err := tx.Exec(ctx, `INSERT INTO platform_company.contact_rows(generation_id,crm_contact_id,name) VALUES($1,$2,$3)`, g, c.ID, c.Name); err != nil {
-				return err
-			}
-			for _, id := range c.CompanyIDs {
-				if _, err := tx.Exec(ctx, `INSERT INTO platform_company.contact_company_links VALUES($1,$2,$3,$4)`, g, c.ID, id, commandUUID(ids[id])); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	for _, p := range o.metadata.Pipelines {
-		if _, err := tx.Exec(ctx, `INSERT INTO platform_company.workflow_pipelines(generation_id,pipeline_id,name) VALUES($1,$2,$3)`, g, p.ID, p.Name); err != nil {
+		if err := copyCompanyRows(ctx, tx, "workflow_pipelines", []string{"generation_id", "pipeline_id", "name"}, pipelines); err != nil {
 			return err
 		}
-		for _, s := range p.Embedded.Statuses {
-			if _, err := tx.Exec(ctx, `INSERT INTO platform_company.workflow_stages VALUES($1,$2,$3,$4)`, g, p.ID, s.ID, s.Name); err != nil {
-				return err
-			}
+		return copyCompanyRows(ctx, tx, "workflow_stages", []string{"generation_id", "pipeline_id", "stage_id", "name"}, stages)
+	}
+	crmIDs := make([]int64, 0, len(o.clients.Companies))
+	newIDs := make([]uuid.UUID, 0, len(o.clients.Companies))
+	for _, company := range o.clients.Companies {
+		crmIDs = append(crmIDs, company.CompanyID)
+		newIDs = append(newIDs, uuid.New())
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO platform_company.company_identities(id,source_account_id,crm_company_id)
+ SELECT item.id,$1,item.crm_id FROM unnest($2::uuid[],$3::bigint[]) AS item(id,crm_id)
+ ON CONFLICT(source_account_id,crm_company_id) DO NOTHING`, o.source.AccountID, newIDs, crmIDs)
+	if err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `SELECT crm_company_id,id FROM platform_company.company_identities WHERE source_account_id=$1 AND crm_company_id=ANY($2)`, o.source.AccountID, crmIDs)
+	if err != nil {
+		return err
+	}
+	type identity struct {
+		crm int64
+		id  uuid.UUID
+	}
+	identities, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (identity, error) {
+		var i identity
+		err := r.Scan(&i.crm, &i.id)
+		return i, err
+	})
+	if err != nil {
+		return err
+	}
+	ids := make(map[int64]uuid.UUID, len(identities))
+	for _, id := range identities {
+		ids[id.crm] = id.id
+	}
+	companies := make([][]any, 0, len(o.clients.Companies))
+	var claims [][]any
+	for _, c := range o.clients.Companies {
+		id := ids[c.CompanyID]
+		companies = append(companies, []any{generation, id, c.CompanyID, c.Name, c.Resolution, scope, o.source.AccountID})
+		for _, account := range c.AccountIDs {
+			claims = append(claims, []any{generation, id, account})
 		}
 	}
-	return nil
+	if err := copyCompanyRows(ctx, tx, "company_rows", []string{"generation_id", "company_id", "crm_company_id", "name", "source_resolution", "scope_id", "source_account_id"}, companies); err != nil {
+		return err
+	}
+	if err := copyCompanyRows(ctx, tx, "company_account_claims", []string{"generation_id", "company_id", "account_id"}, claims); err != nil {
+		return err
+	}
+	contacts := make([][]any, 0, len(o.clients.Contacts))
+	var links [][]any
+	for _, c := range o.clients.Contacts {
+		contacts = append(contacts, []any{generation, c.ID, c.Name})
+		for _, id := range c.CompanyIDs {
+			links = append(links, []any{generation, c.ID, id, commandUUID(ids[id])})
+		}
+	}
+	if err := copyCompanyRows(ctx, tx, "contact_rows", []string{"generation_id", "crm_contact_id", "name"}, contacts); err != nil {
+		return err
+	}
+	return copyCompanyRows(ctx, tx, "contact_company_links", []string{"generation_id", "crm_contact_id", "crm_company_id", "company_id"}, links)
+}
+func copyCompanyRows(ctx context.Context, tx pgx.Tx, table string, columns []string, rows [][]any) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	_, err := tx.CopyFrom(ctx, pgx.Identifier{"platform_company", table}, columns, pgx.CopyFromRows(rows))
+	return err
+}
+
+func safeCompanySourceCode(code string) string {
+	if len(code) > 64 {
+		return "source_unavailable"
+	}
+	for _, c := range code {
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_') {
+			return "source_unavailable"
+		}
+	}
+	return code
 }

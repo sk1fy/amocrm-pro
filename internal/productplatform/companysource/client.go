@@ -93,10 +93,52 @@ func New(c Config) (*Client, error) {
 func (c *Client) Close()                 { c.http.CloseIdleConnections() }
 func (c *Client) Scope() (int64, string) { return c.config.AccountID, c.config.Revision }
 func (c *Client) Clients(ctx context.Context) (Result[companycrm.Clients], error) {
-	return read[companycrm.Clients](ctx, c, "/v1/company-crm/clients")
+	result, err := read[companycrm.Clients](ctx, c, "/v1/company-crm/clients")
+	if err != nil || !result.Response.Source.Complete {
+		return result, err
+	}
+	data := result.Response.Data
+	valid := data != nil && data.Companies != nil && data.Contacts != nil
+	if valid {
+		for _, company := range data.Companies {
+			if company.AccountIDs == nil || company.Resolution != "zero" && company.Resolution != "one" && company.Resolution != "multiple" && company.Resolution != "unknown" {
+				valid = false
+				break
+			}
+		}
+		for _, contact := range data.Contacts {
+			if contact.CompanyIDs == nil {
+				valid = false
+				break
+			}
+		}
+	}
+	if !valid {
+		result.Response.Data = nil
+		return result, errors.New("invalid company source client data")
+	}
+	return result, nil
 }
 func (c *Client) WorkflowMetadata(ctx context.Context) (Result[companycrm.WorkflowMetadata], error) {
-	return read[companycrm.WorkflowMetadata](ctx, c, "/v1/company-crm/workflow-metadata")
+	result, err := read[companycrm.WorkflowMetadata](ctx, c, "/v1/company-crm/workflow-metadata")
+	if err != nil || !result.Response.Source.Complete {
+		return result, err
+	}
+	data := result.Response.Data
+	valid := data != nil && data.Pipelines != nil && data.LeadFields != nil && data.RequiredFieldsState == "unknown"
+	if valid {
+		for _, pipeline := range data.Pipelines {
+			if pipeline.Embedded.Statuses == nil {
+				valid = false
+				break
+			}
+		}
+	}
+	if !valid {
+		result.Response.Data = nil
+		return result, errors.New("invalid company source metadata")
+	}
+	return result, nil
 }
 func read[T any](ctx context.Context, c *Client, path string) (Result[T], error) {
 	var result Result[T]
@@ -115,8 +157,11 @@ func read[T any](ctx context.Context, c *Client, path string) (Result[T], error)
 	now := time.Now()
 	result.RetryAt = retryAt(resp.Header.Get("Retry-After"), now)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody+1))
-	if err != nil || len(body) > MaxBody {
-		return result, errors.New("company source response too large or unreadable")
+	if err != nil {
+		return result, unavailableError{err}
+	}
+	if len(body) > MaxBody {
+		return result, errors.New("company source response too large")
 	}
 	if len(body) == 0 && resp.StatusCode != 200 {
 		return result, errors.New("company source failed without envelope")

@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -98,6 +99,8 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 		data := companycrm.Clients{Companies: []companycrm.Client{}, Contacts: []companycrm.Contact{}}
 		response := companycrm.Response[companycrm.Clients]{Source: companycrm.Source{AccountID: 12, BindingRevision: "r1", Complete: true, State: "fresh", ObservedAt: &now, FreshUntil: &until}, Data: &data}
 		switch mode {
+		case "missing_collections":
+			response.Data = &companycrm.Clients{}
 		case "stale":
 			response.Source.State = "stale"
 		case "partial":
@@ -132,7 +135,7 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		fails bool
-	}{{"full", false}, {"stale", false}, {"partial", false}, {"rate", false}, {"bare429", true}, {"redirect", true}, {"large", true}, {"malformed", true}, {"trailing", true}, {"mismatch", true}} {
+	}{{"full", false}, {"stale", false}, {"partial", false}, {"rate", false}, {"bare429", true}, {"redirect", true}, {"large", true}, {"malformed", true}, {"trailing", true}, {"mismatch", true}, {"missing_collections", true}} {
 		t.Run(test.mode, func(t *testing.T) {
 			mode = test.mode
 			r, e := client.Clients(context.Background())
@@ -156,8 +159,8 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 	mode = "slow"
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
-	if _, e = client.Clients(ctx); e == nil {
-		t.Fatal("deadline ignored")
+	if _, e = client.Clients(ctx); !errors.Is(e, context.DeadlineExceeded) {
+		t.Fatalf("deadline cause lost: %v", e)
 	}
 	cfg.Origin = "https://localhost:1"
 	offline, e := New(cfg)
