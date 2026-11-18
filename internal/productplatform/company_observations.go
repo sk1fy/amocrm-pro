@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -103,8 +104,8 @@ func (o *CompanyObserver) enrollCompany(ctx context.Context) error {
 			continue
 		}
 		id := uuid.New()
-		payload, _ := json.Marshal(companyJobPayload{active, part})
-		if _, err = tx.Exec(ctx, `INSERT INTO platform_jobs.jobs(id,kind,payload) VALUES($1,$2,$3)`, id, o.Kind(), payload); err != nil {
+
+		if _, err = tx.Exec(ctx, `SELECT platform_company.enqueue_refresh($1,$2,$3,$4,$5)`, active.Scope, active.Epoch, part, id, o.Kind()); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE platform_company.source_components SET current_job_id=$3 WHERE scope_id=$1 AND component=$2`, active.Scope, part, id); err != nil {
@@ -153,7 +154,7 @@ func (o *CompanyObserver) RefreshJob(ctx context.Context, job queue.Job) queue.C
 	}
 	if err != nil {
 		obs.code = "source_unavailable"
-	} else if !obs.source.Complete {
+	} else if status != http.StatusOK || !obs.source.Complete {
 		obs.code = "source_incomplete"
 	}
 	if status == 429 {
@@ -246,7 +247,11 @@ func publishCompanyObservation(ctx context.Context, tx pgx.Tx, p companyJobPaylo
 		outcome.Retry = true
 		outcome.RetryAfter = 5 * time.Second
 	}
-	if o.retry != nil {
+	if o.retry != nil || o.code == "source_rate_limited" {
+		if o.retry == nil {
+			at := time.Now().Add(outcome.RetryAfter)
+			o.retry = &at
+		}
 		outcome.RetryAfter = max(outcome.RetryAfter, time.Until(*o.retry))
 		if _, err = tx.Exec(ctx, `UPDATE platform_company.source_control SET retry_not_before=GREATEST(retry_not_before,$1,statement_timestamp()+interval '5 seconds') WHERE singleton`, *o.retry); err != nil {
 			return outcome, err
@@ -300,7 +305,7 @@ func publishCompanyObservation(ctx context.Context, tx pgx.Tx, p companyJobPaylo
 		}
 	}
 	state := o.source.State
-	if o.code != "" {
+	if o.code != "" && state != "disabled" {
 		state = "error"
 	}
 	if state == "" {
@@ -321,7 +326,7 @@ func insertCompanyContent(ctx context.Context, tx pgx.Tx, g uuid.UUID, o company
 				return err
 			}
 			ids[c.CompanyID] = id
-			if _, err := tx.Exec(ctx, `INSERT INTO platform_company.company_rows(generation_id,company_id,crm_company_id,name,source_resolution) VALUES($1,$2,$3,$4,$5)`, g, id, c.CompanyID, c.Name, c.Resolution); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO platform_company.company_rows(generation_id,company_id,crm_company_id,name,source_resolution,scope_id,source_account_id) SELECT $1,$2,$3,$4,$5,g.scope_id,s.account_id FROM platform_company.generations g JOIN platform_company.source_scopes s ON s.id=g.scope_id WHERE g.id=$1`, g, id, c.CompanyID, c.Name, c.Resolution); err != nil {
 				return err
 			}
 			for _, a := range c.AccountIDs {

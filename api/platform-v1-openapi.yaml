@@ -1167,6 +1167,186 @@ paths:
       x-platform-grant: command-owner
       description: Только исходный BFF и субъект с актуальным правом на команду. Возвращает зарегистрированный исход по command ID; 404 не доказывает,
         что первый запрос не в пути.
+  /internal/platform/v1/managers/companies:
+    get:
+      operationId: listCompanies
+      security:
+      - adminService: []
+      x-platform-grant: clients.read
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 25
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /internal/platform/v1/managers/companies/{id}:
+    get:
+      operationId: getCompany
+      security:
+      - adminService: []
+      x-platform-grant: clients.read
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: id
+        in: path
+        required: true
+        schema: &id001
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyDetail'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /internal/platform/v1/managers/company-workflow-metadata:
+    get:
+      operationId: getCompanyWorkflowMetadata
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyWorkflowMetadata'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /internal/platform/v1/managers/products/{id}/company-workflow:
+    get:
+      operationId: getProductCompanyWorkflow
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCompanyWorkflow'
+          headers:
+            ETag:
+              schema:
+                type: string
+                pattern: ^"[1-9][0-9]*"$
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+    put:
+      operationId: setProductCompanyWorkflow
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCompanyWorkflow'
+          headers:
+            ETag:
+              schema:
+                type: string
+                pattern: ^"[1-9][0-9]*"$
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProductCompanyWorkflow'
+      description: Команда product.company_workflow.set. Первая запись меняет виртуальную версию 1 на 2. Проверяет принятую
+        карточку продукта и свежее полное поколение метаданных в SQL. 409/422 сохраняют receipt. 503 откатывает резервирование
+        ключа. Точный повтор успеха возвращает сохранённые байты и ETag даже после outage или rebind, при текущем catalog.manage
+        и видимом продукте. write_ready всегда false.
 components:
   securitySchemes:
     adminService: {type: mutualTLS, description: Закрытый listener проверяет сертификат вызывающего BFF.}
@@ -1975,3 +2155,311 @@ components:
       - required:
         - or
         maxProperties: 1
+
+    CompanyProjectionId:
+      type: string
+      format: uuid
+      description: UUID проекции CRM-компании. Не является runtime account_id.
+    CompanySource:
+      type: object
+      additionalProperties: false
+      properties:
+        source_account_id:
+          anyOf:
+          - $ref: '#/components/schemas/AmoID'
+          - type: 'null'
+        binding_revision:
+          anyOf:
+          - &id002
+            type: string
+          - type: 'null'
+        state:
+          type: string
+          enum:
+          - fresh
+          - stale
+          - error
+          - disabled
+        complete:
+          type: boolean
+        observed_at:
+          anyOf:
+          - &id001
+            type: string
+            format: date-time
+          - type: 'null'
+        fresh_until:
+          anyOf:
+          - *id001
+          - type: 'null'
+        error_code:
+          anyOf:
+          - *id002
+          - type: 'null'
+        retry_at:
+          anyOf:
+          - *id001
+          - type: 'null'
+      required:
+      - source_account_id
+      - binding_revision
+      - state
+      - complete
+      - observed_at
+      - fresh_until
+      - error_code
+      - retry_at
+      description: Времена относятся к полному поколению данных. Ошибка последней попытки не заменяет данные; локальное истечение
+        переводит fresh в stale. Смена активной привязки очищает текущий снимок.
+    CompanyRuntimeAccount:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id: &id009
+          type: string
+          format: uuid
+        customer_account_id:
+          $ref: '#/components/schemas/AmoID'
+      required:
+      - account_id
+      - customer_account_id
+    CompanySummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id: &id003
+          $ref: '#/components/schemas/CompanyProjectionId'
+        crm_company_id: &id004
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+        customer_account_ids: &id005
+          type: array
+          items:
+            $ref: '#/components/schemas/AmoID'
+        source_resolution: &id006
+          type: string
+          enum:
+          - unknown
+          - zero
+          - one
+          - multiple
+        runtime_resolution: &id007
+          type: string
+          enum:
+          - unresolved
+          - resolved
+          - partial
+          - ambiguous
+        runtime_accounts: &id008
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyRuntimeAccount'
+      required:
+      - id
+      - crm_company_id
+      - name
+      - customer_account_ids
+      - source_resolution
+      - runtime_resolution
+      - runtime_accounts
+    CompanyList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          anyOf:
+          - type: array
+            items:
+              $ref: '#/components/schemas/CompanySummary'
+          - type: 'null'
+        next_cursor:
+          anyOf:
+          - *id002
+          - type: 'null'
+        source:
+          $ref: '#/components/schemas/CompanySource'
+      required:
+      - items
+      - next_cursor
+      - source
+      description: items=null до первого полного наблюдения; items=[] означает полный пустой каталог. Курсор фиксирует поколение,
+        активацию, сотрудника, версию прав и фильтры на 15 минут.
+    CompanyContactLink:
+      type: object
+      additionalProperties: false
+      properties:
+        crm_company_id:
+          $ref: '#/components/schemas/AmoID'
+        company_id:
+          anyOf:
+          - $ref: '#/components/schemas/CompanyProjectionId'
+          - type: 'null'
+      required:
+      - crm_company_id
+      - company_id
+    CompanyContact:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+        companies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyContactLink'
+      required:
+      - id
+      - name
+      - companies
+    CompanyDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id003
+        crm_company_id: *id004
+        name: *id002
+        customer_account_ids: *id005
+        source_resolution: *id006
+        runtime_resolution: *id007
+        runtime_accounts: *id008
+        source:
+          $ref: '#/components/schemas/CompanySource'
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyContact'
+        unresolved_relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyContactLink'
+      required:
+      - id
+      - crm_company_id
+      - name
+      - customer_account_ids
+      - source_resolution
+      - runtime_resolution
+      - runtime_accounts
+      - source
+      - contacts
+      - unresolved_relations
+    CompanyWorkflowStage:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+      required:
+      - id
+      - name
+    CompanyWorkflowPipeline:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyWorkflowStage'
+      required:
+      - id
+      - name
+      - stages
+    CompanyWorkflowMetadata:
+      type: object
+      additionalProperties: false
+      properties:
+        generation_id:
+          anyOf:
+          - *id009
+          - type: 'null'
+        source:
+          $ref: '#/components/schemas/CompanySource'
+        pipelines:
+          anyOf:
+          - type: array
+            items:
+              $ref: '#/components/schemas/CompanyWorkflowPipeline'
+          - type: 'null'
+        required_fields_state:
+          type: string
+          enum:
+          - unknown
+        write_ready:
+          type: boolean
+          enum:
+          - false
+      required:
+      - generation_id
+      - source
+      - pipelines
+      - required_fields_state
+      - write_ready
+    CompanyWorkflowConfiguration:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          $ref: '#/components/schemas/Version'
+        source_account_id:
+          $ref: '#/components/schemas/AmoID'
+        binding_revision: *id002
+        metadata_generation_id: *id009
+        pipeline_id:
+          $ref: '#/components/schemas/AmoID'
+        initial_stage_id:
+          $ref: '#/components/schemas/AmoID'
+        validated_at: *id001
+      required:
+      - revision
+      - source_account_id
+      - binding_revision
+      - metadata_generation_id
+      - pipeline_id
+      - initial_stage_id
+      - validated_at
+    ProductCompanyWorkflow:
+      type: object
+      additionalProperties: false
+      properties:
+        product_id: *id009
+        version:
+          $ref: '#/components/schemas/Version'
+        configuration:
+          anyOf:
+          - $ref: '#/components/schemas/CompanyWorkflowConfiguration'
+          - type: 'null'
+        write_ready:
+          type: boolean
+          enum:
+          - false
+      required:
+      - product_id
+      - version
+      - configuration
+      - write_ready
+    SetProductCompanyWorkflow:
+      type: object
+      additionalProperties: false
+      properties:
+        source_account_id:
+          $ref: '#/components/schemas/AmoID'
+        binding_revision:
+          type: string
+          minLength: 1
+          maxLength: 256
+        metadata_generation_id: *id009
+        pipeline_id:
+          $ref: '#/components/schemas/AmoID'
+        initial_stage_id:
+          $ref: '#/components/schemas/AmoID'
+      required:
+      - source_account_id
+      - binding_revision
+      - metadata_generation_id
+      - pipeline_id
+      - initial_stage_id

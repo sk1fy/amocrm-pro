@@ -175,6 +175,32 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 	if _, e = wrongHost.Clients(context.Background()); e == nil {
 		t.Fatal("hostname not verified")
 	}
+
+	wrongIdentity, _, _ := testIdentity(t, ca, key, "platform")
+	peer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	peer.TLS = &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{wrongIdentity}}
+	peer.StartTLS()
+	defer peer.Close()
+	cfg.Origin = strings.Replace(peer.URL, "127.0.0.1", "localhost", 1)
+	wrongPeer, e := New(cfg)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer wrongPeer.Close()
+	if _, e = wrongPeer.Clients(context.Background()); e == nil {
+		t.Fatal("wrong server URI accepted")
+	}
+	untrusted := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	defer untrusted.Close()
+	cfg.Origin = untrusted.URL
+	wrongCA, e := New(cfg)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer wrongCA.Close()
+	if _, e = wrongCA.Clients(context.Background()); e == nil {
+		t.Fatal("unknown server CA accepted")
+	}
 	_, cfg.CertFile, cfg.KeyFile = testIdentity(t, ca, key, "manager-bff")
 	if _, e = New(cfg); e == nil {
 		t.Fatal("wrong client role accepted")

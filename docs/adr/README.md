@@ -58,3 +58,5 @@ scope belongs in GitHub Issues.
   правила напрямую из TeamOS backend; Core — установка и мониторинг; два режима.
 
 - [ADR-0047](0047-company-crm-read-boundary.md). Private company CRM reads, exact mTLS method ACL and atomic snapshots.
+
+- [0048. Проекции компаний и настройка CRM-процесса](0048-platform-company-projections.md).

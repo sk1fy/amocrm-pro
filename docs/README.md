@@ -58,3 +58,5 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 - [Контроль задач: обновление сервера и приёмка MVP](runbooks/task-control-mvp.md)
 
 - [Вход в компанию из виджетов amoCRM](runbooks/company-entry.md).
+
+- [Проекции Company CRM в Platform](platform-company-operations.md).

@@ -126,3 +126,39 @@ func assertPlatformSecurity(t *testing.T, operation *openapi3.Operation, scheme 
 		t.Errorf("%s must use %s authentication", operation.OperationID, scheme)
 	}
 }
+
+func TestPlatformV1CompanyContract(t *testing.T) {
+	document := loadPlatformV1(t)
+	for _, tc := range []struct{ path, method, id, grant string }{
+		{"companies", "GET", "listCompanies", "clients.read"},
+		{"companies/{id}", "GET", "getCompany", "clients.read"},
+		{"company-workflow-metadata", "GET", "getCompanyWorkflowMetadata", "catalog.manage"},
+		{"products/{id}/company-workflow", "GET", "getProductCompanyWorkflow", "catalog.manage"},
+		{"products/{id}/company-workflow", "PUT", "setProductCompanyWorkflow", "catalog.manage"},
+	} {
+		operation := document.Paths.Find("/internal/platform/v1/managers/" + tc.path).GetOperation(tc.method)
+		if operation.OperationID != tc.id || operation.Extensions["x-platform-grant"] != tc.grant {
+			t.Fatalf("contract mismatch for %s", tc.path)
+		}
+	}
+	list := document.Components.Schemas["CompanyList"].Value
+	source := map[string]any{"source_account_id": nil, "binding_revision": nil, "state": "disabled", "complete": false, "observed_at": nil, "fresh_until": nil, "error_code": nil, "retry_at": nil}
+	for _, items := range []any{nil, []any{}} {
+		if err := list.VisitJSON(map[string]any{"items": items, "next_cursor": nil, "source": source}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	workflow := document.Components.Schemas["ProductCompanyWorkflow"].Value
+	if err := workflow.VisitJSON(map[string]any{"product_id": "10000000-0000-0000-0000-000000000001", "version": float64(1), "configuration": nil, "write_ready": false}); err != nil {
+		t.Fatal(err)
+	}
+	in := document.Components.Schemas["SetProductCompanyWorkflow"].Value
+	body := map[string]any{"source_account_id": "9007199254740993", "binding_revision": "r1", "metadata_generation_id": "10000000-0000-0000-0000-000000000001", "pipeline_id": "1", "initial_stage_id": "2"}
+	if err := in.VisitJSON(body); err != nil {
+		t.Fatal(err)
+	}
+	body["pipeline_id"] = float64(1)
+	if in.VisitJSON(body) == nil {
+		t.Fatal("numeric CRM identifier accepted")
+	}
+}

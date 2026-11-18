@@ -1,4 +1,3 @@
-// Package companysource reads the two private Core company projections.
 package companysource
 
 import (
@@ -46,6 +45,11 @@ func (c Config) validate() error {
 	}
 	return nil
 }
+
+type unavailableError struct{ cause error }
+
+func (e unavailableError) Error() string { return "company source unavailable" }
+func (e unavailableError) Unwrap() error { return e.cause }
 
 type Client struct {
 	config Config
@@ -104,7 +108,7 @@ func read[T any](ctx context.Context, c *Client, path string) (Result[T], error)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return result, errors.New("company source unavailable")
+		return result, unavailableError{err}
 	}
 	defer resp.Body.Close()
 	result.Status = resp.StatusCode

@@ -42,6 +42,12 @@ services:
       PLATFORM_MANAGER_CURSOR_KEY: "${PLATFORM_MANAGER_CURSOR_KEY:-}"
       PLATFORM_MANAGER_TIME_ZONE: "${PLATFORM_MANAGER_TIME_ZONE:-Europe/Moscow}"
       PLATFORM_WORKERS: "${PLATFORM_WORKERS:-2}"
+      PLATFORM_COMPANY_CORE_ORIGIN: "${PLATFORM_COMPANY_CORE_ORIGIN:-}"
+      PLATFORM_COMPANY_CORE_CA_FILE: "${PLATFORM_COMPANY_CORE_ORIGIN:+/company-tls/ca.crt}"
+      PLATFORM_COMPANY_CORE_CERT_FILE: "${PLATFORM_COMPANY_CORE_ORIGIN:+/company-tls/tls.crt}"
+      PLATFORM_COMPANY_CORE_KEY_FILE: "${PLATFORM_COMPANY_CORE_ORIGIN:+/company-tls/tls.key}"
+      PLATFORM_COMPANY_SOURCE_ACCOUNT_ID: "${PLATFORM_COMPANY_SOURCE_ACCOUNT_ID:-}"
+      PLATFORM_COMPANY_BINDING_REVISION: "${PLATFORM_COMPANY_BINDING_REVISION:-}"
       PLATFORM_ACCOUNT_GATEWAY_ADDRESS: "${PLATFORM_ACCOUNT_GATEWAY_ADDRESS:-}"
       PLATFORM_ACCOUNT_GATEWAY_IDENTITY_DIR: "${PLATFORM_ACCOUNT_GATEWAY_ADDRESS:+/tls}"
       PLATFORM_ACCOUNT_GATEWAY_SERVER_NAME: "${PLATFORM_ACCOUNT_GATEWAY_SERVER_NAME:-}"
@@ -53,6 +59,12 @@ services:
       - type: bind
         source: "${PLATFORM_DEV_CERTS_DIR:-./tmp/platform-certs}/platform"
         target: /tls
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${PLATFORM_DEV_CERTS_DIR:-./tmp/platform-certs}/platform-company-crm"
+        target: /company-tls
         read_only: true
         bind:
           create_host_path: false

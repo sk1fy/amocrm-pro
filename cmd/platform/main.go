@@ -126,7 +126,11 @@ func run() error {
 		companyObserver, err = productplatform.NewCompanyObserver(registerCtx, jobs, client)
 		cancel()
 		if err != nil {
-			slog.Warn("Company source worker disabled", "reason", "source_registration_unavailable")
+			reason := "source_registration_unavailable"
+			if errors.Is(err, productplatform.ErrCompanySourceMismatch) {
+				reason = "source_configuration_mismatch"
+			}
+			slog.Warn("Company source worker disabled", "reason", reason)
 		}
 	}
 	registry := prometheus.NewRegistry()

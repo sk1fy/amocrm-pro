@@ -21,6 +21,15 @@ type companyProjectionID uuid.UUID
 
 func (id companyProjectionID) MarshalJSON() ([]byte, error) { return json.Marshal(uuid.UUID(id)) }
 
+func (id *companyProjectionID) UnmarshalJSON(b []byte) error {
+	var v uuid.UUID
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	*id = companyProjectionID(v)
+	return nil
+}
+
 type companySource struct {
 	Account    *string    `json:"source_account_id"`
 	Binding    *string    `json:"binding_revision"`
@@ -61,7 +70,7 @@ func readCompanyProjection(ctx context.Context, tx pgx.Tx, part companyComponent
 			return p, err
 		}
 		p.source.Complete = true
-		if p.source.State != "error" {
+		if p.source.State == "fresh" {
 			p.source.State = state
 			if !p.source.FreshUntil.After(time.Now()) {
 				p.source.State = "stale"
@@ -183,7 +192,7 @@ func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in 
 		return managerOutcome{}, err
 	}
 	var id uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT id FROM platform_lifecycle.products WHERE id=$1 AND catalog_version IS NOT NULL FOR UPDATE`, cmd.Product).Scan(&id)
+	err = tx.QueryRow(ctx, `SELECT id FROM platform_lifecycle.products WHERE id=$1 AND catalog_version IS NOT NULL FOR NO KEY UPDATE`, cmd.Product).Scan(&id)
 	if err != nil {
 		return managerOutcome{}, accountReadError(err)
 	}
@@ -227,10 +236,6 @@ func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in 
 		return managerOutcome{}, err
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO platform_company.product_workflow_heads VALUES($1,$2,$3) ON CONFLICT(product_id) DO UPDATE SET version=EXCLUDED.version,revision=EXCLUDED.revision`, cmd.Product, current.Version+1, revision)
-	if err != nil {
-		return managerOutcome{}, err
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO platform_company.audit(id,kind,scope_id,product_id,revision,command_id,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)`, uuid.New(), companyWorkflowCommandKind, scope, cmd.Product, revision, cmd.ID, cmd.Subject)
 	if err != nil {
 		return managerOutcome{}, err
 	}

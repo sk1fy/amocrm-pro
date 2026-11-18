@@ -29,15 +29,17 @@ CREATE TABLE platform_company.source_components (
 );
 CREATE TABLE platform_company.company_identities (
  id UUID PRIMARY KEY, source_account_id BIGINT NOT NULL CHECK(source_account_id>0), crm_company_id BIGINT NOT NULL CHECK(crm_company_id>0),
- UNIQUE(source_account_id,crm_company_id), UNIQUE(id,crm_company_id)
+ UNIQUE(source_account_id,crm_company_id), UNIQUE(id,crm_company_id), UNIQUE(id,crm_company_id,source_account_id)
 );
 CREATE TABLE platform_company.company_rows (
  generation_id UUID NOT NULL, component TEXT NOT NULL DEFAULT 'clients' CHECK(component='clients'),
- company_id UUID NOT NULL, crm_company_id BIGINT NOT NULL,
+ company_id UUID NOT NULL, crm_company_id BIGINT NOT NULL, scope_id UUID NOT NULL, source_account_id BIGINT NOT NULL,
  name TEXT NOT NULL, source_resolution TEXT NOT NULL,
  PRIMARY KEY(generation_id,company_id), UNIQUE(generation_id,company_id,crm_company_id),
  FOREIGN KEY(generation_id,component) REFERENCES platform_company.generations(id,component),
- FOREIGN KEY(company_id,crm_company_id) REFERENCES platform_company.company_identities(id,crm_company_id)
+ FOREIGN KEY(company_id,crm_company_id,source_account_id) REFERENCES platform_company.company_identities(id,crm_company_id,source_account_id),
+ FOREIGN KEY(scope_id,source_account_id) REFERENCES platform_company.source_scopes(id,account_id),
+ FOREIGN KEY(generation_id,scope_id,component) REFERENCES platform_company.generations(id,scope_id,component)
 );
 CREATE TABLE platform_company.company_account_claims (
  generation_id UUID NOT NULL, company_id UUID NOT NULL, account_id BIGINT NOT NULL CHECK(account_id>0),
@@ -94,7 +96,7 @@ CREATE TABLE platform_company.audit (
  product_id UUID, revision BIGINT, command_id UUID REFERENCES platform_manager.commands,
  actor_id UUID NOT NULL, recorded_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
  FOREIGN KEY(product_id,revision) REFERENCES platform_company.product_workflow_revisions,
- CHECK((kind='source.activated' AND epoch>0 AND num_nonnulls(product_id,revision,command_id)=0)
+ CHECK((kind='source.activated' AND num_nonnulls(epoch,previous_scope,previous_epoch)=3 AND epoch>0 AND previous_epoch>0 AND num_nonnulls(product_id,revision,command_id)=0)
  OR (kind='product.company_workflow.set' AND num_nonnulls(product_id,revision,command_id)=3 AND num_nonnulls(epoch,previous_scope,previous_epoch)=0))
 );
 
@@ -144,7 +146,7 @@ GRANT EXECUTE ON FUNCTION platform_company.register_source(BIGINT,TEXT) TO platf
 GRANT INSERT ON platform_company.generations,platform_company.company_identities,platform_company.company_rows,
  platform_company.company_account_claims,platform_company.contact_rows,platform_company.contact_company_links,
  platform_company.workflow_pipelines,platform_company.workflow_stages,platform_company.product_workflow_heads,
- platform_company.product_workflow_revisions,platform_company.audit TO platform_jobs;
+ platform_company.product_workflow_revisions TO platform_jobs;
 GRANT UPDATE(current_generation,attempt_state,attempt_at,error_code,next_refresh,current_job_id) ON platform_company.source_components TO platform_jobs;
 GRANT UPDATE(retry_not_before) ON platform_company.source_control TO platform_jobs;
 GRANT UPDATE(version,revision) ON platform_company.product_workflow_heads TO platform_jobs;
@@ -165,3 +167,33 @@ ALTER TABLE platform_manager.commands
         OR (kind='product.create' AND resource_id IS NOT NULL AND num_nonnulls(episode_id,account_id,product_id,expected_version)=0)
         OR (kind IN ('product.update','product.company_workflow.set') AND product_id IS NOT NULL AND expected_version IS NOT NULL
             AND num_nonnulls(episode_id,account_id,resource_id)=0));
+
+CREATE FUNCTION platform_company.enqueue_refresh(scope UUID, activation BIGINT, part TEXT, job UUID, job_kind TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+BEGIN
+ IF job_kind <> 'company.refresh.' || scope::text || '.' || activation::text OR activation<1 OR part NOT IN ('clients','metadata') THEN
+  RAISE EXCEPTION 'invalid company refresh job' USING ERRCODE='check_violation';
+ END IF;
+ PERFORM FROM platform_company.source_control WHERE scope_id=scope AND epoch=activation
+  AND (retry_not_before IS NULL OR retry_not_before<=statement_timestamp()) FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'source activation changed' USING ERRCODE='serialization_failure'; END IF;
+ PERFORM FROM platform_company.source_components c LEFT JOIN platform_jobs.jobs j ON j.id=c.current_job_id
+  WHERE c.scope_id=scope AND c.component=part AND (j.id IS NULL OR j.status IN ('succeeded','dead'))
+  AND (c.next_refresh IS NULL OR c.next_refresh<=statement_timestamp()) FOR UPDATE OF c;
+ IF NOT FOUND THEN RAISE EXCEPTION 'company refresh already scheduled' USING ERRCODE='serialization_failure'; END IF;
+ INSERT INTO platform_jobs.jobs(id,kind,payload) VALUES(job,job_kind,jsonb_build_object('scope_id',scope,'epoch',activation,'component',part));
+ UPDATE platform_company.source_components SET current_job_id=job WHERE scope_id=scope AND component=part;
+END $$;
+REVOKE ALL ON FUNCTION platform_company.enqueue_refresh(UUID,BIGINT,TEXT,UUID,TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION platform_company.enqueue_refresh(UUID,BIGINT,TEXT,UUID,TEXT) TO platform_jobs;
+
+CREATE FUNCTION platform_company.audit_workflow_revision() RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+BEGIN
+ INSERT INTO platform_company.audit(id,kind,scope_id,product_id,revision,command_id,actor_id)
+ VALUES(gen_random_uuid(),'product.company_workflow.set',NEW.scope_id,NEW.product_id,NEW.revision,NEW.command_id,NEW.actor_id);
+ RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION platform_company.audit_workflow_revision() FROM PUBLIC;
+CREATE TRIGGER audit_workflow_revision AFTER INSERT ON platform_company.product_workflow_revisions
+ FOR EACH ROW EXECUTE FUNCTION platform_company.audit_workflow_revision();
