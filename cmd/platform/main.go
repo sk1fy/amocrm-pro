@@ -20,6 +20,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"github.com/sk1fy/amocrm-pro/internal/platformaccess"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/companysource"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb"
@@ -42,6 +43,7 @@ type config struct {
 	accessOrigin            string
 	manager                 *productplatform.ManagerOptions
 	accountGateway          accountGatewayConfig
+	companySource           companysource.Config
 }
 
 func main() {
@@ -113,6 +115,20 @@ func run() error {
 		accountObserver = productplatform.NewAccountObserver(jobs, platformpb.NewCoreAccountObservationsClient(conn))
 	}
 
+	var companyObserver *productplatform.CompanyObserver
+	if cfg.companySource.Origin != "" {
+		client, err := companysource.New(cfg.companySource)
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		registerCtx, cancel := context.WithTimeout(ctx, startupTimeout)
+		companyObserver, err = productplatform.NewCompanyObserver(registerCtx, jobs, client)
+		cancel()
+		if err != nil {
+			slog.Warn("Company source worker disabled", "reason", "source_registration_unavailable")
+		}
+	}
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	lifecycle := productplatform.NewLifecycleStore(jobs)
@@ -122,11 +138,17 @@ func run() error {
 		if accountObserver != nil {
 			handlers[productplatform.AccountRefreshJob] = accountObserver.RefreshJob
 		}
+		if companyObserver != nil {
+			handlers[companyObserver.Kind()] = companyObserver.RefreshJob
+		}
 		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queue.DefaultConfig(cfg.workers), registry)
 		runWorker = func(ctx context.Context) {
 			var group sync.WaitGroup
 			if accountObserver != nil {
 				group.Go(func() { accountObserver.Enroll(ctx) })
+			}
+			if companyObserver != nil {
+				group.Go(func() { companyObserver.Enroll(ctx) })
 			}
 			group.Go(func() { worker.Run(ctx) })
 			group.Wait()
@@ -273,6 +295,10 @@ func loadConfig(getenv func(string) string) (config, error) {
 		return config{}, err
 	}
 	cfg.accountGateway, err = readAccountGatewayConfig(getenv)
+	if err != nil {
+		return config{}, err
+	}
+	cfg.companySource, err = companysource.ParseConfig(getenv)
 	if err != nil {
 		return config{}, err
 	}
