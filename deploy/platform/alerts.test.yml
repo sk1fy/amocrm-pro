@@ -1,0 +1,52 @@
+rule_files: [alerts.yml]
+evaluation_interval: 1m
+tests:
+  - name: shared gauges use max, queue states are bounded, and alerts recover
+    interval: 1m
+    input_series:
+      - series: platform_queue_depth{job="platform",instance="one",status="queued"}
+        values: 3+0x10 0+0x10
+      - series: platform_queue_depth{job="platform",instance="two",status="queued"}
+        values: 3+0x10 0+0x10
+      - series: platform_queue_depth{job="platform",instance="one",status="dead"}
+        values: 100+0x21
+      - series: platform_queue_snapshot_ok{job="platform",instance="one"}
+        values: 1+0x10 0+0x3 1+0x7
+      - series: platform_queue_oldest_ready_seconds{job="platform",instance="one"}
+        values: 600+0x10 0+0x10
+      - series: platform_queue_expired_leases{job="platform",instance="one"}
+        values: 1+0x10 0+0x10
+      - series: up{job="platform",instance="one"}
+        values: 0+0x10 1+0x10
+      - series: platform_queue_outcomes_total{job="platform",outcome="dead",instance="one"}
+        values: 0+1x10 10+0x10
+      - series: platform_queue_outcomes_total{job="platform",outcome="recovered_dead",instance="two"}
+        values: 0+1x10 10+0x10
+      - series: platform_queue_database_errors_total{job="platform",operation="claim",instance="one"}
+        values: 0+1x10 10+0x10
+    promql_expr_test:
+      - expr: platform:queue_depth:max{status="queued"}
+        eval_time: 8m
+        exp_samples:
+          - labels: 'platform:queue_depth:max{job="platform",status="queued"}'
+            value: 3
+      - expr: count(platform:queue_depth:max{status="dead"}) or vector(0)
+        eval_time: 8m
+        exp_samples:
+          - labels: '{}'
+            value: 0
+      - expr: count(ALERTS{alertname=~"PlatformQueueStalled|PlatformExpiredLeases|PlatformScrapeUnavailable|PlatformDeadJobs|PlatformQueueDatabaseErrors",alertstate="firing"})
+        eval_time: 8m
+        exp_samples:
+          - labels: '{}'
+            value: 5
+      - expr: count(ALERTS{alertname="PlatformQueueSnapshotUnavailable",alertstate="firing"})
+        eval_time: 14m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+      - expr: count(ALERTS{alertstate="firing"}) or vector(0)
+        eval_time: 21m
+        exp_samples:
+          - labels: '{}'
+            value: 0

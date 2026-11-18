@@ -18,6 +18,13 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 - [Внутренний API админки](../api/admin-openapi.yaml).
 - [Server observability](../deploy/observability/server/README.md).
 
+## Platform V1
+
+- [Контракт](platform-v1-contract.md).
+- [Локальный запуск и конфигурация](runbooks/platform-v1.md).
+- [Company CRM read connector](company-crm-operations.md).
+- [Company CRM OpenAPI](../api/company-crm-openapi.yaml).
+
 ## Распределение
 
 - [Спецификация](specs/lead-distribution-v1/README.md).
@@ -51,3 +58,5 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 - [Контроль задач: обновление сервера и приёмка MVP](runbooks/task-control-mvp.md)
 
 - [Вход в компанию из виджетов amoCRM](runbooks/company-entry.md).
+
+- [Проекции Company CRM в Platform](platform-company-operations.md).

@@ -45,7 +45,7 @@ FROM test-base AS integration-test
 ENTRYPOINT ["go", "test"]
 # Packages share a resettable test database and a global advisory lock. Run
 # packages sequentially; concurrency/race scenarios inside each suite remain on.
-CMD ["-race", "-p=1", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/companyentry", "./internal/distribution", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/taskcontrol", "./internal/platform/migrations", "./internal/platform/postgres", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread", "./internal/admincommand", "./internal/admincrm"]
+CMD ["-race", "-p=1", "-count=1", "-v", "./cmd/api", "./internal/services/leadstatus", "./internal/corepolicy", "./internal/companyentry", "./internal/distribution", "./internal/activitybridge", "./internal/widgetlimit", "./internal/integrations", "./internal/jobs", "./internal/maintenance", "./internal/oauth", "./internal/taskcontrol", "./internal/platform/migrations", "./internal/platform/postgres", "./internal/transport/httpserver", "./internal/webhook", "./internal/widgetapi", "./internal/widgetauth", "./internal/widgetcors", "./internal/adminread", "./internal/admincommand", "./internal/admincrm", "./internal/companycrm", "./cmd/worker"]
 
 FROM alpine:${ALPINE_VERSION} AS runtime
 
@@ -76,6 +76,46 @@ ENV MIGRATIONS_DIR=/migrations
 
 ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
 CMD ["up"]
+
+FROM runtime AS platform-migrate
+
+COPY --from=migrate-build --chown=app:app /out/amocrm-migrate /usr/local/bin/amocrm-migrate
+COPY --from=migrate-build --chown=app:app /src/migrations-platform /migrations
+
+ENV MIGRATIONS_DIR=/migrations \
+    MIGRATION_TARGET=platform
+
+ENTRYPOINT ["/usr/local/bin/amocrm-migrate"]
+CMD ["up"]
+
+FROM source AS platform-lifecycle-build
+
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/platform-lifecycle ./cmd/platform-lifecycle
+
+FROM runtime AS platform-lifecycle
+
+COPY --from=platform-lifecycle-build --chown=app:app /out/platform-lifecycle /usr/local/bin/platform-lifecycle
+
+ENTRYPOINT ["/usr/local/bin/platform-lifecycle"]
+
+FROM source AS platform-build
+
+ARG BUILD_REVISION=unknown
+
+RUN go build -trimpath -ldflags="-s -w -X github.com/sk1fy/amocrm-pro/internal/buildinfo.Revision=${BUILD_REVISION}" -o /out/amocrm-platform ./cmd/platform
+
+FROM runtime AS platform
+
+COPY --from=platform-build --chown=app:app /out/amocrm-platform /usr/local/bin/amocrm-platform
+
+EXPOSE 8080 8443
+
+HEALTHCHECK --interval=2s --timeout=2s --start-period=5s --retries=6 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ready || exit 1
+
+ENTRYPOINT ["/usr/local/bin/amocrm-platform"]
 
 FROM source AS integrations-build
 

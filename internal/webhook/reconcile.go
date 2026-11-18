@@ -40,6 +40,8 @@ type ReconcileStore struct {
 type subscription struct {
 	InstallationID uuid.UUID
 	WebhookKey     string
+	keyCiphertext  []byte
+	keyVersion     *int
 	Settings       []string
 	Status         string
 }
@@ -67,23 +69,29 @@ func (s *ReconcileStore) Load(ctx context.Context, installationID uuid.UUID) (su
 	return result, nil
 }
 
+type subscriptionReader interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func (s *ReconcileStore) load(ctx context.Context, installationID uuid.UUID) (subscription, error) {
-	var keyCiphertext []byte
-	var keyVersion *int
+	return s.loadSubscription(ctx, s.pool, installationID)
+}
+
+func (s *ReconcileStore) loadSubscription(ctx context.Context, q subscriptionReader, installationID uuid.UUID) (subscription, error) {
 	var settingsJSON json.RawMessage
 	result := subscription{InstallationID: installationID}
-	if err := s.pool.QueryRow(ctx, `
+	if err := q.QueryRow(ctx, `
 		SELECT webhook_key_ciphertext, webhook_key_key_version, webhook_settings, status
 		FROM installations
 		WHERE id = $1`, installationID,
-	).Scan(&keyCiphertext, &keyVersion, &settingsJSON, &result.Status); err != nil {
+	).Scan(&result.keyCiphertext, &result.keyVersion, &settingsJSON, &result.Status); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return subscription{}, fmt.Errorf("load webhook subscription: %w", err)
 		}
 		return subscription{}, fmt.Errorf("load webhook subscription: %w", err)
 	}
-	if len(keyCiphertext) > 0 && keyVersion != nil {
-		key, err := s.keys.Open(*keyVersion, keyCiphertext, cryptox.InstallationWebhookKeyAAD(installationID))
+	if len(result.keyCiphertext) > 0 && result.keyVersion != nil {
+		key, err := s.keys.Open(*result.keyVersion, result.keyCiphertext, cryptox.InstallationWebhookKeyAAD(installationID))
 		if err != nil {
 			return subscription{}, fmt.Errorf("decrypt webhook key: %w", err)
 		}
@@ -94,7 +102,7 @@ func (s *ReconcileStore) load(ctx context.Context, installationID uuid.UUID) (su
 		return subscription{}, fmt.Errorf("decode webhook settings: %w", err)
 	}
 	var enabled bool
-	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM integration_services c JOIN installations i ON i.integration_id=c.integration_id WHERE i.id=$1 AND c.service_code='lead-distribution' AND c.enabled AND i.status='active')`, installationID).Scan(&enabled); err != nil {
+	if err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM integration_services c JOIN installations i ON i.integration_id=c.integration_id WHERE i.id=$1 AND c.service_code='lead-distribution' AND c.enabled AND i.status='active')`, installationID).Scan(&enabled); err != nil {
 		return result, err
 	}
 	if enabled {
@@ -111,15 +119,30 @@ func (s *ReconcileStore) load(ctx context.Context, installationID uuid.UUID) (su
 	return result, nil
 }
 
-func (s *ReconcileStore) MarkActive(ctx context.Context, installationID uuid.UUID, settings []string) error {
-	_, err := s.pool.Exec(ctx, `
+func (s *ReconcileStore) requireCurrent(ctx context.Context, sub subscription) error {
+	var current bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM installations
+		WHERE id=$1 AND status='active' AND webhook_key_ciphertext=$2 AND webhook_key_key_version=$3)`, sub.InstallationID, sub.keyCiphertext, sub.keyVersion).Scan(&current); err != nil {
+		return err
+	}
+	if !current {
+		return ErrNotActive
+	}
+	return nil
+}
+
+func (s *ReconcileStore) markCurrent(ctx context.Context, sub subscription, status string, settings []string, message string) error {
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE installations
-		SET webhook_status = 'active', webhook_settings = $2,
-			webhook_checked_at = now(), webhook_last_error = NULL, updated_at = now()
-		WHERE id = $1`, installationID, settings,
-	)
+		SET webhook_status=$4,webhook_settings=COALESCE($5::jsonb,webhook_settings),
+			webhook_checked_at=now(),webhook_last_error=NULLIF($6,''),updated_at=now()
+		WHERE id=$1 AND status='active' AND webhook_key_ciphertext=$2 AND webhook_key_key_version=$3`,
+		sub.InstallationID, sub.keyCiphertext, sub.keyVersion, status, settings, sanitize.Text(message, 1000))
 	if err != nil {
-		return fmt.Errorf("mark webhook subscription active: %w", err)
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotActive
 	}
 	return nil
 }
@@ -193,19 +216,27 @@ func ReconcileJobHandler(
 		// settings array; do not invent events merely to make registration pass.
 		unregister := len(subscription.Settings) == 0
 		if err := store.synchronize(ctx, client, subscription, destination, unregister); err != nil {
-			recordReconcileError(store, subscription.InstallationID, err)
+			if errors.Is(err, ErrNotActive) {
+				return nil, jobs.Permanent("installation_not_active", err)
+			}
+			recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			defer cancel()
+			_ = store.markCurrent(recordCtx, subscription, "error", nil, err.Error())
 			return nil, classifyReconcileError(err)
 		}
+		status := "active"
+		settings := subscription.Settings
 		if unregister {
-			if err := store.MarkUnregistered(ctx, subscription.InstallationID); err != nil {
-				return nil, err
-			}
-			return json.RawMessage(`{"status":"unregistered"}`), nil
+			status = "unregistered"
+			settings = nil
 		}
-		if err := store.MarkActive(ctx, subscription.InstallationID, subscription.Settings); err != nil {
+		if err := store.markCurrent(ctx, subscription, status, settings, ""); err != nil {
+			if errors.Is(err, ErrNotActive) {
+				return nil, jobs.Permanent("installation_not_active", err)
+			}
 			return nil, err
 		}
-		return json.RawMessage(`{"status":"active"}`), nil
+		return json.Marshal(map[string]string{"status": status})
 	}, nil
 }
 

@@ -102,6 +102,7 @@ help: ## Show available commands
 
 config: ## Validate the resolved Docker Compose configuration
 	$(COMPOSE) config --quiet
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.company-crm.yml config --quiet
 
 build: ## Build API, worker, migration, and operator images
 	$(COMPOSE) build api worker migrate integrations
@@ -221,3 +222,42 @@ integration-current-test: ## Run current Core PostgreSQL suites using the previo
 .PHONY: distribution-team-bridge-test
 distribution-team-bridge-test: ## Verify actual signed Core/TeamOS decision execution with separate disposable databases
 	sh scripts/distribution-team-bridge-test.sh
+
+PLATFORM_COMPOSE_PROJECT ?= amocrm-platform
+PLATFORM_DEV_CERTS_DIR ?= $(CURDIR)/tmp/platform-certs
+PLATFORM_COMPOSE = PLATFORM_UID=$(UID) PLATFORM_GID=$(GID) PLATFORM_DEV_CERTS_DIR="$(PLATFORM_DEV_CERTS_DIR)" $(COMPOSE) -p $(PLATFORM_COMPOSE_PROJECT) -f docker-compose.platform.yml
+
+.PHONY: platform-certs platform-up platform-down platform-test
+platform-certs: ## Create a disposable local Platform CA and cert bundle if absent
+	@if [ ! -d "$(PLATFORM_DEV_CERTS_DIR)" ]; then \
+		umask 077; \
+		cert_dir="$(PLATFORM_DEV_CERTS_DIR)"; \
+		mkdir -p "$$(dirname "$$cert_dir")"; \
+		$(DOCKER) run --rm --user "$(UID):$(GID)" -e HOME=/tmp -e GOCACHE=/tmp/go-build \
+			-v "$(CURDIR):/src:ro" -v "$$(cd "$$(dirname "$$cert_dir")" && pwd):/certs" -w /src \
+			$(GO_IMAGE) go run ./cmd/service-certs --platform "/certs/$$(basename "$$cert_dir")"; \
+	fi
+
+platform-up: platform-certs ## Migrate Platform's isolated PostgreSQL and start Platform
+	$(PLATFORM_COMPOSE) build platform-migrate platform
+	$(PLATFORM_COMPOSE) up --detach --wait postgres
+	$(PLATFORM_COMPOSE) run --rm --no-deps platform-migrate
+	$(PLATFORM_COMPOSE) up --detach --wait --no-deps platform
+
+platform-down: ## Stop Platform while preserving its PostgreSQL volume
+	$(PLATFORM_COMPOSE) down
+
+platform-test: ## Verify Platform migrations, roles, mTLS, queue, and manager API
+	COMPOSE="$(COMPOSE)" sh scripts/platform-test.sh
+
+.PHONY: platform-lifecycle-test
+platform-lifecycle-test: ## Verify Core lifecycle delivery and Platform access against two isolated PostgreSQL databases
+	DOCKER="$(DOCKER)" GO_VERSION="$(GO_VERSION)" sh scripts/platform-lifecycle-test.sh
+
+.PHONY: platform-release-check platform-observability-test
+platform-release-check: ## Exercise release artifact verifier rejection and safe-manifest cases
+	python3 scripts/test-platform-release-verify.py
+
+platform-observability-test: ## Validate release scrape config and Platform queue alert behavior
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/platform:/config:ro" $(PROMETHEUS_IMAGE) check config /config/prometheus.yml
+	$(DOCKER) run --rm --entrypoint /bin/promtool -v "$(CURDIR)/deploy/platform:/config:ro" $(PROMETHEUS_IMAGE) test rules /config/alerts.test.yml

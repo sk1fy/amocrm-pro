@@ -12,6 +12,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/requesttiming"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc/pb"
+	"github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -41,9 +42,11 @@ func rpcCallTimeout(method string) time.Duration {
 }
 
 type Endpoints struct {
-	BootstrapAccount serviceapi.CoreBootstrap
-	Ready            func(context.Context) error
-	Metrics          prometheus.Registerer
+	BootstrapAccount            serviceapi.CoreBootstrap
+	PlatformInstallations       serviceapi.CoreInstallations
+	PlatformAccountObservations serviceapi.CoreAccountObservations
+	Ready                       func(context.Context) error
+	Metrics                     prometheus.Registerer
 
 	Policy    serviceapi.Policy
 	Gateway   serviceapi.Gateway
@@ -70,7 +73,13 @@ func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 			}
 		}()
 		identity := peerIdentity(ctx)
-		if !allowedCaller(info.FullMethod, identity) {
+		allowed := allowedCaller(info.FullMethod, identity)
+		if info.FullMethod == platformpb.CoreInstallations_GetSnapshot_FullMethodName ||
+			info.FullMethod == platformpb.CoreAccountObservations_ObserveAccount_FullMethodName ||
+			(endpoints.PlatformAccountObservations != nil && info.FullMethod == grpc_health_v1.Health_Check_FullMethodName) {
+			allowed = platformPeer(ctx)
+		}
+		if !allowed {
 			return nil, status.Error(codes.PermissionDenied, "mTLS service identity is not authorized")
 		}
 		if timingServiceOK {
@@ -96,6 +105,12 @@ func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 	}), grpc.StreamInterceptor(func(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		return status.Error(codes.Unimplemented, "streaming is outside the v0 contract")
 	}))
+	if endpoints.PlatformInstallations != nil {
+		platformpb.RegisterCoreInstallationsServer(server, &platformInstallationsServer{impl: endpoints.PlatformInstallations})
+	}
+	if endpoints.PlatformAccountObservations != nil {
+		platformpb.RegisterCoreAccountObservationsServer(server, &platformAccountObservationsServer{impl: endpoints.PlatformAccountObservations})
+	}
 	if endpoints.BootstrapAccount != nil {
 		pb.RegisterCoreBootstrapServer(server, &bootstrapServer{impl: endpoints.BootstrapAccount})
 	}

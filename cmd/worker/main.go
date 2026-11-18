@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"log/slog"
@@ -16,8 +17,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sk1fy/amocrm-pro/internal/admincommand"
 	"github.com/sk1fy/amocrm-pro/internal/admincrm"
+	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/companyentry"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/distribution"
 	"github.com/sk1fy/amocrm-pro/internal/employeeimport"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
@@ -171,6 +174,17 @@ func run() error {
 	}
 	registry.MustRegister(distribution.NewDeliveryCollector(pool))
 
+	handlers[corelifecycle.JobType] = func(context.Context, jobs.Job) (json.RawMessage, error) {
+		return nil, errors.New("Platform lifecycle delivery is not configured")
+	}
+	if origin := os.Getenv("PLATFORM_DELIVERY_ORIGIN"); origin != "" {
+		handler, err := corelifecycle.DeliveryHandler(corelifecycle.NewStore(pool), origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		if err != nil {
+			return err
+		}
+		handlers[corelifecycle.JobType] = handler
+	}
+
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)
 	handlers[admincommand.DistributionReconcileJobType] = adminExecutor.Handler
 	observers[admincommand.DistributionReconcileJobType] = admincommand.FailReceipt
@@ -269,9 +283,28 @@ func run() error {
 		employeeimport.Mount(mux, cfg.AdminAPIToken, resolver, amocrmAPI)
 		adminCRMServer = httpserver.New(cfg.AdminCRMHTTPAddress, mux)
 	}
-	errChannel := make(chan error, 7)
+	platformGateway, _, platformGatewayFailed, err := startPlatformAccountGateway(pool, amocrmAPI, os.Getenv("PLATFORM_ACCOUNT_GATEWAY_GRPC_ADDRESS"))
+	if err != nil {
+		return err
+	}
+	companyConfig, err := companycrm.LoadConfig()
+	if err != nil {
+		return err
+	}
+	companyServer, err := companyCRMServer(pool, amocrmAPI, tokenProvider, companyConfig)
+	if err != nil {
+		return err
+	}
+	errChannel := make(chan error, 8)
 	var processes sync.WaitGroup
 	processes.Add(3)
+	if companyServer != nil {
+		processes.Add(1)
+		go func() {
+			defer processes.Done()
+			errChannel <- runCompanyCRM(ctx, companyServer, logger, cfg.ShutdownTimeout)
+		}()
+	}
 	if companyEntryServer != nil {
 		processes.Add(1)
 		go func() {
@@ -318,9 +351,13 @@ func run() error {
 	case <-signalContext.Done():
 	case <-components.Failed():
 		runError = components.Err()
+	case runError = <-platformGatewayFailed:
 	case runError = <-errChannel:
 	}
 	cancelAll()
+	if platformGateway != nil {
+		platformGateway.Stop()
+	}
 	processes.Wait()
 	if runError != nil && !errors.Is(runError, context.Canceled) {
 		return runError

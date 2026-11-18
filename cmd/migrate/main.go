@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"github.com/sk1fy/amocrm-pro/internal/platform/config"
 	"github.com/sk1fy/amocrm-pro/internal/platform/migrations"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
 )
 
 const (
@@ -41,7 +44,17 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
-	pool, err := postgres.Open(ctx, cfg.DatabaseURL, "amocrm-migrate", 1)
+	target := os.Getenv("MIGRATION_TARGET")
+	if target != "" && target != "platform" {
+		fmt.Fprintln(os.Stderr, "invalid MIGRATION_TARGET")
+		os.Exit(1)
+	}
+	var pool *pgxpool.Pool
+	if target == "platform" {
+		pool, err = storage.Open(ctx, cfg.DatabaseURL, storage.Owner, 1)
+	} else {
+		pool, err = postgres.Open(ctx, cfg.DatabaseURL, "amocrm-migrate", 1)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -14,26 +14,32 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
 )
 
 func main() {
 	if buildinfo.PrintVersion(os.Args, os.Stdout) {
 		return
 	}
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: service-certs OUTPUT_DIRECTORY")
+	args := os.Args[1:]
+	platform := len(args) > 0 && args[0] == "--platform"
+	if platform {
+		args = args[1:]
+	}
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: service-certs [--platform] OUTPUT_DIRECTORY")
 		fmt.Fprintln(os.Stderr, "development only: 30-day certs for service/localhost DNS (api/worker aliases); refuses an existing output directory")
 		fmt.Fprintln(os.Stderr, "not a production CA; do not extend TTL or disable TLS verification for a new placement")
 		fmt.Fprintln(os.Stderr, "production identities: environment CA + docs/runbooks/secrets-rotation.md")
 		os.Exit(2)
 	}
-	if err := generate(os.Args[1]); err != nil {
+	if err := generate(args[0], platform); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -52,7 +58,7 @@ func writeExclusive(path, kind string, data []byte) error {
 	return closeErr
 }
 
-func generate(dir string) error {
+func generate(dir string, platform bool) error {
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		return fmt.Errorf("output directory must not exist: %s", dir)
 	}
@@ -64,14 +70,22 @@ func generate(dir string) error {
 		return err
 	}
 	now := time.Now()
-	ca := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "Activity development CA"},
+	caName := "Activity development CA"
+	if platform {
+		caName = "Platform development CA"
+	}
+	ca := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: caName},
 		NotBefore: now.Add(-time.Minute), NotAfter: now.Add(30 * 24 * time.Hour), IsCA: true,
 		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature}
 	caDER, err := x509.CreateCertificate(rand.Reader, ca, ca, caPub, caKey)
 	if err != nil {
 		return err
 	}
-	for i, identity := range []string{"core", "gateway", "activity", "crm-events"} {
+	identities := []string{"core", "gateway", "activity", "crm-events"}
+	if platform {
+		identities = []string{"platform", "core", "manager-bff", "admin-company-directory", "platform-company-crm"}
+	}
+	for i, identity := range identities {
 		path := filepath.Join(dir, identity)
 		if err := os.Mkdir(path, 0700); err != nil {
 			return err
@@ -87,10 +101,17 @@ func generate(dir string) error {
 		}
 		if identity == "core" {
 			names = append(names, "api")
+			if platform {
+				names = append(names, "company-crm")
+			}
+		}
+		usages := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+		if platform && (identity == "manager-bff" || identity == "admin-company-directory" || identity == "platform-company-crm") {
+			usages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 		}
 		cert := &x509.Certificate{SerialNumber: big.NewInt(int64(i + 2)), Subject: pkix.Name{CommonName: identity},
 			NotBefore: ca.NotBefore, NotAfter: ca.NotAfter, URIs: []*url.URL{uri}, DNSNames: names,
-			KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}}
+			KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: usages}
 		der, err := x509.CreateCertificate(rand.Reader, cert, ca, pub, caKey)
 		if err != nil {
 			return err
@@ -107,6 +128,21 @@ func generate(dir string) error {
 				return err
 			}
 		}
+	}
+	if platform {
+		_, signing, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		der, err := x509.MarshalPKCS8PrivateKey(signing)
+		if err != nil {
+			return err
+		}
+		if err := writeExclusive(filepath.Join(dir, "core", "snapshot-delegation.key"), "PRIVATE KEY", der); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "service-certs: wrote Platform development identities (30-day localhost).")
+		return nil
 	}
 	_, signing, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

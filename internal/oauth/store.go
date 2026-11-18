@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/services"
 )
 
@@ -302,7 +303,14 @@ func (s *Store) SaveInstallation(
 		return InstallationResult{}, fmt.Errorf("upsert installation: %w", err)
 	}
 
-	if len(existingWebhookHash) == 0 || len(existingWebhookCiphertext) == 0 || existingWebhookKeyVersion == nil {
+	evidence := uuid.New()
+	rotateWebhook, err := corelifecycle.NewStore(s.pool).RecordOAuth(ctx, tx, corelifecycle.Installation{
+		ID: installationID, Integration: integration.ID, Account: account.ID,
+	}, installationID == candidateID, evidence)
+	if err != nil {
+		return InstallationResult{}, fmt.Errorf("record Platform OAuth lifecycle: %w", err)
+	}
+	if rotateWebhook || len(existingWebhookHash) == 0 || len(existingWebhookCiphertext) == 0 || existingWebhookKeyVersion == nil {
 		plainWebhookKey := make([]byte, 32)
 		if _, err := rand.Read(plainWebhookKey); err != nil {
 			return InstallationResult{}, fmt.Errorf("generate webhook key: %w", err)
@@ -367,8 +375,8 @@ func (s *Store) SaveInstallation(
 		return InstallationResult{}, fmt.Errorf("enqueue webhook reconcile: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO audit_log (installation_id, actor_type, action, object_type, object_id)
-		VALUES ($1, 'oauth', 'installation.authorized', 'installation', $2)`, installationID, installationID.String()); err != nil {
+		INSERT INTO audit_log (installation_id, actor_type, action, object_type, object_id, metadata)
+		VALUES ($1, 'oauth', 'installation.authorized', 'installation', $2, jsonb_build_object('evidence_ref',$3::text))`, installationID, installationID.String(), evidence.String()); err != nil {
 		return InstallationResult{}, fmt.Errorf("audit installation authorization: %w", err)
 	}
 

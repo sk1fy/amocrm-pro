@@ -1,0 +1,9 @@
+DROP INDEX platform_lifecycle_processing_webhook_idx;
+DROP TABLE platform_lifecycle_deliveries;
+DROP TABLE platform_lifecycle_uninstalls;
+DROP TABLE platform_lifecycle_reconciliation;
+DROP TABLE platform_lifecycle_ledger;
+DROP TABLE platform_lifecycle_cursors;
+DROP TABLE platform_lifecycle_scope;
+DROP TABLE platform_lifecycle_integrations;
+DROP TABLE platform_lifecycle_manifest;

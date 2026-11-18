@@ -1,0 +1,24 @@
+# Optional local overlay. Generate development certificates before use.
+services:
+  worker:
+    user: "${COMPANY_CRM_UID:-10001}:${COMPANY_CRM_GID:-10001}"
+    environment:
+      COMPANY_CRM_HTTPS_ADDRESS: "${COMPANY_CRM_HTTPS_ADDRESS:-}"
+      COMPANY_CRM_IDENTITY_DIR: "${COMPANY_CRM_HTTPS_ADDRESS:+/company-crm-tls}"
+      COMPANY_CRM_ACCOUNT_ID: "${COMPANY_CRM_ACCOUNT_ID:-}"
+      COMPANY_CRM_INSTALLATION_ID: "${COMPANY_CRM_INSTALLATION_ID:-}"
+      COMPANY_CRM_INTEGRATION_ID: "${COMPANY_CRM_INTEGRATION_ID:-}"
+      COMPANY_CRM_BINDING_REVISION: "${COMPANY_CRM_BINDING_REVISION:-}"
+      COMPANY_CRM_ACCOUNT_FIELD_ID: "${COMPANY_CRM_ACCOUNT_FIELD_ID:-}"
+    volumes:
+      - type: bind
+        source: "${COMPANY_CRM_DEV_CERTS_DIR:-./tmp/company-crm-certs}/core"
+        target: /company-crm-tls
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:${COMPANY_CRM_PORT:-8086}:8086"
+    networks:
+      default:
+        aliases: [company-crm]

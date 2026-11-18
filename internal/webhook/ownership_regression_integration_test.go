@@ -150,7 +150,7 @@ func TestUninstallCanRecoverExpiredAccessToken(t *testing.T) {
 		}
 		return reconcileResponse(200, `{"_embedded":{"webhooks":[{"destination":"`+f.destination()+`"}]}}`, nil), nil
 	})}
-	tokens, err := oauth.NewUninstallTokenProvider(pool, f.store.keys, oauth.NewGateway(amocrm.NewOAuthClient(httpClient)), f.installationID)
+	tokens, err := oauth.NewUninstallTokenProvider(pool, f.store.keys, oauth.NewGateway(amocrm.NewOAuthClient(httpClient)), f.installationID, uuid.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}

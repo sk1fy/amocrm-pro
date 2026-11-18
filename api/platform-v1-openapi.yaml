@@ -1,0 +1,2465 @@
+openapi: 3.1.0
+info:
+  title: Rakurs Platform V1
+  version: 1.0.0
+  description: Контракт Core lifecycle, доступа виджета и закрытых операций для BFF. Порядок проверок и доверие описаны в docs/platform-v1-contract.md.
+paths:
+  /internal/platform/v1/core-events:
+    post:
+      operationId: recordCoreEvent
+      security:
+      - coreService: []
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LifecycleReceipt'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - {$ref: '#/components/schemas/CoreLifecycleEvent'}
+              - {$ref: '#/components/schemas/CoreAuthorizationEvent'}
+      description: Подтверждает запись в inbox. Идентичная повторная доставка получает тот же receipt. Другой payload для event_id или другой
+        event_id для той же позиции в потоке получает 409.
+  /api/v1/widget/platform-access-proof:
+    post:
+      operationId: issuePlatformAccessProof
+      security:
+      - coreWidgetSDK: []
+      - coreWidgetBearer: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProofIssued'}
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      description: 'Маршрут Core. Тело не требуется. Выбирает продукт из утверждённой привязки integration_id после существующего widget admission.
+        Ответ содержит Cache-Control: no-store.'
+  /v1/access/{amo_account_id}/{product_code}:
+    get:
+      operationId: getWidgetAccess
+      security:
+      - widgetProof: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccessState'}
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {name: amo_account_id, in: path, required: true, schema: {$ref: '#/components/schemas/AmoID'}}
+      - {name: product_code, in: path, required: true, schema: {$ref: '#/components/schemas/ProductCode'}}
+      description: 'Проверяет proof, его область и актуальное поколение. Доступ вычисляется по локальному сроку. Ответ содержит Cache-Control:
+        no-store.'
+  /v1/installations/{id}/activation:
+    post:
+      operationId: activateInstallation
+      security:
+      - activationProof: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Activation'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: {type: string, minLength: 1, maxLength: 1000}
+                phone: {type: string}
+                contact_role: {type: string}
+                consent_version: {type: string}
+              required:
+              - name
+              - phone
+              - consent_version
+      x-release-capability: verified_activation
+  /internal/platform/v1/managers/installations:
+    get:
+      operationId: listInstallations
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstallationList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
+      - {name: review, in: query, required: false, schema: {type: string, enum: [reviewed, unreviewed]}}
+      - {name: kind, in: query, required: false, schema: {type: string, enum: [install, reinstall]}}
+      - {name: last_lifecycle_event, in: query, required: false, schema: {$ref: '#/components/schemas/LifecycleKind'}}
+      - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
+      - {name: line, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO]}}
+      - {name: activation, in: query, required: false, schema: {type: string}}
+      - {name: access_state, in: query, required: false, schema: {type: string, enum: [active, inactive]}}
+      - {name: from, in: query, required: false, schema: {type: string, format: date}}
+      - {name: to, in: query, required: false, schema: {type: string, format: date}}
+      - {name: sort, in: query, required: false, schema: {type: string, enum: [installed_at, -installed_at]}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/installations/{id}/review:
+    put:
+      operationId: setInstallationReview
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Installation'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reviewed: {type: boolean}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - reviewed
+      x-platform-grant: clients.write
+  /internal/platform/v1/managers/installations/{id}/crm-deal/retry:
+    post:
+      operationId: retryInstallationDeal
+      security:
+      - adminService: []
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Operation'}
+          headers:
+            Location:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - reason
+      x-platform-grant: clients.write
+      x-release-capability: crm_installation_workflow
+  /internal/platform/v1/managers/installations/{id}/activation-contact:
+    patch:
+      operationId: updateInstallationContact
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Installation'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: {type: string, minLength: 1, maxLength: 1000}
+                phone: {type: string}
+                contact_role: {type: string}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - name
+              - phone
+              - contact_role
+              - reason
+      x-platform-grant: clients.write
+      x-release-capability: verified_activation
+  /internal/platform/v1/managers/accounts:
+    get:
+      operationId: listAccounts
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
+      - {name: classification, in: query, required: false, schema: {type: array, items: {type: string}}}
+      - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
+      - {name: license_before, in: query, required: false, schema: {type: string, format: date-time}}
+      - {name: active_users_min, in: query, required: false, schema: {type: integer, minimum: 0}}
+      - {name: active_users_max, in: query, required: false, schema: {type: integer, minimum: 0}}
+      - {name: sort, in: query, required: false, schema: {type: string, enum: [amo_account_id, current_domain, display_name, license_until, -license_until]}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/accounts/search:
+    post:
+      operationId: searchAccounts
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
+      - {name: classification, in: query, required: false, schema: {type: array, items: {type: string}}}
+      - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
+      - {name: license_before, in: query, required: false, schema: {type: string, format: date-time}}
+      - {name: active_users_min, in: query, required: false, schema: {type: integer, minimum: 0}}
+      - {name: active_users_max, in: query, required: false, schema: {type: integer, minimum: 0}}
+      - {name: sort, in: query, required: false, schema: {type: string, enum: [amo_account_id, current_domain, display_name, license_until, -license_until]}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                portrait_filter: {$ref: '#/components/schemas/PortraitFilter'}
+              required:
+              - portrait_filter
+      x-platform-grant: clients.read
+      description: До 3 уровней и 30 условий. Тип значения задаёт поле шаблона. Операция чтения.
+  /internal/platform/v1/managers/accounts/{id}:
+    get:
+      operationId: getAccount
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountDetail'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/accounts/{id}/profile:
+    patch:
+      operationId: updateAccountProfile
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountDetail'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                display_name: {type: [string, 'null']}
+                note: {type: [string, 'null']}
+                classification: {type: [string, 'null']}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - reason
+      x-platform-grant: clients.write
+  /internal/platform/v1/managers/accounts/{id}/refresh:
+    post:
+      operationId: requestAccountRefresh
+      security:
+      - adminService: []
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Operation'}
+          headers:
+            Location:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                components: {type: array, items: {type: string, enum: [license, users]}, minItems: 1, uniqueItems: true}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - components
+              - reason
+      x-platform-grant: clients.write
+  /internal/platform/v1/managers/accounts/{id}/license-history:
+    get:
+      operationId: getAccountLicenseHistory
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LicenseEvidenceList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: from, in: query, required: false, schema: {type: string, format: date}}
+      - {name: to, in: query, required: false, schema: {type: string, format: date}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/accounts/{id}/widgets:
+    get:
+      operationId: listAccountWidgets
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstallationList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: state, in: query, required: false, schema: {type: string, enum: [current, removed]}}
+      - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/accounts/{id}/crm-users:
+    get:
+      operationId: getAccountCRMUsers
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ObservationCRMUsers'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: active, in: query, required: false, schema: {type: boolean}}
+      - {name: admin, in: query, required: false, schema: {type: boolean}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/accounts/{id}/renewals:
+    post:
+      operationId: createAccountRenewal
+      security:
+      - adminService: []
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Renewal'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                product_id: {type: string, format: uuid}
+                target_until: {type: string, format: date-time}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - product_id
+              - target_until
+              - reason
+      x-platform-grant: clients.renew
+      description: If-Match относится к версии собственных прав выбранного account/product. Возвращается обновлённая версия права.
+  /internal/platform/v1/managers/accounts/{id}/portrait:
+    get:
+      operationId: getAccountPortrait
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Portrait'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      x-platform-grant: clients.read
+    patch:
+      operationId: updateAccountPortrait
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Portrait'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                company: {$ref: '#/components/schemas/CompanyPortrait'}
+                maturity_signals: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid},
+                      manual: {type: [boolean, 'null']}}, required: [id, manual]}}
+                topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, note: {
+                        type: string}}, required: [id, note]}}
+      x-platform-grant: clients.write
+  /internal/platform/v1/managers/accounts/{id}/portrait/audit-dates:
+    post:
+      operationId: createPortraitAuditDate
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Portrait'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                date: {type: string, format: date}
+                note: {type: [string, 'null']}
+              required:
+              - date
+      x-platform-grant: clients.write
+  /internal/platform/v1/managers/portrait-template:
+    get:
+      operationId: getPortraitTemplate
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PortraitTemplate'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      x-platform-grant: clients.read
+    put:
+      operationId: setPortraitTemplate
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PortraitTemplate'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, title: {
+                        type: string}, prompts: {type: array, items: {type: string}}}, required: [id, title, prompts]}}
+              required:
+              - topics
+      x-platform-grant: configuration.manage
+  /internal/platform/v1/managers/portrait-niches:
+    get:
+      operationId: listPortraitNiches
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/NicheList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
+      x-platform-grant: clients.read
+    post:
+      operationId: createPortraitNiche
+      security:
+      - adminService: []
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Niche'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - name
+      x-platform-grant: configuration.manage
+  /internal/platform/v1/managers/portrait-niches/{id}:
+    patch:
+      operationId: updatePortraitNiche
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Niche'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - name
+      x-platform-grant: configuration.manage
+    delete:
+      operationId: deletePortraitNiche
+      security:
+      - adminService: []
+      responses:
+        '204':
+          description: Успех
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      x-platform-grant: configuration.manage
+  /internal/platform/v1/managers/portrait-niches/{id}/merge:
+    post:
+      operationId: mergePortraitNiche
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Niche'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                target_id: {type: string, format: uuid}
+                target_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+              required:
+              - target_id
+              - target_version
+      x-platform-grant: configuration.manage
+  /internal/platform/v1/managers/products:
+    get:
+      operationId: listProducts
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
+      - {name: line, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO]}}
+      - {name: availability, in: query, required: false, schema: {type: string, enum: [draft, pilot, active, archived]}}
+      x-platform-grant: clients.read
+    post:
+      operationId: createProduct
+      security:
+      - adminService: []
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                code: {$ref: '#/components/schemas/ProductCode'}
+                display_name: {type: string}
+                line: {type: string, enum: [FREE, TOP, PRO]}
+                availability: {type: string, enum: [draft, pilot, active, archived]}
+                integration_refs: {type: array, items: {type: string, format: uuid}}
+                tariff_version: {type: [integer, 'null'], minimum: 1, maximum: 9007199254740991}
+                trial_policy: {$ref: '#/components/schemas/TrialPolicy'}
+                links: {type: array, items: {type: object, additionalProperties: false, properties: {label: {type: string}, url: {type: string,
+                        format: uri}}, required: [label, url]}}
+              required:
+              - code
+              - display_name
+              - line
+              - availability
+              - integration_refs
+              - tariff_version
+              - trial_policy
+              - links
+      x-platform-grant: catalog.manage
+  /internal/platform/v1/managers/products/{id}:
+    get:
+      operationId: getProduct
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      x-platform-grant: clients.read
+    patch:
+      operationId: updateProduct
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                display_name: {type: string}
+                line: {type: string, enum: [FREE, TOP, PRO]}
+                availability: {type: string, enum: [draft, pilot, active, archived]}
+                integration_refs: {type: array, items: {type: string, format: uuid}}
+                tariff_version: {type: [integer, 'null'], minimum: 1, maximum: 9007199254740991}
+                trial_policy: {$ref: '#/components/schemas/TrialPolicy'}
+                links: {type: array, items: {type: object, additionalProperties: false, properties: {label: {type: string}, url: {type: string,
+                        format: uri}}, required: [label, url]}}
+      x-platform-grant: catalog.manage
+  /internal/platform/v1/managers/products/{id}/metrics:
+    get:
+      operationId: getProductMetrics
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductMetrics'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: from, in: query, required: false, schema: {type: string, format: date}}
+      - {name: to, in: query, required: false, schema: {type: string, format: date}}
+      x-platform-grant: stats.read
+  /internal/platform/v1/managers/feed:
+    get:
+      operationId: listFeed
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EventList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: kind, in: query, required: false, schema: {type: array, items: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled,
+              activated, installation_reviewed, installation_unreviewed, account_profile_updated, portrait_updated, access_renewed]}}}
+      - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
+      - {name: from, in: query, required: false, schema: {type: string, format: date}}
+      - {name: to, in: query, required: false, schema: {type: string, format: date}}
+      - {name: account_id, in: query, required: false, schema: {type: string, format: uuid}}
+      x-platform-grant: feed.read
+  /internal/platform/v1/managers/accounts/{id}/history:
+    get:
+      operationId: listAccountHistory
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EventList'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+      - {name: cursor, in: query, required: false, schema: {type: string}}
+      - {name: kind, in: query, required: false, schema: {type: array, items: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled,
+              activated, installation_reviewed, installation_unreviewed, account_profile_updated, portrait_updated, access_renewed]}}}
+      - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
+      - {name: from, in: query, required: false, schema: {type: string, format: date}}
+      - {name: to, in: query, required: false, schema: {type: string, format: date}}
+      x-platform-grant: clients.read
+  /internal/platform/v1/managers/operations/{id}:
+    get:
+      operationId: getOperation
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Operation'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      x-platform-grant: operation-owner
+      description: Исходный субъект и актуальное право на операцию и целевой ресурс.
+  /internal/platform/v1/managers/commands/{id}:
+    get:
+      operationId: getCommandReceipt
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommandReceipt'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      x-platform-grant: command-owner
+      description: Только исходный BFF и субъект с актуальным правом на команду. Возвращает зарегистрированный исход по command ID; 404 не доказывает,
+        что первый запрос не в пути.
+  /internal/platform/v1/managers/companies:
+    get:
+      operationId: listCompanies
+      security:
+      - adminService: []
+      x-platform-grant: clients.read
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 25
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /internal/platform/v1/managers/companies/{id}:
+    get:
+      operationId: getCompany
+      security:
+      - adminService: []
+      x-platform-grant: clients.read
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: id
+        in: path
+        required: true
+        schema: &id001
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyDetail'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /internal/platform/v1/managers/company-workflow-metadata:
+    get:
+      operationId: getCompanyWorkflowMetadata
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyWorkflowMetadata'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /internal/platform/v1/managers/products/{id}/company-workflow:
+    get:
+      operationId: getProductCompanyWorkflow
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCompanyWorkflow'
+          headers:
+            ETag:
+              schema:
+                type: string
+                pattern: ^"[1-9][0-9]*"$
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+    put:
+      operationId: setProductCompanyWorkflow
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCompanyWorkflow'
+          headers:
+            ETag:
+              schema:
+                type: string
+                pattern: ^"[1-9][0-9]*"$
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProductCompanyWorkflow'
+      description: Команда product.company_workflow.set. Первая запись меняет виртуальную версию 1 на 2. Проверяет принятую
+        карточку продукта и свежее полное поколение метаданных в SQL. 409/422 сохраняют receipt. 503 откатывает резервирование
+        ключа. Точный повтор успеха возвращает сохранённые байты и ETag даже после outage или rebind, при текущем catalog.manage
+        и видимом продукте. write_ready всегда false.
+components:
+  securitySchemes:
+    adminService: {type: mutualTLS, description: Закрытый listener проверяет сертификат вызывающего BFF.}
+    coreService: {type: mutualTLS, description: Закрытый listener принимает только Core identity.}
+    coreWidgetSDK: {type: apiKey, in: header, name: X-Auth-Token, description: Одноразовый amoCRM Web SDK JWT. Используйте ровно один способ передачи.}
+    coreWidgetBearer: {type: http, scheme: bearer, bearerFormat: JWT, description: Совместимый способ передачи того же одноразового JWT.}
+    widgetProof: {type: http, scheme: bearer, bearerFormat: JWT}
+    activationProof: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    Actor: {name: X-Platform-Actor, in: header, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]+$', maxLength: 4096}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, format: uuid}}
+    IfMatch: {name: If-Match, in: header, required: true, schema: {type: string, pattern: '^"[1-9][0-9]*"$'}}
+  responses:
+    Error400:
+      description: Некорректные параметры
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Error401:
+      description: Требуется аутентификация
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Error403:
+      description: Нет права
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Error404:
+      description: Ресурс недоступен в области доступа
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Error409:
+      description: Конфликт состояния, версии или ключа
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Error422:
+      description: Нарушено продуктовое правило
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Error429:
+      description: Превышен лимит
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+      headers:
+        Retry-After:
+          schema: {type: string}
+    Error503:
+      description: Источник недоступен
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+      headers:
+        Retry-After:
+          schema: {type: string}
+  schemas:
+    AmoID: {type: string, pattern: '^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$'}
+    ProductCode: {type: string, maxLength: 63, pattern: '^[a-z0-9]+(?:[-_][a-z0-9]+)*$'}
+    Version: {type: integer, minimum: 1, maximum: 9007199254740991}
+    Grant: {type: string, enum: [catalog.manage, clients.read, clients.renew, clients.write, configuration.manage, feed.read, identity.manage,
+        security.audit.read, staff.manage, stats.read]}
+    Freshness: {type: string, enum: [fresh, stale, unknown, unavailable, unsupported]}
+    LifecycleKind: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled]}
+    ManagerIdentity:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        name: {type: string}
+        grants: {type: array, items: {$ref: '#/components/schemas/Grant'}, minItems: 1, uniqueItems: true}
+      required:
+      - id
+      - email
+      - name
+      - grants
+    ManagerActor:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: {type: string, enum: [employee]}
+        subject_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        audience: {type: string, enum: [managers]}
+        grants: {type: array, items: {$ref: '#/components/schemas/Grant'}, minItems: 1, uniqueItems: true}
+        grants_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - kind
+      - subject_id
+      - session_id
+      - audience
+      - grants
+      - grants_version
+    ManagerContext:
+      type: object
+      additionalProperties: false
+      properties:
+        actor: {$ref: '#/components/schemas/ManagerActor'}
+        request_id: {type: string, format: uuid}
+        trace_id: {type: string}
+        command_id: {type: string, format: uuid}
+        issued_at: {type: string, format: date-time}
+        deadline_at: {type: string, format: date-time}
+      required:
+      - actor
+      - request_id
+      - issued_at
+      - deadline_at
+    CoreLifecycleEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version: {type: integer, enum: [1]}
+        event_id: {type: string, format: uuid}
+        kind: {$ref: '#/components/schemas/LifecycleKind'}
+        occurred_at: {type: string, format: date-time}
+        amo_account_id: {$ref: '#/components/schemas/AmoID'}
+        integration_id: {type: string, format: uuid}
+        core_installation_id: {type: string, format: uuid}
+        generation: {type: integer, minimum: 1, maximum: 9007199254740991}
+        sequence: {type: integer, minimum: 1, maximum: 9007199254740991}
+        evidence:
+          type: object
+          additionalProperties: false
+          properties:
+            source: {type: string, enum: [core_oauth, core_uninstall]}
+            ref: {type: string, format: uuid}
+          required:
+          - source
+          - ref
+      required:
+      - schema_version
+      - event_id
+      - kind
+      - occurred_at
+      - amo_account_id
+      - integration_id
+      - core_installation_id
+      - generation
+      - sequence
+      - evidence
+    CoreAuthorizationEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version: {type: integer, enum: [1]}
+        event_id: {type: string, format: uuid}
+        kind: {type: string, enum: [authorization_changed]}
+        occurred_at: {type: string, format: date-time}
+        amo_account_id: {$ref: '#/components/schemas/AmoID'}
+        integration_id: {type: string, format: uuid}
+        core_installation_id: {type: string, format: uuid}
+        generation: {type: integer, minimum: 1, maximum: 9007199254740991}
+        sequence: {type: integer, minimum: 1, maximum: 9007199254740991}
+        authorization: {type: string, enum: [authorized, reauth_required, disabled, unknown]}
+        evidence:
+          type: object
+          additionalProperties: false
+          properties:
+            source: {type: string, enum: [core_policy]}
+            ref: {type: string, format: uuid}
+          required:
+          - source
+          - ref
+      required:
+      - schema_version
+      - event_id
+      - kind
+      - occurred_at
+      - amo_account_id
+      - integration_id
+      - core_installation_id
+      - generation
+      - sequence
+      - authorization
+      - evidence
+    ProofIssued:
+      type: object
+      additionalProperties: false
+      properties:
+        proof: {type: string}
+        expires_at: {type: string, format: date-time}
+      required:
+      - proof
+      - expires_at
+    LifecycleReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        event_id: {type: string, format: uuid}
+        state: {type: string, enum: [recorded]}
+      required:
+      - event_id
+      - state
+    ProofClaims:
+      type: object
+      additionalProperties: false
+      properties:
+        iss: {type: string, enum: [core]}
+        aud: {type: string, enum: [platform-access-v1]}
+        sub: {$ref: '#/components/schemas/AmoID'}
+        product_code: {$ref: '#/components/schemas/ProductCode'}
+        integration_id: {type: string, format: uuid}
+        core_installation_id: {type: string, format: uuid}
+        generation: {type: integer, minimum: 1, maximum: 9007199254740991}
+        authorization_sequence: {type: integer, minimum: 1, maximum: 9007199254740991}
+        iat: {type: integer, minimum: 0}
+        nbf: {type: integer, minimum: 0}
+        exp: {type: integer, minimum: 0}
+      required:
+      - iss
+      - aud
+      - sub
+      - product_code
+      - integration_id
+      - core_installation_id
+      - generation
+      - authorization_sequence
+      - iat
+      - nbf
+      - exp
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          properties:
+            code: {type: string}
+            message: {type: string}
+            request_id: {type: string, format: uuid}
+            retryable: {type: boolean}
+            retry_after_seconds: {type: integer, minimum: 0}
+            current_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+            operation_id: {type: string, format: uuid}
+            field_errors: {type: array, items: {type: object, additionalProperties: false, properties: {field: {type: string}, code: {type: string}},
+                required: [field, code]}}
+          required:
+          - code
+          - message
+          - request_id
+          - retryable
+      required:
+      - error
+    AccessState:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        active: {type: boolean}
+        valid_until: {type: [string, 'null'], format: date-time}
+        source: {type: string, enum: [own_trial, free, own_paid, manual, none]}
+        reason_codes: {type: array, items: {type: string}}
+        own_until: {type: [string, 'null'], format: date-time}
+        entitlement_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+        computed_at: {type: string, format: date-time}
+      required:
+      - account_id
+      - product_id
+      - active
+      - valid_until
+      - source
+      - reason_codes
+      - own_until
+      - entitlement_version
+      - computed_at
+    ObservationCount:
+      type: object
+      additionalProperties: false
+      properties:
+        state: {$ref: '#/components/schemas/Freshness'}
+        value: {type: integer, minimum: 0}
+        source: {type: string}
+        observed_at: {type: string, format: date-time}
+        fresh_until: {type: string, format: date-time}
+        evidence_id: {type: string, format: uuid}
+        error_code: {type: string}
+      required:
+      - state
+      - source
+    ObservationDate:
+      type: object
+      additionalProperties: false
+      properties:
+        state: {$ref: '#/components/schemas/Freshness'}
+        value: {type: string, format: date-time}
+        source: {type: string}
+        observed_at: {type: string, format: date-time}
+        fresh_until: {type: string, format: date-time}
+        evidence_id: {type: string, format: uuid}
+        error_code: {type: string}
+      required:
+      - state
+      - source
+    ObservationLicense:
+      type: object
+      additionalProperties: false
+      properties:
+        state: {$ref: '#/components/schemas/Freshness'}
+        value:
+          type: object
+          additionalProperties: false
+          properties:
+            license_until: {type: [string, 'null'], format: date-time}
+            paid_seat_limit: {type: [integer, 'null'], minimum: 0}
+            tariff: {type: [string, 'null']}
+        source: {type: string}
+        observed_at: {type: string, format: date-time}
+        fresh_until: {type: string, format: date-time}
+        evidence_id: {type: string, format: uuid}
+        error_code: {type: string}
+      required:
+      - state
+      - source
+    ObservationCRMUsers:
+      type: object
+      additionalProperties: false
+      properties:
+        state: {$ref: '#/components/schemas/Freshness'}
+        value: {type: array, items: {type: object, additionalProperties: false, properties: {id: {$ref: '#/components/schemas/AmoID'}, name: {
+                type: string}, is_active: {type: boolean}, is_admin: {type: boolean}}, required: [id, name, is_active, is_admin]}}
+        source: {type: string}
+        observed_at: {type: string, format: date-time}
+        fresh_until: {type: string, format: date-time}
+        evidence_id: {type: string, format: uuid}
+        error_code: {type: string}
+      required:
+      - state
+      - source
+    Review:
+      type: object
+      additionalProperties: false
+      properties:
+        reviewed: {type: boolean}
+        reviewed_by: {type: string, format: uuid}
+        reviewed_at: {type: string, format: date-time}
+      required:
+      - reviewed
+    Installation:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        account_id: {type: string, format: uuid}
+        amo_account_id: {$ref: '#/components/schemas/AmoID'}
+        product_id: {type: string, format: uuid}
+        product_code: {$ref: '#/components/schemas/ProductCode'}
+        product_name: {type: string}
+        core_installation_id: {type: string, format: uuid}
+        generation: {type: integer, minimum: 1, maximum: 9007199254740991}
+        kind: {type: string, enum: [install, reinstall]}
+        installed_at: {type: string, format: date-time}
+        removed_at: {type: [string, 'null'], format: date-time}
+        last_lifecycle_event: {$ref: '#/components/schemas/LifecycleKind'}
+        lifecycle: {type: string, enum: [current, removed]}
+        authorization: {type: string, enum: [authorized, reauth_required, disabled, unknown]}
+        activation_status: {type: string, enum: [pending, activated, unavailable]}
+        review: {$ref: '#/components/schemas/Review'}
+        crm_workflow: {type: string, enum: [unsupported, pending, succeeded, failed, needs_review]}
+        access: {$ref: '#/components/schemas/AccessState'}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - id
+      - account_id
+      - amo_account_id
+      - product_id
+      - product_code
+      - product_name
+      - core_installation_id
+      - generation
+      - kind
+      - installed_at
+      - removed_at
+      - last_lifecycle_event
+      - lifecycle
+      - authorization
+      - activation_status
+      - review
+      - crm_workflow
+      - access
+      - version
+    Activation:
+      type: object
+      additionalProperties: false
+      properties:
+        status: {type: string, enum: [activated]}
+        access: {$ref: '#/components/schemas/AccessState'}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - status
+      - access
+      - version
+    InstallationSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        total: {type: integer, minimum: 0}
+        reviewed: {type: integer, minimum: 0}
+        unreviewed: {type: integer, minimum: 0}
+      required:
+      - total
+      - reviewed
+      - unreviewed
+    AccountSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id: {type: string, format: uuid}
+        amo_account_id: {$ref: '#/components/schemas/AmoID'}
+        current_domain: {type: [string, 'null']}
+        domain_aliases: {type: [array, 'null'], items: {type: string}}
+        display_name: {type: [string, 'null']}
+        classification: {type: [string, 'null']}
+        active_products_count: {type: integer, minimum: 0}
+        license: {$ref: '#/components/schemas/ObservationLicense'}
+        active_users: {$ref: '#/components/schemas/ObservationCount'}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - account_id
+      - amo_account_id
+      - current_domain
+      - domain_aliases
+      - display_name
+      - classification
+      - active_products_count
+      - license
+      - active_users
+      - version
+    AccountListSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        total: {type: integer, minimum: 0}
+      required:
+      - total
+    Capability:
+      type: object
+      additionalProperties: false
+      properties:
+        action: {type: string}
+        allowed: {type: boolean}
+        reason_codes: {type: array, items: {type: string}}
+        required_grants: {type: array, items: {$ref: '#/components/schemas/Grant'}}
+      required:
+      - action
+      - allowed
+      - reason_codes
+      - required_grants
+    LicenseEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        account_id: {type: string, format: uuid}
+        source: {type: string}
+        license_until: {type: [string, 'null'], format: date-time}
+        observed_at: {type: string, format: date-time}
+        previous_until: {type: [string, 'null'], format: date-time}
+        paid_seat_limit: {type: [integer, 'null'], minimum: 0}
+        active_users: {type: [integer, 'null'], minimum: 0}
+      required:
+      - id
+      - account_id
+      - source
+      - license_until
+      - observed_at
+      - previous_until
+      - paid_seat_limit
+      - active_users
+    Product:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        code: {$ref: '#/components/schemas/ProductCode'}
+        display_name: {type: string}
+        line: {type: string, enum: [FREE, TOP, PRO]}
+        availability: {type: string, enum: [draft, pilot, active, archived]}
+        integration_refs: {type: array, items: {type: string, format: uuid}}
+        tariff_version: {type: [integer, 'null'], minimum: 1, maximum: 9007199254740991}
+        trial_policy: {$ref: '#/components/schemas/TrialPolicy'}
+        links: {type: array, items: {type: object, additionalProperties: false, properties: {label: {type: string}, url: {type: string, format: uri}},
+            required: [label, url]}}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - id
+      - code
+      - display_name
+      - line
+      - availability
+      - integration_refs
+      - tariff_version
+      - trial_policy
+      - links
+      - version
+    TrialPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: {type: string, enum: [none, once, free]}
+        duration_days: {type: [integer, 'null'], minimum: 0}
+      required:
+      - kind
+      - duration_days
+    ProductMetrics:
+      type: object
+      additionalProperties: false
+      properties:
+        confirmed_installations: {type: integer, minimum: 0}
+        activations: {type: integer, minimum: 0}
+        active_accesses: {type: integer, minimum: 0}
+        snapshot_at: {type: string, format: date-time}
+      required:
+      - confirmed_installations
+      - activations
+      - active_accesses
+      - snapshot_at
+    Operation:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string}
+        state: {type: string, enum: [accepted, running, waiting_external, succeeded, failed, needs_review]}
+        target:
+          type: object
+          additionalProperties: false
+          properties:
+            kind: {type: string}
+            id: {type: string, format: uuid}
+          required:
+          - kind
+          - id
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        result_ref: {type: string, format: uuid}
+        error: {$ref: '#/components/schemas/Error'}
+        retry_after_seconds: {type: integer, minimum: 0}
+      required:
+      - id
+      - kind
+      - state
+      - target
+      - created_at
+      - updated_at
+    CommandReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string}
+        state: {type: string, enum: [accepted, completed, rejected]}
+        operation_id: {type: string, format: uuid}
+      required:
+      - id
+      - kind
+      - state
+    Event:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled, activated, installation_reviewed, installation_unreviewed,
+            account_profile_updated, portrait_updated, access_renewed]}
+        occurred_at: {type: string, format: date-time}
+        recorded_at: {type: string, format: date-time}
+        account_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        actor_display: {type: string}
+        summary: {type: string}
+        related_refs: {type: array, items: {type: object, additionalProperties: false, properties: {kind: {type: string, enum: [account, product,
+                  installation]}, id: {type: string, format: uuid}}, required: [kind, id]}}
+      required:
+      - id
+      - kind
+      - occurred_at
+      - recorded_at
+      - summary
+      - related_refs
+    Portrait:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id: {type: string, format: uuid}
+        template_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+        company: {$ref: '#/components/schemas/CompanyPortrait'}
+        maturity_signals: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, manual: {
+                type: boolean}, observed: {type: boolean}, source: {type: string}}, required: [id]}}
+        topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, note: {type: string}},
+            required: [id, note]}}
+        audit_dates: {type: array, items: {$ref: '#/components/schemas/AuditDate'}}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - account_id
+      - template_version
+      - company
+      - maturity_signals
+      - topics
+      - audit_dates
+      - version
+    CompanyPortrait:
+      type: object
+      additionalProperties: false
+      properties:
+        niche_id: {type: [string, 'null'], format: uuid}
+        site: {type: [string, 'null']}
+        rating: {type: [integer, 'null'], minimum: 0}
+        work_types: {type: array, items: {type: string}}
+        customer_types: {type: array, items: {type: string}}
+    PortraitTemplate:
+      type: object
+      additionalProperties: false
+      properties:
+        topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, title: {type: string},
+              prompts: {type: array, items: {type: string}}}, required: [id, title, prompts]}}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - topics
+      - version
+    Niche:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+      required:
+      - id
+      - name
+      - version
+    AuditDate:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        date: {type: string, format: date}
+        note: {type: [string, 'null']}
+      required:
+      - id
+      - date
+      - note
+    Renewal:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        account_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        target_until: {type: string, format: date-time}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+        access: {$ref: '#/components/schemas/AccessState'}
+      required:
+      - id
+      - account_id
+      - product_id
+      - target_until
+      - reason
+      - access
+    AccountDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id: {type: string, format: uuid}
+        amo_account_id: {$ref: '#/components/schemas/AmoID'}
+        current_domain: {type: [string, 'null']}
+        domain_aliases: {type: [array, 'null'], items: {type: string}}
+        display_name: {type: [string, 'null']}
+        classification: {type: [string, 'null']}
+        active_products_count: {type: integer, minimum: 0}
+        license: {$ref: '#/components/schemas/ObservationLicense'}
+        active_users: {$ref: '#/components/schemas/ObservationCount'}
+        version: {type: integer, minimum: 1, maximum: 9007199254740991}
+        note: {type: [string, 'null']}
+        region: {type: [string, 'null']}
+        time_zone: {type: [string, 'null']}
+        amostart: {$ref: '#/components/schemas/ObservationDate'}
+        capabilities: {type: array, items: {$ref: '#/components/schemas/Capability'}}
+      required:
+      - account_id
+      - amo_account_id
+      - current_domain
+      - domain_aliases
+      - display_name
+      - classification
+      - active_products_count
+      - license
+      - active_users
+      - version
+      - note
+      - region
+      - time_zone
+      - amostart
+      - capabilities
+    InstallationList:
+      type: object
+      additionalProperties: false
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Installation'}}
+        next_cursor: {type: [string, 'null']}
+        snapshot_at: {type: string, format: date-time}
+        query_hash: {type: string}
+        summary: {$ref: '#/components/schemas/InstallationSummary'}
+      required:
+      - items
+      - next_cursor
+      - snapshot_at
+      - query_hash
+      - summary
+    AccountList:
+      type: object
+      additionalProperties: false
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/AccountSummary'}}
+        next_cursor: {type: [string, 'null']}
+        snapshot_at: {type: string, format: date-time}
+        query_hash: {type: string}
+        summary: {$ref: '#/components/schemas/AccountListSummary'}
+      required:
+      - items
+      - next_cursor
+      - snapshot_at
+      - query_hash
+      - summary
+    LicenseEvidenceList:
+      type: object
+      additionalProperties: false
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/LicenseEvidence'}}
+        next_cursor: {type: [string, 'null']}
+        snapshot_at: {type: string, format: date-time}
+        query_hash: {type: string}
+      required:
+      - items
+      - next_cursor
+      - snapshot_at
+      - query_hash
+    ProductList:
+      type: object
+      additionalProperties: false
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Product'}}
+        next_cursor: {type: [string, 'null']}
+        snapshot_at: {type: string, format: date-time}
+        query_hash: {type: string}
+      required:
+      - items
+      - next_cursor
+      - snapshot_at
+      - query_hash
+    EventList:
+      type: object
+      additionalProperties: false
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Event'}}
+        next_cursor: {type: [string, 'null']}
+        snapshot_at: {type: string, format: date-time}
+        query_hash: {type: string}
+      required:
+      - items
+      - next_cursor
+      - snapshot_at
+      - query_hash
+    NicheList:
+      type: object
+      additionalProperties: false
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Niche'}}
+        next_cursor: {type: [string, 'null']}
+        snapshot_at: {type: string, format: date-time}
+        query_hash: {type: string}
+      required:
+      - items
+      - next_cursor
+      - snapshot_at
+      - query_hash
+    PortraitPredicate:
+      type: object
+      additionalProperties: false
+      properties:
+        field_id: {type: string, format: uuid}
+        op: {type: string, enum: [eq, in, exists, lt, gte]}
+        value: {}
+      required:
+      - field_id
+      - op
+    PortraitFilter:
+      type: object
+      additionalProperties: false
+      properties:
+        condition: {$ref: '#/components/schemas/PortraitPredicate'}
+        and: {type: array, items: {$ref: '#/components/schemas/PortraitFilter'}, minItems: 1, maxItems: 30}
+        or: {type: array, items: {$ref: '#/components/schemas/PortraitFilter'}, minItems: 1, maxItems: 30}
+      oneOf:
+      - required:
+        - condition
+        maxProperties: 1
+      - required:
+        - and
+        maxProperties: 1
+      - required:
+        - or
+        maxProperties: 1
+
+    CompanyProjectionId:
+      type: string
+      format: uuid
+      description: UUID проекции CRM-компании. Не является runtime account_id.
+    CompanySource:
+      type: object
+      additionalProperties: false
+      properties:
+        source_account_id:
+          anyOf:
+          - $ref: '#/components/schemas/AmoID'
+          - type: 'null'
+        binding_revision:
+          anyOf:
+          - &id002
+            type: string
+          - type: 'null'
+        state:
+          type: string
+          enum:
+          - fresh
+          - stale
+          - error
+          - disabled
+        complete:
+          type: boolean
+        observed_at:
+          anyOf:
+          - &id001
+            type: string
+            format: date-time
+          - type: 'null'
+        fresh_until:
+          anyOf:
+          - *id001
+          - type: 'null'
+        error_code:
+          anyOf:
+          - *id002
+          - type: 'null'
+        retry_at:
+          anyOf:
+          - *id001
+          - type: 'null'
+      required:
+      - source_account_id
+      - binding_revision
+      - state
+      - complete
+      - observed_at
+      - fresh_until
+      - error_code
+      - retry_at
+      description: Времена относятся к полному поколению данных. Ошибка последней попытки не заменяет данные; локальное истечение
+        переводит fresh в stale. Смена активной привязки очищает текущий снимок.
+    CompanyRuntimeAccount:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id: &id009
+          type: string
+          format: uuid
+        customer_account_id:
+          $ref: '#/components/schemas/AmoID'
+      required:
+      - account_id
+      - customer_account_id
+    CompanySummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id: &id003
+          $ref: '#/components/schemas/CompanyProjectionId'
+        crm_company_id: &id004
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+        customer_account_ids: &id005
+          type: array
+          items:
+            $ref: '#/components/schemas/AmoID'
+        source_resolution: &id006
+          type: string
+          enum:
+          - unknown
+          - zero
+          - one
+          - multiple
+        runtime_resolution: &id007
+          type: string
+          enum:
+          - unresolved
+          - resolved
+          - partial
+          - ambiguous
+        runtime_accounts: &id008
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyRuntimeAccount'
+      required:
+      - id
+      - crm_company_id
+      - name
+      - customer_account_ids
+      - source_resolution
+      - runtime_resolution
+      - runtime_accounts
+    CompanyList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          anyOf:
+          - type: array
+            items:
+              $ref: '#/components/schemas/CompanySummary'
+          - type: 'null'
+        next_cursor:
+          anyOf:
+          - *id002
+          - type: 'null'
+        source:
+          $ref: '#/components/schemas/CompanySource'
+      required:
+      - items
+      - next_cursor
+      - source
+      description: items=null до первого полного наблюдения; items=[] означает полный пустой каталог. Курсор фиксирует поколение,
+        активацию, сотрудника, версию прав и фильтры на 15 минут.
+    CompanyContactLink:
+      type: object
+      additionalProperties: false
+      properties:
+        crm_company_id:
+          $ref: '#/components/schemas/AmoID'
+        company_id:
+          anyOf:
+          - $ref: '#/components/schemas/CompanyProjectionId'
+          - type: 'null'
+      required:
+      - crm_company_id
+      - company_id
+    CompanyContact:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+        companies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyContactLink'
+      required:
+      - id
+      - name
+      - companies
+    CompanyDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id003
+        crm_company_id: *id004
+        name: *id002
+        customer_account_ids: *id005
+        source_resolution: *id006
+        runtime_resolution: *id007
+        runtime_accounts: *id008
+        source:
+          $ref: '#/components/schemas/CompanySource'
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyContact'
+        unresolved_relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyContactLink'
+      required:
+      - id
+      - crm_company_id
+      - name
+      - customer_account_ids
+      - source_resolution
+      - runtime_resolution
+      - runtime_accounts
+      - source
+      - contacts
+      - unresolved_relations
+    CompanyWorkflowStage:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+      required:
+      - id
+      - name
+    CompanyWorkflowPipeline:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/AmoID'
+        name: *id002
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyWorkflowStage'
+      required:
+      - id
+      - name
+      - stages
+    CompanyWorkflowMetadata:
+      type: object
+      additionalProperties: false
+      properties:
+        generation_id:
+          anyOf:
+          - *id009
+          - type: 'null'
+        source:
+          $ref: '#/components/schemas/CompanySource'
+        pipelines:
+          anyOf:
+          - type: array
+            items:
+              $ref: '#/components/schemas/CompanyWorkflowPipeline'
+          - type: 'null'
+        required_fields_state:
+          type: string
+          enum:
+          - unknown
+        write_ready:
+          type: boolean
+          enum:
+          - false
+      required:
+      - generation_id
+      - source
+      - pipelines
+      - required_fields_state
+      - write_ready
+    CompanyWorkflowConfiguration:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          $ref: '#/components/schemas/Version'
+        source_account_id:
+          $ref: '#/components/schemas/AmoID'
+        binding_revision: *id002
+        metadata_generation_id: *id009
+        pipeline_id:
+          $ref: '#/components/schemas/AmoID'
+        initial_stage_id:
+          $ref: '#/components/schemas/AmoID'
+        validated_at: *id001
+      required:
+      - revision
+      - source_account_id
+      - binding_revision
+      - metadata_generation_id
+      - pipeline_id
+      - initial_stage_id
+      - validated_at
+    ProductCompanyWorkflow:
+      type: object
+      additionalProperties: false
+      properties:
+        product_id: *id009
+        version:
+          $ref: '#/components/schemas/Version'
+        configuration:
+          anyOf:
+          - $ref: '#/components/schemas/CompanyWorkflowConfiguration'
+          - type: 'null'
+        write_ready:
+          type: boolean
+          enum:
+          - false
+      required:
+      - product_id
+      - version
+      - configuration
+      - write_ready
+    SetProductCompanyWorkflow:
+      type: object
+      additionalProperties: false
+      properties:
+        source_account_id:
+          $ref: '#/components/schemas/AmoID'
+        binding_revision:
+          type: string
+          minLength: 1
+          maxLength: 256
+        metadata_generation_id: *id009
+        pipeline_id:
+          $ref: '#/components/schemas/AmoID'
+        initial_stage_id:
+          $ref: '#/components/schemas/AmoID'
+      required:
+      - source_account_id
+      - binding_revision
+      - metadata_generation_id
+      - pipeline_id
+      - initial_stage_id

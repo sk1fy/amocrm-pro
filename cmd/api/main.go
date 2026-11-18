@@ -16,6 +16,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/adminread"
 	"github.com/sk1fy/amocrm-pro/internal/apicontract"
 	"github.com/sk1fy/amocrm-pro/internal/componentruntime"
+	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/installations"
 	amocrmclient "github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
@@ -25,6 +26,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/platform/logging"
 	"github.com/sk1fy/amocrm-pro/internal/platform/postgres"
+	"github.com/sk1fy/amocrm-pro/internal/platformaccess"
 	"github.com/sk1fy/amocrm-pro/internal/services/leadstatus"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpserver"
@@ -56,6 +58,16 @@ func run() error {
 	keyRing, err := cryptox.ParseKeyRing(cfg.EncryptionKeys, cfg.EncryptionKeyVersion)
 	if err != nil {
 		return err
+	}
+
+	var proofSigner *platformaccess.Signer
+	proofKID := os.Getenv("CORE_PLATFORM_ACCESS_PROOF_KID")
+	proofKey := os.Getenv("CORE_PLATFORM_ACCESS_PROOF_KEY_FILE")
+	if proofKID != "" || proofKey != "" {
+		proofSigner, err = platformaccess.LoadSigner(proofKID, proofKey)
+		if err != nil {
+			return err
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -208,6 +220,10 @@ func run() error {
 	widgetRoute := func(consume bool, handler http.Handler) http.Handler {
 		return protectWidgetRoute(widgetAuthenticator, widgetLimiter, widgetCORSMiddleware, consume, handler)
 	}
+	if proofSigner != nil {
+		registerPlatformAccessProof(router, corelifecycle.NewStore(pool), proofSigner,
+			cfg.DatabaseTimeout, widgetRoute, widgetCORSMiddleware)
+	}
 	if components.Bridge != nil {
 		components.Bridge.ConfigureShare(cfg.ActivityAppOrigins, cfg.ActivityManagementToken)
 		components.Bridge.RegisterHTTP(router, func(handler http.Handler) http.Handler { return widgetRoute(true, handler) }, func(handler http.Handler) http.Handler { return widgetRoute(false, handler) })
@@ -272,8 +288,31 @@ func run() error {
 		admincommand.Register(adminRouter, admincommand.NewStore(pool, keyRing, cfg.DatabaseTimeout, cfg.PublicBaseURL, components.Bridge, leadstatus.NewRuleStore(pool)))
 		servers = append(servers, httpserver.New(cfg.AdminHTTPAddress, adminRouter))
 	}
+	var snapshotOutcome <-chan error
+	if address := os.Getenv("PLATFORM_SNAPSHOT_RPC_ADDRESS"); address != "" {
+		snapshotServer, outcome, err := startPlatformSnapshot(pool, address)
+		if err != nil {
+			return err
+		}
+		defer snapshotServer.Stop()
+		snapshotOutcome = outcome
+	}
+	snapshotFailure := make(chan error, 1)
+	go func() {
+		select {
+		case err := <-snapshotOutcome:
+			snapshotFailure <- err
+			stop()
+		case <-ctx.Done():
+		}
+	}()
 	if err := httpserver.RunAll(ctx, logger, cfg.ShutdownTimeout, servers...); err != nil {
 		return err
 	}
-	return components.Err()
+	select {
+	case err := <-snapshotFailure:
+		return err
+	default:
+		return components.Err()
+	}
 }

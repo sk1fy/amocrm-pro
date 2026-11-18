@@ -60,6 +60,8 @@ jobs:
       - name: Validate Docker Compose configuration
         run: |
           docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.company-crm.yml config --quiet
+          docker compose -f docker-compose.platform.yml config --quiet
           docker compose -f docker-compose.activity.yml config --quiet
           docker compose -f docker-compose.activity.yml -f docker-compose.activity-embedded.yml config --quiet
           docker compose -p activity-config-check --profile tests -f docker-compose.activity.yml -f docker-compose.activity-tests.yml config --quiet
@@ -163,3 +165,15 @@ jobs:
           name: activity-verification
           path: tmp/activity-v0-evidence/
           if-no-files-found: warn
+
+  platform:
+    name: Platform owner database and process
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - run: make COMPOSE="docker compose" platform-test

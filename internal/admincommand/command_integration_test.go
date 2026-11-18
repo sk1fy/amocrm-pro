@@ -273,7 +273,7 @@ func TestWorkerCompletionPartialUninstallAndExpiredLease(t *testing.T) {
 	if err != nil || len(claimed) != 1 {
 		t.Fatal(err)
 	}
-	executor.Unregister = func(context.Context, uuid.UUID) error { return errors.New("sensitive upstream details") }
+	executor.Unregister = func(context.Context, uuid.UUID, uuid.UUID) error { return errors.New("sensitive upstream details") }
 	raw, err = executor.Handler(t.Context(), claimed[0])
 	if err != nil {
 		t.Fatal(err)

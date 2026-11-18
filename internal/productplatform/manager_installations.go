@@ -1,0 +1,329 @@
+package productplatform
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"strconv"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	managerSnapshotTTL       = 5 * time.Minute
+	managerSnapshotRows      = 10000
+	managerEmployeeSnapshots = 4
+	managerGlobalSnapshots   = 32
+)
+
+var (
+	errManagerNotFound      = errors.New("manager resource not found")
+	errManagerConflict      = errors.New("manager command identity conflict")
+	errManagerCursor        = errors.New("invalid manager cursor")
+	errManagerSnapshotLimit = errors.New("manager snapshot admission limit")
+	errManagerQueryTooBroad = errors.New("manager query exceeds snapshot capacity")
+)
+
+type managerStore struct {
+	pool *pgxpool.Pool
+}
+
+type installationReview struct {
+	Reviewed bool       `json:"reviewed"`
+	By       *uuid.UUID `json:"reviewed_by,omitempty"`
+	At       *time.Time `json:"reviewed_at,omitempty"`
+}
+
+type managerInstallation struct {
+	ID            uuid.UUID          `json:"id"`
+	Account       uuid.UUID          `json:"account_id"`
+	AmoAccount    string             `json:"amo_account_id"`
+	Product       uuid.UUID          `json:"product_id"`
+	ProductCode   string             `json:"product_code"`
+	ProductName   string             `json:"product_name"`
+	Installation  uuid.UUID          `json:"core_installation_id"`
+	Generation    int64              `json:"generation"`
+	Kind          string             `json:"kind"`
+	InstalledAt   time.Time          `json:"installed_at"`
+	RemovedAt     *time.Time         `json:"removed_at"`
+	LastLifecycle string             `json:"last_lifecycle_event"`
+	Lifecycle     string             `json:"lifecycle"`
+	Authorization string             `json:"authorization"`
+	Activation    string             `json:"activation_status"`
+	Review        installationReview `json:"review"`
+	CRMWorkflow   string             `json:"crm_workflow"`
+	Access        accessState        `json:"access"`
+	Version       int64              `json:"version"`
+}
+
+type installationFilters struct {
+	Q, Review, Kind, LastLifecycle, Line, Activation, Access string
+	Product                                                  *uuid.UUID
+	Account                                                  *uuid.UUID `json:"Account,omitempty"`
+	Lifecycle                                                string     `json:"Lifecycle,omitempty"`
+	From, To, Zone                                           string
+	start, before                                            *time.Time
+	Limit                                                    int
+	Ascending                                                bool
+}
+
+func (f installationFilters) hash() [32]byte {
+	body, _ := json.Marshal(f)
+	return sha256.Sum256(body)
+}
+
+type installationSummary struct {
+	Total      int `json:"total"`
+	Reviewed   int `json:"reviewed"`
+	Unreviewed int `json:"unreviewed"`
+}
+
+type installationPage struct {
+	Items      []managerInstallation `json:"items"`
+	Next       *string               `json:"next_cursor"`
+	SnapshotAt time.Time             `json:"snapshot_at"`
+	QueryHash  string                `json:"query_hash"`
+	Summary    installationSummary   `json:"summary"`
+}
+
+type installationSeek struct {
+	Snapshot uuid.UUID
+	At       time.Time
+	ID       uuid.UUID
+}
+
+const installationColumns = `id,account_id,amo_account_id,product_id,product_code,product_name,
+	installation_id,generation,kind,opened_at,closed_at,last_lifecycle_event,lifecycle,
+	"authorization",reviewed_by,reviewed_at,valid_until,term_source,entitlement_version,version`
+
+func scanManagerInstallation(row pgx.Row, now time.Time) (managerInstallation, error) {
+	var item managerInstallation
+	var account int64
+	var access accessProjection
+	err := row.Scan(&item.ID, &item.Account, &account, &item.Product, &item.ProductCode, &item.ProductName,
+		&item.Installation, &item.Generation, &item.Kind, &item.InstalledAt, &item.RemovedAt, &item.LastLifecycle,
+		&item.Lifecycle, &item.Authorization, &item.Review.By, &item.Review.At, &access.until, &access.source,
+		&access.version, &item.Version)
+	if err != nil {
+		return item, err
+	}
+	item.AmoAccount = strconv.FormatInt(account, 10)
+	item.InstalledAt = item.InstalledAt.UTC()
+	item.RemovedAt, item.Review.At = managerUTC(item.RemovedAt), managerUTC(item.Review.At)
+	item.Review.Reviewed = item.Review.By != nil
+	item.Activation, item.CRMWorkflow = "unavailable", "unsupported"
+	access.account, access.product = item.Account, item.Product
+	item.Access = access.state(now)
+	return item, nil
+}
+
+func managerUTC(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	utc := value.UTC()
+	return &utc
+}
+
+const approvedScopeHash = `(SELECT sha256(convert_to(COALESCE(string_agg(
+	integration_id::text || '/' || product_id::text || '/' || amo_account_id::text, ','
+	ORDER BY integration_id, product_id, amo_account_id), ''), 'UTF8'))
+	FROM platform_manager.approved_pairs)`
+
+func (s managerStore) list(ctx context.Context, actor managerActor, filters installationFilters, after installationSeek) (installationPage, installationSeek, error) {
+	queryHash := filters.hash()
+	page := installationPage{
+		Items: make([]managerInstallation, 0, filters.Limit), QueryHash: hex.EncodeToString(queryHash[:]),
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return page, installationSeek{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if after.Snapshot != uuid.Nil {
+		return continueInstallations(ctx, tx, actor, filters, after, page, queryHash)
+	}
+	if filters.Account != nil {
+		var visible bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM platform_manager.visible_accounts WHERE account_id=$1)`, filters.Account).Scan(&visible); err != nil {
+			return page, installationSeek{}, err
+		}
+		if !visible {
+			return page, installationSeek{}, errManagerNotFound
+		}
+	}
+	if err = tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&page.SnapshotAt); err != nil {
+		return page, installationSeek{}, err
+	}
+	page.SnapshotAt = page.SnapshotAt.UTC()
+	rows, err := tx.Query(ctx, `
+		SELECT `+installationColumns+` FROM platform_manager.installations
+		WHERE ($1='' OR strpos(amo_account_id::text, $1)>0 OR strpos(lower(product_name), lower($1))>0
+			OR strpos(lower(product_code), lower($1))>0)
+		  AND ($2='' OR (reviewed_by IS NOT NULL) = ($2='reviewed'))
+		  AND ($3='' OR kind=$3)
+		  AND ($4='' OR last_lifecycle_event=$4)
+		  AND ($5::uuid IS NULL OR product_id=$5)
+		  AND ($6='' OR line=$6)
+		  AND ($7='' OR $7='unavailable')
+		  AND ($8='' OR COALESCE(valid_until>$11 AND term_source IN ('own_trial','free','own_paid','manual'), false) = ($8='active'))
+		  AND ($9::timestamptz IS NULL OR opened_at >= $9)
+		  AND ($10::timestamptz IS NULL OR opened_at < $10)
+		  AND ($12::uuid IS NULL OR account_id=$12)
+		  AND ($13='' OR lifecycle=$13)
+		ORDER BY `+installationOrder(filters.Ascending, "opened_at", "id")+` LIMIT $14`,
+		filters.Q, filters.Review, filters.Kind, filters.LastLifecycle, filters.Product, filters.Line, filters.Activation,
+		filters.Access, filters.start, filters.before, page.SnapshotAt, filters.Account, filters.Lifecycle, managerSnapshotRows+1)
+	if err != nil {
+		return page, installationSeek{}, err
+	}
+	items, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (managerInstallation, error) {
+		return scanManagerInstallation(row, page.SnapshotAt)
+	})
+	if err != nil {
+		return page, installationSeek{}, err
+	}
+	if len(items) > managerSnapshotRows {
+		return page, installationSeek{}, errManagerQueryTooBroad
+	}
+	page.Summary.Total = len(items)
+	for _, item := range items {
+		if item.Review.Reviewed {
+			page.Summary.Reviewed++
+		}
+	}
+	page.Summary.Unreviewed = page.Summary.Total - page.Summary.Reviewed
+	page.Items = append(page.Items, items[:min(len(items), filters.Limit)]...)
+	if len(items) <= filters.Limit {
+		return page, installationSeek{}, tx.Commit(ctx)
+	}
+	var scopeHash []byte
+	if err := tx.QueryRow(ctx, `SELECT `+approvedScopeHash).Scan(&scopeHash); err != nil {
+		return page, installationSeek{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return page, installationSeek{}, err
+	}
+
+	snapshot := uuid.New()
+	if err := s.saveInstallationSnapshot(ctx, snapshot, actor, queryHash, scopeHash, page, items); err != nil {
+		return page, installationSeek{}, err
+	}
+	return page, nextInstallationSeek(snapshot, page.Items), nil
+}
+
+func installationOrder(ascending bool, timestamp, id string) string {
+	if ascending {
+		return timestamp + " ASC," + id + " ASC"
+	}
+	return timestamp + " DESC," + id + " DESC"
+}
+
+func nextInstallationSeek(snapshot uuid.UUID, page []managerInstallation) installationSeek {
+	last := page[len(page)-1]
+	return installationSeek{Snapshot: snapshot, At: last.InstalledAt, ID: last.ID}
+}
+
+func continueInstallations(ctx context.Context, tx pgx.Tx, actor managerActor, filters installationFilters,
+	after installationSeek, page installationPage, queryHash [32]byte) (installationPage, installationSeek, error) {
+	err := tx.QueryRow(ctx, `
+		SELECT snapshot_at,total,reviewed FROM platform_manager.snapshots
+		WHERE id=$1 AND subject_id=$2 AND grants_version=$3 AND query_hash=$4
+		  AND expires_at>statement_timestamp() AND scope_hash=`+approvedScopeHash,
+		after.Snapshot, actor.Subject, actor.GrantsVersion, queryHash[:]).
+		Scan(&page.SnapshotAt, &page.Summary.Total, &page.Summary.Reviewed)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return page, installationSeek{}, errManagerCursor
+	}
+	if err != nil {
+		return page, installationSeek{}, err
+	}
+	page.SnapshotAt = page.SnapshotAt.UTC()
+	page.Summary.Unreviewed = page.Summary.Total - page.Summary.Reviewed
+	comparison := "<"
+	if filters.Ascending {
+		comparison = ">"
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT item FROM platform_manager.snapshot_items
+		WHERE snapshot_id=$1 AND (installed_at,episode_id)`+comparison+`($2,$3)
+		ORDER BY `+installationOrder(filters.Ascending, "installed_at", "episode_id")+` LIMIT $4`,
+		after.Snapshot, after.At, after.ID, filters.Limit+1)
+	if err != nil {
+		return page, installationSeek{}, err
+	}
+	items, err := pgx.CollectRows(rows, pgx.RowTo[managerInstallation])
+	if err != nil {
+		return page, installationSeek{}, err
+	}
+	if len(items) == 0 {
+		return page, installationSeek{}, errManagerCursor
+	}
+	page.Items = items[:min(len(items), filters.Limit)]
+	if err := tx.Commit(ctx); err != nil {
+		return page, installationSeek{}, err
+	}
+	if len(items) > filters.Limit {
+		return page, nextInstallationSeek(after.Snapshot, page.Items), nil
+	}
+	return page, installationSeek{}, nil
+}
+
+func (s managerStore) saveInstallationSnapshot(ctx context.Context, id uuid.UUID, actor managerActor, queryHash [32]byte,
+	scopeHash []byte, page installationPage, items []managerInstallation) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// One database lock keeps both snapshot limits exact across Platform replicas.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(1579107215, 1)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM platform_manager.snapshots WHERE id IN (
+			SELECT id FROM platform_manager.snapshots WHERE expires_at<=statement_timestamp()
+			ORDER BY expires_at,id LIMIT 4
+		)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM platform_manager.snapshots WHERE id IN (
+			SELECT id FROM platform_manager.snapshots WHERE subject_id=$1
+			ORDER BY expires_at DESC,id DESC OFFSET $2
+		)`, actor.Subject, managerEmployeeSnapshots-1); err != nil {
+		return err
+	}
+	var total int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM platform_manager.snapshots`).Scan(&total); err != nil {
+		return err
+	}
+	if total >= managerGlobalSnapshots {
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		return errManagerSnapshotLimit
+	}
+
+	if _, err := tx.Exec(ctx, `INSERT INTO platform_manager.snapshots
+		(id,subject_id,grants_version,query_hash,scope_hash,snapshot_at,expires_at,total,reviewed)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, id, actor.Subject, actor.GrantsVersion, queryHash[:], scopeHash,
+		page.SnapshotAt, page.SnapshotAt.Add(managerSnapshotTTL), page.Summary.Total, page.Summary.Reviewed); err != nil {
+		return err
+	}
+	_, err = tx.CopyFrom(ctx, pgx.Identifier{"platform_manager", "snapshot_items"},
+		[]string{"snapshot_id", "installed_at", "episode_id", "item"},
+		pgx.CopyFromSlice(len(items), func(i int) ([]any, error) {
+			item := items[i]
+			return []any{id, item.InstalledAt, item.ID, item}, nil
+		}))
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}

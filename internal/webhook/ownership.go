@@ -8,24 +8,42 @@ import (
 	"net/url"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func destinationAAD(id uuid.UUID, hash []byte) []byte {
 	return []byte(fmt.Sprintf("installation:%s:webhook-destination:%x", id, hash))
 }
 
+type destinationWriter interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
 func (s *ReconcileStore) rememberDestination(ctx context.Context, id uuid.UUID, destination string) error {
+	return s.writeOwnedDestination(ctx, s.pool, id, destination)
+}
+
+func (s *ReconcileStore) writeOwnedDestination(ctx context.Context, q destinationWriter, id uuid.UUID, destination string) error {
 	hash := sha256.Sum256([]byte(destination))
 	sealed, version, err := s.keys.Seal([]byte(destination), destinationAAD(id, hash[:]))
 	if err != nil {
 		return err
 	}
-	_, err = s.pool.Exec(ctx, `INSERT INTO installation_webhook_destinations(installation_id,destination_hash,destination_ciphertext,key_version) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, id, hash[:], sealed, version)
+	_, err = q.Exec(ctx, `INSERT INTO installation_webhook_destinations(installation_id,destination_hash,destination_ciphertext,key_version) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, id, hash[:], sealed, version)
 	return err
 }
 
+type destinationReader interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
 func (s *ReconcileStore) ownedDestinations(ctx context.Context, id uuid.UUID) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `SELECT destination_hash,destination_ciphertext,key_version FROM installation_webhook_destinations WHERE installation_id=$1 ORDER BY created_at,destination_hash LIMIT 102`, id)
+	return s.readOwnedDestinations(ctx, s.pool, id)
+}
+
+func (s *ReconcileStore) readOwnedDestinations(ctx context.Context, q destinationReader, id uuid.UUID) ([]string, error) {
+	rows, err := q.Query(ctx, `SELECT destination_hash,destination_ciphertext,key_version FROM installation_webhook_destinations WHERE installation_id=$1 ORDER BY created_at,destination_hash LIMIT 102`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +80,9 @@ func hasInstallationWebhookKey(destination, key string) bool {
 
 func (s *ReconcileStore) synchronize(ctx context.Context, client Gateway, sub subscription, desired string, unregister bool) error {
 	if desired != "" {
+		if err := s.requireCurrent(ctx, sub); err != nil {
+			return err
+		}
 		if err := s.rememberDestination(ctx, sub.InstallationID, desired); err != nil {
 			return err
 		}
@@ -82,6 +103,11 @@ func (s *ReconcileStore) synchronize(ctx context.Context, client Gateway, sub su
 		return err
 	}
 	plan := planManagedWebhooks(desired, sub.Settings, actual, unregister, owned...)
+	if desired != "" {
+		if err := s.requireCurrent(ctx, sub); err != nil {
+			return err
+		}
+	}
 	if err := applyWebhookPlan(ctx, client, sub.InstallationID, plan, sub.Settings, desired); err != nil {
 		return err
 	}

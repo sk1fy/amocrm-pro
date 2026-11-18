@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/platform/cryptox"
 	"github.com/sk1fy/amocrm-pro/internal/services"
 )
@@ -53,12 +54,13 @@ type Command struct {
 }
 
 type Result struct {
-	ID             uuid.UUID  `json:"integration_id"`
-	InstallationID *uuid.UUID `json:"installation_id,omitempty"`
-	Code           string     `json:"code"`
-	Status         string     `json:"status"`
-	Action         string     `json:"action"`
-	WebhookError   string     `json:"webhook_error,omitempty"`
+	ID               uuid.UUID  `json:"integration_id"`
+	InstallationID   *uuid.UUID `json:"installation_id,omitempty"`
+	Code             string     `json:"code"`
+	Status           string     `json:"status"`
+	Action           string     `json:"action"`
+	WebhookError     string     `json:"webhook_error,omitempty"`
+	UninstallAttempt uuid.UUID  `json:"-"`
 }
 
 func installationAction(action string) bool {
@@ -185,7 +187,7 @@ func (s *Store) ApplyTx(ctx context.Context, tx pgx.Tx, c Command) (Result, erro
 	}
 	r := Result{Code: c.Code, Action: "integration." + c.Action}
 	if installationAction(c.Action) {
-		return applyInstallation(ctx, tx, c)
+		return s.applyInstallation(ctx, tx, c)
 	}
 	err := tx.QueryRow(ctx, `SELECT id,status FROM integrations WHERE code=$1 FOR UPDATE`, c.Code).Scan(&r.ID, &r.Status)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -252,12 +254,16 @@ func (s *Store) ApplyTx(ctx context.Context, tx pgx.Tx, c Command) (Result, erro
 		}
 		metadata["fields"] = fields
 	case "enable", "disable":
-		metadata["previous_status"] = r.Status
+		previous := r.Status
+		metadata["previous_status"] = previous
 		r.Status = "disabled"
 		if c.Action == "enable" {
 			r.Status = "active"
 		}
 		_, err = tx.Exec(ctx, `UPDATE integrations SET status=$2 WHERE id=$1`, r.ID, r.Status)
+		if err == nil {
+			err = corelifecycle.NewStore(s.pool).RecordIntegrationAuthorization(ctx, tx, r.ID, previous, r.Status)
+		}
 		metadata["status"] = r.Status
 	case "rotate-secret":
 		encrypted, version, sealErr := s.cipher.Seal(c.Secret, cryptox.IntegrationSecretAAD(r.ID))
@@ -281,7 +287,7 @@ func (s *Store) ApplyTx(ctx context.Context, tx pgx.Tx, c Command) (Result, erro
 	return r, nil
 }
 
-func applyInstallation(ctx context.Context, tx pgx.Tx, c Command) (Result, error) {
+func (s *Store) applyInstallation(ctx context.Context, tx pgx.Tx, c Command) (Result, error) {
 	r := Result{Code: c.Code, InstallationID: &c.InstallationID}
 	switch c.Action {
 	case "disable-installation":
@@ -301,10 +307,11 @@ func applyInstallation(ctx context.Context, tx pgx.Tx, c Command) (Result, error
 		return Result{}, errors.New("read integration failed")
 	}
 	var current string
+	var accountID int64
 	err := tx.QueryRow(ctx, `
-		SELECT status FROM installations
+		SELECT status,account_id FROM installations
 		WHERE id=$1 AND integration_id=$2 FOR UPDATE`, c.InstallationID, r.ID,
-	).Scan(&current)
+	).Scan(&current, &accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Result{}, ErrNotFound
 	}
@@ -319,7 +326,21 @@ func applyInstallation(ctx context.Context, tx pgx.Tx, c Command) (Result, error
 		return Result{}, errors.New("update installation failed")
 	}
 	r.Status = next
-	metadata, _ := json.Marshal(map[string]any{"previous_status": current, "status": next, "integration_status": integrationStatus})
+	lifecycle := corelifecycle.NewStore(s.pool)
+	i := corelifecycle.Installation{ID: c.InstallationID, Integration: r.ID, Account: accountID}
+	evidence := uuid.New()
+	if c.Action == "uninstall" {
+		r.UninstallAttempt, err = lifecycle.BeginUninstall(ctx, tx, i)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	before := corelifecycle.EffectiveAuthorization(integrationStatus, current)
+	after := corelifecycle.EffectiveAuthorization(integrationStatus, next)
+	if err := lifecycle.RecordAuthorization(ctx, tx, i, before, after, r.Action, evidence); err != nil {
+		return Result{}, err
+	}
+	metadata, _ := json.Marshal(map[string]any{"previous_status": current, "status": next, "integration_status": integrationStatus, "evidence_ref": evidence})
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_log(installation_id,actor_type,actor_id,action,object_type,object_id,metadata) VALUES($1,$2,$3,$4,'installation',$5,$6)`, c.InstallationID, c.ActorType, c.Actor, r.Action, c.InstallationID.String(), metadata); err != nil {
 		return Result{}, errors.New("audit operator mutation failed")
 	}

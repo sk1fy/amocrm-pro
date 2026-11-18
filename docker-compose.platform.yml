@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: platform_postgres_dev
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "amocrm_platform"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - platform-db:/var/lib/postgresql/data
+      - ./deploy/platform/init.sql:/docker-entrypoint-initdb.d/10-platform.sql:ro
+
+  platform-migrate:
+    build:
+      context: .
+      target: platform-migrate
+      args: &build-args
+        BUILD_REVISION: "${BUILD_REVISION:-unknown}"
+        GO_VERSION: "${GO_VERSION:-1.26.11}"
+    environment:
+      DATABASE_URL: &owner-dsn postgres://platform_owner:platform_owner_dev@postgres:5432/amocrm_platform?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  platform:
+    build:
+      context: .
+      target: platform
+      args: *build-args
+    user: "${PLATFORM_UID:-10001}:${PLATFORM_GID:-10001}"
+    environment:
+      PLATFORM_ACCESS_DATABASE_URL: &access-dsn postgres://platform_access:platform_access_dev@postgres:5432/amocrm_platform?sslmode=disable
+      PLATFORM_JOBS_DATABASE_URL: &jobs-dsn postgres://platform_jobs:platform_jobs_dev@postgres:5432/amocrm_platform?sslmode=disable
+      PLATFORM_ACCESS_POOL_MAX_CONNS: "${PLATFORM_ACCESS_POOL_MAX_CONNS:-4}"
+      PLATFORM_JOBS_POOL_MAX_CONNS: "${PLATFORM_JOBS_POOL_MAX_CONNS:-4}"
+      PLATFORM_MANAGER_CURSOR_KEY: "${PLATFORM_MANAGER_CURSOR_KEY:-}"
+      PLATFORM_MANAGER_TIME_ZONE: "${PLATFORM_MANAGER_TIME_ZONE:-Europe/Moscow}"
+      PLATFORM_WORKERS: "${PLATFORM_WORKERS:-2}"
+      PLATFORM_COMPANY_CORE_ORIGIN: "${PLATFORM_COMPANY_CORE_ORIGIN:-}"
+      PLATFORM_COMPANY_CORE_CA_FILE: "${PLATFORM_COMPANY_CORE_ORIGIN:+/company-tls/ca.crt}"
+      PLATFORM_COMPANY_CORE_CERT_FILE: "${PLATFORM_COMPANY_CORE_ORIGIN:+/company-tls/tls.crt}"
+      PLATFORM_COMPANY_CORE_KEY_FILE: "${PLATFORM_COMPANY_CORE_ORIGIN:+/company-tls/tls.key}"
+      PLATFORM_COMPANY_SOURCE_ACCOUNT_ID: "${PLATFORM_COMPANY_SOURCE_ACCOUNT_ID:-}"
+      PLATFORM_COMPANY_BINDING_REVISION: "${PLATFORM_COMPANY_BINDING_REVISION:-}"
+      PLATFORM_ACCOUNT_GATEWAY_ADDRESS: "${PLATFORM_ACCOUNT_GATEWAY_ADDRESS:-}"
+      PLATFORM_ACCOUNT_GATEWAY_IDENTITY_DIR: "${PLATFORM_ACCOUNT_GATEWAY_ADDRESS:+/tls}"
+      PLATFORM_ACCOUNT_GATEWAY_SERVER_NAME: "${PLATFORM_ACCOUNT_GATEWAY_SERVER_NAME:-}"
+      PLATFORM_MANAGEMENT_HTTP_ADDRESS: "${PLATFORM_MANAGEMENT_HTTP_ADDRESS:-127.0.0.1:8081}"
+      PLATFORM_TLS_CERT_FILE: /tls/tls.crt
+      PLATFORM_TLS_KEY_FILE: /tls/tls.key
+      PLATFORM_TLS_CLIENT_CA_FILE: /tls/ca.crt
+    volumes:
+      - type: bind
+        source: "${PLATFORM_DEV_CERTS_DIR:-./tmp/platform-certs}/platform"
+        target: /tls
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${PLATFORM_DEV_CERTS_DIR:-./tmp/platform-certs}/platform-company-crm"
+        target: /company-tls
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:${PLATFORM_PUBLIC_PORT:-18080}:8080"
+      - "127.0.0.1:${PLATFORM_PRIVATE_PORT:-18443}:8443"
+    depends_on:
+      platform-migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 12s
+
+  platform-test:
+    profiles: [tests]
+    build:
+      context: .
+      target: test-base
+      args: *build-args
+    command: ["go", "test", "-race", "-count=1", "-v", "./internal/productplatform/..."]
+    environment:
+      PLATFORM_TEST_OWNER_DSN: *owner-dsn
+      PLATFORM_TEST_ACCESS_DSN: *access-dsn
+      PLATFORM_TEST_JOBS_DSN: *jobs-dsn
+      PLATFORM_TEST_CERTS_DIR: /certificates
+      PLATFORM_TEST_PUBLIC_URL: http://platform:8080
+      PLATFORM_TEST_PRIVATE_URL: https://platform:8443
+      PLATFORM_TEST_MANAGEMENT_URL: http://platform:8081
+    volumes:
+      - type: bind
+        source: "${PLATFORM_DEV_CERTS_DIR:-./tmp/platform-certs}"
+        target: /certificates
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  platform-db:

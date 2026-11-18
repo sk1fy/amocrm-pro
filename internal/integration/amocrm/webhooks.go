@@ -2,6 +2,7 @@ package amocrm
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -40,6 +41,35 @@ func (c *Client) ListWebhooks(ctx context.Context, installationID uuid.UUID, des
 		return nil, err
 	}
 	return response.Embedded.Webhooks, nil
+}
+
+// ListWebhooksForUninstall accepts only a complete remote inventory as proof
+// that the installation's exact destinations are absent.
+func (c *Client) ListWebhooksForUninstall(ctx context.Context, id uuid.UUID) ([]Webhook, error) {
+	var response completeWebhookList
+	if err := c.DoJSON(ctx, id, http.MethodGet, "/api/v4/webhooks", nil, &response); err != nil {
+		return nil, err
+	}
+	if response.Embedded.Webhooks == nil || (len(response.Links.Next) != 0 && string(response.Links.Next) != "null") {
+		return nil, ErrIncompleteResponse
+	}
+	for _, webhook := range response.Embedded.Webhooks {
+		if webhook.Destination == "" {
+			return nil, ErrIncompleteResponse
+		}
+	}
+	return response.Embedded.Webhooks, nil
+}
+
+type completeWebhookList struct {
+	webhookList
+	Links struct {
+		Next json.RawMessage `json:"next"`
+	} `json:"_links"`
+}
+
+func (r *completeWebhookList) NoContent() {
+	r.Embedded.Webhooks = []Webhook{}
 }
 
 func (c *Client) RegisterWebhook(ctx context.Context, installationID uuid.UUID, spec WebhookSpec) (Webhook, error) {
