@@ -45,6 +45,9 @@ type CompanyCRMContact struct {
 }
 
 type companyCRMPage struct {
+	Number   *int                       `json:"_page"`
+	Count    *int                       `json:"_page_count"`
+	Total    *int                       `json:"_total_items"`
 	Embedded map[string]json.RawMessage `json:"_embedded"`
 	Links    struct {
 		Next *struct {
@@ -58,6 +61,7 @@ func (p *companyCRMPage) NoContent() { p.empty = true }
 
 func companyCRMPages[T any](ctx context.Context, c *Client, id uuid.UUID, path, key string, validate func(T) error) ([]T, error) {
 	result := []T{}
+	var total, pages *int
 	for page := 1; page <= 40; page++ {
 		var body companyCRMPage
 		requestPath := fmt.Sprintf("%s?limit=250&page=%d", path, page)
@@ -68,7 +72,7 @@ func companyCRMPages[T any](ctx context.Context, c *Client, id uuid.UUID, path, 
 			return nil, err
 		}
 		if body.empty {
-			if key == "pipelines" {
+			if page > 1 || key == "users" || key == "pipelines" {
 				return nil, ErrIncompleteResponse
 			}
 			return result, nil
@@ -82,6 +86,12 @@ func companyCRMPages[T any](ctx context.Context, c *Client, id uuid.UUID, path, 
 			return nil, ErrIncompleteResponse
 		}
 		next := body.Links.Next != nil
+		if (body.Number != nil && *body.Number != page) || !agreePageMetadata(&total, body.Total, 10000) || !agreePageMetadata(&pages, body.Count, 40) {
+			return nil, ErrIncompleteResponse
+		}
+		if page > 1 && len(rows) == 0 {
+			return nil, ErrIncompleteResponse
+		}
 		if next && (len(rows) == 0 || key == "pipelines") {
 			return nil, ErrIncompleteResponse
 		}
@@ -90,6 +100,9 @@ func companyCRMPages[T any](ctx context.Context, c *Client, id uuid.UUID, path, 
 				return nil, err
 			}
 			result = append(result, row)
+		}
+		if !consistentObservedPage(page, len(rows), len(result), next, total, pages) {
+			return nil, ErrIncompleteResponse
 		}
 		if !next {
 			return result, nil

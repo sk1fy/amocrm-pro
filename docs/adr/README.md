@@ -56,3 +56,5 @@ scope belongs in GitHub Issues.
 
 - [ADR-0038](0038-task-control-hybrid-integration.md) — Accepted (2026-10-15): Контроль задач,
   правила напрямую из TeamOS backend; Core — установка и мониторинг; два режима.
+
+- [ADR-0047](0047-company-crm-read-boundary.md). Private company CRM reads, exact mTLS method ACL and atomic snapshots.

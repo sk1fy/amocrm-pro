@@ -22,6 +22,8 @@ ADR фиксируют архитектурные решения; GitHub Issues 
 
 - [Контракт](platform-v1-contract.md).
 - [Локальный запуск и конфигурация](runbooks/platform-v1.md).
+- [Company CRM read connector](company-crm-operations.md).
+- [Company CRM OpenAPI](../api/company-crm-openapi.yaml).
 
 ## Распределение
 

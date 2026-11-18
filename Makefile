@@ -102,6 +102,7 @@ help: ## Show available commands
 
 config: ## Validate the resolved Docker Compose configuration
 	$(COMPOSE) config --quiet
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.company-crm.yml config --quiet
 
 build: ## Build API, worker, migration, and operator images
 	$(COMPOSE) build api worker migrate integrations

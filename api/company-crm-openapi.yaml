@@ -5,8 +5,11 @@ info:
   description: Private singleton worker HTTPS listener. No caller-selected credential, host, account or provider path.
 servers:
   - url: https://core-company-crm
-security:
-  - serviceMTLS: []
+x-mutual-tls:
+  required: true
+  minimum_tls_version: "1.3"
+  trust_domain: spiffe://amocrm-pro
+  identities: [admin-company-directory, platform-company-crm]
 paths:
   /v1/company-crm/staff:
     get:
@@ -163,16 +166,11 @@ paths:
                   valid: {type: boolean}
                   code: {type: string, enum: [source_unavailable, binding_mismatch, invalid_stage, pipeline_stage_valid]}
                   write_ready: {type: boolean, enum: [false]}
-        '400': {description: Invalid or oversized body, unknown property or query parameter.}
+        '400': {description: 'Invalid or oversized body, unknown property or query parameter.'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '429': {$ref: '#/components/responses/Busy'}
         '503': {$ref: '#/components/responses/Unavailable'}
 components:
-  securitySchemes:
-    serviceMTLS:
-      type: http
-      scheme: mutualTLS
-      description: TLS 1.3 verified client certificate with exactly one authorized spiffe://amocrm-pro service URI. No CN/header fallback.
   schemas:
     Envelope:
       type: object

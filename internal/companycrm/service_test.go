@@ -105,6 +105,11 @@ func TestRateLimitPreservesRetryAndDoesNotRefetch(t *testing.T) {
 	if f.calls != 1 {
 		t.Fatalf("refetched during cooldown calls=%d", f.calls)
 	}
+	before := f.verifies
+	other := s.Clients(t.Context())
+	if other.Data != nil || other.Source.ErrorCode != "rate_limited" || other.Source.RetryAfter != 89 || f.verifies != before {
+		t.Fatalf("resource bypassed account cooldown response=%+v verify calls=%d", other, f.verifies)
+	}
 }
 func TestCancelledWaitIsBounded(t *testing.T) {
 	b := binding()

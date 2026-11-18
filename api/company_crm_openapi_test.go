@@ -15,6 +15,9 @@ func TestCompanyCRMOpenAPIContract(t *testing.T) {
 	if err := doc.Validate(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	if _, ok := doc.Extensions["x-mutual-tls"]; !ok {
+		t.Fatal("missing required mTLS transport contract")
+	}
 	if doc.Paths.Len() != 4 {
 		t.Fatal(doc.Paths.Len())
 	}

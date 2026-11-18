@@ -33,7 +33,7 @@ binding. Observation time starts before scanning. Freshness is five minutes and
 successful reads poll no faster than once a minute. Requests have ten-second
 contexts, eight HTTP admission slots and one context-aware scan slot. Provider
 429 Retry-After passes to source metadata and the HTTP header with no immediate
-retry. Each list is bounded at forty pages of 250 rows. Exceeding bounds is an
+retry. Company scans share the Retry-After cooldown across methods. Each list is bounded at forty pages of 250 rows. Exceeding bounds is an
 incomplete read, never an empty successful catalog.
 
 Staff activity is active, inactive or unknown. Missing provider activity remains

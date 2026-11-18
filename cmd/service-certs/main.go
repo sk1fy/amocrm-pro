@@ -83,7 +83,7 @@ func generate(dir string, platform bool) error {
 	}
 	identities := []string{"core", "gateway", "activity", "crm-events"}
 	if platform {
-		identities = []string{"platform", "core", "manager-bff"}
+		identities = []string{"platform", "core", "manager-bff", "admin-company-directory", "platform-company-crm"}
 	}
 	for i, identity := range identities {
 		path := filepath.Join(dir, identity)
@@ -101,9 +101,12 @@ func generate(dir string, platform bool) error {
 		}
 		if identity == "core" {
 			names = append(names, "api")
+			if platform {
+				names = append(names, "company-crm")
+			}
 		}
 		usages := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
-		if platform && identity == "manager-bff" {
+		if platform && (identity == "manager-bff" || identity == "admin-company-directory" || identity == "platform-company-crm") {
 			usages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 		}
 		cert := &x509.Certificate{SerialNumber: big.NewInt(int64(i + 2)), Subject: pkix.Name{CommonName: identity},

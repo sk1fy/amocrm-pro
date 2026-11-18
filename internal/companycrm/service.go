@@ -26,14 +26,17 @@ type snapshot[T any] struct {
 }
 
 type Service struct {
-	Resolver Resolver
-	CRM      Provider
-	init     sync.Once
-	gate     chan struct{}
-	staff    snapshot[[]StaffMember]
-	clients  snapshot[Clients]
-	workflow snapshot[WorkflowMetadata]
-	now      func() time.Time
+	Resolver        Resolver
+	CRM             Provider
+	init            sync.Once
+	gate            chan struct{}
+	staff           snapshot[[]StaffMember]
+	clients         snapshot[Clients]
+	workflow        snapshot[WorkflowMetadata]
+	cooldownBinding Binding
+	cooldownUntil   time.Time
+	cooldownCode    string
+	now             func() time.Time
 }
 
 func (s *Service) clock() time.Time {
@@ -62,6 +65,15 @@ func read[T any](ctx context.Context, s *Service, cache *snapshot[T], fetch func
 		return cache.response
 	}
 	cache.attemptedBinding = b
+	if s.cooldownBinding == b && now.Before(s.cooldownUntil) {
+		result := failed(cache, now, s.cooldownCode, s.cooldownUntil.Sub(now))
+		if result.Data == nil {
+			result.Source.AccountID = b.AccountID
+			result.Source.BindingRevision = b.Revision
+			cache.response = result
+		}
+		return result
+	}
 	started := now
 	err = s.CRM.VerifyCompanyCRMAccount(ctx, b.InstallationID, b.AccountID)
 	var data T
@@ -87,6 +99,9 @@ func read[T any](ctx context.Context, s *Service, cache *snapshot[T], fetch func
 	if errors.As(err, &api) && api.RetryAfter > 0 {
 		retry = api.RetryAfter
 		code = string(api.Kind)
+		s.cooldownBinding = b
+		s.cooldownUntil = now.Add(retry)
+		s.cooldownCode = code
 	}
 	if errors.Is(err, ErrBinding) {
 		code = "binding_changed"

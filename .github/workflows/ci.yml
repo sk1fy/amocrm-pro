@@ -60,6 +60,7 @@ jobs:
       - name: Validate Docker Compose configuration
         run: |
           docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.company-crm.yml config --quiet
           docker compose -f docker-compose.platform.yml config --quiet
           docker compose -f docker-compose.activity.yml config --quiet
           docker compose -f docker-compose.activity.yml -f docker-compose.activity-embedded.yml config --quiet

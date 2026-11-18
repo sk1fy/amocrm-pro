@@ -79,3 +79,30 @@ func TestCompanyCRMVerifiedMappingUsesExactIntegerIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestCompanyCRMRejectsInconsistentPaginationMetadata(t *testing.T) {
+	for _, body := range []string{
+		`{"_page":2,"_embedded":{"users":[{"id":1}]}}`,
+		`{"_total_items":2,"_embedded":{"users":[{"id":1}]}}`,
+		`{"_page_count":2,"_embedded":{"users":[{"id":1}]}}`,
+		`{"_page_count":41,"_embedded":{"users":[]}}`,
+		`{"_total_items":-1,"_embedded":{"users":[]}}`,
+		`{"_links":{"next":{}},"_embedded":{"users":[{"id":1}]}}`,
+	} {
+		c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) })
+		rows, err := c.CompanyCRMStaff(t.Context(), uuid.New())
+		if err == nil || rows != nil {
+			t.Fatalf("body=%s rows=%v err=%v", body, rows, err)
+		}
+	}
+	c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `{"_page":1,"_page_count":2,"_total_items":2,"_embedded":{"users":[{"id":1}]},"_links":{"next":{"href":"opaque"}}}`)
+			return
+		}
+		fmt.Fprint(w, `{"_page":2,"_page_count":2,"_total_items":3,"_embedded":{"users":[{"id":2}]}}`)
+	})
+	if rows, err := c.CompanyCRMStaff(t.Context(), uuid.New()); err == nil || rows != nil {
+		t.Fatalf("changing total accepted rows=%v err=%v", rows, err)
+	}
+}
