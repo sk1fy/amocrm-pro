@@ -71,6 +71,21 @@ func TestPlatformCompanyCatalogLockOrder(t *testing.T) {
 	catalogInput, err := parseProductInput([]byte(`{"display_name":"Catalog after concurrent save"}`), false)
 	mustManager(t, err)
 	workflowInput := companyWorkflowInput{Account: "12", Binding: "r1", Generation: generation, Pipeline: "100", Stage: "101"}
+	_, err = owner.Exec(ctx, `ALTER TABLE platform_company.audit ADD CONSTRAINT reject_company_test CHECK(kind<>'product.company_workflow.set') NOT VALID`)
+	mustManager(t, err)
+	_, auditErr := store.mutate(ctx, workflowCommand, workflowInput, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {
+		return saveCompanyWorkflow(ctx, tx, workflowCommand, workflowInput)
+	})
+	_, err = owner.Exec(ctx, `ALTER TABLE platform_company.audit DROP CONSTRAINT reject_company_test`)
+	mustManager(t, err)
+	if auditErr == nil {
+		t.Fatal("audit failure committed workflow")
+	}
+	var reservations, revisions, heads int
+	mustManager(t, owner.QueryRow(ctx, `SELECT (SELECT count(*) FROM platform_manager.commands WHERE id=$1),(SELECT count(*) FROM platform_company.product_workflow_revisions),(SELECT count(*) FROM platform_company.product_workflow_heads)`, workflowCommand.ID).Scan(&reservations, &revisions, &heads))
+	if reservations != 0 || revisions != 0 || heads != 0 {
+		t.Fatalf("audit rollback leaked command=%d revision=%d head=%d", reservations, revisions, heads)
+	}
 	catalogReady, workflowReady := make(chan uint32, 1), make(chan uint32, 1)
 	releaseCatalog, releaseWorkflow := make(chan struct{}), make(chan struct{})
 	type result struct {

@@ -149,7 +149,6 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 	pilot.deliver(t, core, first.private)
 	editor := managerTestActor{uuid.New(), 1, []string{"catalog.manage"}}
 	reader := managerTestActor{uuid.New(), 1, []string{"clients.read"}}
-	// Adopt a real product through the existing command boundary.
 	productBody := fmt.Sprintf(`{"code":"pilot-review","display_name":"Reviewed","line":"PRO","availability":"pilot","integration_refs":[%q],"tariff_version":null,"trial_policy":{"kind":"once","duration_days":7},"links":[]}`, pilot.integration)
 	managerRequest(t, client, "POST", first.private+managerPath+"products", editor, newManagerTestCommand(uuid.Nil, 0), productBody, 201)
 	workflowPath := managerPath + "products/" + pilot.product.String() + "/company-workflow"
@@ -239,7 +238,6 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 	if productVersion != 1 {
 		t.Fatal("workflow advanced product card")
 	}
-	// A transient observation failure rolls back the command reservation.
 	_, err = owner.Exec(ctx, `UPDATE platform_company.source_components SET attempt_state='stale',error_code=NULL WHERE component='metadata'`)
 	mustManager(t, err)
 	staleMetadata := managerRequest(t, client, "GET", first.private+managerPath+"company-workflow-metadata", editor, managerTestCommand{}, "", 200)
@@ -262,7 +260,6 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 	_, err = owner.Exec(ctx, `UPDATE platform_company.source_components SET attempt_state='fresh',error_code=NULL WHERE component='metadata'`)
 	mustManager(t, err)
 	managerRequest(t, client, "PUT", second.private+workflowPath, editor, retryCommand, body, 200)
-	// Catalog and workflow commands serialize their own versions without sharing ETags.
 	for i := int64(0); i < 3; i++ {
 		done := make(chan observedManagerResponse, 2)
 		go func() {
@@ -278,7 +275,41 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 			}
 		}
 	}
-	// Both replicas share one activation and cannot rewrite evidence or retarget it.
+	options, e := ParseManagerOptions("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8", "Europe/Moscow")
+	mustManager(t, e)
+	cursorActor := managerActor{Subject: reader.subject, GrantsVersion: reader.version, Grants: map[string]bool{"clients.read": true}}
+	expired, e := options.parseCompanyCursor(*page.Next, cursorActor, companyFilters{Limit: 1})
+	mustManager(t, e)
+	expired.Expires = time.Now().Add(-time.Second)
+	expiredCursor := options.companyCursor(expired, cursorActor, companyFilters{Limit: 1})
+	managerRequest(t, client, "GET", first.private+managerPath+"companies?limit=1&cursor="+url.QueryEscape(expiredCursor), reader, managerTestCommand{}, "", 400)
+	mu.Lock()
+	mode = "empty"
+	at = time.Now().UTC().Truncate(time.Microsecond)
+	until = at.Add(5 * time.Minute)
+	mu.Unlock()
+	_, err = owner.Exec(ctx, `UPDATE platform_company.source_components SET next_refresh=NULL WHERE component='clients'`)
+	mustManager(t, err)
+	companyWait(t, func() bool {
+		r := managerCall(client, "GET", first.private+managerPath+"companies", reader, managerTestCommand{}, "")
+		var p companyPage
+		return r.status == 200 && json.Unmarshal(r.body, &p) == nil && p.Items != nil && len(p.Items) == 0 && p.Source.Complete
+	})
+	pinned := managerRequest(t, client, "GET", second.private+cursorPath, reader, managerTestCommand{}, "", 200)
+	if !bytes.Contains(pinned.body, []byte(`"crm_company_id":"22"`)) {
+		t.Fatal("refresh changed pinned page")
+	}
+	mu.Lock()
+	mode = "full"
+	at = time.Now().UTC().Truncate(time.Microsecond)
+	until = at.Add(5 * time.Minute)
+	mu.Unlock()
+	_, err = owner.Exec(ctx, `UPDATE platform_company.source_components SET next_refresh=NULL WHERE component='clients'`)
+	mustManager(t, err)
+	companyWait(t, func() bool {
+		r := managerCall(client, "GET", first.private+managerPath+"companies", reader, managerTestCommand{}, "")
+		return r.status == 200 && bytes.Contains(r.body, []byte(id.String()))
+	})
 	var activation companyActivation
 	mustManager(t, owner.QueryRow(ctx, `SELECT scope_id,epoch FROM platform_company.source_control`).Scan(&activation.Scope, &activation.Epoch))
 	for _, sql := range []string{`UPDATE platform_company.generations SET source_state='stale'`, `DELETE FROM platform_company.company_rows`, `UPDATE platform_company.source_control SET epoch=epoch+1`, `SELECT * FROM platform_company.activate_source(NULL,1,13,'r2',gen_random_uuid())`} {
@@ -291,7 +322,6 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 	if err != pgx.ErrNoRows {
 		t.Fatalf("runtime retarget: %v", err)
 	}
-	// Stop workers to make queue routing and old publication checks deterministic.
 	first.stop(t)
 	second.stop(t)
 	cfg, err := companysource.ParseConfig(func(k string) string {
@@ -345,7 +375,6 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 	go func() { defer close(workerDone); worker.Run(workerCtx) }()
 	defer func() { stopWorker(); <-workerDone }()
 	time.Sleep(150 * time.Millisecond)
-	// Old kind can claim only old queued work, never the new activation's jobs.
 	for range 3 {
 		l, ok, e := queue.NewStore(jobs).Claim(ctx, []queue.Kind{old.Kind()}, time.Minute)
 		mustManager(t, e)
@@ -403,7 +432,6 @@ func TestPlatformCompanyProjectionAcrossReplicas(t *testing.T) {
 		r := managerCall(client, "GET", restarted.private+managerPath+"companies", reader, managerTestCommand{}, "")
 		return r.status == 200 && bytes.Contains(r.body, []byte(id.String()))
 	})
-	// A failed full read retains the last complete generation and a shared cooldown.
 	mu.Lock()
 	mode = "bare429"
 	mu.Unlock()
@@ -471,7 +499,6 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	if initial.Source.State != "fresh" {
 		t.Fatal(initial.Source)
 	}
-	// Same timestamp and hash with stale source state must downgrade fresh evidence before expiry.
 	obs.source.State = "stale"
 	obs.source.ErrorCode = "source_unavailable"
 	publish(p, obs)
@@ -485,7 +512,6 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	if count != 1 {
 		t.Fatal("duplicate generation")
 	}
-	// Equal-time changed content is an inconsistency; an older response never becomes current.
 	obs.metadata.Pipelines[0].Name = "Changed"
 	publish(p, obs)
 	inconsistent, err := (managerStore{jobs}).companyWorkflowMetadata(ctx)
@@ -502,14 +528,12 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	if *unchanged.Generation != *initial.Generation {
 		t.Fatal("older observation became current")
 	}
-	// A bare 429 still establishes the shared minimum cooldown.
 	publish(p, companyObservation{code: "source_rate_limited"})
 	var retry *time.Time
 	mustManager(t, owner.QueryRow(ctx, `SELECT retry_not_before FROM platform_company.source_control`).Scan(&retry))
 	if retry == nil || time.Until(*retry) < 4*time.Second {
 		t.Fatal("bare 429 omitted shared cooldown")
 	}
-	// Full empty data and a failed attempt remain different states.
 	clientsObservation := companyObservation{source: companycrm.Source{AccountID: 12, BindingRevision: "r1", State: "fresh", Complete: true, ObservedAt: &at, FreshUntil: &until}, clients: &companycrm.Clients{Companies: []companycrm.Client{}, Contacts: []companycrm.Contact{}}}
 	clientPayload := companyJobPayload{activation, companyClients}
 	publish(clientPayload, clientsObservation)
@@ -535,7 +559,6 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	if _, e = access.Exec(ctx, `SELECT * FROM platform_company.company_rows`); e == nil {
 		t.Fatal("access role read private company data")
 	}
-	// Relational evidence and audit cannot be forged by runtime.
 	for _, sql := range []string{
 		`INSERT INTO platform_company.audit(id,kind,scope_id,epoch,previous_scope,previous_epoch,actor_id) SELECT gen_random_uuid(),'source.activated',scope_id,2,scope_id,1,gen_random_uuid() FROM platform_company.source_control`,
 		`INSERT INTO platform_company.workflow_stages VALUES('00000000-0000-0000-0000-000000000001',100,999,'bad')`,
@@ -631,7 +654,6 @@ func testCompanyCoreTLSChain(t *testing.T, companies, contacts int) {
 	if companyCount != companies || contactCount != contacts {
 		t.Fatalf("published catalog companies=%d contacts=%d", companyCount, contactCount)
 	}
-	// The same server rejects the manager certificate on the private source route.
 	request, err := http.NewRequestWithContext(ctx, "GET", origin+"/v1/company-crm/clients", nil)
 	mustManager(t, err)
 	response, err := client.Do(request)
