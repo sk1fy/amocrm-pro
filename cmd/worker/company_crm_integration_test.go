@@ -49,7 +49,7 @@ func TestCompanyCRMFullTLSOwnerAndProviderChain(t *testing.T) {
 		t.Run("cold_"+failure, func(t *testing.T) {
 			b := companycrm.Binding{AccountID: 99, InstallationID: uuid.New(), IntegrationID: uuid.New(), Revision: "synthetic-r1"}
 			ctx := t.Context()
-			if _, err := pool.Exec(ctx, `INSERT INTO integrations(id,code,client_id,client_secret_ciphertext,redirect_uri,status) VALUES($1,$2,'fixture-client','fixture','https://fixture.test/oauth','active')`, b.IntegrationID, "company-chain-"+failure); err != nil {
+			if _, err := pool.Exec(ctx, `INSERT INTO integrations(id,code,client_id,client_secret_ciphertext,redirect_uri,status) VALUES($1,$2,$3,'fixture','https://fixture.test/oauth','active')`, b.IntegrationID, "company-chain-"+failure, "fixture-client-"+failure); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := pool.Exec(ctx, `INSERT INTO installations(id,integration_id,account_id,account_domain,status) VALUES($1,$2,$3,'company.amocrm.test','active')`, b.InstallationID, b.IntegrationID, b.AccountID); err != nil {
