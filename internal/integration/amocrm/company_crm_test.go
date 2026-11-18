@@ -45,6 +45,21 @@ func TestCompanyCRMPageFailureNeverReturnsPartial(t *testing.T) {
 		t.Fatalf("users=%+v err=%v", users, err)
 	}
 }
+func TestCompanyCRMAdvertisedNextPageCannotEndWithNoContent(t *testing.T) {
+	pages := 0
+	c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) {
+		pages++
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `{"_embedded":{"companies":[{"id":1,"account_id":7}]},"_links":{"next":{"href":"next"}}}`)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	rows, err := c.CompanyCRMCompanies(t.Context(), uuid.New(), 7)
+	if rows != nil || !errors.Is(err, ErrIncompleteResponse) || pages != 2 {
+		t.Fatalf("advertised page was lost: rows=%v err=%v pages=%d", rows, err, pages)
+	}
+}
 func TestCompanyCRMRejectsWrongAccountAndMalformedEmpty(t *testing.T) {
 	for _, body := range []string{`{"_embedded":{"companies":[{"id":1,"account_id":8}]}}`, `{}`, `{"_embedded":{"companies":null}}`} {
 		c := enrichmentClient(t, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) })

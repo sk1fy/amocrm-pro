@@ -115,6 +115,9 @@ func TestCompanyCRMFullTLSOwnerAndProviderChain(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer response.Body.Close()
+		if id, err := uuid.Parse(response.Header.Get("X-Request-ID")); err != nil || id == uuid.Nil {
+			t.Fatalf("missing response correlation ID: %q", response.Header.Get("X-Request-ID"))
+		}
 		if response.StatusCode != 200 {
 			t.Fatal(response.StatusCode)
 		}

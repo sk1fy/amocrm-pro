@@ -111,6 +111,43 @@ func TestRateLimitPreservesRetryAndDoesNotRefetch(t *testing.T) {
 		t.Fatalf("resource bypassed account cooldown response=%+v verify calls=%d", other, f.verifies)
 	}
 }
+func TestRateLimitStartsWhenFailureArrives(t *testing.T) {
+	for _, method := range []string{"staff", "clients"} {
+		t.Run(method, func(t *testing.T) {
+			b := binding()
+			now := time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC)
+			f := &fakeCRM{errorStaff: &amocrm.APIError{Kind: amocrm.ErrorRateLimited, RetryAfter: 5 * time.Second}}
+			f.during = func() { now = now.Add(8 * time.Second) }
+			s := &Service{Resolver: resolverFunc(func(context.Context) (Binding, error) { return b, nil }), CRM: f, now: func() time.Time { return now }}
+			first := s.Staff(t.Context())
+			if first.Source.RetryAfter != 5 || first.Data != nil {
+				t.Fatalf("rate limit=%+v", first)
+			}
+			read := func() Source {
+				if method == "staff" {
+					return s.Staff(t.Context()).Source
+				}
+				return s.Clients(t.Context()).Source
+			}
+			before := f.verifies
+			got := read()
+			if f.verifies != before || f.calls != 1 || got.ErrorCode != "rate_limited" {
+				t.Fatalf("provider contacted before receipt-time cooldown elapsed: verifies=%d want=%d staff calls=%d source=%+v", f.verifies, before, f.calls, got)
+			}
+			now = now.Add(4 * time.Second)
+			read()
+			if f.verifies != before {
+				t.Fatal("provider contacted within receipt-time cooldown")
+			}
+			now = now.Add(time.Second)
+			f.during = nil
+			f.errorStaff = nil
+			if got := read(); got.State != "fresh" || f.verifies != before+1 {
+				t.Fatalf("read did not recover after cooldown: source=%+v verifies=%d", got, f.verifies)
+			}
+		})
+	}
+}
 func TestCancelledWaitIsBounded(t *testing.T) {
 	b := binding()
 	f := &fakeCRM{}

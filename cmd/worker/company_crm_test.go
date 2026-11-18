@@ -15,13 +15,38 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
+	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
 
 func TestCompanyCRMDisabledWithoutConfiguration(t *testing.T) {
 	s, err := companyCRMServer(t.Context(), nil, nil, nil, companycrm.Config{})
 	if err != nil || s != nil {
 		t.Fatal(s, err)
+	}
+}
+func TestCompanyCRMConstructorDoesNotReadDependencies(t *testing.T) {
+	pool, err := pgxpool.New(t.Context(), "postgres://unused:unused@127.0.0.1:1/unused_test?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool.Close()
+	dir, _ := companyIdentityFiles(t)
+	provider := amocrm.NewClient(&http.Client{Transport: companyTransport(func(*http.Request) (*http.Response, error) {
+		t.Fatal("constructor contacted CRM")
+		return nil, nil
+	})}, companyTokens{})
+	server, err := companyCRMServer(t.Context(), pool, provider, companyTokens{}, companycrm.Config{Address: "127.0.0.1:0", IdentityDir: dir})
+	if err != nil || server == nil {
+		t.Fatalf("constructor depends on unavailable owner DB: server=%v err=%v", server, err)
+	}
+}
+
+func TestCompanyCRMRejectsInvalidTLSAtConstruction(t *testing.T) {
+	server, err := companyCRMServer(t.Context(), nil, nil, nil, companycrm.Config{Address: "127.0.0.1:0", IdentityDir: t.TempDir()})
+	if err == nil || server != nil {
+		t.Fatalf("invalid TLS accepted: server=%v err=%v", server, err)
 	}
 }
 func TestCompanyCRMWorkerServesOnlyMutualTLS(t *testing.T) {
