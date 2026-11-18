@@ -16,6 +16,14 @@ any directory read. Owner DB authority is rechecked before publishing a snapshot
 The same `amocrm.Client`, token provider and account/integration limiter are reused.
 The existing single outbound worker replica restriction remains in force.
 
+Construction validates local configuration and TLS files without owner DB or CRM
+requests. Binding and provider failures cannot prevent unrelated worker jobs from
+starting. Each authenticated read checks the owner DB binding before using its
+cache, and verifies provider account identity before scanning on a cache miss.
+A cold failure returns HTTP 503 with null data and an incomplete error source.
+Recovery uses the existing cooldown and repeats those checks. This isolates the
+connector dependency failure without permitting unverified directory data.
+
 A separate private HTTPS listener uses `servicerpc.TLSFromFiles`, TLS 1.3, verified
 client certificates and exact SPIFFE service URI authorization. Only
 `spiffe://amocrm-pro/admin-company-directory` may read Staff. Only
@@ -33,7 +41,10 @@ binding. Observation time starts before scanning. Freshness is five minutes and
 successful reads poll no faster than once a minute. Requests have ten-second
 contexts, eight HTTP admission slots and one context-aware scan slot. Provider
 429 Retry-After passes to source metadata and the HTTP header with no immediate
-retry. Company scans share the Retry-After cooldown across methods. Each list is bounded at forty pages of 250 rows. Exceeding bounds is an
+retry. Its cooldown starts when the failure arrives, after the scan, and applies
+across company methods. Observation and freshness still start before the scan.
+The existing request ID middleware supplies an `X-Request-ID` response header.
+Each list is bounded at forty pages of 250 rows. Exceeding bounds is an
 incomplete read, never an empty successful catalog.
 
 Staff activity is active, inactive or unknown. Missing provider activity remains

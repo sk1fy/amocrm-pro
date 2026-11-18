@@ -93,6 +93,7 @@ func read[T any](ctx context.Context, s *Service, cache *snapshot[T], fetch func
 		return cache.response
 	}
 
+	now = s.clock()
 	retry := time.Minute
 	code := "source_unavailable"
 	var api *amocrm.APIError

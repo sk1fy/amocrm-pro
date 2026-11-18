@@ -15,13 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
 
 func TestCompanyCRMDisabledWithoutConfiguration(t *testing.T) {
-	s, err := companyCRMServer(t.Context(), nil, nil, nil, companycrm.Config{})
+	s, err := companyCRMServer(nil, nil, nil, companycrm.Config{})
 	if err != nil || s != nil {
 		t.Fatal(s, err)
 	}
@@ -37,14 +38,15 @@ func TestCompanyCRMConstructorDoesNotReadDependencies(t *testing.T) {
 		t.Fatal("constructor contacted CRM")
 		return nil, nil
 	})}, companyTokens{})
-	server, err := companyCRMServer(t.Context(), pool, provider, companyTokens{}, companycrm.Config{Address: "127.0.0.1:0", IdentityDir: dir})
+	b := companycrm.Binding{AccountID: 99, InstallationID: uuid.New(), IntegrationID: uuid.New(), Revision: "synthetic-r1"}
+	server, err := companyCRMServer(pool, provider, companyTokens{}, companycrm.Config{Address: "127.0.0.1:0", IdentityDir: dir, Binding: b})
 	if err != nil || server == nil {
 		t.Fatalf("constructor depends on unavailable owner DB: server=%v err=%v", server, err)
 	}
 }
 
 func TestCompanyCRMRejectsInvalidTLSAtConstruction(t *testing.T) {
-	server, err := companyCRMServer(t.Context(), nil, nil, nil, companycrm.Config{Address: "127.0.0.1:0", IdentityDir: t.TempDir()})
+	server, err := companyCRMServer(nil, nil, nil, companycrm.Config{Address: "127.0.0.1:0", IdentityDir: t.TempDir()})
 	if err == nil || server != nil {
 		t.Fatalf("invalid TLS accepted: server=%v err=%v", server, err)
 	}

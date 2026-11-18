@@ -13,10 +13,11 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc"
+	"github.com/sk1fy/amocrm-pro/internal/transport/httpmiddleware"
 	"github.com/sk1fy/amocrm-pro/internal/transport/httpserver"
 )
 
-func companyCRMServer(ctx context.Context, pool *pgxpool.Pool, client *amocrm.Client, tokens amocrm.TokenProvider, cfg companycrm.Config) (*http.Server, error) {
+func companyCRMServer(pool *pgxpool.Pool, client *amocrm.Client, tokens amocrm.TokenProvider, cfg companycrm.Config) (*http.Server, error) {
 	if cfg.Address == "" {
 		return nil, nil
 	}
@@ -26,16 +27,8 @@ func companyCRMServer(ctx context.Context, pool *pgxpool.Pool, client *amocrm.Cl
 	}
 	resolver := &companycrm.Store{Pool: pool, Binding: cfg.Binding}
 	scoped := client.WithTokenProvider(companycrm.ScopedTokens{Provider: tokens, Binding: cfg.Binding})
-	check, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	if _, err := resolver.Resolve(check); err != nil {
-		return nil, errors.New("company CRM binding is unavailable")
-	}
-	if err := scoped.VerifyCompanyCRMAccount(check, cfg.Binding.InstallationID, cfg.Binding.AccountID); err != nil {
-		return nil, errors.New("company CRM account identity could not be verified")
-	}
 	service := &companycrm.Service{Resolver: resolver, CRM: scoped}
-	server := httpserver.New(cfg.Address, companycrm.Router(service))
+	server := httpserver.New(cfg.Address, httpmiddleware.RequestID(companycrm.Router(service)))
 	server.TLSConfig = tlsConfig
 	return server, nil
 }

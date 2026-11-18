@@ -291,7 +291,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	companyServer, err := companyCRMServer(ctx, pool, amocrmAPI, tokenProvider, companyConfig)
+	companyServer, err := companyCRMServer(pool, amocrmAPI, tokenProvider, companyConfig)
 	if err != nil {
 		return err
 	}

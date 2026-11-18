@@ -18,9 +18,18 @@ variables together and restart the worker:
 | COMPANY_CRM_BINDING_REVISION | Explicit revision changed with scope or mapping |
 | COMPANY_CRM_ACCOUNT_FIELD_ID | Optional verified company numeric custom field ID |
 
-Partial configuration fails startup. The worker verifies the owner DB binding and
-provider account identity with a ten-second startup context before starting the
-listener. The server certificate must verify for the hostname callers use. The
+Partial configuration and invalid TLS files fail startup. Connector construction
+makes no owner DB or CRM requests. An unavailable binding or CRM dependency does
+not prevent unrelated worker jobs from starting. The worker still requires its
+normal database and other startup dependencies.
+
+Authenticated reads check the owner DB binding before using cached data and
+verify provider account identity before scanning. A cold binding or provider
+failure returns HTTP 503 with null data and an incomplete error source. Reads
+recover after the existing retry interval when the dependency is healthy.
+Provider 429 cooldowns start on receipt and apply across methods. Use the response
+`X-Request-ID` for correlation. Each read retains its ten-second context.
+The server certificate must verify for the hostname callers use. The
 existing service certificate tooling retains its CA layout. Provision
 separate client-auth certificates through the trusted service identity process
 with exactly one URI each, `spiffe://amocrm-pro/admin-company-directory` or
