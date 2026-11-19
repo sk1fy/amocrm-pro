@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/sk1fy/amocrm-pro/internal/buildinfo"
+	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/platformaccess"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/companysource"
@@ -147,14 +148,18 @@ func run() error {
 		if accountObserver != nil {
 			handlers[productplatform.AccountRefreshJob] = accountObserver.RefreshJob
 		}
+		queueConfig := queue.DefaultConfig(cfg.workers)
 		if companyObserver != nil {
-			handlers[companyObserver.Kind()] = companyObserver.RefreshJob
+			companyKind := companyObserver.Kind()
+			handlers[companyKind] = companyObserver.RefreshJob
+			queueConfig.HandlerTimeoutByKind = map[queue.Kind]time.Duration{companyKind: companycrm.ReadTimeout + 10*time.Second}
+			queueConfig.LeaseDuration = companycrm.ReadTimeout + 30*time.Second
 		}
 		if companyDeals != nil {
 			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals, Manager: cfg.manager}
 			handlers[productplatform.InstallationDealJob] = deals.Run
 		}
-		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queue.DefaultConfig(cfg.workers), registry)
+		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queueConfig, registry)
 		runWorker = func(ctx context.Context) {
 			var group sync.WaitGroup
 			if accountObserver != nil {

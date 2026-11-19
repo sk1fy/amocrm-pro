@@ -10,6 +10,9 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
 
+// ReadTimeout bounds a complete read, including wait for the shared provider gate.
+const ReadTimeout = 150 * time.Second
+
 type Provider interface {
 	VerifyCompanyCRMAccount(context.Context, uuid.UUID, int64) error
 	CompanyCRMStaff(context.Context, uuid.UUID) ([]amocrm.CompanyCRMUser, error)
@@ -47,8 +50,8 @@ func (s *Service) clock() time.Time {
 	return time.Now().UTC()
 }
 
-func read[T any](ctx context.Context, s *Service, cache *snapshot[T], fetch func(context.Context, Binding) (T, error)) Response[T] {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+func read[T any](ctx context.Context, s *Service, cache *snapshot[T], refreshInterval time.Duration, fetch func(context.Context, Binding) (T, error)) Response[T] {
+	ctx, cancel := context.WithTimeout(ctx, ReadTimeout)
 	defer cancel()
 	s.init.Do(func() { s.gate = make(chan struct{}, 1) })
 	select {
@@ -89,8 +92,9 @@ func read[T any](ctx context.Context, s *Service, cache *snapshot[T], fetch func
 		}
 	}
 	if err == nil {
-		fresh := started.Add(5 * time.Minute)
-		*cache = snapshot[T]{attemptedBinding: b, retryAt: started.Add(time.Minute), response: Response[T]{Source: Source{AccountID: b.AccountID, BindingRevision: b.Revision, State: "fresh", Complete: true, ObservedAt: &started, FreshUntil: &fresh}, Data: &data}}
+		completed := s.clock()
+		fresh := completed.Add(refreshInterval + 4*time.Minute)
+		*cache = snapshot[T]{attemptedBinding: b, retryAt: completed.Add(refreshInterval), response: Response[T]{Source: Source{AccountID: b.AccountID, BindingRevision: b.Revision, State: "fresh", Complete: true, ObservedAt: &started, FreshUntil: &fresh}, Data: &data}}
 		return cache.response
 	}
 
@@ -129,7 +133,7 @@ func failed[T any](cache *snapshot[T], now time.Time, code string, retry time.Du
 }
 
 func (s *Service) Staff(ctx context.Context) Response[[]StaffMember] {
-	return read(ctx, s, &s.staff, func(ctx context.Context, b Binding) ([]StaffMember, error) {
+	return read(ctx, s, &s.staff, time.Minute, func(ctx context.Context, b Binding) ([]StaffMember, error) {
 		users, err := s.CRM.CompanyCRMStaff(ctx, b.InstallationID)
 		if err != nil {
 			return nil, err
@@ -149,7 +153,7 @@ func (s *Service) Staff(ctx context.Context) Response[[]StaffMember] {
 	})
 }
 func (s *Service) Clients(ctx context.Context) Response[Clients] {
-	return read(ctx, s, &s.clients, func(ctx context.Context, b Binding) (Clients, error) {
+	return read(ctx, s, &s.clients, 4*time.Minute, func(ctx context.Context, b Binding) (Clients, error) {
 		result := Clients{Companies: []Client{}, Contacts: []Contact{}}
 		mappingVerified := false
 		if b.AccountFieldID > 0 {
@@ -212,7 +216,7 @@ func (s *Service) Clients(ctx context.Context) Response[Clients] {
 	})
 }
 func (s *Service) WorkflowMetadata(ctx context.Context) Response[WorkflowMetadata] {
-	return read(ctx, s, &s.workflow, func(ctx context.Context, b Binding) (WorkflowMetadata, error) {
+	return read(ctx, s, &s.workflow, time.Minute, func(ctx context.Context, b Binding) (WorkflowMetadata, error) {
 		result := WorkflowMetadata{RequiredFieldsState: "unknown"}
 		var err error
 		result.Pipelines, err = s.CRM.CompanyCRMPipelines(ctx, b.InstallationID, b.AccountID)

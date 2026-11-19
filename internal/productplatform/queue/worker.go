@@ -20,12 +20,13 @@ func SimpleHandler(handle func(context.Context, Job) error) Handler {
 }
 
 type Config struct {
-	Workers        int
-	PollInterval   time.Duration
-	SweepInterval  time.Duration
-	QueryTimeout   time.Duration
-	HandlerTimeout time.Duration
-	LeaseDuration  time.Duration
+	Workers              int
+	PollInterval         time.Duration
+	SweepInterval        time.Duration
+	QueryTimeout         time.Duration
+	HandlerTimeout       time.Duration
+	HandlerTimeoutByKind map[Kind]time.Duration
+	LeaseDuration        time.Duration
 }
 
 func DefaultConfig(workers int) Config {
@@ -91,7 +92,11 @@ func (w Worker) doJob(ctx context.Context) bool {
 		return false
 	}
 
-	handlerCtx, cancel := context.WithTimeout(ctx, w.config.HandlerTimeout)
+	handlerTimeout := w.config.HandlerTimeoutByKind[lease.Kind]
+	if handlerTimeout <= 0 {
+		handlerTimeout = w.config.HandlerTimeout
+	}
+	handlerCtx, cancel := context.WithTimeout(ctx, handlerTimeout)
 	completion := w.handlers[lease.Kind](handlerCtx, lease.Job)
 	if handlerCtx.Err() != nil && completion.Publish == nil && completion.Outcome.FailureCode == "" {
 		completion.Outcome = legacyOutcome(handlerCtx.Err())
