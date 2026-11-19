@@ -716,10 +716,10 @@ func (p managerPilot) verifyScope(t *testing.T, client *http.Client, first, seco
 	mustManager(t, err)
 	managerRequest(t, client, http.MethodGet, second+managerPath+"installations"+continuation,
 		actor, managerTestCommand{}, "", http.StatusBadRequest).requireCode(t, "invalid_cursor")
-	_, err = p.owner.Exec(p.ctx, `REVOKE SELECT ON platform_manager.installations FROM platform_jobs`)
+	_, err = p.owner.Exec(p.ctx, `REVOKE SELECT ON platform_manager.installation_directory FROM platform_jobs`)
 	mustManager(t, err)
 	defer func() {
-		_, err := p.owner.Exec(p.ctx, `GRANT SELECT ON platform_manager.installations TO platform_jobs`)
+		_, err := p.owner.Exec(p.ctx, `GRANT SELECT ON platform_manager.installation_directory TO platform_jobs`)
 		mustManager(t, err)
 	}()
 	managerRequest(t, client, http.MethodGet, first+managerPath+"installations",
