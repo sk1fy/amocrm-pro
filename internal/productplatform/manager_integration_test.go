@@ -82,8 +82,11 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 		reinstalled.LastLifecycle != "reinstalled" || reinstalled.Authorization != "reauth_required" || reinstalled.RemovedAt != nil ||
 		reinstalled.Access.ValidUntil == nil || removed.Access.ValidUntil == nil ||
 		!reinstalled.Access.ValidUntil.Equal(*removed.Access.ValidUntil) || reinstalled.Access.ComputedAt != firstPage.SnapshotAt ||
-		reinstalled.ProductName != "Pilot % Review" || reinstalled.Activation != "unavailable" || reinstalled.CRMWorkflow != "unsupported" {
+		reinstalled.ProductName != "Pilot % Review" || reinstalled.Activation != "unavailable" {
 		t.Fatalf("reinstall lost scoped lifecycle or term provenance: %+v", reinstalled)
+	}
+	if reinstalled.CRMWorkflow != "pending" || reinstalled.Deal == nil || reinstalled.Deal.State != "pending" || reinstalled.Deal.NextRun == nil {
+		t.Fatalf("reinstall did not expose its scheduled deal: %+v", reinstalled)
 	}
 	if other.ID == uuid.Nil || !other.InstalledAt.Equal(reinstalled.InstalledAt) || other.Access.Active || other.Access.Source != "none" {
 		t.Fatalf("unexpected other installation: %+v", other)
