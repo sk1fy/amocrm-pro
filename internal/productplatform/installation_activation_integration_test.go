@@ -85,10 +85,11 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	mustManager(t, tx.Commit(ctx))
 	var generation uuid.UUID
 	mustManager(t, owner.QueryRow(ctx, `SELECT current_generation FROM platform_company.source_components WHERE scope_id=$1 AND component='metadata'`, activation.Scope).Scan(&generation))
-	workflow := command(companyWorkflowCommandKind, 1)
+	workflow := command(installationDealSettingsCommandKind, 1)
+	workflow.Product = uuid.Nil
 	workflowInput := companyWorkflowInput{Account: "12", Binding: "r1", Generation: generation, Pipeline: "100", Stage: "101"}
 	saved, err := store.mutate(ctx, workflow, workflowInput, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {
-		return saveCompanyWorkflow(ctx, tx, workflow, workflowInput)
+		return saveInstallationDealSettings(ctx, tx, workflow, workflowInput)
 	})
 	mustManager(t, err)
 	if saved.status != 200 {
@@ -184,6 +185,30 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	if len(view.Items) != 1 || view.Items[0].Deal == nil || view.Items[0].Deal.URL == nil ||
 		*view.Items[0].Deal.URL != "https://fixture-company.amocrm.ru/leads/detail/101" {
 		t.Fatalf("successful deal link missing from the queue: %+v", view)
+	}
+
+	// A second product has no product-specific configuration.
+	otherEvent := wire.Event{ID: uuid.New(), Version: 1, Kind: wire.Installed, Installation: pilot.otherInstallation,
+		Integration: pilot.otherIntegration, Account: "2542", Sequence: 1, Generation: 1, OccurredAt: at,
+		Evidence: wire.Evidence{ID: uuid.New(), Source: "core_oauth"}}
+	raw, err := json.Marshal(otherEvent)
+	mustManager(t, err)
+	_, err = lifecycle.Record(ctx, raw)
+	mustManager(t, err)
+	otherScope := wire.ActivationScope{Installation: pilot.otherInstallation, Integration: pilot.otherIntegration,
+		Account: 2542, Generation: 1, AuthorizationSequence: 1}
+	_, err = lifecycle.storeActivation(ctx, wire.ActivationRequest{Scope: otherScope, Contact: &contact})
+	mustManager(t, err)
+	var otherEpisode uuid.UUID
+	mustManager(t, owner.QueryRow(ctx, `
+		SELECT d.episode_id FROM platform_manager.installation_deals d
+		JOIN platform_manager.installations i ON i.id=d.episode_id
+		WHERE i.amo_account_id=2542`).Scan(&otherEpisode))
+	episode = otherEpisode
+	run()
+	if len(fake.requests) != 3 || !fake.requests[2].Create ||
+		fake.requests[2].Pipeline != fake.requests[0].Pipeline || fake.requests[2].Stage != fake.requests[0].Stage {
+		t.Fatalf("different widgets must use the same destination: %+v", fake.requests)
 	}
 
 	write(wire.Uninstalled, 2, 1)

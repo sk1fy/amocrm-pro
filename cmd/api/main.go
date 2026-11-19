@@ -213,6 +213,19 @@ func run() error {
 	router.Use(httpmiddleware.Recover(logger))
 	router.Use(httpmiddleware.AccessLog(logger))
 	httpserver.RegisterPublicSystemRoutes(router)
+	router.Method(apicontract.CompanyCabinetActivation.Method, apicontract.CompanyCabinetActivation.Path,
+		companyCabinetActivation(func(ctx context.Context) (bool, error) {
+			var activated bool
+			err := pool.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT FROM integrations i
+					JOIN installations a ON a.integration_id=i.id
+					JOIN oauth_credentials c ON c.installation_id=a.id
+					WHERE i.code='rakurscrm-manager' AND i.status='active'
+						AND a.account_domain=$1 AND a.status='active'
+				)`, companyCabinetHost).Scan(&activated)
+			return activated, err
+		}))
 	router.Method(apicontract.OAuthStart.Method, apicontract.OAuthStart.Path, oauthLimiter.Middleware(http.HandlerFunc(oauthHandler.Start)))
 	router.Method(apicontract.OAuthCallback.Method, apicontract.OAuthCallback.Path, oauthLimiter.Middleware(http.HandlerFunc(oauthHandler.Callback)))
 	router.Method(apicontract.WebhookReceive.Method, apicontract.WebhookReceive.Path, http.HandlerFunc(webhookHandler.Receive))

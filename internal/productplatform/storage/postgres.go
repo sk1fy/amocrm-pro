@@ -99,6 +99,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		CROSS JOIN platform_manager.feed_snapshot_items item
         CROSS JOIN platform_company.source_control company_control
         CROSS JOIN platform_company.product_workflow_heads workflow_head
+        CROSS JOIN platform_company.installation_deal_settings_revisions deal_settings
 		LIMIT 0`); err != nil {
 		return errors.New("manager read schema is unavailable")
 	}
@@ -106,6 +107,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	err := pool.QueryRow(ctx, `
 		SELECT has_table_privilege('platform_company.generations','SELECT')
            AND has_table_privilege('platform_company.product_workflow_revisions','INSERT')
+           AND has_table_privilege('platform_company.installation_deal_settings_revisions','INSERT')
            AND has_column_privilege('platform_company.product_workflow_heads','version','UPDATE')
            AND has_function_privilege('platform_company.register_source(bigint,text)','EXECUTE')
            AND has_function_privilege('platform_company.enqueue_refresh(uuid,bigint,text,uuid,text)','EXECUTE')

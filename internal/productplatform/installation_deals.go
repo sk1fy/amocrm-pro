@@ -90,16 +90,15 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		return request, "", tx.Commit(ctx)
 	}
 
-	var product uuid.UUID
 	var name, accountLabel, contactName, lifecycle, classification string
 	err = tx.QueryRow(ctx, `
-		SELECT inst.product_id,inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
+		SELECT inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
 			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,'')
 		FROM platform_manager.installations inst
 		LEFT JOIN platform_manager.account_identities i USING(account_id)
 		LEFT JOIN platform_manager.account_profiles p USING(account_id)
 		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
-		WHERE inst.id=$1`, episode).Scan(&product, &name, &accountLabel, &contactName, &lifecycle, &classification)
+		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
 		return request, "skipped", nil
 	}
@@ -109,14 +108,16 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	var pipeline, stage int64
 	err = tx.QueryRow(ctx, `
 		SELECT r.pipeline_id,r.stage_id
-		FROM platform_company.product_workflow_heads h
-		JOIN platform_company.product_workflow_revisions r USING(product_id,revision)
-		JOIN platform_company.source_control c ON c.scope_id=r.scope_id
+		FROM platform_company.source_control c
+		JOIN LATERAL (
+			SELECT pipeline_id,stage_id FROM platform_company.installation_deal_settings_revisions
+			WHERE scope_id=c.scope_id ORDER BY revision DESC LIMIT 1
+		) r ON true
 		JOIN platform_company.source_scopes s ON s.id=c.scope_id
 		JOIN platform_company.source_components m ON m.scope_id=s.id AND m.component='metadata'
 		JOIN platform_company.workflow_stages g ON g.generation_id=m.current_generation
 			AND g.pipeline_id=r.pipeline_id AND g.stage_id=r.stage_id
-		WHERE h.product_id=$1 AND s.account_id=$2 AND s.binding_revision=$3`, product, account, revision).Scan(&pipeline, &stage)
+		WHERE s.account_id=$1 AND s.binding_revision=$2`, account, revision).Scan(&pipeline, &stage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return request, "failed", nil
 	}

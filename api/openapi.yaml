@@ -38,6 +38,33 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
               example:
                 status: ok
+  /api/v1/company-cabinet/activation:
+    get:
+      tags: [OAuth]
+      operationId: getCompanyCabinetActivation
+      summary: Read the activation status of the private Rakurs managers integration.
+      description: The only supported browser origin is https://rakurscrm.amocrm.ru.
+      parameters:
+        - name: Origin
+          in: header
+          required: true
+          schema:
+            type: string
+            const: https://rakurscrm.amocrm.ru
+      responses:
+        '200':
+          description: Activation status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [activated]
+                properties:
+                  activated: {type: boolean}
+        '400': {description: The route takes no query parameters.}
+        '403': {description: The request origin is outside the corporate account.}
+        '503': {description: Core could not check the status.}
   /oauth/amocrm/start:
     get:
       tags: [OAuth]

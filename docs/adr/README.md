@@ -60,3 +60,5 @@ scope belongs in GitHub Issues.
 - [ADR-0047](0047-company-crm-read-boundary.md). Private company CRM reads, exact mTLS method ACL and atomic snapshots.
 
 - [0048. Проекции компаний и настройка CRM-процесса](0048-platform-company-projections.md).
+
+- [0051. Общая воронка для сделок по установкам](0051-shared-installation-deal-settings.md).
