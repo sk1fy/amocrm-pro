@@ -46,6 +46,16 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 	manager.Timeout = 7 * time.Second
 	expectStatus(t, &http.Client{Timeout: time.Second}, first.public+managerPath+"installations", http.StatusNotFound)
 	pilot.deliver(t, core, first.private)
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.account_identities(account_id,current_domain,display_name,time_zone,observed_at)
+		SELECT id,'fixture-retail.amocrm.test','Test Retail','Asia/Yekaterinburg',now()
+		FROM platform_lifecycle.accounts WHERE amo_account_id=9007199254740993`)
+	mustManager(t, err)
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.account_profiles(account_id,display_name,classification)
+		SELECT id,'Retail Alias','Без партнёра'
+		FROM platform_lifecycle.accounts WHERE amo_account_id=9007199254740993`)
+	mustManager(t, err)
 
 	subject := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "clients.write"}}
 	firstPage := managerList(t, manager, first.private, subject, "")
@@ -72,8 +82,11 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 		reinstalled.LastLifecycle != "reinstalled" || reinstalled.Authorization != "reauth_required" || reinstalled.RemovedAt != nil ||
 		reinstalled.Access.ValidUntil == nil || removed.Access.ValidUntil == nil ||
 		!reinstalled.Access.ValidUntil.Equal(*removed.Access.ValidUntil) || reinstalled.Access.ComputedAt != firstPage.SnapshotAt ||
-		reinstalled.ProductName != "Pilot % Review" || reinstalled.Activation != "unavailable" || reinstalled.CRMWorkflow != "unsupported" {
+		reinstalled.ProductName != "Pilot % Review" || reinstalled.Activation != "unavailable" {
 		t.Fatalf("reinstall lost scoped lifecycle or term provenance: %+v", reinstalled)
+	}
+	if reinstalled.CRMWorkflow != "pending" || reinstalled.Deal == nil || reinstalled.Deal.State != "pending" || reinstalled.Deal.NextRun == nil {
+		t.Fatalf("reinstall did not expose its scheduled deal: %+v", reinstalled)
 	}
 	if other.ID == uuid.Nil || !other.InstalledAt.Equal(reinstalled.InstalledAt) || other.Access.Active || other.Access.Source != "none" {
 		t.Fatalf("unexpected other installation: %+v", other)
@@ -91,6 +104,19 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 	}
 	if byID := managerList(t, manager, first.private, subject, "?q=9007199254740993"); byID.Summary.Total != 2 {
 		t.Fatalf("search did not match the exact large account ID: %+v", byID)
+	}
+	for _, query := range []string{"fixture-retail", "Retail+Alias"} {
+		found := managerList(t, manager, first.private, subject, "?q="+query)
+		if len(found.Items) != 2 {
+			t.Fatalf("queue search did not match account projection: %+v", found)
+		}
+		item := found.Items[0]
+		if item.ProductLine != "PRO" || item.AccountDomain == nil || *item.AccountDomain != "fixture-retail.amocrm.test" ||
+			item.AccountName == nil || *item.AccountName != "Retail Alias" ||
+			item.AccountZone == nil || *item.AccountZone != "Asia/Yekaterinburg" ||
+			item.AccountClass == nil || *item.AccountClass != "Без партнёра" {
+			t.Fatalf("queue lost account or product projection: %+v", item)
+		}
 	}
 	scopeDay := pilot.opened.In(pilot.zone).Format(time.DateOnly)
 	datePage := managerList(t, manager, first.private, subject, "?from="+scopeDay+"&to="+scopeDay)
@@ -158,12 +184,22 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 	last := managerList(t, manager, second.private, subject, streamSort+"&cursor="+url.QueryEscape(*continued.Next))
 	for _, page := range []installationPage{continued, last} {
 		if page.SnapshotAt != snapshot.SnapshotAt || page.Summary != snapshot.Summary || page.QueryHash != snapshot.QueryHash ||
+			page.QueueCounts == nil || snapshot.QueueCounts == nil || *page.QueueCounts != *snapshot.QueueCounts ||
 			len(page.Items) != 1 || page.Items[0].Review.Reviewed || page.Items[0].Access.ComputedAt != snapshot.SnapshotAt {
 			t.Fatalf("live review changed a frozen page: %+v", page)
 		}
 	}
 	if last.Next != nil || strings.Compare(continued.Items[0].ID.String(), last.Items[0].ID.String()) >= 0 {
 		t.Fatalf("ascending keyset was unstable at equal timestamps: %+v %+v", continued.Items, last.Items)
+	}
+	filtered := managerList(t, manager, first.private, subject, "?review=unreviewed&limit=1")
+	if filtered.QueueCounts == nil || *filtered.QueueCounts != (installationSummary{Total: 3, Reviewed: 1, Unreviewed: 2}) ||
+		filtered.Summary != (installationSummary{Total: 2, Unreviewed: 2}) || filtered.Next == nil {
+		t.Fatalf("queue counts were filtered by review or pagination: %+v", filtered)
+	}
+	filteredNext := managerList(t, manager, second.private, subject, "?review=unreviewed&limit=1&cursor="+url.QueryEscape(*filtered.Next))
+	if filteredNext.QueueCounts == nil || *filteredNext.QueueCounts != *filtered.QueueCounts || filteredNext.Summary != filtered.Summary {
+		t.Fatalf("queue counts changed across pages: %+v", filteredNext)
 	}
 	descending := managerList(t, manager, first.private, subject, "?limit=1")
 	if descending.Next == nil || descending.Items[0].ID != last.Items[0].ID || descending.Summary.Reviewed != 1 {
@@ -680,10 +716,10 @@ func (p managerPilot) verifyScope(t *testing.T, client *http.Client, first, seco
 	mustManager(t, err)
 	managerRequest(t, client, http.MethodGet, second+managerPath+"installations"+continuation,
 		actor, managerTestCommand{}, "", http.StatusBadRequest).requireCode(t, "invalid_cursor")
-	_, err = p.owner.Exec(p.ctx, `REVOKE SELECT ON platform_manager.installations FROM platform_jobs`)
+	_, err = p.owner.Exec(p.ctx, `REVOKE SELECT ON platform_manager.installation_directory FROM platform_jobs`)
 	mustManager(t, err)
 	defer func() {
-		_, err := p.owner.Exec(p.ctx, `GRANT SELECT ON platform_manager.installations TO platform_jobs`)
+		_, err := p.owner.Exec(p.ctx, `GRANT SELECT ON platform_manager.installation_directory TO platform_jobs`)
 		mustManager(t, err)
 	}()
 	managerRequest(t, client, http.MethodGet, first+managerPath+"installations",

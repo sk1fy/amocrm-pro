@@ -54,6 +54,7 @@ func ManagerHandler(pool *pgxpool.Pool, options *ManagerOptions, accountGateway 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+managerPath+"installations", managerAuthorized("clients.read", false, api.list))
 	mux.HandleFunc("PUT "+managerPath+"installations/{id}/review", managerAuthorized("clients.write", true, api.review))
+	mux.HandleFunc("POST "+managerPath+"installations/{id}/deal-retry", managerAuthorized("clients.write", true, api.retryDeal))
 	mux.HandleFunc("GET "+managerPath+"commands/{id}", managerAuthorized("", false, api.receipt))
 	mux.HandleFunc("GET "+managerPath+"accounts", managerAuthorized("clients.read", false, api.accounts))
 	mux.HandleFunc("GET "+managerPath+"accounts/{id}", managerAuthorized("clients.read", false, api.account))
@@ -147,6 +148,34 @@ func (m managerHTTP) writeInstallations(w http.ResponseWriter, r *http.Request, 
 	writeLifecycleJSON(w, http.StatusOK, page)
 }
 
+func (m managerHTTP) retryDeal(w http.ResponseWriter, r *http.Request, env managerEnvelope) {
+	id, idError := managerUUID(r.PathValue("id"))
+	key, keyError := managerUUID(singleManagerHeader(r.Header, "Idempotency-Key"))
+	version, versionError := managerVersion(singleManagerHeader(r.Header, "If-Match"))
+	contentType, _, _ := mime.ParseMediaType(singleManagerHeader(r.Header, "Content-Type"))
+	var reason string
+	raw, bodyError := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
+	if idError != nil || keyError != nil || versionError != nil || version > 2147483647 || r.URL.RawQuery != "" ||
+		contentType != "application/json" || bodyError != nil || readManagerObject(raw, map[string]any{"reason": &reason}) != nil ||
+		!managerText(reason, 1, 1000) {
+		writeManagerError(w, http.StatusBadRequest, "validation_failed", env.RequestID, 0)
+		return
+	}
+	operation, err := m.store.retryInstallationDeal(r.Context(), dealRetryCommand{
+		ID: env.Command, Subject: env.Actor.Subject, Key: key, Episode: id, Version: version, Reason: reason,
+	})
+	if err != nil {
+		if errors.Is(err, errManagerConflict) {
+			writeManagerError(w, http.StatusConflict, "version_conflict", env.RequestID, 0)
+		} else {
+			writeManagerStoreError(w, env.RequestID, err)
+		}
+		return
+	}
+	w.Header().Set("Location", managerPath+"operations/"+operation.ID.String())
+	writeLifecycleJSON(w, http.StatusAccepted, operation)
+}
+
 func (m managerHTTP) review(w http.ResponseWriter, r *http.Request, env managerEnvelope) {
 	episode, episodeErr := managerUUID(r.PathValue("id"))
 	idempotency, keyErr := managerUUID(singleManagerHeader(r.Header, "Idempotency-Key"))
@@ -188,6 +217,18 @@ func (m managerHTTP) receipt(w http.ResponseWriter, r *http.Request, env manager
 		return
 	}
 	receipt, err := m.store.receipt(r.Context(), id, env.Actor)
+	if errors.Is(err, errManagerNotFound) {
+		op, lookup := m.store.readDealOperation(r.Context(), id, env.Actor.Subject)
+		if lookup == nil {
+			if !env.Actor.Grants["clients.write"] {
+				writeManagerError(w, http.StatusForbidden, "permission_denied", env.RequestID, 0)
+				return
+			}
+			receipt, err = managerReceipt{ID: id, Kind: dealRetryKind, State: "accepted", OperationID: &op.ID}, nil
+		} else {
+			err = lookup
+		}
+	}
 	if err != nil {
 		writeManagerStoreError(w, env.RequestID, err)
 		return

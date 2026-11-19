@@ -18,10 +18,10 @@ func TestCompanyCRMOpenAPIContract(t *testing.T) {
 	if _, ok := doc.Extensions["x-mutual-tls"]; !ok {
 		t.Fatal("missing required mTLS transport contract")
 	}
-	if doc.Paths.Len() != 4 {
+	if doc.Paths.Len() != 5 {
 		t.Fatal(doc.Paths.Len())
 	}
-	for path, method := range map[string]string{"/v1/company-crm/staff": "GET", "/v1/company-crm/clients": "GET", "/v1/company-crm/workflow-metadata": "GET", "/v1/company-crm/validate-workflow": "POST"} {
+	for path, method := range map[string]string{"/v1/company-crm/staff": "GET", "/v1/company-crm/clients": "GET", "/v1/company-crm/workflow-metadata": "GET", "/v1/company-crm/validate-workflow": "POST", "/v1/company-crm/installation-deals": "POST"} {
 		if doc.Paths.Find(path) == nil || doc.Paths.Find(path).GetOperation(method) == nil {
 			t.Fatal(path, method)
 		}

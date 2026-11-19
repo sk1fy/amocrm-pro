@@ -8,17 +8,20 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
 )
 
 type Config struct {
 	Address, IdentityDir string
 	Binding              Binding
+	DealsHost            string
 }
 
 func LoadConfig() (Config, error) {
 	c := Config{Address: os.Getenv("COMPANY_CRM_HTTPS_ADDRESS"), IdentityDir: os.Getenv("COMPANY_CRM_IDENTITY_DIR")}
 	names := []string{"COMPANY_CRM_ACCOUNT_ID", "COMPANY_CRM_INSTALLATION_ID", "COMPANY_CRM_INTEGRATION_ID", "COMPANY_CRM_BINDING_REVISION", "COMPANY_CRM_ACCOUNT_FIELD_ID"}
-	configured := c.Address != "" || c.IdentityDir != ""
+	host := os.Getenv("COMPANY_CRM_DEALS_HOST")
+	configured := c.Address != "" || c.IdentityDir != "" || host != ""
 	for _, n := range names {
 		configured = configured || os.Getenv(n) != ""
 	}
@@ -50,6 +53,13 @@ func LoadConfig() (Config, error) {
 		if err != nil || c.Binding.AccountFieldID <= 0 {
 			return Config{}, errors.New("company CRM account field ID must be positive")
 		}
+	}
+	if host != "" {
+		base, err := amocrm.AccountBaseURL(host)
+		if err != nil || base.Hostname() != host {
+			return Config{}, errors.New("company CRM deals require an exact amoCRM hostname")
+		}
+		c.DealsHost = host
 	}
 	return c, nil
 }

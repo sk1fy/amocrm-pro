@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Core company CRM reads
+  title: Core company CRM
   version: 1.0.0
   description: Private singleton worker HTTPS listener. No caller-selected credential, host, account or provider path.
 servers:
@@ -168,6 +168,44 @@ paths:
                   write_ready: {type: boolean, enum: [false]}
         '400': {description: 'Invalid or oversized body, unknown property or query parameter.'}
         '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/Busy'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/company-crm/installation-deals:
+    post:
+      operationId: InstallationDeal
+      description: Platform company CRM identity only. Uses one fixed OAuth binding and host. With create=false only searches for the reserved title.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [episode_id, source_account_id, binding_revision, title, create]
+              properties:
+                episode_id: {type: string, format: uuid}
+                source_account_id: {type: integer, format: int64, minimum: 1}
+                binding_revision: {type: string}
+                title: {type: string, maxLength: 512}
+                pipeline_id: {type: integer, format: int64, minimum: 1}
+                stage_id: {type: integer, format: int64, minimum: 1}
+                create: {type: boolean}
+      responses:
+        '200':
+          description: Confirmed outcome.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [state]
+                properties:
+                  state: {type: string, enum: [found, absent, rejected, rate_limited]}
+                  id: {type: integer, format: int64, minimum: 1}
+                  host: {type: string}
+        '400': {description: Invalid request.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: Deal writing is disabled.}
         '429': {$ref: '#/components/responses/Busy'}
         '503': {$ref: '#/components/responses/Unavailable'}
 components:

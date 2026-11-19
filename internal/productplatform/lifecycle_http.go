@@ -14,6 +14,10 @@ import (
 
 func LifecycleHandler(store *LifecycleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == wire.ActivationPath {
+			store.activation(w, r)
+			return
+		}
 		if r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return

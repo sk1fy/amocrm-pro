@@ -15,7 +15,7 @@ func TestPlatformV1OpenAPIContract(t *testing.T) {
 	for path, item := range document.Paths.Map() {
 		for method, operation := range item.Operations() {
 			switch path {
-			case "/api/v1/widget/platform-access-proof":
+			case "/api/v1/widget/platform-access-proof", "/api/v1/widget/activation":
 				if operation.Security == nil || len(*operation.Security) != 2 {
 					t.Fatal("Core proof issuance requires one of the existing widget credentials")
 				}
@@ -28,7 +28,7 @@ func TestPlatformV1OpenAPIContract(t *testing.T) {
 				assertPlatformSecurity(t, operation, "widgetProof")
 			case "/v1/installations/{id}/activation":
 				assertPlatformSecurity(t, operation, "activationProof")
-			case "/internal/platform/v1/core-events":
+			case "/internal/platform/v1/core-events", "/internal/platform/v1/activation":
 				assertPlatformSecurity(t, operation, "coreService")
 			default:
 				assertPlatformSecurity(t, operation, "adminService")

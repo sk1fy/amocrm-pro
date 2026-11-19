@@ -28,6 +28,7 @@ type snapshot[T any] struct {
 type Service struct {
 	Resolver        Resolver
 	CRM             Provider
+	Deals           *DealService
 	init            sync.Once
 	gate            chan struct{}
 	staff           snapshot[[]StaffMember]

@@ -17,8 +17,9 @@ type Resolver interface {
 }
 
 type Store struct {
-	Pool    *pgxpool.Pool
-	Binding Binding
+	Pool            *pgxpool.Pool
+	Binding         Binding
+	IntegrationCode string
 }
 
 func (s *Store) Resolve(ctx context.Context) (Binding, error) {
@@ -31,9 +32,9 @@ func (s *Store) Resolve(ctx context.Context) (Binding, error) {
  JOIN integrations g ON g.id=i.integration_id
  JOIN oauth_credentials c ON c.installation_id=i.id
  WHERE i.id=$1 AND i.integration_id=$2 AND i.account_id=$3
- AND i.status='active' AND g.status='active'
+ AND i.status='active' AND g.status='active' AND ($4='' OR g.code=$4)
  AND COALESCE(i.settings->>'origin','') <> 'fixture'
- )`, b.InstallationID, b.IntegrationID, b.AccountID).Scan(&valid)
+ )`, b.InstallationID, b.IntegrationID, b.AccountID, s.IntegrationCode).Scan(&valid)
 	if err != nil {
 		return Binding{}, err
 	}
@@ -47,6 +48,7 @@ func (s *Store) Resolve(ctx context.Context) (Binding, error) {
 type ScopedTokens struct {
 	Provider amocrm.TokenProvider
 	Binding  Binding
+	Host     string
 }
 
 func (s ScopedTokens) check(t amocrm.AccessToken, err error) (amocrm.AccessToken, error) {
@@ -55,6 +57,12 @@ func (s ScopedTokens) check(t amocrm.AccessToken, err error) (amocrm.AccessToken
 	}
 	if t.InstallationID != s.Binding.InstallationID || t.IntegrationID != s.Binding.IntegrationID || t.AccountID != s.Binding.AccountID {
 		return amocrm.AccessToken{}, ErrBinding
+	}
+	if s.Host != "" {
+		base, err := amocrm.AccountBaseURL(t.AccountDomain)
+		if err != nil || base.Hostname() != s.Host {
+			return amocrm.AccessToken{}, ErrBinding
+		}
 	}
 	return t, nil
 }

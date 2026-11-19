@@ -218,7 +218,7 @@ const accountListWhere = `
 			AND d.domain<>i.current_domain AND strpos(lower(d.domain),lower($1))>0))
 	  AND (COALESCE(cardinality($2::text[]),0)=0 OR p.classification=ANY($2))
 	  AND ($3::uuid IS NULL OR EXISTS (
-		SELECT FROM platform_manager.account_memberships p WHERE p.account_id=a.account_id AND p.product_id=$3))
+		SELECT FROM platform_manager.account_product_directory p WHERE p.account_id=a.account_id AND p.product_id=$3))
 	  AND $4::timestamptz IS NULL
 	  AND ($5::integer IS NULL OR u.active_count>=$5)
 	  AND ($6::integer IS NULL OR u.active_count<=$6)`

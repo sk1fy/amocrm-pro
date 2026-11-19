@@ -85,6 +85,8 @@ compose stop platform
 test "$(compose ps -a --format '{{.State}}:{{.ExitCode}}' platform)" = "exited:0"
 compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestQueueRuntime$' ./internal/productplatform/queue
 
+compose run --rm --no-deps platform-test go test -race -count=1 -v -run '^TestInstallationActivationAndUncertainDeal$' ./internal/productplatform
+
 compose run --rm --no-deps platform-test sh -ceu '
     go build -race -o /tmp/platform-manager-test ./cmd/platform
     PLATFORM_TEST_BINARY=/tmp/platform-manager-test go test -race -count=1 -v -run "^TestPlatform((Manager|Accounts|AccountProfile|Portrait|Products|Feed|CompanyProjection)AcrossReplicas|ManualRenewal|ProductCreateReplayAfterBootstrap|CompanyPublicationBoundaries|CompanyCoreTLSChain|CompanyExpiredLease|CompanyRepresentativeCatalog|CompanyCatalogLockOrder)$" ./internal/productplatform

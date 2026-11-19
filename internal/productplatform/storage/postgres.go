@@ -76,6 +76,10 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		       event.source,event.id,event.kind,event.occurred_at,event.recorded_at,event.account_id,event.product_id,event.episode_id,
 		       snapshot.route,snapshot.account_id,snapshot.query_hash,snapshot.scope_hash,snapshot.total,item.ordinal,item.source,item.event_id
 		FROM platform_manager.visible_accounts a
+		CROSS JOIN platform_manager.installation_directory installation
+		CROSS JOIN platform_manager.installation_contacts contact
+		CROSS JOIN platform_manager.installation_deals deal
+		CROSS JOIN platform_manager.installation_deal_retries retry
 		CROSS JOIN platform_manager.account_profiles p
 		CROSS JOIN platform_manager.commands c
 		CROSS JOIN platform_manager.account_portraits pt
