@@ -29,6 +29,9 @@ type accountFilters struct {
 	UsersMax       *int
 	Limit          int
 	Portrait       *portraitFilter `json:"-"`
+	DataGroup      string          `json:",omitempty"`
+	Tariff         string          `json:",omitempty"`
+	RenewalChannel string          `json:",omitempty"`
 }
 
 func (f accountFilters) hash() [32]byte {
@@ -49,7 +52,13 @@ type accountPage struct {
 }
 
 type accountSummary struct {
-	Total int `json:"total"`
+	Total    int                             `json:"total"`
+	Overview map[string]accountOverviewGroup `json:"overview,omitempty"`
+}
+
+type accountOverviewGroup struct {
+	Total            int            `json:"total"`
+	ByClassification map[string]int `json:"by_classification"`
 }
 
 type accountSeek struct {
@@ -79,9 +88,68 @@ const accountSummaryJSON = `jsonb_build_object(
 	'account_id',a.account_id,'amo_account_id',a.amo_account_id::text,'current_domain',i.current_domain,
 	'domain_aliases',(SELECT array_agg(d.domain ORDER BY d.domain) FROM platform_manager.account_domains d
 		WHERE d.account_id=a.account_id AND d.domain<>i.current_domain),
-	'display_name',COALESCE(p.display_name,i.display_name),'classification',p.classification,'version',COALESCE(p.version,1),
+	'display_name',COALESCE(p.display_name,i.display_name),'classification',p.classification,'partner_name',p.partner_name,'version',COALESCE(p.version,1),
 	'active_products_count',a.active_products_count,'license',` + unsupportedAccountObservation + `,
 	'active_users',jsonb_strip_nulls(jsonb_build_object('value',u.active_count,` + rosterObservationFields + `)))`
+
+const accountListJSON = accountSummaryJSON + ` || jsonb_strip_nulls(jsonb_build_object(
+    'time_zone',i.time_zone,'widget_tariffs',to_jsonb(COALESCE(tariffs.items,ARRAY[]::text[])),
+    'data_group',status.data_group,'renewal_channel',status.renewal_channel))`
+
+const accountStatusJoin = `
+    CROSS JOIN LATERAL (
+        SELECT CASE
+            WHEN p.classification='Запрет работы' THEN 'blocked'
+            WHEN u.observed_at IS NOT NULL AND u.failure_code IS NULL
+                 AND u.fresh_until>transaction_timestamp()
+                 AND EXISTS (SELECT FROM platform_manager.account_memberships m
+                    WHERE m.account_id=a.account_id AND ` + validAccountObservationScope + `)
+                THEN 'receiving'
+            ELSE 'no_data'
+        END AS data_group,
+        CASE p.classification
+            WHEN 'Без партнёра' THEN 'direct'
+            WHEN 'Клиент партнёра' THEN 'partner'
+        END AS renewal_channel
+    ) status`
+
+const accountTariffsJoin = `
+    LEFT JOIN LATERAL (
+        SELECT array_agg(DISTINCT COALESCE(product.line,'trial') ORDER BY COALESCE(product.line,'trial')) AS items
+        FROM platform_manager.account_product_directory d JOIN platform_lifecycle.products product ON product.id=d.product_id
+        WHERE d.account_id=a.account_id AND d.current
+    ) tariffs ON true`
+
+func accountOverview(ctx context.Context, tx pgx.Tx) (map[string]accountOverviewGroup, error) {
+	rows, err := tx.Query(ctx, `
+        SELECT status.data_group,COALESCE(p.classification,''),count(*)::integer
+        FROM platform_manager.visible_accounts a `+accountObservationJoins+accountStatusJoin+`
+        GROUP BY 1,2`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	overview := make(map[string]accountOverviewGroup, 4)
+	for _, group := range []string{"all", "receiving", "no_data", "blocked"} {
+		overview[group] = accountOverviewGroup{ByClassification: map[string]int{}}
+	}
+	for rows.Next() {
+		var group, classification string
+		var count int
+		if err := rows.Scan(&group, &classification, &count); err != nil {
+			return nil, err
+		}
+		for _, key := range []string{"all", group} {
+			value := overview[key]
+			value.Total += count
+			if classification != "" {
+				value.ByClassification[classification] += count
+			}
+			overview[key] = value
+		}
+	}
+	return overview, rows.Err()
+}
 
 func accountOrder(sort string) string {
 	switch sort {
@@ -129,7 +197,7 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 	if _, err = tx.Exec(ctx, `UPDATE platform_manager.account_snapshot_admission SET marker=NOT marker WHERE id`); err != nil {
 		return page, accountSeek{}, err
 	}
-	args := []any{f.Q, f.Classification, f.Product, f.LicenseBefore, f.UsersMin, f.UsersMax}
+	args := []any{f.Q, f.Classification, f.Product, f.LicenseBefore, f.UsersMin, f.UsersMax, f.DataGroup, f.Tariff, f.RenewalChannel}
 	from := accountListFrom
 	filterArgs, predicate, err := portraitAccountListPredicate(ctx, tx, f.Portrait, len(args)+2)
 	if err != nil {
@@ -138,12 +206,12 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 	if f.Portrait != nil {
 		from = accountListJoins + ` LEFT JOIN platform_manager.account_portraits pf USING(account_id) ` + accountListWhere + predicate
 	}
-	listArgs := func(param7 any) []any {
-		return append(append(args, param7), filterArgs...)
+	listArgs := func(limitOrSnapshot any) []any {
+		return append(append(args, limitOrSnapshot), filterArgs...)
 	}
 	err = tx.QueryRow(ctx, `
 		SELECT transaction_timestamp(),count(*)::integer
-		FROM (SELECT 1 `+from+` LIMIT $7) matching`,
+		FROM (SELECT 1 `+from+` LIMIT $10) matching`,
 		listArgs(accountSnapshotRows+1)...).Scan(&page.SnapshotAt, &page.Summary.Total)
 	if err != nil {
 		return page, accountSeek{}, err
@@ -152,8 +220,12 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 	if page.Summary.Total > accountSnapshotRows {
 		return page, accountSeek{}, errManagerSnapshotLimit
 	}
+	page.Summary.Overview, err = accountOverview(ctx, tx)
+	if err != nil {
+		return page, accountSeek{}, err
+	}
 	if page.Summary.Total <= f.Limit {
-		rows, err := tx.Query(ctx, `SELECT `+accountSummaryJSON+from+` ORDER BY `+accountOrder(f.Sort)+` LIMIT $7`,
+		rows, err := tx.Query(ctx, `SELECT `+accountListJSON+from+` ORDER BY `+accountOrder(f.Sort)+` LIMIT $10`,
 			listArgs(f.Limit)...)
 		if err != nil {
 			return page, accountSeek{}, err
@@ -170,7 +242,7 @@ func (s managerStore) accountSnapshot(ctx context.Context, actor managerActor, f
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO platform_manager.account_snapshot_items(snapshot_id,ordinal,item)
-		SELECT $7,row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer,`+accountSummaryJSON+from,
+		SELECT $10,row_number() OVER (ORDER BY `+accountOrder(f.Sort)+`)::integer,`+accountListJSON+from,
 		listArgs(snapshot)...)
 	if err != nil {
 		return page, accountSeek{}, err
@@ -200,20 +272,20 @@ func saveAccountSnapshot(ctx context.Context, tx pgx.Tx, id uuid.UUID, actor man
 		return errManagerSnapshotLimit
 	}
 	_, err := tx.Exec(ctx, `
-		INSERT INTO platform_manager.account_snapshots(id,subject_id,grants_version,query_hash,scope_hash,snapshot_at,expires_at,total)
-		VALUES($1,$2,$3,$4,`+approvedScopeHash+`,$5,$6,$7)`, id, actor.Subject, actor.GrantsVersion,
-		queryHash[:], page.SnapshotAt, page.SnapshotAt.Add(managerSnapshotTTL), page.Summary.Total)
+		INSERT INTO platform_manager.account_snapshots(id,subject_id,grants_version,query_hash,scope_hash,snapshot_at,expires_at,total,overview)
+		VALUES($1,$2,$3,$4,`+approvedScopeHash+`,$5,$6,$7,$8)`, id, actor.Subject, actor.GrantsVersion,
+		queryHash[:], page.SnapshotAt, page.SnapshotAt.Add(managerSnapshotTTL), page.Summary.Total, page.Summary.Overview)
 	return err
 }
 
 const accountListFrom = accountListJoins + accountListWhere
 
 const accountListJoins = `
-	FROM platform_manager.visible_accounts a ` + accountObservationJoins
+	FROM platform_manager.visible_accounts a ` + accountObservationJoins + accountStatusJoin + accountTariffsJoin
 
 const accountListWhere = `
 	WHERE ($1='' OR strpos(a.amo_account_id::text,$1)>0 OR strpos(lower(COALESCE(p.display_name,i.display_name)),lower($1))>0
-		OR strpos(lower(i.current_domain),lower($1))>0
+		OR strpos(lower(i.current_domain),lower($1))>0 OR strpos(lower(p.partner_name),lower($1))>0
 		OR EXISTS (SELECT FROM platform_manager.account_domains d WHERE d.account_id=a.account_id
 			AND d.domain<>i.current_domain AND strpos(lower(d.domain),lower($1))>0))
 	  AND (COALESCE(cardinality($2::text[]),0)=0 OR p.classification=ANY($2))
@@ -221,15 +293,18 @@ const accountListWhere = `
 		SELECT FROM platform_manager.account_product_directory p WHERE p.account_id=a.account_id AND p.product_id=$3))
 	  AND $4::timestamptz IS NULL
 	  AND ($5::integer IS NULL OR u.active_count>=$5)
-	  AND ($6::integer IS NULL OR u.active_count<=$6)`
+	  AND ($6::integer IS NULL OR u.active_count<=$6)
+      AND ($7='' OR status.data_group=$7)
+      AND ($8='' OR $8=ANY(tariffs.items))
+      AND ($9='' OR status.renewal_channel=$9)`
 
 func continueAccounts(ctx context.Context, tx pgx.Tx, actor managerActor, f accountFilters, after accountSeek,
 	page accountPage, queryHash [32]byte) (accountPage, accountSeek, error) {
 	err := tx.QueryRow(ctx, `
-		SELECT snapshot_at,total FROM platform_manager.account_snapshots
+		SELECT snapshot_at,total,overview FROM platform_manager.account_snapshots
 		WHERE id=$1 AND subject_id=$2 AND grants_version=$3 AND query_hash=$4
 		  AND expires_at>statement_timestamp() AND scope_hash=`+approvedScopeHash,
-		after.Snapshot, actor.Subject, actor.GrantsVersion, queryHash[:]).Scan(&page.SnapshotAt, &page.Summary.Total)
+		after.Snapshot, actor.Subject, actor.GrantsVersion, queryHash[:]).Scan(&page.SnapshotAt, &page.Summary.Total, &page.Summary.Overview)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return page, accountSeek{}, errManagerCursor
 	}

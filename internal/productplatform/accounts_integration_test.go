@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -228,7 +229,7 @@ func TestPlatformAccountsAcrossReplicas(t *testing.T) {
 	secondPageURL := listURL + "&cursor=" + url.QueryEscape(*page.Next)
 	secondPage := managerJSON[accountPage](t, managerRequest(t, manager, http.MethodGet, second.private+secondPageURL,
 		writer, managerTestCommand{}, "", http.StatusOK).body)
-	if secondPage.Summary != page.Summary || !secondPage.SnapshotAt.Equal(page.SnapshotAt) || secondPage.Next != nil ||
+	if !reflect.DeepEqual(secondPage.Summary, page.Summary) || !secondPage.SnapshotAt.Equal(page.SnapshotAt) || secondPage.Next != nil ||
 		len(secondPage.Items) != 1 || !bytes.Contains(secondPage.Items[0], []byte(`"amo_account_id":"9007199254740993"`)) {
 		t.Fatalf("account continuation changed its snapshot: %+v", secondPage)
 	}

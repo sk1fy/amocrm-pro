@@ -69,7 +69,7 @@ func CheckAccess(ctx context.Context, pool *pgxpool.Pool) error {
 
 func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, `
-		SELECT a.account_id,p.version,c.product_id,c.resource_id,pt.version,
+		SELECT a.account_id,p.version,p.partner_name,accounts_snapshot.overview,c.product_id,c.resource_id,pt.version,
 		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version,
 		       catalog.catalog_version,catalog.catalog_policy_version,catalog.tariff_version,revision.version,
 		       history.source_version,tariff.evidence,verified.rule,active.own_until,
@@ -81,6 +81,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		CROSS JOIN platform_manager.installation_deals deal
 		CROSS JOIN platform_manager.installation_deal_retries retry
 		CROSS JOIN platform_manager.account_profiles p
+		CROSS JOIN platform_manager.account_snapshots accounts_snapshot
 		CROSS JOIN platform_manager.commands c
 		CROSS JOIN platform_manager.account_portraits pt
 		CROSS JOIN platform_manager.portrait_niches n
@@ -118,6 +119,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		   AND has_table_privilege('platform_manager.feed_snapshot_items','SELECT')
 		   AND has_table_privilege('platform_manager.feed_snapshot_items','INSERT')
 		   AND has_column_privilege('platform_manager.account_snapshot_admission','marker','UPDATE')
+		   AND has_column_privilege('platform_manager.account_profiles','partner_name','UPDATE')
 		   AND has_table_privilege('platform_manager.account_change_events', 'INSERT')
 		   AND has_table_privilege('platform_manager.account_event_outbox', 'INSERT')
 		   AND has_table_privilege('platform_lifecycle.product_trial_revisions','INSERT')

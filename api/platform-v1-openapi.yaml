@@ -391,6 +391,9 @@ paths:
       - {name: classification, in: query, required: false, schema: {type: array, items: {type: string}}}
       - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: license_before, in: query, required: false, schema: {type: string, format: date-time}}
+      - {name: data_group, in: query, required: false, schema: {type: string, enum: [receiving, no_data, blocked]}}
+      - {name: tariff, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO, trial]}}
+      - {name: renewal_channel, in: query, required: false, schema: {type: string, enum: [direct, partner]}}
       - {name: active_users_min, in: query, required: false, schema: {type: integer, minimum: 0}}
       - {name: active_users_max, in: query, required: false, schema: {type: integer, minimum: 0}}
       - {name: sort, in: query, required: false, schema: {type: string, enum: [amo_account_id, current_domain, display_name, license_until, -license_until]}}
@@ -420,6 +423,9 @@ paths:
       - {name: classification, in: query, required: false, schema: {type: array, items: {type: string}}}
       - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: license_before, in: query, required: false, schema: {type: string, format: date-time}}
+      - {name: data_group, in: query, required: false, schema: {type: string, enum: [receiving, no_data, blocked]}}
+      - {name: tariff, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO, trial]}}
+      - {name: renewal_channel, in: query, required: false, schema: {type: string, enum: [direct, partner]}}
       - {name: active_users_min, in: query, required: false, schema: {type: integer, minimum: 0}}
       - {name: active_users_max, in: query, required: false, schema: {type: integer, minimum: 0}}
       - {name: sort, in: query, required: false, schema: {type: string, enum: [amo_account_id, current_domain, display_name, license_until, -license_until]}}
@@ -498,6 +504,7 @@ paths:
                 display_name: {type: [string, 'null']}
                 note: {type: [string, 'null']}
                 classification: {type: [string, 'null']}
+                partner_name: {type: [string, 'null'], maxLength: 200}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
               - reason
@@ -1965,7 +1972,12 @@ components:
         domain_aliases: {type: [array, 'null'], items: {type: string}}
         display_name: {type: [string, 'null']}
         classification: {type: [string, 'null']}
+        partner_name: {type: [string, 'null']}
         active_products_count: {type: integer, minimum: 0}
+        time_zone: {type: string}
+        data_group: {type: string, enum: [receiving, no_data, blocked]}
+        widget_tariffs: {type: array, items: {type: string, enum: [FREE, TOP, PRO, trial]}, uniqueItems: true}
+        renewal_channel: {type: string, enum: [direct, partner]}
         license: {$ref: '#/components/schemas/ObservationLicense'}
         active_users: {$ref: '#/components/schemas/ObservationCount'}
         version: {type: integer, minimum: 1, maximum: 9007199254740991}
@@ -1985,8 +1997,20 @@ components:
       additionalProperties: false
       properties:
         total: {type: integer, minimum: 0}
+        overview:
+          type: object
+          additionalProperties: {$ref: '#/components/schemas/AccountOverviewGroup'}
       required:
       - total
+    AccountOverviewGroup:
+      type: object
+      additionalProperties: false
+      properties:
+        total: {type: integer, minimum: 0}
+        by_classification:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+      required: [total, by_classification]
     Capability:
       type: object
       additionalProperties: false
@@ -2220,6 +2244,7 @@ components:
         domain_aliases: {type: [array, 'null'], items: {type: string}}
         display_name: {type: [string, 'null']}
         classification: {type: [string, 'null']}
+        partner_name: {type: [string, 'null']}
         active_products_count: {type: integer, minimum: 0}
         license: {$ref: '#/components/schemas/ObservationLicense'}
         active_users: {$ref: '#/components/schemas/ObservationCount'}

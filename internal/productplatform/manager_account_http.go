@@ -85,6 +85,27 @@ func parseAccountFilters(raw string) (accountFilters, string, error) {
 			cursor = value
 		case "limit":
 			f.Limit, err = accountInteger(value, 1, 100)
+		case "data_group":
+			switch value {
+			case "receiving", "no_data", "blocked":
+				f.DataGroup = value
+			default:
+				err = errManagerInput
+			}
+		case "tariff":
+			switch value {
+			case "FREE", "TOP", "PRO", "trial":
+				f.Tariff = value
+			default:
+				err = errManagerInput
+			}
+		case "renewal_channel":
+			switch value {
+			case "direct", "partner":
+				f.RenewalChannel = value
+			default:
+				err = errManagerInput
+			}
 		case "product_id":
 			var id uuid.UUID
 			id, err = managerUUID(value)

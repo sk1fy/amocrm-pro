@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -140,6 +141,44 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 	managerRequest(t, manager, http.MethodGet, first.private+cmd.receiptPath(), foreign, managerTestCommand{}, "", http.StatusNotFound)
 	managerRequest(t, manager, http.MethodGet, second.private+cmd.receiptPath(), revoked, managerTestCommand{}, "", http.StatusForbidden)
 	managerRequest(t, manager, http.MethodPatch, second.private+profilePath, revoked, cmd, patch, http.StatusForbidden)
+	listPath := managerPath + "accounts"
+	list := managerRequest(t, manager, http.MethodGet, first.private+listPath+"?limit=1",
+		writer, managerTestCommand{}, "", http.StatusOK)
+	before := managerJSON[accountPage](t, list.body)
+	if before.Next == nil || before.Summary.Overview["all"].Total != 2 ||
+		before.Summary.Overview["all"].ByClassification["Без партнёра"] != 1 {
+		t.Fatalf("account overview is not based on the full snapshot: %s", list.body)
+	}
+	managerRequest(t, manager, http.MethodPatch, second.private+profilePath, writer, newManagerTestCommand(account, 3),
+		`{"classification":"Клиент партнёра","reason":"missing partner"}`, http.StatusUnprocessableEntity).
+		requireCode(t, "validation_failed")
+	partner := managerRequest(t, manager, http.MethodPatch, second.private+profilePath,
+		writer, newManagerTestCommand(account, 3),
+		`{"classification":"Клиент партнёра","partner_name":" Fixture Partner ","reason":"confirmed by manager"}`, http.StatusOK)
+	if partner.etag != `"4"` || !bytes.Contains(partner.body, []byte(`"partner_name":"Fixture Partner"`)) {
+		t.Fatalf("partner assignment was not returned: %s", partner.body)
+	}
+
+	continued := managerRequest(t, manager, http.MethodGet, second.private+listPath+"?limit=1&cursor="+url.QueryEscape(*before.Next),
+		writer, managerTestCommand{}, "", http.StatusOK)
+	next := managerJSON[accountPage](t, continued.body)
+	if !reflect.DeepEqual(next.Summary, before.Summary) {
+		t.Fatalf("summary drifted between cursor pages: %s / %s", list.body, continued.body)
+	}
+	filtered := managerRequest(t, manager, http.MethodGet,
+		first.private+listPath+"?renewal_channel=partner&data_group=no_data&q=fixture+partner&tariff=trial",
+		writer, managerTestCommand{}, "", http.StatusOK)
+	matched := managerJSON[accountPage](t, filtered.body)
+	if matched.Summary.Total != 1 || matched.Summary.Overview["all"].Total != 2 ||
+		matched.Summary.Overview["no_data"].ByClassification["Клиент партнёра"] != 1 ||
+		!bytes.Contains(matched.Items[0], []byte(`"renewal_channel":"partner"`)) {
+		t.Fatalf("partner and tariff filters disagreed with the overview: %s", filtered.body)
+	}
+	free := managerRequest(t, manager, http.MethodPatch, first.private+profilePath,
+		writer, newManagerTestCommand(account, 4), `{"classification":"Без партнёра","reason":"free again"}`, http.StatusOK)
+	if !bytes.Contains(free.body, []byte(`"partner_name":null`)) {
+		t.Fatalf("partner was retained after change to free: %s", free.body)
+	}
 	_, err = owner.Exec(ctx, `DELETE FROM platform_lifecycle.scope WHERE integration_id=$1 AND amo_account_id=2542`, pilot.otherIntegration)
 	mustManager(t, err)
 	managerRequest(t, manager, http.MethodGet, first.private+cmd.receiptPath(), writer, managerTestCommand{}, "", http.StatusNotFound)

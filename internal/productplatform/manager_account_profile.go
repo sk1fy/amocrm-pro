@@ -27,19 +27,21 @@ func (f profileField) apply(previous *string) *string {
 type profilePatch struct {
 	DisplayName, Note, Classification profileField
 	Reason                            string
+	PartnerName                       profileField `json:",omitzero"`
 }
 
 type profileValues struct {
 	DisplayName    *string `json:"display_name"`
 	Note           *string `json:"note"`
 	Classification *string `json:"classification"`
+	PartnerName    *string `json:"partner_name,omitempty"`
 }
 
 func parseProfilePatch(raw []byte) (profilePatch, error) {
 	var patch profilePatch
-	var name, note, classification json.RawMessage
+	var name, note, classification, partner json.RawMessage
 	if err := readManagerObject(raw, map[string]any{
-		"display_name": &name, "note": &note, "classification": &classification, "reason": &patch.Reason,
+		"display_name": &name, "note": &note, "classification": &classification, "partner_name": &partner, "reason": &patch.Reason,
 	}); err != nil {
 		return patch, err
 	}
@@ -50,7 +52,7 @@ func parseProfilePatch(raw []byte) (profilePatch, error) {
 	for _, field := range []struct {
 		raw json.RawMessage
 		dst *profileField
-	}{{name, &patch.DisplayName}, {note, &patch.Note}, {classification, &patch.Classification}} {
+	}{{name, &patch.DisplayName}, {note, &patch.Note}, {classification, &patch.Classification}, {partner, &patch.PartnerName}} {
 		if field.raw == nil {
 			continue
 		}
@@ -62,6 +64,10 @@ func parseProfilePatch(raw []byte) (profilePatch, error) {
 	if patch.DisplayName.Value != nil {
 		normalized := strings.TrimSpace(*patch.DisplayName.Value)
 		patch.DisplayName.Value = &normalized
+	}
+	if patch.PartnerName.Value != nil {
+		normalized := strings.TrimSpace(*patch.PartnerName.Value)
+		patch.PartnerName.Value = &normalized
 	}
 	return patch, nil
 }
@@ -105,8 +111,8 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 	var before profileValues
 	var version int64
 	err := tx.QueryRow(ctx, `
-		SELECT display_name,note,classification,version FROM platform_manager.account_profiles WHERE account_id=$1 FOR UPDATE`,
-		cmd.Account).Scan(&before.DisplayName, &before.Note, &before.Classification, &version)
+		SELECT display_name,note,classification,partner_name,version FROM platform_manager.account_profiles WHERE account_id=$1 FOR UPDATE`,
+		cmd.Account).Scan(&before.DisplayName, &before.Note, &before.Classification, &before.PartnerName, &version)
 	if err != nil {
 		return managerOutcome{}, err
 	}
@@ -118,17 +124,26 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
 			managerProblem(http.StatusUnprocessableEntity, "validation_failed", cmd.RequestID, 0, 0))
 	}
-	if value := patch.Classification.Value; value != nil && *value != "Без партнёра" && *value != "Запрет работы" {
+	if value := patch.Classification.Value; value != nil && *value != "Без партнёра" && *value != "Запрет работы" && *value != "Клиент партнёра" {
 		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
 			managerProblem(http.StatusUnprocessableEntity, "classification_unavailable", cmd.RequestID, 0, 0))
 	}
 
 	after := profileValues{DisplayName: patch.DisplayName.apply(before.DisplayName), Note: patch.Note.apply(before.Note),
-		Classification: patch.Classification.apply(before.Classification)}
+		Classification: patch.Classification.apply(before.Classification), PartnerName: patch.PartnerName.apply(before.PartnerName)}
+	partner := after.Classification != nil && *after.Classification == "Клиент партнёра"
+	if !partner && !patch.PartnerName.Present {
+		after.PartnerName = nil
+	}
+	if partner != (after.PartnerName != nil) ||
+		after.PartnerName != nil && !managerText(*after.PartnerName, 1, 200) {
+		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
+			managerProblem(http.StatusUnprocessableEntity, "validation_failed", cmd.RequestID, 0, 0))
+	}
 	err = tx.QueryRow(ctx, `
-		UPDATE platform_manager.account_profiles SET display_name=$2,note=$3,classification=$4,version=version+1
-		WHERE account_id=$1 AND (display_name,note,classification) IS DISTINCT FROM ($2::text,$3::text,$4::text)
-		RETURNING version`, cmd.Account, after.DisplayName, after.Note, after.Classification).Scan(&version)
+		UPDATE platform_manager.account_profiles SET display_name=$2,note=$3,classification=$4,partner_name=$5,version=version+1
+		WHERE account_id=$1 AND (display_name,note,classification,partner_name) IS DISTINCT FROM ($2::text,$3::text,$4::text,$5::text)
+		RETURNING version`, cmd.Account, after.DisplayName, after.Note, after.Classification, after.PartnerName).Scan(&version)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return managerOutcome{}, err
 	}
