@@ -74,6 +74,7 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 	_, clientCert, clientKey := testIdentity(t, ca, key, "platform-company-crm")
 	var mode atomic.Value
 	mode.Store("full")
+	releaseSlowResponse := make(chan struct{})
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/company-crm/clients" || r.Method != "GET" || len(r.TLS.PeerCertificates[0].URIs) != 1 || r.TLS.PeerCertificates[0].URIs[0].String() != "spiffe://amocrm-pro/platform-company-crm" {
 			t.Error("wrong private contract")
@@ -90,7 +91,7 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 			_, _ = w.Write([]byte("{"))
 			return
 		case "slow":
-			<-r.Context().Done()
+			<-releaseSlowResponse
 			return
 		case "bare429":
 			w.Header().Set("Retry-After", "30")
@@ -159,12 +160,15 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 			}
 		})
 	}
-	mode.Store("slow")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
-	defer cancel()
-	if _, e = client.Clients(ctx); !errors.Is(e, context.DeadlineExceeded) {
-		t.Fatalf("deadline cause lost: %v", e)
-	}
+	t.Run("deadline", func(t *testing.T) {
+		defer close(releaseSlowResponse)
+		mode.Store("slow")
+		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
+		defer cancel()
+		if _, err := client.Clients(ctx); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("deadline cause lost: %v", err)
+		}
+	})
 	cfg.Origin = "https://localhost:1"
 	offline, e := New(cfg)
 	if e != nil {
