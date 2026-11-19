@@ -1,0 +1,293 @@
+package productplatform
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/sk1fy/amocrm-pro/internal/companycrm"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
+)
+
+const InstallationDealJob queue.Kind = "installation.deal"
+
+type InstallationDealSource interface {
+	Scope() (int64, string)
+	SendInstallationDeal(context.Context, companycrm.DealRequest) (companycrm.DealResult, error)
+}
+
+type InstallationDeals struct {
+	Pool   *pgxpool.Pool
+	Source InstallationDealSource
+}
+
+func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Completion {
+	request, skip, err := d.reserve(ctx, job.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return queue.Completion{}
+	}
+	if err != nil {
+		return queue.Completion{Outcome: queue.Outcome{FailureCode: "deal_service_unavailable", Retry: true}}
+	}
+	if skip != "" {
+		return d.publish(job.ID, skip, companycrm.DealResult{}, queue.Outcome{})
+	}
+	result, err := d.Source.SendInstallationDeal(ctx, request)
+	if err != nil {
+		return d.publish(job.ID, "reconciling", result, queue.Outcome{
+			FailureCode: "deal_outcome_unknown", Retry: true, RetryAfter: time.Minute,
+		})
+	}
+	switch result.State {
+	case "found":
+		return d.publish(job.ID, "succeeded", result, queue.Outcome{})
+	case "rejected":
+		return d.publish(job.ID, "failed", result, queue.Outcome{FailureCode: "deal_rejected"})
+	case "rate_limited":
+		return d.publish(job.ID, "pending", result, queue.Outcome{
+			FailureCode: "deal_rate_limited", Retry: true, RetryAfter: time.Minute,
+		})
+	default:
+		return d.publish(job.ID, "reconciling", result, queue.Outcome{
+			FailureCode: "deal_not_found", Retry: true, RetryAfter: time.Minute,
+		})
+	}
+}
+
+func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (companycrm.DealRequest, string, error) {
+	request := companycrm.DealRequest{Episode: episode}
+	tx, err := d.Pool.Begin(ctx)
+	if err != nil {
+		return request, "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var status string
+	var title, previousBinding *string
+	var previousAccount *int64
+	err = tx.QueryRow(ctx, `
+		SELECT status,title,company_account,binding_revision
+		FROM platform_manager.installation_deals WHERE episode_id=$1 FOR UPDATE`, episode).
+		Scan(&status, &title, &previousAccount, &previousBinding)
+	if err != nil {
+		return request, "", err
+	}
+	if status == "succeeded" || status == "skipped" || status == "failed" {
+		return request, "", pgx.ErrNoRows
+	}
+	account, revision := d.Source.Scope()
+	request.Account, request.Binding = account, revision
+	if title != nil {
+		if *previousAccount != account || *previousBinding != revision {
+			return request, "reconciling", nil
+		}
+		request.Title = *title
+		return request, "", tx.Commit(ctx)
+	}
+
+	var product uuid.UUID
+	var name, accountLabel, contactName, lifecycle, classification string
+	err = tx.QueryRow(ctx, `
+		SELECT inst.product_id,inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
+			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,'')
+		FROM platform_manager.installations inst
+		LEFT JOIN platform_manager.account_identities i USING(account_id)
+		LEFT JOIN platform_manager.account_profiles p USING(account_id)
+		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
+		WHERE inst.id=$1`, episode).Scan(&product, &name, &accountLabel, &contactName, &lifecycle, &classification)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
+		return request, "skipped", nil
+	}
+	if err != nil {
+		return request, "", err
+	}
+	var pipeline, stage int64
+	err = tx.QueryRow(ctx, `
+		SELECT r.pipeline_id,r.stage_id
+		FROM platform_company.product_workflow_heads h
+		JOIN platform_company.product_workflow_revisions r USING(product_id,revision)
+		JOIN platform_company.source_control c ON c.scope_id=r.scope_id
+		JOIN platform_company.source_scopes s ON s.id=c.scope_id
+		JOIN platform_company.source_components m ON m.scope_id=s.id AND m.component='metadata'
+		JOIN platform_company.workflow_stages g ON g.generation_id=m.current_generation
+			AND g.pipeline_id=r.pipeline_id AND g.stage_id=r.stage_id
+		WHERE h.product_id=$1 AND s.account_id=$2 AND s.binding_revision=$3`, product, account, revision).Scan(&pipeline, &stage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return request, "failed", nil
+	}
+	if err != nil {
+		return request, "", err
+	}
+	label := strings.Join([]string{name, accountLabel, contactName}, " · ")
+	suffix := " · " + companycrm.DealMarker(episode)
+	var trimmed strings.Builder
+	for _, r := range strings.TrimSuffix(label, " · ") {
+		if trimmed.Len()+len(string(r))+len(suffix) > 512 {
+			break
+		}
+		trimmed.WriteRune(r)
+	}
+	request.Title = trimmed.String() + suffix
+	request.Pipeline, request.Stage, request.Create = pipeline, stage, true
+	_, err = tx.Exec(ctx, `
+		UPDATE platform_manager.installation_deals
+		SET status='reconciling',title=$2,company_account=$3,binding_revision=$4,reason=NULL
+		WHERE episode_id=$1`, episode, request.Title, account, revision)
+	if err != nil {
+		return request, "", err
+	}
+	return request, "", tx.Commit(ctx)
+}
+
+func (d InstallationDeals) publish(episode uuid.UUID, state string, result companycrm.DealResult, outcome queue.Outcome) queue.Completion {
+	if state == "failed" && outcome.FailureCode == "" {
+		outcome.FailureCode = "deal_workflow_unavailable"
+	}
+	if state == "reconciling" && outcome.FailureCode == "" {
+		outcome.FailureCode = "deal_binding_changed"
+	}
+	return queue.Completion{Publish: func(ctx context.Context, tx pgx.Tx) (queue.Outcome, error) {
+		_, err := tx.Exec(ctx, `
+			UPDATE platform_manager.installation_deals
+			SET status=$2, deal_id=NULLIF($3,0),deal_host=NULLIF($4,''),reason=NULLIF($5,''),
+			    title=CASE WHEN $2 IN ('failed','pending') THEN NULL ELSE title END,
+			    company_account=CASE WHEN $2 IN ('failed','pending') THEN NULL ELSE company_account END,
+			    binding_revision=CASE WHEN $2 IN ('failed','pending') THEN NULL ELSE binding_revision END
+			WHERE episode_id=$1`, episode, state, result.ID, result.Host, outcome.FailureCode)
+		return outcome, err
+	}}
+}
+
+func dealURL(id *int64, host *string) *string {
+	if id == nil || host == nil {
+		return nil
+	}
+	return new("https://" + *host + "/leads/detail/" + strconv.FormatInt(*id, 10))
+}
+
+type installationContact struct {
+	UserID string  `json:"amo_user_id"`
+	Name   string  `json:"name"`
+	Phone  string  `json:"phone"`
+	Email  *string `json:"email,omitempty"`
+	Role   *string `json:"role,omitempty"`
+}
+
+type installationDeal struct {
+	State        string     `json:"state"`
+	URL          *string    `json:"url,omitempty"`
+	ID           *string    `json:"id,omitempty"`
+	Reason       *string    `json:"reason,omitempty"`
+	NextRun      *time.Time `json:"next_run_at,omitempty"`
+	RetryVersion int        `json:"retry_version"`
+	CanRetry     bool       `json:"can_retry"`
+}
+
+const dealRetryKind = "installation.crm_deal.retry"
+
+type dealRetryCommand struct {
+	ID, Subject, Key, Episode uuid.UUID
+	Version                   int64
+	Reason                    string
+}
+
+func (s managerStore) retryInstallationDeal(ctx context.Context, cmd dealRetryCommand) (accountOperation, error) {
+	var op accountOperation
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return op, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var jobStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT status FROM platform_jobs.jobs WHERE id=$1 AND kind='installation.deal' FOR UPDATE`, cmd.Episode).Scan(&jobStatus)
+	if err != nil {
+		return op, parseDealRetryError(err)
+	}
+	var current int64
+	var state string
+	err = tx.QueryRow(ctx, `
+		SELECT d.status,d.retry_version FROM platform_manager.installation_deals d
+		JOIN platform_manager.installations i ON i.id=d.episode_id
+		WHERE d.episode_id=$1 FOR UPDATE OF d`, cmd.Episode).Scan(&state, &current)
+	if err != nil {
+		return op, parseDealRetryError(err)
+	}
+	var at time.Time
+	err = tx.QueryRow(ctx, `
+		SELECT created_at FROM platform_manager.installation_deal_retries
+		WHERE id=$1 AND subject_id=$2 AND idempotency_key=$3 AND episode_id=$4 AND version=$5 AND reason=$6`,
+		cmd.ID, cmd.Subject, cmd.Key, cmd.Episode, cmd.Version, cmd.Reason).Scan(&at)
+	if err == nil {
+		return dealOperation(cmd.ID, cmd.Episode, "accepted", at, at), tx.Commit(ctx)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return op, err
+	}
+	if cmd.Version != current || jobStatus != "dead" || state == "skipped" || state == "succeeded" || current >= 2147483647 {
+		return op, errManagerConflict
+	}
+	err = tx.QueryRow(ctx, `
+		INSERT INTO platform_manager.installation_deal_retries(id,subject_id,idempotency_key,episode_id,version,reason)
+		VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING created_at`,
+		cmd.ID, cmd.Subject, cmd.Key, cmd.Episode, cmd.Version, cmd.Reason).Scan(&at)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return op, errManagerConflict
+	}
+	if err != nil {
+		return op, err
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE platform_manager.installation_deals
+		SET status=CASE WHEN status='failed' THEN 'pending' ELSE status END, retry_version=retry_version+1,
+		    reason=NULL
+		WHERE episode_id=$1`, cmd.Episode)
+	if err != nil {
+		return op, err
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE platform_jobs.jobs SET status='queued',attempt=0,available_at=statement_timestamp(),
+		    updated_at=statement_timestamp(),failure_code=NULL WHERE id=$1`, cmd.Episode)
+	if err != nil {
+		return op, err
+	}
+	return dealOperation(cmd.ID, cmd.Episode, "accepted", at, at), tx.Commit(ctx)
+}
+
+func dealOperation(id, episode uuid.UUID, state string, created, updated time.Time) accountOperation {
+	return accountOperation{ID: id, Kind: dealRetryKind, State: state,
+		Target: accountOperationTarget{Kind: "installation", ID: episode}, CreatedAt: created.UTC(), UpdatedAt: updated.UTC()}
+}
+
+func (s managerStore) readDealOperation(ctx context.Context, id, subject uuid.UUID) (accountOperation, error) {
+	var episode uuid.UUID
+	var state string
+	var created, updated time.Time
+	err := s.pool.QueryRow(ctx, `
+		SELECT r.episode_id, r.created_at, GREATEST(j.updated_at,r.created_at),
+		CASE
+		  WHEN d.retry_version > r.version+1 THEN 'failed'
+		  WHEN j.status='running' THEN 'running'
+		  WHEN j.status='queued' THEN 'waiting_external'
+		  WHEN d.status='succeeded' THEN 'succeeded'
+		  WHEN d.status='reconciling' THEN 'needs_review'
+		  ELSE 'failed' END
+		FROM platform_manager.installation_deal_retries r
+		JOIN platform_manager.installations i ON i.id=r.episode_id
+		JOIN platform_manager.installation_deals d ON d.episode_id=r.episode_id
+		JOIN platform_jobs.jobs j ON j.id=r.episode_id
+		WHERE r.id=$1 AND r.subject_id=$2`, id, subject).Scan(&episode, &created, &updated, &state)
+	return dealOperation(id, episode, state, created, updated), parseDealRetryError(err)
+}
+
+func parseDealRetryError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return errManagerNotFound
+	}
+	return err
+}

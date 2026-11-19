@@ -44,6 +44,7 @@ type config struct {
 	manager                 *productplatform.ManagerOptions
 	accountGateway          accountGatewayConfig
 	companySource           companysource.Config
+	companyDealsEnabled     bool
 }
 
 func main() {
@@ -116,12 +117,16 @@ func run() error {
 	}
 
 	var companyObserver *productplatform.CompanyObserver
+	var companyDeals *companysource.Client
 	if cfg.companySource.Origin != "" {
 		client, err := companysource.New(cfg.companySource)
 		if err != nil {
 			return err
 		}
 		defer client.Close()
+		if cfg.companyDealsEnabled {
+			companyDeals = client
+		}
 		registerCtx, cancel := context.WithTimeout(ctx, startupTimeout)
 		companyObserver, err = productplatform.NewCompanyObserver(registerCtx, jobs, client)
 		cancel()
@@ -144,6 +149,10 @@ func run() error {
 		}
 		if companyObserver != nil {
 			handlers[companyObserver.Kind()] = companyObserver.RefreshJob
+		}
+		if companyDeals != nil {
+			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals}
+			handlers[productplatform.InstallationDealJob] = deals.Run
 		}
 		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queue.DefaultConfig(cfg.workers), registry)
 		runWorker = func(ctx context.Context) {
@@ -305,6 +314,12 @@ func loadConfig(getenv func(string) string) (config, error) {
 	cfg.companySource, err = companysource.ParseConfig(getenv)
 	if err != nil {
 		return config{}, err
+	}
+	if enabled := getenv("PLATFORM_COMPANY_DEALS_ENABLED"); enabled != "" {
+		cfg.companyDealsEnabled, err = strconv.ParseBool(enabled)
+		if err != nil || (cfg.companyDealsEnabled && (cfg.companySource.Origin == "" || cfg.workers == 0)) {
+			return config{}, errors.New("Platform company deals require a configured company source and workers")
+		}
 	}
 	return cfg, nil
 }

@@ -32,6 +32,91 @@ paths:
               - {$ref: '#/components/schemas/CoreAuthorizationEvent'}
       description: Подтверждает запись в inbox. Идентичная повторная доставка получает тот же receipt. Другой payload для event_id или другой
         event_id для той же позиции в потоке получает 409.
+  /api/v1/widget/activation:
+    get:
+      operationId: getWidgetActivation
+      security: [{coreWidgetSDK: []}, {coreWidgetBearer: []}]
+      responses:
+        '200':
+          description: Current activation status and, before activation, the verified employee profile.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WidgetActivationStatus'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+    post:
+      operationId: submitWidgetActivation
+      security: [{coreWidgetSDK: []}, {coreWidgetBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [phone, consent_version]
+              properties:
+                phone: {type: string, maxLength: 48}
+                consent_version: {type: string, enum: [contact-v1]}
+      responses:
+        '200':
+          description: The episode has been activated. A repeat preserves the original contact.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WidgetActivationStatus'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+  /internal/platform/v1/activation:
+    post:
+      operationId: recordVerifiedWidgetActivation
+      security: [{coreService: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [scope]
+              properties:
+                scope:
+                  type: object
+                  additionalProperties: false
+                  required: [installation_id, integration_id, amo_account_id, generation, authorization_sequence]
+                  properties:
+                    installation_id: {type: string, format: uuid}
+                    integration_id: {type: string, format: uuid}
+                    amo_account_id: {type: integer, format: int64, minimum: 1}
+                    generation: {type: integer, minimum: 1}
+                    authorization_sequence: {type: integer, minimum: 1}
+                contact:
+                  type: object
+                  additionalProperties: false
+                  required: [amo_user_id, name, phone, consent_version]
+                  properties:
+                    amo_user_id: {type: integer, format: int64, minimum: 1}
+                    name: {type: string, maxLength: 512}
+                    phone: {type: string, pattern: '^\+[1-9][0-9]{7,14}$'}
+                    email: {type: string, maxLength: 320}
+                    role: {type: string, maxLength: 256}
+                    consent_version: {type: string, enum: [contact-v1]}
+      responses:
+        '200':
+          description: Active episode and recorded activation status.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WidgetActivationStatus'}
+        '400': {description: Invalid scope or contact.}
+        '403': {description: Core TLS identity required.}
+        '404': {description: Current authorized installation episode unavailable.}
+        '503': {description: Activation store unavailable.}
   /api/v1/widget/platform-access-proof:
     post:
       operationId: issuePlatformAccessProof
@@ -156,6 +241,45 @@ paths:
       - {name: to, in: query, required: false, schema: {type: string, format: date}}
       - {name: sort, in: query, required: false, schema: {type: string, enum: [installed_at, -installed_at]}}
       x-platform-grant: clients.read
+  /internal/platform/v1/managers/installations/{id}/crm-deal/retry:
+    post:
+      operationId: retryInstallationDeal
+      security:
+      - adminService: []
+      responses:
+        '202':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Operation'}
+          headers:
+            Location:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: {type: string, minLength: 1, maxLength: 1000}
+              required:
+              - reason
+      x-platform-grant: clients.write
   /internal/platform/v1/managers/installations/{id}/review:
     put:
       operationId: setInstallationReview
@@ -196,46 +320,6 @@ paths:
               required:
               - reviewed
       x-platform-grant: clients.write
-  /internal/platform/v1/managers/installations/{id}/crm-deal/retry:
-    post:
-      operationId: retryInstallationDeal
-      security:
-      - adminService: []
-      responses:
-        '202':
-          description: Успех
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/Operation'}
-          headers:
-            Location:
-              schema: {type: string}
-        '400': {$ref: '#/components/responses/Error400'}
-        '401': {$ref: '#/components/responses/Error401'}
-        '403': {$ref: '#/components/responses/Error403'}
-        '404': {$ref: '#/components/responses/Error404'}
-        '409': {$ref: '#/components/responses/Error409'}
-        '422': {$ref: '#/components/responses/Error422'}
-        '429': {$ref: '#/components/responses/Error429'}
-        '503': {$ref: '#/components/responses/Error503'}
-      parameters:
-      - {$ref: '#/components/parameters/Actor'}
-      - {$ref: '#/components/parameters/IdempotencyKey'}
-      - {$ref: '#/components/parameters/IfMatch'}
-      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                reason: {type: string, minLength: 1, maxLength: 1000}
-              required:
-              - reason
-      x-platform-grant: clients.write
-      x-release-capability: crm_installation_workflow
   /internal/platform/v1/managers/installations/{id}/activation-contact:
     patch:
       operationId: updateInstallationContact
@@ -1691,6 +1775,42 @@ components:
         reviewed_at: {type: string, format: date-time}
       required:
       - reviewed
+    InstallationActivationContact:
+      type: object
+      additionalProperties: false
+      required: [amo_user_id, name, phone]
+      properties:
+        amo_user_id: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        name: {type: string, maxLength: 512}
+        phone: {type: string, pattern: '^\+[1-9][0-9]{7,14}$'}
+        email: {type: string, maxLength: 320}
+        role: {type: string, maxLength: 256}
+    InstallationDeal:
+      type: object
+      additionalProperties: false
+      required: [state, retry_version, can_retry]
+      properties:
+        state: {type: string, enum: [pending, reconciling, failed, skipped, succeeded]}
+        url: {type: string, format: uri}
+        id: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+        reason: {type: string}
+        next_run_at: {type: string, format: date-time}
+        retry_version: {type: integer, minimum: 1, maximum: 2147483647}
+        can_retry: {type: boolean}
+    WidgetActivationStatus:
+      type: object
+      additionalProperties: false
+      required: [activated]
+      properties:
+        activated: {type: boolean}
+        profile:
+          type: object
+          additionalProperties: false
+          required: [name]
+          properties:
+            name: {type: string}
+            email: {type: string}
+            role: {type: string}
     Installation:
       type: object
       additionalProperties: false
@@ -1701,16 +1821,23 @@ components:
         product_id: {type: string, format: uuid}
         product_code: {$ref: '#/components/schemas/ProductCode'}
         product_name: {type: string}
+        product_line: {type: string, enum: [FREE, TOP, PRO]}
+        account_domain: {type: string}
+        account_name: {type: string}
+        account_classification: {type: string}
+        account_time_zone: {type: string}
         core_installation_id: {type: string, format: uuid}
-        generation: {type: integer, minimum: 1, maximum: 9007199254740991}
-        kind: {type: string, enum: [install, reinstall]}
+        generation: {type: integer, minimum: 0, maximum: 9007199254740991}
+        kind: {type: string, enum: [install, reinstall, observed]}
         installed_at: {type: string, format: date-time}
         removed_at: {type: [string, 'null'], format: date-time}
-        last_lifecycle_event: {$ref: '#/components/schemas/LifecycleKind'}
+        last_lifecycle_event: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled, unknown]}
         lifecycle: {type: string, enum: [current, removed]}
         authorization: {type: string, enum: [authorized, reauth_required, disabled, unknown]}
         activation_status: {type: string, enum: [pending, activated, unavailable]}
         review: {$ref: '#/components/schemas/Review'}
+        contact: {$ref: '#/components/schemas/InstallationActivationContact'}
+        deal: {$ref: '#/components/schemas/InstallationDeal'}
         crm_workflow: {type: string, enum: [unsupported, pending, succeeded, failed, needs_review]}
         access: {$ref: '#/components/schemas/AccessState'}
         version: {type: integer, minimum: 1, maximum: 9007199254740991}
@@ -2055,6 +2182,10 @@ components:
         snapshot_at: {type: string, format: date-time}
         query_hash: {type: string}
         summary: {$ref: '#/components/schemas/InstallationSummary'}
+        queue_counts:
+          description: Counts before applying the review filter, from the same snapshot.
+          allOf:
+          - {$ref: '#/components/schemas/InstallationSummary'}
       required:
       - items
       - next_cursor

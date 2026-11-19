@@ -21,24 +21,24 @@ import (
 	wire "github.com/sk1fy/amocrm-pro/internal/platformlifecycle"
 )
 
-func DeliveryHandler(store *Store, origin, identityDir string) (jobs.Handler, error) {
+func platformClient(origin, identityDir, path string) (*url.URL, *http.Client, error) {
 	endpoint, err := url.Parse(origin)
 	if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil ||
-		endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") {
-		return nil, errors.New("Platform delivery requires a private HTTPS origin")
+		endpoint.ForceQuery || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") {
+		return nil, nil, errors.New("Platform delivery requires a private HTTPS origin")
 	}
-	endpoint.Path = wire.EventsPath
+	endpoint.Path = path
 	ca, err := os.ReadFile(filepath.Join(identityDir, "ca.crt"))
 	if err != nil {
-		return nil, errors.New("could not read Platform delivery CA")
+		return nil, nil, errors.New("could not read Platform delivery CA")
 	}
 	roots := x509.NewCertPool()
 	if !roots.AppendCertsFromPEM(ca) {
-		return nil, errors.New("invalid Platform delivery CA")
+		return nil, nil, errors.New("invalid Platform delivery CA")
 	}
 	cert, err := tls.LoadX509KeyPair(filepath.Join(identityDir, "tls.crt"), filepath.Join(identityDir, "tls.key"))
 	if err != nil {
-		return nil, errors.New("could not load Core delivery identity")
+		return nil, nil, errors.New("could not load Core delivery identity")
 	}
 	client := &http.Client{
 		Timeout:       8 * time.Second,
@@ -55,6 +55,15 @@ func DeliveryHandler(store *Store, origin, identityDir string) (jobs.Handler, er
 				},
 			}},
 	}
+	return endpoint, client, nil
+}
+
+func DeliveryHandler(store *Store, origin, identityDir string) (jobs.Handler, error) {
+	endpoint, client, err := platformClient(origin, identityDir, wire.EventsPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return func(ctx context.Context, job jobs.Job) (json.RawMessage, error) {
 		var payload struct {
 			EventID uuid.UUID `json:"event_id"`

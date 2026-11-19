@@ -53,10 +53,9 @@ The Clients consumer owns its projection independently of runtime installations.
 
 Workflow validation proves only pipeline-stage membership in the observed source
 revision. Required fields are still unknown and `write_ready` remains false.
-Before future effects can be enabled, separately validate required fields,
-correlation IDs/types, dedupe/search behavior and readback under unknown outcomes.
-This connector enables no effects. No deployment or production CRM access is
-part of local acceptance.
+Deal creation is opt-in. Required stage fields can cause a definitive
+rejection that the manager can retry after fixing the configuration.
+Deployment and production CRM access are outside the local checks.
 
 ## Local certificate and Compose flow
 
@@ -91,3 +90,32 @@ curl --cacert tmp/company-crm-certs/admin-company-directory/ca.crt \
   --key tmp/company-crm-certs/admin-company-directory/tls.key \
   https://localhost:8086/v1/company-crm/staff
 ```
+
+## Подключение отдельного виджета для сделок
+
+Установите приватную интеграцию «Ракурс — кабинет менеджеров» вручную
+в аккаунте компании. Зарегистрируйте её Client ID и Client Secret через
+существующий OAuth-контур Core с кодом интеграции `rakurscrm-manager`.
+После установки сверьте идентификаторы
+аккаунта, интеграции и установки. Используйте их в `COMPANY_CRM_*` и
+назначьте новую `COMPANY_CRM_BINDING_REVISION`. В Platform укажите тот же
+аккаунт и ревизию. В кабинете сохраните воронку и стартовый этап для
+продуктов, которые должны создавать сделки.
+
+`COMPANY_CRM_DEALS_HOST=rakurscrm.amocrm.ru` разрешает запись только через
+настроенное подключение этого аккаунта. `PLATFORM_COMPANY_DEALS_ENABLED=true`
+передаёт задачи существующему worker Platform. На Core API установите
+`PLATFORM_ACTIVATION_ORIGIN` (приватный HTTPS origin Platform) и смонтируйте
+каталог `PLATFORM_CORE_IDENTITY_DIR` с ролью Core. Миграция Platform 000013
+добавляет данные активации, задачи и повторные попытки сделки.
+
+Новые подтверждённые установки получают задачу. Если контакт не введён,
+задача ждёт до 24 часов с установки. Для «Запрет работы» и закрытых
+эпизодов задача пропускается. Автоматические письма требуют отдельной
+настройки и в этой версии не отправляются.
+
+После неоднозначного ответа повтор ищет сделку по сохранённому названию
+с меткой РКРС. Отсутствие результата поиска сохраняет неопределённость
+и не создаёт вторую сделку. При явном отклонении запроса менеджер может
+повторить создание после исправления причины.
+[Решение по активации и сделкам](adr/0050-installation-activation-and-company-deal.md).

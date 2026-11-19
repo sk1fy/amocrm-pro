@@ -28,6 +28,13 @@ func companyCRMServer(pool *pgxpool.Pool, client *amocrm.Client, tokens amocrm.T
 	resolver := &companycrm.Store{Pool: pool, Binding: cfg.Binding}
 	scoped := client.WithTokenProvider(companycrm.ScopedTokens{Provider: tokens, Binding: cfg.Binding})
 	service := &companycrm.Service{Resolver: resolver, CRM: scoped}
+	if cfg.DealsHost != "" {
+		dealClient := client.WithTokenProvider(companycrm.ScopedTokens{Provider: tokens, Binding: cfg.Binding, Host: cfg.DealsHost})
+		service.Deals = &companycrm.DealService{
+			CRM: dealClient, Host: cfg.DealsHost,
+			Resolver: &companycrm.Store{Pool: pool, Binding: cfg.Binding, IntegrationCode: "rakurscrm-manager"},
+		}
+	}
 	server := httpserver.New(cfg.Address, httpmiddleware.RequestID(companycrm.Router(service)))
 	server.TLSConfig = tlsConfig
 	return server, nil

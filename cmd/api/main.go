@@ -220,6 +220,15 @@ func run() error {
 	widgetRoute := func(consume bool, handler http.Handler) http.Handler {
 		return protectWidgetRoute(widgetAuthenticator, widgetLimiter, widgetCORSMiddleware, consume, handler)
 	}
+	if origin := os.Getenv("PLATFORM_ACTIVATION_ORIGIN"); origin != "" {
+		activation, err := corelifecycle.NewActivationClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		if err != nil {
+			return err
+		}
+		defer activation.Close()
+		crm := amocrmclient.NewClient(externalHTTPClient, oauthflow.NewTokenProvider(pool, keyRing, oauthGateway))
+		registerWidgetActivation(router, corelifecycle.NewStore(pool), crm, activation, widgetRoute, widgetCORSMiddleware)
+	}
 	if proofSigner != nil {
 		registerPlatformAccessProof(router, corelifecycle.NewStore(pool), proofSigner,
 			cfg.DatabaseTimeout, widgetRoute, widgetCORSMiddleware)

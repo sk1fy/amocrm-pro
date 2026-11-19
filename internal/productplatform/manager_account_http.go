@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -329,6 +330,9 @@ func (m managerHTTP) operation(w http.ResponseWriter, r *http.Request, env manag
 		return
 	}
 	operation, err := m.store.accountOperation(r.Context(), id, env.Actor.Subject, env.RequestID)
+	if errors.Is(err, errManagerNotFound) {
+		operation, err = m.store.readDealOperation(r.Context(), id, env.Actor.Subject)
+	}
 	if err != nil {
 		writeManagerStoreError(w, env.RequestID, err)
 		return

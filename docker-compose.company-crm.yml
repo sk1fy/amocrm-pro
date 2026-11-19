@@ -1,8 +1,21 @@
 # Optional local overlay. Generate development certificates before use.
 services:
+  api:
+    user: "${COMPANY_CRM_UID:-10001}:${COMPANY_CRM_GID:-10001}"
+    environment:
+      PLATFORM_ACTIVATION_ORIGIN: "${PLATFORM_ACTIVATION_ORIGIN:-}"
+      PLATFORM_CORE_IDENTITY_DIR: "${PLATFORM_ACTIVATION_ORIGIN:+/company-crm-tls}"
+    volumes:
+      - type: bind
+        source: "${COMPANY_CRM_DEV_CERTS_DIR:-./tmp/company-crm-certs}/core"
+        target: /company-crm-tls
+        read_only: true
+        bind:
+          create_host_path: false
   worker:
     user: "${COMPANY_CRM_UID:-10001}:${COMPANY_CRM_GID:-10001}"
     environment:
+      COMPANY_CRM_DEALS_HOST: "${COMPANY_CRM_DEALS_HOST:-}"
       COMPANY_CRM_HTTPS_ADDRESS: "${COMPANY_CRM_HTTPS_ADDRESS:-}"
       COMPANY_CRM_IDENTITY_DIR: "${COMPANY_CRM_HTTPS_ADDRESS:+/company-crm-tls}"
       COMPANY_CRM_ACCOUNT_ID: "${COMPANY_CRM_ACCOUNT_ID:-}"
