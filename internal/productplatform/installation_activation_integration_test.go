@@ -144,8 +144,16 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	if review.status != 200 || receipt.Contact != nil || !receipt.Review.Reviewed {
 		t.Fatal("write-only review receipt must omit the contact")
 	}
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.account_identities(account_id,current_domain,display_name,observed_at)
+		SELECT account_id,'fixture-account.amocrm.ru','Fixture account',statement_timestamp()
+		FROM platform_manager.installations WHERE id=$1`, episode)
+	mustManager(t, err)
+	zone, err := time.LoadLocation("Europe/Moscow")
+	mustManager(t, err)
+	date := at.In(zone).Format("02.01.2006")
 	fake := &installationDealStub{}
-	service := InstallationDeals{Pool: pool, Source: fake}
+	service := InstallationDeals{Pool: pool, Source: fake, Manager: &ManagerOptions{zone: zone}}
 	run := func() {
 		completion := service.Run(ctx, queue.Job{ID: episode, Kind: InstallationDealJob})
 		if completion.Publish == nil {
@@ -170,6 +178,7 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	mustManager(t, err)
 	run()
 	if len(fake.requests) != 2 || !fake.requests[0].Create || fake.requests[1].Create ||
+		fake.requests[0].Title != found.Items[0].ProductName+" · fixture-account · Fixture employee · "+date ||
 		fake.requests[0].Title != fake.requests[1].Title || fake.requests[0].Pipeline != 100 || fake.requests[0].Stage != 101 {
 		t.Fatalf("uncertain request was not reconciled by its original title: %+v", fake.requests)
 	}
@@ -195,18 +204,16 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	mustManager(t, err)
 	_, err = lifecycle.Record(ctx, raw)
 	mustManager(t, err)
-	otherScope := wire.ActivationScope{Installation: pilot.otherInstallation, Integration: pilot.otherIntegration,
-		Account: 2542, Generation: 1, AuthorizationSequence: 1}
-	_, err = lifecycle.storeActivation(ctx, wire.ActivationRequest{Scope: otherScope, Contact: &contact})
-	mustManager(t, err)
 	var otherEpisode uuid.UUID
+	var otherProductName string
 	mustManager(t, owner.QueryRow(ctx, `
-		SELECT d.episode_id FROM platform_manager.installation_deals d
+		SELECT d.episode_id,i.product_name FROM platform_manager.installation_deals d
 		JOIN platform_manager.installations i ON i.id=d.episode_id
-		WHERE i.amo_account_id=2542`).Scan(&otherEpisode))
+		WHERE i.amo_account_id=2542`).Scan(&otherEpisode, &otherProductName))
 	episode = otherEpisode
 	run()
 	if len(fake.requests) != 3 || !fake.requests[2].Create ||
+		fake.requests[2].Title != otherProductName+" · 2542 · "+date ||
 		fake.requests[2].Pipeline != fake.requests[0].Pipeline || fake.requests[2].Stage != fake.requests[0].Stage {
 		t.Fatalf("different widgets must use the same destination: %+v", fake.requests)
 	}

@@ -32,9 +32,10 @@ type DealResult struct {
 }
 
 type DealService struct {
-	CRM      *amocrm.Client
-	Host     string
-	Resolver Resolver
+	CRM           *amocrm.Client
+	Host          string
+	Resolver      Resolver
+	MarkerFieldID int64
 }
 
 func DealMarker(episode uuid.UUID) string { return "РКРС-" + episode.String() }
@@ -47,9 +48,18 @@ func (s *Service) installationDeal(w http.ResponseWriter, r *http.Request) {
 	var input DealRequest
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
 	if err != nil || wire.Decode(raw, &input) != nil || input.Episode == uuid.Nil || input.Account <= 0 ||
-		len(input.Title) > 512 || !strings.HasSuffix(input.Title, " · "+DealMarker(input.Episode)) ||
+		len(input.Title) > 512 || strings.TrimSpace(input.Title) == "" ||
 		(input.Create && (input.Pipeline <= 0 || input.Stage <= 0)) {
 		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	marker := DealMarker(input.Episode)
+	markerFieldID := s.Deals.MarkerFieldID
+	// Reservations written before the field was introduced still reconcile by title.
+	if strings.HasSuffix(input.Title, " · "+marker) {
+		markerFieldID = 0
+	} else if markerFieldID <= 0 {
+		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 	binding, err := s.Deals.Resolver.Resolve(r.Context())
@@ -57,7 +67,7 @@ func (s *Service) installationDeal(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
-	id, err := s.Deals.execute(r.Context(), binding, input)
+	id, err := s.Deals.execute(r.Context(), binding, input, marker, markerFieldID)
 	result := DealResult{State: "found", ID: id, Host: s.Deals.Host}
 	var api *amocrm.APIError
 	switch {
@@ -74,11 +84,11 @@ func (s *Service) installationDeal(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
-func (s *DealService) execute(ctx context.Context, binding Binding, in DealRequest) (int64, error) {
+func (s *DealService) execute(ctx context.Context, binding Binding, in DealRequest, marker string, markerFieldID int64) (int64, error) {
 	if in.Create {
-		return s.CRM.CreateCompanyLead(ctx, binding.InstallationID, in.Title, in.Pipeline, in.Stage)
+		return s.CRM.CreateCompanyLead(ctx, binding.InstallationID, in.Title, in.Pipeline, in.Stage, markerFieldID, marker)
 	}
-	return s.CRM.FindCompanyLead(ctx, binding.InstallationID, DealMarker(in.Episode), in.Title)
+	return s.CRM.FindCompanyLead(ctx, binding.InstallationID, marker, in.Title, markerFieldID)
 }
 
 func explicitLeadRejection(err error) bool {
