@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -71,12 +72,14 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 	roots.AppendCertsFromPEM(pemCA)
 	serverCert, _, _ := testIdentity(t, ca, key, "core")
 	_, clientCert, clientKey := testIdentity(t, ca, key, "platform-company-crm")
-	mode := "full"
+	var mode atomic.Value
+	mode.Store("full")
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/company-crm/clients" || r.Method != "GET" || len(r.TLS.PeerCertificates[0].URIs) != 1 || r.TLS.PeerCertificates[0].URIs[0].String() != "spiffe://amocrm-pro/platform-company-crm" {
 			t.Error("wrong private contract")
 		}
-		switch mode {
+		responseMode := mode.Load().(string)
+		switch responseMode {
 		case "redirect":
 			http.Redirect(w, r, "https://localhost/elsewhere", 302)
 			return
@@ -98,7 +101,7 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 		until := now.Add(time.Minute)
 		data := companycrm.Clients{Companies: []companycrm.Client{}, Contacts: []companycrm.Contact{}}
 		response := companycrm.Response[companycrm.Clients]{Source: companycrm.Source{AccountID: 12, BindingRevision: "r1", Complete: true, State: "fresh", ObservedAt: &now, FreshUntil: &until}, Data: &data}
-		switch mode {
+		switch responseMode {
 		case "missing_collections":
 			response.Data = &companycrm.Clients{}
 		case "stale":
@@ -119,7 +122,7 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 			w.WriteHeader(429)
 		}
 		_ = json.NewEncoder(w).Encode(response)
-		if mode == "trailing" {
+		if responseMode == "trailing" {
 			_, _ = w.Write([]byte("{}"))
 		}
 	}))
@@ -137,26 +140,26 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 		fails bool
 	}{{"full", false}, {"stale", false}, {"partial", false}, {"rate", false}, {"bare429", true}, {"redirect", true}, {"large", true}, {"malformed", true}, {"trailing", true}, {"mismatch", true}, {"missing_collections", true}} {
 		t.Run(test.mode, func(t *testing.T) {
-			mode = test.mode
+			mode.Store(test.mode)
 			r, e := client.Clients(context.Background())
 			if (e != nil) != test.fails {
 				t.Fatalf("error=%v result=%+v", e, r)
 			}
-			if mode == "full" && (r.Response.Data == nil || r.Response.Data.Companies == nil || !r.Response.Source.Complete) {
+			if test.mode == "full" && (r.Response.Data == nil || r.Response.Data.Companies == nil || !r.Response.Source.Complete) {
 				t.Fatal("empty full lost")
 			}
-			if mode == "partial" && (r.Response.Data != nil || r.Status != 503) {
+			if test.mode == "partial" && (r.Response.Data != nil || r.Status != 503) {
 				t.Fatal("partial lost")
 			}
-			if mode == "rate" && (r.RetryAt == nil || time.Until(*r.RetryAt) < 49*time.Second || r.Status != 429) {
+			if test.mode == "rate" && (r.RetryAt == nil || time.Until(*r.RetryAt) < 49*time.Second || r.Status != 429) {
 				t.Fatal("retry metadata lost")
 			}
-			if mode == "bare429" && (r.RetryAt == nil || r.Status != 429) {
+			if test.mode == "bare429" && (r.RetryAt == nil || r.Status != 429) {
 				t.Fatal("bare retry lost")
 			}
 		})
 	}
-	mode = "slow"
+	mode.Store("slow")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
 	if _, e = client.Clients(ctx); !errors.Is(e, context.DeadlineExceeded) {
@@ -174,7 +177,7 @@ func TestCompanySourceTLSAndWire(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer wrongHost.Close()
-	mode = "full"
+	mode.Store("full")
 	if _, e = wrongHost.Clients(context.Background()); e == nil {
 		t.Fatal("hostname not verified")
 	}
