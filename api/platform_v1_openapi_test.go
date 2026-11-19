@@ -132,6 +132,8 @@ func TestPlatformV1CompanyContract(t *testing.T) {
 	for _, tc := range []struct{ path, method, id, grant string }{
 		{"companies", "GET", "listCompanies", "clients.read"},
 		{"companies/{id}", "GET", "getCompany", "clients.read"},
+		{"installation-deal-settings", "GET", "getInstallationDealSettings", "catalog.manage"},
+		{"installation-deal-settings", "PUT", "setInstallationDealSettings", "catalog.manage"},
 		{"company-workflow-metadata", "GET", "getCompanyWorkflowMetadata", "catalog.manage"},
 		{"products/{id}/company-workflow", "GET", "getProductCompanyWorkflow", "catalog.manage"},
 		{"products/{id}/company-workflow", "PUT", "setProductCompanyWorkflow", "catalog.manage"},

@@ -11,6 +11,7 @@ var (
 	Live                          = Route{Method: http.MethodGet, Path: "/live"}
 	Ready                         = Route{Method: http.MethodGet, Path: "/ready"}
 	Metrics                       = Route{Method: http.MethodGet, Path: "/metrics"}
+	CompanyCabinetActivation      = Route{Method: http.MethodGet, Path: "/api/v1/company-cabinet/activation"}
 	OAuthStart                    = Route{Method: http.MethodGet, Path: "/oauth/amocrm/start"}
 	OAuthCallback                 = Route{Method: http.MethodGet, Path: "/oauth/amocrm/callback"}
 	WebhookReceive                = Route{Method: http.MethodPost, Path: "/hooks/amocrm/v1/{webhookKey}"}
@@ -57,6 +58,7 @@ var (
 
 	Routes = []Route{
 		Live,
+		CompanyCabinetActivation,
 		OAuthStart,
 		OAuthCallback,
 		WebhookReceive,

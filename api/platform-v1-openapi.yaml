@@ -1431,6 +1431,78 @@ paths:
         карточку продукта и свежее полное поколение метаданных в SQL. 409/422 сохраняют receipt. 503 откатывает резервирование
         ключа. Точный повтор успеха возвращает сохранённые байты и ETag даже после outage или rebind, при текущем catalog.manage
         и видимом продукте. write_ready всегда false.
+  /internal/platform/v1/managers/installation-deal-settings:
+    get:
+      operationId: getInstallationDealSettings
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDealSettings'
+          headers:
+            ETag:
+              schema:
+                type: string
+                pattern: ^"[1-9][0-9]*"$
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+    put:
+      operationId: setInstallationDealSettings
+      security:
+      - adminService: []
+      x-platform-grant: catalog.manage
+      parameters:
+      - $ref: '#/components/parameters/Actor'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDealSettings'
+          headers:
+            ETag:
+              schema:
+                type: string
+                pattern: ^"[1-9][0-9]*"$
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProductCompanyWorkflow'
+      description: Единая воронка и начальный этап для новых сделок по установкам.
 components:
   securitySchemes:
     adminService: {type: mutualTLS, description: Закрытый listener проверяет сертификат вызывающего BFF.}
@@ -2573,6 +2645,19 @@ components:
       - version
       - configuration
       - write_ready
+    InstallationDealSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        version:
+          $ref: '#/components/schemas/Version'
+        configuration:
+          anyOf:
+          - $ref: '#/components/schemas/CompanyWorkflowConfiguration'
+          - type: 'null'
+      required:
+      - version
+      - configuration
     SetProductCompanyWorkflow:
       type: object
       additionalProperties: false

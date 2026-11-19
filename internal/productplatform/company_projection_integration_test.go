@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/integration/amocrm"
@@ -550,14 +552,31 @@ func TestPlatformCompanyPublicationBoundaries(t *testing.T) {
 	}
 	var tables int
 	mustManager(t, owner.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='platform_company' AND table_type='BASE TABLE'`).Scan(&tables))
-	if tables != 14 {
-		t.Fatalf("tables=%d", tables)
+	if tables != 15 {
+		t.Fatalf("company tables=%d, want 15 including installation deal settings", tables)
 	}
 	access, e := storage.Open(ctx, os.Getenv("PLATFORM_TEST_ACCESS_DSN"), storage.Access, 1)
 	mustManager(t, e)
 	defer access.Close()
-	if _, e = access.Exec(ctx, `SELECT * FROM platform_company.company_rows`); e == nil {
-		t.Fatal("access role read private company data")
+	for _, sql := range []string{
+		`SELECT company_id FROM platform_company.company_rows LIMIT 0`,
+		`SELECT scope_id FROM platform_company.installation_deal_settings_revisions LIMIT 0`,
+	} {
+		_, e = access.Exec(ctx, sql)
+		var pgErr *pgconn.PgError
+		if !errors.As(e, &pgErr) || pgErr.Code != "42501" {
+			t.Fatalf("expected access role to be denied for %s, got %v", sql, e)
+		}
+	}
+	for _, sql := range []string{
+		`UPDATE platform_company.installation_deal_settings_revisions SET stage_id=999 WHERE false`,
+		`DELETE FROM platform_company.installation_deal_settings_revisions WHERE false`,
+	} {
+		_, e = jobs.Exec(ctx, sql)
+		var pgErr *pgconn.PgError
+		if !errors.As(e, &pgErr) || pgErr.Code != "42501" {
+			t.Fatalf("expected jobs role to be denied for %s, got %v", sql, e)
+		}
 	}
 	for _, sql := range []string{
 		`INSERT INTO platform_company.audit(id,kind,scope_id,epoch,previous_scope,previous_epoch,actor_id) SELECT gen_random_uuid(),'source.activated',scope_id,2,scope_id,1,gen_random_uuid() FROM platform_company.source_control`,

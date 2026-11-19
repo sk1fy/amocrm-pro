@@ -180,29 +180,15 @@ func positiveCRMID(s string) bool {
 type companyMetadataUnavailable struct{ retry *time.Time }
 
 func (e *companyMetadataUnavailable) Error() string { return "company metadata unavailable" }
-func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in companyWorkflowInput) (managerOutcome, error) {
-	var scope uuid.UUID
-	var account, binding string
-	var retry *time.Time
-	err := tx.QueryRow(ctx, `SELECT c.scope_id,s.account_id::text,s.binding_revision,c.retry_not_before FROM platform_company.source_control c JOIN platform_company.source_scopes s ON s.id=c.scope_id FOR UPDATE OF c`).Scan(&scope, &account, &binding, &retry)
+func lockCompanyWorkflowSource(ctx context.Context, tx pgx.Tx) (scope uuid.UUID, account, binding string, retry *time.Time, err error) {
+	err = tx.QueryRow(ctx, `SELECT c.scope_id,s.account_id::text,s.binding_revision,c.retry_not_before FROM platform_company.source_control c JOIN platform_company.source_scopes s ON s.id=c.scope_id FOR UPDATE OF c`).Scan(&scope, &account, &binding, &retry)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return managerOutcome{}, &companyMetadataUnavailable{}
+		err = &companyMetadataUnavailable{}
 	}
-	if err != nil {
-		return managerOutcome{}, err
-	}
-	var id uuid.UUID
-	err = tx.QueryRow(ctx, `SELECT id FROM platform_lifecycle.products WHERE id=$1 AND catalog_version IS NOT NULL FOR NO KEY UPDATE`, cmd.Product).Scan(&id)
-	if err != nil {
-		return managerOutcome{}, accountReadError(err)
-	}
-	current, err := readProductCompanyWorkflow(ctx, tx, cmd.Product)
-	if err != nil {
-		return managerOutcome{}, err
-	}
-	if current.Version != cmd.Version {
-		return managerVersionConflict(cmd, current.Version)
-	}
+	return
+}
+
+func validateCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in companyWorkflowInput, account, binding string, retry *time.Time) (managerOutcome, error) {
 	reject := func(status int, code string) (managerOutcome, error) {
 		return managerMutationResponse(status, 0, managerProblem(status, code, cmd.RequestID, 0, 0))
 	}
@@ -227,8 +213,31 @@ func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in 
 	if !member {
 		return reject(422, "company_stage_mismatch")
 	}
-	if current.Version >= wire.MaxPosition {
+	if cmd.Version >= wire.MaxPosition {
 		return reject(409, "version_exhausted")
+	}
+	return managerOutcome{}, nil
+}
+
+func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in companyWorkflowInput) (managerOutcome, error) {
+	scope, account, binding, retry, err := lockCompanyWorkflowSource(ctx, tx)
+	if err != nil {
+		return managerOutcome{}, err
+	}
+	var id uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT id FROM platform_lifecycle.products WHERE id=$1 AND catalog_version IS NOT NULL FOR NO KEY UPDATE`, cmd.Product).Scan(&id)
+	if err != nil {
+		return managerOutcome{}, accountReadError(err)
+	}
+	current, err := readProductCompanyWorkflow(ctx, tx, cmd.Product)
+	if err != nil {
+		return managerOutcome{}, err
+	}
+	if current.Version != cmd.Version {
+		return managerVersionConflict(cmd, current.Version)
+	}
+	if rejected, err := validateCompanyWorkflow(ctx, tx, cmd, in, account, binding, retry); err != nil || rejected.status != 0 {
+		return rejected, err
 	}
 	revision := current.Version
 	_, err = tx.Exec(ctx, `INSERT INTO platform_company.product_workflow_revisions(product_id,revision,scope_id,metadata_generation,pipeline_id,stage_id,command_id,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, cmd.Product, revision, scope, in.Generation, in.Pipeline, in.Stage, cmd.ID, cmd.Subject)
@@ -248,6 +257,8 @@ func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in 
 func registerManagerCompanies(mux *http.ServeMux, m managerHTTP) {
 	mux.HandleFunc("GET "+managerPath+"companies", managerAuthorized("clients.read", false, m.listCompanies))
 	mux.HandleFunc("GET "+managerPath+"companies/{id}", managerAuthorized("clients.read", false, m.getCompany))
+	mux.HandleFunc("GET "+managerPath+"installation-deal-settings", managerAuthorized("catalog.manage", false, m.getInstallationDealSettings))
+	mux.HandleFunc("PUT "+managerPath+"installation-deal-settings", managerAuthorized("catalog.manage", true, m.setInstallationDealSettings))
 	mux.HandleFunc("GET "+managerPath+"company-workflow-metadata", managerAuthorized("catalog.manage", false, m.getCompanyWorkflowMetadata))
 	mux.HandleFunc("GET "+managerPath+"products/{id}/company-workflow", managerAuthorized("catalog.manage", false, m.getProductCompanyWorkflow))
 	mux.HandleFunc("PUT "+managerPath+"products/{id}/company-workflow", managerAuthorized("catalog.manage", true, m.setProductCompanyWorkflow))
@@ -288,11 +299,19 @@ func (m managerHTTP) getProductCompanyWorkflow(w http.ResponseWriter, r *http.Re
 	writeLifecycleJSON(w, 200, result)
 }
 func (m managerHTTP) setProductCompanyWorkflow(w http.ResponseWriter, r *http.Request, env managerEnvelope) {
-	id, e1 := managerUUID(r.PathValue("id"))
+	id, err := managerUUID(r.PathValue("id"))
+	if err != nil {
+		writeManagerError(w, 400, "validation_failed", env.RequestID, 0)
+		return
+	}
+	m.setWorkflow(w, r, env, companyWorkflowCommandKind, id, saveCompanyWorkflow)
+}
+
+func (m managerHTTP) setWorkflow(w http.ResponseWriter, r *http.Request, env managerEnvelope, kind string, product uuid.UUID, save func(context.Context, pgx.Tx, managerCommand, companyWorkflowInput) (managerOutcome, error)) {
 	key, e2 := managerUUID(singleManagerHeader(r.Header, "Idempotency-Key"))
 	version, e3 := managerVersion(singleManagerHeader(r.Header, "If-Match"))
 	media, _, _ := mime.ParseMediaType(singleManagerHeader(r.Header, "Content-Type"))
-	if e1 != nil || e2 != nil || e3 != nil || media != "application/json" || r.URL.RawQuery != "" {
+	if e2 != nil || e3 != nil || media != "application/json" || r.URL.RawQuery != "" {
 		writeManagerError(w, 400, "validation_failed", env.RequestID, 0)
 		return
 	}
@@ -302,9 +321,9 @@ func (m managerHTTP) setProductCompanyWorkflow(w http.ResponseWriter, r *http.Re
 		writeManagerError(w, 400, "validation_failed", env.RequestID, 0)
 		return
 	}
-	cmd := managerCommand{ID: env.Command, Key: key, Subject: env.Actor.Subject, RequestID: env.RequestID, Product: id, Kind: companyWorkflowCommandKind, Version: version}
+	cmd := managerCommand{ID: env.Command, Key: key, Subject: env.Actor.Subject, RequestID: env.RequestID, Product: product, Kind: kind, Version: version}
 	outcome, err := m.store.mutate(r.Context(), cmd, in, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {
-		return saveCompanyWorkflow(ctx, tx, cmd, in)
+		return save(ctx, tx, cmd, in)
 	})
 	var unavailable *companyMetadataUnavailable
 	if errors.As(err, &unavailable) {

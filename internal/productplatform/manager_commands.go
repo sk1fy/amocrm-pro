@@ -195,7 +195,7 @@ func commandGrant(kind string) string {
 		return "clients.write"
 	case renewalCommandKind:
 		return "clients.renew"
-	case productCreateCommandKind, productUpdateCommandKind, companyWorkflowCommandKind:
+	case productCreateCommandKind, productUpdateCommandKind, companyWorkflowCommandKind, installationDealSettingsCommandKind:
 		return "catalog.manage"
 	case portraitTemplateCommandKind, portraitNicheCreateCommandKind, portraitNicheUpdateCommandKind,
 		portraitNicheDeleteCommandKind, portraitNicheMergeCommandKind:
@@ -213,7 +213,7 @@ func requireCommandScope(ctx context.Context, tx pgx.Tx, kind string, episode, a
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.installations WHERE id=$1)`, episode).Scan(&visible)
 	case accountRefreshKind, profileCommandKind, portraitCommandKind, portraitAuditCommandKind:
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.visible_accounts WHERE account_id=$1)`, account).Scan(&visible)
-	case productCreateCommandKind:
+	case productCreateCommandKind, installationDealSettingsCommandKind:
 		return nil
 	case productUpdateCommandKind, companyWorkflowCommandKind:
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_lifecycle.products WHERE id=$1 AND catalog_version IS NOT NULL)`, product).Scan(&visible)
