@@ -15,13 +15,15 @@ type Config struct {
 	Address, IdentityDir string
 	Binding              Binding
 	DealsHost            string
+	DealMarkerFieldID    int64
 }
 
 func LoadConfig() (Config, error) {
 	c := Config{Address: os.Getenv("COMPANY_CRM_HTTPS_ADDRESS"), IdentityDir: os.Getenv("COMPANY_CRM_IDENTITY_DIR")}
 	names := []string{"COMPANY_CRM_ACCOUNT_ID", "COMPANY_CRM_INSTALLATION_ID", "COMPANY_CRM_INTEGRATION_ID", "COMPANY_CRM_BINDING_REVISION", "COMPANY_CRM_ACCOUNT_FIELD_ID"}
 	host := os.Getenv("COMPANY_CRM_DEALS_HOST")
-	configured := c.Address != "" || c.IdentityDir != "" || host != ""
+	markerField := os.Getenv("COMPANY_CRM_DEAL_MARKER_FIELD_ID")
+	configured := c.Address != "" || c.IdentityDir != "" || host != "" || markerField != ""
 	for _, n := range names {
 		configured = configured || os.Getenv(n) != ""
 	}
@@ -60,6 +62,12 @@ func LoadConfig() (Config, error) {
 			return Config{}, errors.New("company CRM deals require an exact amoCRM hostname")
 		}
 		c.DealsHost = host
+	}
+	if markerField != "" {
+		c.DealMarkerFieldID, err = strconv.ParseInt(markerField, 10, 64)
+		if err != nil || c.DealMarkerFieldID <= 0 || c.DealsHost == "" {
+			return Config{}, errors.New("company CRM installation marker requires a positive deal field ID and deals host")
+		}
 	}
 	return c, nil
 }

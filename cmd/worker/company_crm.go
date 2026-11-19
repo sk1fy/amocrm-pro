@@ -31,7 +31,7 @@ func companyCRMServer(pool *pgxpool.Pool, client *amocrm.Client, tokens amocrm.T
 	if cfg.DealsHost != "" {
 		dealClient := client.WithTokenProvider(companycrm.ScopedTokens{Provider: tokens, Binding: cfg.Binding, Host: cfg.DealsHost})
 		service.Deals = &companycrm.DealService{
-			CRM: dealClient, Host: cfg.DealsHost,
+			CRM: dealClient, Host: cfg.DealsHost, MarkerFieldID: cfg.DealMarkerFieldID,
 			Resolver: &companycrm.Store{Pool: pool, Binding: cfg.Binding, IntegrationCode: "rakurscrm-manager"},
 		}
 	}

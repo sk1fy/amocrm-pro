@@ -23,8 +23,9 @@ type InstallationDealSource interface {
 }
 
 type InstallationDeals struct {
-	Pool   *pgxpool.Pool
-	Source InstallationDealSource
+	Pool    *pgxpool.Pool
+	Source  InstallationDealSource
+	Manager *ManagerOptions
 }
 
 func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Completion {
@@ -91,14 +92,15 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	}
 
 	var name, accountLabel, contactName, lifecycle, classification string
+	var installedAt time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
-			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,'')
+			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,''),inst.opened_at
 		FROM platform_manager.installations inst
 		LEFT JOIN platform_manager.account_identities i USING(account_id)
 		LEFT JOIN platform_manager.account_profiles p USING(account_id)
 		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
-		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification)
+		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification, &installedAt)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
 		return request, "skipped", nil
 	}
@@ -124,16 +126,11 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	if err != nil {
 		return request, "", err
 	}
-	label := strings.Join([]string{name, accountLabel, contactName}, " · ")
-	suffix := " · " + companycrm.DealMarker(episode)
-	var trimmed strings.Builder
-	for _, r := range strings.TrimSuffix(label, " · ") {
-		if trimmed.Len()+len(string(r))+len(suffix) > 512 {
-			break
-		}
-		trimmed.WriteRune(r)
+	date := installedAt.UTC()
+	if d.Manager != nil {
+		date = date.In(d.Manager.zone)
 	}
-	request.Title = trimmed.String() + suffix
+	request.Title = installationDealTitle(name, accountLabel, contactName, date)
 	request.Pipeline, request.Stage, request.Create = pipeline, stage, true
 	_, err = tx.Exec(ctx, `
 		UPDATE platform_manager.installation_deals
@@ -143,6 +140,23 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		return request, "", err
 	}
 	return request, "", tx.Commit(ctx)
+}
+
+func installationDealTitle(product, accountLabel, contact string, installedAt time.Time) string {
+	account, _, _ := strings.Cut(accountLabel, ".")
+	label := product + " · " + account
+	if contact = strings.TrimSpace(contact); contact != "" {
+		label += " · " + contact
+	}
+	suffix := " · " + installedAt.Format("02.01.2006")
+	var trimmed strings.Builder
+	for _, r := range label {
+		if trimmed.Len()+len(string(r))+len(suffix) > 512 {
+			break
+		}
+		trimmed.WriteRune(r)
+	}
+	return strings.TrimSpace(trimmed.String()) + suffix
 }
 
 func (d InstallationDeals) publish(episode uuid.UUID, state string, result companycrm.DealResult, outcome queue.Outcome) queue.Completion {

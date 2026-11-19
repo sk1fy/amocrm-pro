@@ -151,7 +151,7 @@ func run() error {
 			handlers[companyObserver.Kind()] = companyObserver.RefreshJob
 		}
 		if companyDeals != nil {
-			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals}
+			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals, Manager: cfg.manager}
 			handlers[productplatform.InstallationDealJob] = deals.Run
 		}
 		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queue.DefaultConfig(cfg.workers), registry)
