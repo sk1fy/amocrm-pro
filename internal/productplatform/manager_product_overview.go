@@ -117,10 +117,10 @@ const productCatalogStatsSQL = `
 		COALESCE(months.counts,'{}'::jsonb),
 		COALESCE(a.installations,0),COALESCE(c.total,0),COALESCE(a.retained,0),COALESCE(a.recent,0),
 		COALESCE(a.eligible,0),COALESCE(a.activated,0),COALESCE(cp.total,0),
-		p.availability='active' AND NOT EXISTS (
+		p.availability IN ('pilot','active') AND NOT EXISTS (
 			SELECT FROM jsonb_array_elements(p.links) link WHERE lower(btrim(link->>'label')) IN ('установка','установить','ссылка на установку')
 		),
-		p.availability='active' AND NOT EXISTS (
+		p.availability IN ('pilot','active') AND NOT EXISTS (
 			SELECT FROM jsonb_array_elements(p.links) link WHERE lower(btrim(link->>'label')) IN ('инструкция','документация')
 		)
 	FROM platform_lifecycle.products p

@@ -93,6 +93,9 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 		t.Fatalf("unexpected catalog overview: %+v", firstStats)
 	}
 	series := firstStats.Overview.Statistics[pilot.product]
+	if !series.MissingInstallLink || !series.MissingInstruction {
+		t.Fatalf("missing pilot links were not flagged: %+v", series)
+	}
 	var installations int
 	for _, month := range series.Months {
 		installations += month.Count
@@ -105,6 +108,9 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	if len(secondStats.Items) != 1 || secondStats.Items[0].ID != draft.ID || secondStats.Next != nil ||
 		secondStats.Overview == nil || secondStats.Overview.Summary.Total != 2 || !secondStats.SnapshotAt.Equal(firstStats.SnapshotAt) {
 		t.Fatalf("catalog overview changed across pages: %+v", secondStats)
+	}
+	if draftStats := secondStats.Overview.Statistics[draft.ID]; draftStats.MissingInstallLink || draftStats.MissingInstruction {
+		t.Fatalf("draft links were flagged: %+v", draftStats)
 	}
 	badRefs := fmt.Sprintf(`{"integration_refs":[%q]}`, pilot.otherIntegration)
 	managerRequest(t, client, http.MethodPatch, first.private+productPath, editor, newManagerTestCommand(pilot.product, 1), badRefs, http.StatusUnprocessableEntity).
@@ -122,7 +128,8 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 		VALUES($1,3,'approved tariff revision')`, pilot.product)
 	mustManager(t, err)
 	changedCmd := newManagerTestCommand(pilot.product, 1)
-	const changedBody = `{"line":"TOP","trial_policy":{"kind":"once","duration_days":90},"tariff_version":3,"display_name":"Current catalog"}`
+	const changedBody = `{"line":"TOP","trial_policy":{"kind":"once","duration_days":90},"tariff_version":3,"display_name":"Current catalog",
+		"links":[{"label":"Инструкция","url":"https://docs.example.test/widget"}]}`
 	changed := managerRequest(t, client, http.MethodPatch, first.private+productPath, editor, changedCmd, changedBody, http.StatusOK)
 	current := managerJSON[managerProduct](t, changed.body)
 	if changed.etag != `"2"` || current.Tariff == nil || *current.Tariff != 3 || current.Line != "TOP" {
@@ -135,6 +142,16 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	reauthorized := wire.Event{ID: uuid.New(), Version: 1, Kind: wire.Reauthorized, Installation: pilot.installation, Integration: pilot.integration,
 		Account: "9007199254740993", Sequence: 7, Generation: 2, OccurredAt: time.Now().UTC(), Evidence: wire.Evidence{ID: uuid.New(), Source: "core_oauth"}}
 	deliverProductEvent(t, pilot, core, first.private, reauthorized)
+	attentionPath := base + "?overview=true&attention=true"
+	attention := managerJSON[productPage](t, managerRequest(t, client, http.MethodGet,
+		second.private+attentionPath, reader, managerTestCommand{}, "", http.StatusOK).body)
+	if len(attention.Items) != 1 || attention.Items[0].ID != pilot.product ||
+		attention.Overview == nil || attention.Overview.Summary.Attention != 1 {
+		t.Fatalf("pilot with missing install link is absent from attention results: %+v", attention)
+	}
+	if row := attention.Overview.Statistics[pilot.product]; !row.MissingInstallLink || row.MissingInstruction || row.ConnectionCount != 0 {
+		t.Fatalf("unexpected pilot attention flags: %+v", row)
+	}
 	metricsPath := productPath + "/metrics"
 	metrics := managerJSON[productMetrics](t, managerRequest(t, client, http.MethodGet, first.private+metricsPath, stats, managerTestCommand{}, "", http.StatusOK).body)
 	if metrics.Installations != 2 || metrics.ActiveAccess != 1 || metrics.Activations != 0 {
@@ -159,6 +176,11 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	disabled := managerRequest(t, client, http.MethodPatch, second.private+productPath, editor, noTrialCmd, noTrialBody, http.StatusOK)
 	if disabled.etag != `"3"` {
 		t.Fatalf("disable version %q", disabled.etag)
+	}
+	attention = managerJSON[productPage](t, managerRequest(t, client, http.MethodGet,
+		first.private+attentionPath, reader, managerTestCommand{}, "", http.StatusOK).body)
+	if len(attention.Items) != 0 || attention.Overview == nil || attention.Overview.Summary.Attention != 0 {
+		t.Fatalf("archived widget still requires attention for missing links: %+v", attention)
 	}
 	var sameTerm bool
 	mustManager(t, owner.QueryRow(ctx, `SELECT valid_until=$2 AND policy_version=$3 AND policy_evidence=$4 AND policy_rule=$5
