@@ -91,7 +91,7 @@ type managerEnvelope struct {
 	Deadline           time.Time
 }
 
-func managerAuthorized(grant string, mutation bool, next func(http.ResponseWriter, *http.Request, managerEnvelope)) http.HandlerFunc {
+func managerAuthorized(grant string, mutation bool, next func(http.ResponseWriter, *http.Request, managerEnvelope), legacyReadGrant ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
 		env, err := decodeManagerEnvelope(r.Header.Values("X-Platform-Actor"), now)
@@ -99,7 +99,8 @@ func managerAuthorized(grant string, mutation bool, next func(http.ResponseWrite
 			writeManagerError(w, http.StatusUnauthorized, "authentication_required", uuid.Nil, 0)
 			return
 		}
-		if grant != "" && !env.Actor.Grants[grant] {
+		if grant != "" && !env.Actor.Grants[grant] &&
+			(len(legacyReadGrant) == 0 || !env.Actor.Grants[legacyReadGrant[0]]) {
 			writeManagerError(w, http.StatusForbidden, "permission_denied", env.RequestID, 0)
 			return
 		}
@@ -270,7 +271,7 @@ func decodeManagerEnvelope(headers []string, now time.Time) (managerEnvelope, er
 		"kind": &kind, "audience": &audience, "subject_id": &subject, "session_id": &session,
 		"grants": &grants, "grants_version": &env.Actor.GrantsVersion,
 	}); err != nil || kind != "employee" || audience != "managers" ||
-		env.Actor.GrantsVersion < 1 || env.Actor.GrantsVersion > wire.MaxPosition || len(grants) == 0 || len(grants) > 10 {
+		env.Actor.GrantsVersion < 1 || env.Actor.GrantsVersion > wire.MaxPosition || len(grants) == 0 || len(grants) > 11 {
 		return env, errManagerInput
 	}
 	if env.Actor.Subject, err = managerUUID(subject); err != nil {
@@ -282,7 +283,7 @@ func decodeManagerEnvelope(headers []string, now time.Time) (managerEnvelope, er
 	env.Actor.Grants = make(map[string]bool, len(grants))
 	for _, grant := range grants {
 		switch grant {
-		case "catalog.manage", "clients.read", "clients.renew", "clients.write", "configuration.manage",
+		case "catalog.manage", "catalog.read", "clients.read", "clients.renew", "clients.write", "configuration.manage",
 			"feed.read", "identity.manage", "security.audit.read", "staff.manage", "stats.read":
 		default:
 			return env, errManagerInput

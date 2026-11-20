@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,21 +34,22 @@ type eventReference struct {
 }
 
 type businessEvent struct {
-	ID         uuid.UUID        `json:"id"`
-	Kind       string           `json:"kind"`
-	OccurredAt time.Time        `json:"occurred_at"`
-	RecordedAt time.Time        `json:"recorded_at"`
-	Account    uuid.UUID        `json:"account_id"`
-	Product    *uuid.UUID       `json:"product_id,omitempty"`
-	Summary    string           `json:"summary"`
-	Related    []eventReference `json:"related_refs"`
+	ID                 uuid.UUID        `json:"id"`
+	Kind               string           `json:"kind"`
+	OccurredAt         time.Time        `json:"occurred_at"`
+	RecordedAt         time.Time        `json:"recorded_at"`
+	Account            uuid.UUID        `json:"account_id"`
+	Product            *uuid.UUID       `json:"product_id,omitempty"`
+	AccountSubdomain   string           `json:"account_subdomain,omitempty"`
+	ProductDisplayName string           `json:"product_display_name,omitempty"`
+	Summary            string           `json:"summary"`
+	Related            []eventReference `json:"related_refs"`
 }
 
 type eventRecord struct {
 	businessEvent
 	source  string
 	episode *uuid.UUID
-	catalog bool
 }
 
 type eventPage struct {
@@ -67,8 +69,7 @@ var eventSummaries = map[string]string{
 const eventVisible = `EXISTS (SELECT FROM platform_manager.visible_accounts a WHERE a.account_id=e.account_id)
  AND (e.product_id IS NULL OR EXISTS (SELECT FROM platform_manager.account_memberships membership
  WHERE membership.account_id=e.account_id AND membership.product_id=e.product_id))`
-const eventColumns = `e.source,e.id,e.kind,e.occurred_at,e.recorded_at,e.account_id,e.product_id,e.episode_id,
- EXISTS(SELECT FROM platform_lifecycle.products p WHERE p.id=e.product_id AND p.catalog_version IS NOT NULL)`
+const eventColumns = `e.source,e.id,e.kind,e.occurred_at,e.recorded_at,e.account_id,e.product_id,e.episode_id`
 const eventFrom = ` FROM platform_manager.business_events e WHERE ` + eventVisible + `
  AND ($1::uuid IS NULL OR e.account_id=$1) AND ($2::uuid IS NULL OR e.product_id=$2)
  AND (COALESCE(cardinality($3::text[]),0)=0 OR e.kind=ANY($3))
@@ -77,30 +78,57 @@ const eventFrom = ` FROM platform_manager.business_events e WHERE ` + eventVisib
 func collectEvents(rows pgx.Rows) ([]eventRecord, error) {
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (eventRecord, error) {
 		var e eventRecord
-		err := row.Scan(&e.source, &e.ID, &e.Kind, &e.OccurredAt, &e.RecordedAt, &e.Account, &e.Product, &e.episode, &e.catalog)
+		err := row.Scan(&e.source, &e.ID, &e.Kind, &e.OccurredAt, &e.RecordedAt, &e.Account, &e.Product, &e.episode)
 		return e, err
 	})
 }
 
-func publicEvents(records []eventRecord, actor managerActor) []businessEvent {
-	items := make([]businessEvent, 0, len(records))
-	for _, record := range records {
+func publicEvents(ctx context.Context, tx pgx.Tx, records []eventRecord, actor managerActor) ([]businessEvent, error) {
+	items := make([]businessEvent, len(records))
+	for i, record := range records {
 		e := record.businessEvent
 		e.OccurredAt, e.RecordedAt = e.OccurredAt.UTC(), e.RecordedAt.UTC()
 		e.Summary = eventSummaries[e.Kind]
 		e.Related = []eventReference{}
-		if actor.Grants["clients.read"] {
-			e.Related = append(e.Related, eventReference{"account", e.Account})
-			if record.episode != nil {
-				e.Related = append(e.Related, eventReference{"installation", *record.episode})
-			}
-			if e.Product != nil && record.catalog {
-				e.Related = append(e.Related, eventReference{"product", *e.Product})
-			}
-		}
-		items = append(items, e)
+		items[i] = e
 	}
-	return items
+	if len(records) == 0 || !actor.Grants["clients.read"] {
+		return items, nil
+	}
+
+	accounts, products := make([]uuid.UUID, len(records)), make([]*uuid.UUID, len(records))
+	for i, record := range records {
+		e := &items[i]
+		accounts[i], products[i] = e.Account, e.Product
+		e.Related = append(e.Related, eventReference{"account", e.Account})
+		if record.episode != nil {
+			e.Related = append(e.Related, eventReference{"installation", *record.episode})
+		}
+	}
+	rows, err := tx.Query(ctx, `SELECT pair.ordinal, i.current_domain, p.display_name
+ FROM unnest($1::uuid[], $2::uuid[]) WITH ORDINALITY AS pair(account_id,product_id,ordinal)
+ LEFT JOIN platform_manager.account_identities i ON i.account_id=pair.account_id
+ LEFT JOIN platform_lifecycle.products p ON p.id=pair.product_id AND p.catalog_version IS NOT NULL`, accounts, products)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ordinal int
+		var domain, productName *string
+		if err := rows.Scan(&ordinal, &domain, &productName); err != nil {
+			return nil, err
+		}
+		e := &items[ordinal-1]
+		if domain != nil && validObservedDomain(*domain) {
+			e.AccountSubdomain, _, _ = strings.Cut(*domain, ".")
+		}
+		if productName != nil {
+			e.ProductDisplayName = *productName
+			e.Related = append(e.Related, eventReference{"product", *e.Product})
+		}
+	}
+	return items, rows.Err()
 }
 
 func (s managerStore) listEvents(ctx context.Context, actor managerActor, f eventFilters, after accountSeek) (eventPage, accountSeek, error) {
@@ -164,8 +192,11 @@ func (s managerStore) eventSnapshot(ctx context.Context, actor managerActor, f e
 		ids[e.ID] = true
 	}
 	page.SnapshotAt = page.SnapshotAt.UTC()
+	page.Items, err = publicEvents(ctx, tx, records[:min(f.Limit, len(records))], actor)
+	if err != nil {
+		return page, accountSeek{}, err
+	}
 	if len(records) <= f.Limit {
-		page.Items = publicEvents(records, actor)
 		return page, accountSeek{}, tx.Commit(ctx)
 	}
 	snapshot := uuid.New()
@@ -178,7 +209,6 @@ func (s managerStore) eventSnapshot(ctx context.Context, actor managerActor, f e
 	if err != nil {
 		return page, accountSeek{}, err
 	}
-	page.Items = publicEvents(records[:f.Limit], actor)
 	return page, accountSeek{Snapshot: snapshot, Ordinal: f.Limit}, tx.Commit(ctx)
 }
 
@@ -228,7 +258,10 @@ func continueEvents(ctx context.Context, tx pgx.Tx, actor managerActor, f eventF
 	if err != nil {
 		return page, accountSeek{}, err
 	}
-	page.Items = publicEvents(records, actor)
+	page.Items, err = publicEvents(ctx, tx, records, actor)
+	if err != nil {
+		return page, accountSeek{}, err
+	}
 	page.SnapshotAt = page.SnapshotAt.UTC()
 	after.Ordinal += len(records)
 	if after.Ordinal == total {

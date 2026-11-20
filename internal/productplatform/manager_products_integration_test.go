@@ -42,6 +42,10 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	noStats := managerTestActor{subject: editor.subject, version: 2, grants: []string{"clients.read", "catalog.manage"}}
 	noCatalog := managerTestActor{subject: editor.subject, version: 2, grants: []string{"clients.read", "configuration.manage"}}
 	const base = managerPath + "products"
+	catalogReader := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"catalog.read", "stats.read"}}
+	managerRequest(t, client, http.MethodGet, first.private+base, catalogReader, managerTestCommand{}, "", http.StatusOK)
+	managerRequest(t, client, http.MethodGet, first.private+base+"?overview=true", catalogReader, managerTestCommand{}, "", http.StatusForbidden)
+	managerRequest(t, client, http.MethodGet, first.private+managerPath+"accounts", catalogReader, managerTestCommand{}, "", http.StatusForbidden)
 	hidden := managerJSON[productPage](t, managerRequest(t, client, http.MethodGet, first.private+base, editor, managerTestCommand{}, "", http.StatusOK).body)
 	if hidden.Items == nil || len(hidden.Items) != 0 {
 		t.Fatalf("unadopted P03 rows must be hidden: %+v", hidden)

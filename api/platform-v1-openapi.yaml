@@ -1015,10 +1015,10 @@ paths:
       - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
       - {name: line, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO]}}
       - {name: availability, in: query, required: false, schema: {type: string, enum: [draft, pilot, active, archived]}}
-      - {name: overview, in: query, schema: {type: boolean}, description: Includes statistics and requires stats.read.}
+      - {name: overview, in: query, schema: {type: boolean}, description: Includes statistics and requires stats.read and clients.read.}
       - {name: attention, in: query, schema: {type: boolean}, description: Filters the list by attention; requires overview.}
       - {name: sort, in: query, schema: {type: string, enum: [installations, name, code]}, description: Defaults to installations for overview and code otherwise.}
-      x-platform-grant: clients.read
+      x-platform-grant: catalog.read
     post:
       operationId: createProduct
       security:
@@ -1093,7 +1093,7 @@ paths:
       parameters:
       - {$ref: '#/components/parameters/Actor'}
       - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
-      x-platform-grant: clients.read
+      x-platform-grant: catalog.read
     patch:
       operationId: updateProduct
       security:
@@ -1576,7 +1576,7 @@ components:
     AmoID: {type: string, pattern: '^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$'}
     ProductCode: {type: string, maxLength: 63, pattern: '^[a-z0-9]+(?:[-_][a-z0-9]+)*$'}
     Version: {type: integer, minimum: 1, maximum: 9007199254740991}
-    Grant: {type: string, enum: [catalog.manage, clients.read, clients.renew, clients.write, configuration.manage, feed.read, identity.manage,
+    Grant: {type: string, enum: [catalog.manage, catalog.read, clients.read, clients.renew, clients.write, configuration.manage, feed.read, identity.manage,
         security.audit.read, staff.manage, stats.read]}
     Freshness: {type: string, enum: [fresh, stale, unknown, unavailable, unsupported]}
     LifecycleKind: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled]}
@@ -1587,7 +1587,7 @@ components:
         id: {type: string, format: uuid}
         email: {type: string, format: email}
         name: {type: string}
-        grants: {type: array, items: {$ref: '#/components/schemas/Grant'}, minItems: 1, uniqueItems: true}
+        grants: {type: array, items: {$ref: '#/components/schemas/Grant'}, minItems: 1, maxItems: 11, uniqueItems: true}
       required:
       - id
       - email
@@ -1601,7 +1601,7 @@ components:
         subject_id: {type: string, format: uuid}
         session_id: {type: string, format: uuid}
         audience: {type: string, enum: [managers]}
-        grants: {type: array, items: {$ref: '#/components/schemas/Grant'}, minItems: 1, uniqueItems: true}
+        grants: {type: array, items: {$ref: '#/components/schemas/Grant'}, minItems: 1, maxItems: 11, uniqueItems: true}
         grants_version: {type: integer, minimum: 1, maximum: 9007199254740991}
       required:
       - kind
@@ -2147,6 +2147,8 @@ components:
         recorded_at: {type: string, format: date-time}
         account_id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
+        account_subdomain: {type: string, pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$', description: 'Current observed account subdomain, available with clients.read.'}
+        product_display_name: {type: string, minLength: 1, maxLength: 512, description: 'Current catalog product name, available with clients.read.'}
         actor_display: {type: string}
         summary: {type: string}
         related_refs: {type: array, items: {type: object, additionalProperties: false, properties: {kind: {type: string, enum: [account, product,

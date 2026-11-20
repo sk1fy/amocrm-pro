@@ -62,3 +62,7 @@ scope belongs in GitHub Issues.
 - [0048. Проекции компаний и настройка CRM-процесса](0048-platform-company-projections.md).
 
 - [0051. Общая воронка для сделок по установкам](0051-shared-installation-deal-settings.md).
+
+- [0054. Подписи событий кабинета менеджеров](0054-manager-feed-presentation.md).
+
+- [0055. Отдельное право на каталог виджетов](0055-manager-catalog-read.md).
