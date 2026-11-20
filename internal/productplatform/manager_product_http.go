@@ -16,9 +16,9 @@ import (
 )
 
 func registerManagerProducts(mux *http.ServeMux, m managerHTTP) {
-	mux.HandleFunc("GET "+managerPath+"products", managerAuthorized("clients.read", false, m.listProducts))
+	mux.HandleFunc("GET "+managerPath+"products", managerAuthorized("catalog.read", false, m.listProducts, "clients.read"))
 	mux.HandleFunc("POST "+managerPath+"products", managerAuthorized("catalog.manage", true, m.createProduct))
-	mux.HandleFunc("GET "+managerPath+"products/{id}", managerAuthorized("clients.read", false, m.getProduct))
+	mux.HandleFunc("GET "+managerPath+"products/{id}", managerAuthorized("catalog.read", false, m.getProduct, "clients.read"))
 	mux.HandleFunc("PATCH "+managerPath+"products/{id}", managerAuthorized("catalog.manage", true, m.updateProduct))
 	mux.HandleFunc("GET "+managerPath+"products/{id}/metrics", managerAuthorized("stats.read", false, m.getProductMetrics))
 }
@@ -92,7 +92,7 @@ func (m managerHTTP) listProducts(w http.ResponseWriter, r *http.Request, env ma
 		writeManagerError(w, http.StatusBadRequest, "validation_failed", env.RequestID, 0)
 		return
 	}
-	if f.Overview && !env.Actor.Grants["stats.read"] {
+	if f.Overview && (!env.Actor.Grants["stats.read"] || !env.Actor.Grants["clients.read"]) {
 		writeManagerError(w, http.StatusForbidden, "permission_denied", env.RequestID, 0)
 		return
 	}

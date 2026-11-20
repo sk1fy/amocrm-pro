@@ -68,6 +68,9 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 	account := uuid.Nil
 	var episode uuid.UUID
 	for _, e := range initial.Items {
+		if e.AccountSubdomain != "" || e.ProductDisplayName != "" {
+			t.Fatal("unobserved account or unconfigured product exposed a label")
+		}
 		if e.Product != nil && *e.Product == pilot.product {
 			account = e.Account
 			for _, ref := range e.Related {
@@ -83,6 +86,9 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 	if account == uuid.Nil || episode == uuid.Nil {
 		t.Fatal("missing lifecycle account or episode")
 	}
+	_, err = owner.Exec(ctx, `INSERT INTO platform_manager.account_identities(account_id,current_domain,display_name,observed_at)
+ VALUES($1,'fixture-17.amocrm.test','Fixture account',now())`, account)
+	mustManager(t, err)
 	history := "accounts/" + account.String() + "/history"
 	catalogActor := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "catalog.manage"}}
 	catalogBody := fmt.Sprintf(`{"code":"pilot-review","display_name":"Reviewed product","line":"PRO","availability":"pilot","integration_refs":[%q],"tariff_version":null,"trial_policy":{"kind":"once","duration_days":7},"links":[]}`, pilot.integration)
@@ -92,16 +98,20 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 		if !slices.ContainsFunc(e.Related, func(ref eventReference) bool { return ref.Kind == "product" && ref.ID == pilot.product }) {
 			t.Fatal("configured catalog destination missing")
 		}
+		if e.AccountSubdomain != "fixture-17" || e.ProductDisplayName != "Reviewed product" {
+			t.Fatalf("unexpected event labels: %+v", e)
+		}
 	}
-
 	filtered := get(second.private, "feed?account_id="+account.String(), all)
 	historical := get(first.private, history, clientsOnly)
-	if len(filtered.Items) != 4 || !slices.EqualFunc(filtered.Items, historical.Items, func(a, b businessEvent) bool { return a.ID == b.ID }) {
-		t.Fatal("history and feed do not share source identity")
+	if len(filtered.Items) != 4 || !slices.EqualFunc(filtered.Items, historical.Items, func(a, b businessEvent) bool {
+		return a.ID == b.ID && a.AccountSubdomain == b.AccountSubdomain && a.ProductDisplayName == b.ProductDisplayName
+	}) {
+		t.Fatal("history and feed do not share source identity and labels")
 	}
 	for _, e := range get(second.private, "feed", feedOnly).Items {
-		if len(e.Related) != 0 || e.Account == uuid.Nil {
-			t.Fatal("feed-only scope or reference permission lost")
+		if len(e.Related) != 0 || e.Account == uuid.Nil || e.AccountSubdomain != "" || e.ProductDisplayName != "" {
+			t.Fatal("feed-only scope or label/reference permission lost")
 		}
 	}
 	managerRequest(t, manager, http.MethodGet, first.private+managerPath+"feed", clientsOnly, none, "", http.StatusForbidden)
@@ -169,6 +179,15 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 	mustManager(t, owner.QueryRow(ctx, `SELECT count(*) FROM platform_manager.feed_snapshots`).Scan(&cached))
 	if cached != 0 {
 		t.Fatal("complete one-page reads consumed cache admission")
+	}
+	productPage := get(first.private, "feed?limit=1&product_id="+pilot.product.String(), all)
+	if productPage.Next == nil {
+		t.Fatal("missing product event continuation")
+	}
+	nextProductPage := get(second.private, "feed?limit=1&product_id="+pilot.product.String()+"&cursor="+url.QueryEscape(*productPage.Next), all)
+	if len(nextProductPage.Items) != 1 || nextProductPage.Items[0].AccountSubdomain != "fixture-17" ||
+		nextProductPage.Items[0].ProductDisplayName != "Reviewed product" {
+		t.Fatal("event labels missing from next page on another replica")
 	}
 	sourceRows, err := owner.Query(ctx, `SELECT id FROM platform_manager.business_events`)
 	mustManager(t, err)
@@ -254,8 +273,9 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 	continuation := "feed?limit=1&cursor=" + url.QueryEscape(*frozen.Next)
 	currentFeedOnly := feedOnly
 	currentFeedOnly.subject = all.subject
-	if p := get(second.private, continuation, currentFeedOnly); len(p.Items[0].Related) != 0 {
-		t.Fatal("continuation reused old destination grants")
+	if p := get(second.private, continuation, currentFeedOnly); len(p.Items[0].Related) != 0 ||
+		p.Items[0].AccountSubdomain != "" || p.Items[0].ProductDisplayName != "" {
+		t.Fatal("continuation reused old label or destination grants")
 	}
 
 	for _, path := range []string{history + "?limit=1&cursor=" + url.QueryEscape(*frozen.Next), continuation + "&kind=installed", continuation + "&account_id=" + account.String()} {
