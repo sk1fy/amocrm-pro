@@ -61,9 +61,27 @@ func parseProductFilters(raw string) (productFilters, string, error) {
 				return f, "", errManagerInput
 			}
 			cursor = value
+		case "overview":
+			if value != "true" && value != "false" {
+				return f, "", errManagerInput
+			}
+			f.Overview = value == "true"
+		case "attention":
+			if value != "true" && value != "false" {
+				return f, "", errManagerInput
+			}
+			f.Attention = value == "true"
+		case "sort":
+			if value != "installations" && value != "name" && value != "code" {
+				return f, "", errManagerInput
+			}
+			f.Sort = value
 		default:
 			return f, "", errManagerInput
 		}
+	}
+	if !f.Overview && (f.Attention || f.Sort != "" && f.Sort != "code") {
+		return f, "", errManagerInput
 	}
 	return f, cursor, nil
 }
@@ -74,6 +92,10 @@ func (m managerHTTP) listProducts(w http.ResponseWriter, r *http.Request, env ma
 		writeManagerError(w, http.StatusBadRequest, "validation_failed", env.RequestID, 0)
 		return
 	}
+	if f.Overview && !env.Actor.Grants["stats.read"] {
+		writeManagerError(w, http.StatusForbidden, "permission_denied", env.RequestID, 0)
+		return
+	}
 	var after productSeek
 	if cursor != "" {
 		after, err = m.options.parseProductCursor(cursor, env.Actor, f.hash())
@@ -82,7 +104,7 @@ func (m managerHTTP) listProducts(w http.ResponseWriter, r *http.Request, env ma
 			return
 		}
 	}
-	page, next, err := m.store.products(r.Context(), f, after)
+	page, next, err := m.store.products(r.Context(), f, after, m.options.zone)
 	if err != nil {
 		writeManagerStoreError(w, env.RequestID, err)
 		return

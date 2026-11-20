@@ -83,6 +83,9 @@ func (s managerStore) product(ctx context.Context, id uuid.UUID) (managerProduct
 type productFilters struct {
 	Q, Line, Availability string
 	Limit                 int
+	Overview              bool   `json:",omitempty"`
+	Sort                  string `json:",omitempty"`
+	Attention             bool   `json:",omitempty"`
 }
 
 func (f productFilters) hash() [32]byte {
@@ -95,6 +98,7 @@ type productPage struct {
 	Next       *string          `json:"next_cursor"`
 	SnapshotAt time.Time        `json:"snapshot_at"`
 	QueryHash  string           `json:"query_hash"`
+	Overview   *productOverview `json:"overview,omitempty"`
 }
 
 type productSeek struct {
@@ -102,9 +106,10 @@ type productSeek struct {
 	Code       string    `json:"code"`
 	ID         uuid.UUID `json:"id"`
 	SnapshotAt time.Time `json:"snapshot_at"`
+	Overview   string    `json:"overview,omitempty"`
 }
 
-func (s managerStore) products(ctx context.Context, f productFilters, after productSeek) (productPage, productSeek, error) {
+func (s managerStore) products(ctx context.Context, f productFilters, after productSeek, zone *time.Location) (productPage, productSeek, error) {
 	hash := f.hash()
 	page := productPage{QueryHash: hex.EncodeToString(hash[:])}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -123,6 +128,9 @@ func (s managerStore) products(ctx context.Context, f productFilters, after prod
 			return page, productSeek{}, errManagerCursor
 		}
 		page.SnapshotAt = after.SnapshotAt
+	}
+	if f.Overview {
+		return readProductOverview(ctx, tx, f, after, page, revision, zone)
 	}
 	rows, err := tx.Query(ctx, `SELECT `+productColumns+productFrom+`
 		WHERE p.catalog_version IS NOT NULL
@@ -156,14 +164,18 @@ type productMetrics struct {
 func (s managerStore) productMetrics(ctx context.Context, id uuid.UUID, start, before *time.Time) (productMetrics, error) {
 	var m productMetrics
 	err := s.pool.QueryRow(ctx, `
-		SELECT
-			(SELECT count(*) FROM platform_manager.installations e WHERE e.product_id=p.id
-				AND ($2::timestamptz IS NULL OR e.opened_at>=$2) AND ($3::timestamptz IS NULL OR e.opened_at<$3)),
-			0::bigint,
+		SELECT episodes.installations,episodes.activations,
 			(SELECT count(*) FROM platform_manager.product_access access WHERE access.product_id=p.id AND access.authorized
 				AND access.own_until>statement_timestamp() AND access.source IN ('own_trial','free','own_paid','manual')),
 			statement_timestamp()
-		FROM platform_lifecycle.products p WHERE p.id=$1 AND p.catalog_version IS NOT NULL`, id, start, before).
+		FROM platform_lifecycle.products p
+		CROSS JOIN LATERAL (
+			SELECT count(*) AS installations,count(c.episode_id) AS activations
+			FROM platform_manager.installations e
+			LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=e.id AND c.activated_at<=statement_timestamp()
+			WHERE e.product_id=p.id AND ($2::timestamptz IS NULL OR e.opened_at>=$2) AND ($3::timestamptz IS NULL OR e.opened_at<$3)
+		) episodes
+		WHERE p.id=$1 AND p.catalog_version IS NOT NULL`, id, start, before).
 		Scan(&m.Installations, &m.Activations, &m.ActiveAccess, &m.SnapshotAt)
 	return m, accountReadError(err)
 }
