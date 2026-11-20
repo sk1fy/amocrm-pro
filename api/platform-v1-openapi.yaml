@@ -1015,6 +1015,9 @@ paths:
       - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
       - {name: line, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO]}}
       - {name: availability, in: query, required: false, schema: {type: string, enum: [draft, pilot, active, archived]}}
+      - {name: overview, in: query, schema: {type: boolean}, description: Includes statistics and requires stats.read.}
+      - {name: attention, in: query, schema: {type: boolean}, description: Filters the list by attention; requires overview.}
+      - {name: sort, in: query, schema: {type: string, enum: [installations, name, code]}, description: Defaults to installations for overview and code otherwise.}
       x-platform-grant: clients.read
     post:
       operationId: createProduct
@@ -2325,11 +2328,86 @@ components:
         next_cursor: {type: [string, 'null']}
         snapshot_at: {type: string, format: date-time}
         query_hash: {type: string}
+        overview: {$ref: '#/components/schemas/ProductOverview'}
       required:
       - items
       - next_cursor
       - snapshot_at
       - query_hash
+    ProductOverview:
+      type: object
+      additionalProperties: false
+      required: [summary, statistics, connections]
+      properties:
+        summary: {$ref: '#/components/schemas/ProductOverviewSummary'}
+        statistics:
+          type: object
+          additionalProperties: {$ref: '#/components/schemas/ProductOverviewStats'}
+          description: Statistics for the returned page, keyed by product UUID.
+        connections:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/ProductConnectionProblem'}
+    ProductOverviewSummary:
+      type: object
+      additionalProperties: false
+      required: [total, by_line, installations, current, recent, activation_eligible, activated, attention, connection_count]
+      properties:
+        total: {type: integer, minimum: 0}
+        by_line:
+          type: object
+          required: [FREE, TOP, PRO]
+          additionalProperties: false
+          properties:
+            FREE: {type: integer, minimum: 0}
+            TOP: {type: integer, minimum: 0}
+            PRO: {type: integer, minimum: 0}
+        installations: {type: integer, minimum: 0}
+        current: {type: integer, minimum: 0}
+        recent: {type: integer, minimum: 0}
+        activation_eligible: {type: integer, minimum: 0}
+        activated: {type: integer, minimum: 0}
+        attention: {type: integer, minimum: 0}
+        connection_count: {type: integer, minimum: 0}
+    ProductOverviewStats:
+      type: object
+      additionalProperties: false
+      required: [months, installations, current, retained, recent, activation_eligible, activated, connection_count, missing_install_link, missing_instruction]
+      properties:
+        months:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items:
+            type: object
+            additionalProperties: false
+            required: [month, count]
+            properties:
+              month: {type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'}
+              count: {type: integer, minimum: 0}
+        installations: {type: integer, minimum: 0}
+        current: {type: integer, minimum: 0}
+        retained: {type: integer, minimum: 0}
+        recent: {type: integer, minimum: 0}
+        activation_eligible: {type: integer, minimum: 0}
+        activated: {type: integer, minimum: 0}
+        connection_count: {type: integer, minimum: 0}
+        missing_install_link: {type: boolean}
+        missing_instruction: {type: boolean}
+    ProductConnectionProblem:
+      type: object
+      additionalProperties: false
+      required: [installation_id, product_id, name, line, account_id, amo_account_id, account_name, account_domain, since]
+      properties:
+        installation_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        name: {type: string}
+        line: {type: string, enum: [FREE, TOP, PRO]}
+        account_id: {type: string, format: uuid}
+        amo_account_id: {$ref: '#/components/schemas/AmoID'}
+        account_name: {type: [string, 'null']}
+        account_domain: {type: [string, 'null']}
+        since: {type: [string, 'null'], format: date-time}
     EventList:
       type: object
       additionalProperties: false

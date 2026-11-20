@@ -83,6 +83,29 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	if len(next.Items) != 1 || next.Items[0].ID != pilot.product || next.Next != nil || !next.SnapshotAt.Equal(page.SnapshotAt) {
 		t.Fatalf("cross-replica catalog paging changed order or snapshot: %+v", next)
 	}
+	reader := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "stats.read"}}
+	overviewPath := base + "?overview=true&limit=1"
+	managerRequest(t, client, http.MethodGet, first.private+overviewPath, noStats, managerTestCommand{}, "", http.StatusForbidden)
+	firstStats := managerJSON[productPage](t, managerRequest(t, client, http.MethodGet,
+		first.private+overviewPath, reader, managerTestCommand{}, "", http.StatusOK).body)
+	if len(firstStats.Items) != 1 || firstStats.Items[0].ID != pilot.product || firstStats.Next == nil ||
+		firstStats.Overview == nil || firstStats.Overview.Summary.Total != 2 || firstStats.Overview.Summary.ByLine["PRO"] != 1 {
+		t.Fatalf("unexpected catalog overview: %+v", firstStats)
+	}
+	series := firstStats.Overview.Statistics[pilot.product]
+	var installations int
+	for _, month := range series.Months {
+		installations += month.Count
+	}
+	if len(series.Months) != 12 || installations == 0 || installations != series.Installations || len(firstStats.Overview.Statistics) != 1 {
+		t.Fatalf("unexpected series for monthly installations: %+v", series)
+	}
+	secondStats := managerJSON[productPage](t, managerRequest(t, client, http.MethodGet,
+		second.private+overviewPath+"&cursor="+url.QueryEscape(*firstStats.Next), reader, managerTestCommand{}, "", http.StatusOK).body)
+	if len(secondStats.Items) != 1 || secondStats.Items[0].ID != draft.ID || secondStats.Next != nil ||
+		secondStats.Overview == nil || secondStats.Overview.Summary.Total != 2 || !secondStats.SnapshotAt.Equal(firstStats.SnapshotAt) {
+		t.Fatalf("catalog overview changed across pages: %+v", secondStats)
+	}
 	badRefs := fmt.Sprintf(`{"integration_refs":[%q]}`, pilot.otherIntegration)
 	managerRequest(t, client, http.MethodPatch, first.private+productPath, editor, newManagerTestCommand(pilot.product, 1), badRefs, http.StatusUnprocessableEntity).
 		requireCode(t, "integration_mapping_mismatch")
@@ -117,9 +140,17 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	if metrics.Installations != 2 || metrics.ActiveAccess != 1 || metrics.Activations != 0 {
 		t.Fatalf("reauth inflated operational metrics: %+v", metrics)
 	}
+	_, err = owner.Exec(ctx, `INSERT INTO platform_manager.installation_contacts(episode_id,amo_user_id,name,phone,consent_version)
+		SELECT id,1,'Fixture contact','+19995550000',$2 FROM platform_lifecycle.episodes WHERE installation_id=$1 AND generation=2`,
+		pilot.installation, wire.ContactConsent)
+	mustManager(t, err)
+	withActivation := managerJSON[productMetrics](t, managerRequest(t, client, http.MethodGet, first.private+metricsPath, stats, managerTestCommand{}, "", http.StatusOK).body)
+	if withActivation.Activations != 1 || withActivation.Installations != metrics.Installations {
+		t.Fatalf("activation was not counted for the installation: %+v", withActivation)
+	}
 	managerRequest(t, client, http.MethodGet, first.private+metricsPath, noStats, managerTestCommand{}, "", http.StatusForbidden)
 	future := managerJSON[productMetrics](t, managerRequest(t, client, http.MethodGet, second.private+metricsPath+"?from=2099-01-01", stats, managerTestCommand{}, "", http.StatusOK).body)
-	if future.Installations != 0 || future.ActiveAccess != metrics.ActiveAccess {
+	if future.Installations != 0 || future.Activations != 0 || future.ActiveAccess != metrics.ActiveAccess {
 		t.Fatalf("historical filter changed current gauge: %+v", future)
 	}
 
