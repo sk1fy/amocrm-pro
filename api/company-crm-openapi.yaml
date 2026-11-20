@@ -173,7 +173,7 @@ paths:
   /v1/company-crm/installation-deals:
     post:
       operationId: InstallationDeal
-      description: Platform company CRM identity only. Uses one fixed OAuth binding and host. With create=false only searches for the reserved title.
+      description: Platform company CRM identity only. Uses one fixed OAuth binding and host. With create=false only searches for the reserved deal.
       requestBody:
         required: true
         content:
@@ -190,6 +190,8 @@ paths:
                 pipeline_id: {type: integer, format: int64, minimum: 1}
                 stage_id: {type: integer, format: int64, minimum: 1}
                 create: {type: boolean}
+                client_amo_account_id: {type: integer, format: int64, minimum: 1, description: Account that installed the widget. Sent when creating the deal.}
+                active_users: {type: integer, minimum: 0, maximum: 1000, description: Active CRM users from a fresh complete observation for the client account.}
       responses:
         '200':
           description: Confirmed outcome.

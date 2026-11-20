@@ -3,6 +3,7 @@ package productplatform
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +16,10 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 )
 
-const InstallationDealJob queue.Kind = "installation.deal"
+const (
+	InstallationDealJob          queue.Kind = "installation.deal"
+	InstallationDealUsersTimeout            = 5 * time.Second
+)
 
 type InstallationDealSource interface {
 	Scope() (int64, string)
@@ -23,12 +27,22 @@ type InstallationDealSource interface {
 }
 
 type InstallationDeals struct {
-	Pool    *pgxpool.Pool
-	Source  InstallationDealSource
-	Manager *ManagerOptions
+	Pool     *pgxpool.Pool
+	Source   InstallationDealSource
+	Manager  *ManagerOptions
+	Accounts *AccountObserver
 }
 
 func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Completion {
+	if d.Accounts != nil {
+		// Refresh before reserving the write so an interrupted read cannot leave a deal on reconciliation.
+		refreshCtx, cancel := context.WithTimeout(ctx, InstallationDealUsersTimeout)
+		err := d.Accounts.refreshInstallationDealUsers(refreshCtx, job.ID)
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			slog.Warn("Installation deal user count unavailable")
+		}
+	}
 	request, skip, err := d.reserve(ctx, job.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return queue.Completion{}
@@ -59,6 +73,46 @@ func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Complet
 			FailureCode: "deal_not_found", Retry: true, RetryAfter: time.Minute,
 		})
 	}
+}
+
+func (o *AccountObserver) refreshInstallationDealUsers(ctx context.Context, episode uuid.UUID) error {
+	var account uuid.UUID
+	err := o.pool.QueryRow(ctx, `
+		SELECT i.account_id FROM platform_manager.installation_deals d
+		JOIN platform_manager.installations i ON i.id=d.episode_id
+		LEFT JOIN platform_manager.account_profiles p ON p.account_id=i.account_id
+		WHERE d.episode_id=$1 AND d.status='pending' AND d.title IS NULL AND i.lifecycle='current'
+			AND p.classification IS DISTINCT FROM 'Запрет работы'
+			AND NOT EXISTS(
+				SELECT FROM platform_manager.account_rosters r
+				WHERE r.account_id=i.account_id AND r.failure_code IS NULL AND r.fresh_until>statement_timestamp()
+			)`, episode).Scan(&account)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	scope, err := accountSourceScope(ctx, o.pool, account)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	observation, outcome := observeAccount(ctx, o.gateway, scope, refreshUsers)
+	if outcome.FailureCode != "" {
+		return nil
+	}
+	tx, err := o.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := publishAccountObservation(ctx, tx, accountRefreshPayload{Account: account, Component: refreshUsers}, scope, observation, outcome); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (companycrm.DealRequest, string, error) {
@@ -95,12 +149,16 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	var installedAt time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
-			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,''),inst.opened_at
+			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,''),inst.opened_at,
+			inst.amo_account_id,u.active_count
 		FROM platform_manager.installations inst
 		LEFT JOIN platform_manager.account_identities i USING(account_id)
 		LEFT JOIN platform_manager.account_profiles p USING(account_id)
+		LEFT JOIN platform_manager.account_rosters u
+			ON u.account_id=inst.account_id AND u.failure_code IS NULL AND u.fresh_until>transaction_timestamp()
 		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
-		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification, &installedAt)
+		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification, &installedAt,
+		&request.ClientAccountID, &request.ActiveUsers)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
 		return request, "skipped", nil
 	}

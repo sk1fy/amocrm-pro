@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -16,13 +17,15 @@ import (
 const DealPath = "/v1/company-crm/installation-deals"
 
 type DealRequest struct {
-	Episode  uuid.UUID `json:"episode_id"`
-	Account  int64     `json:"source_account_id"`
-	Binding  string    `json:"binding_revision"`
-	Title    string    `json:"title"`
-	Pipeline int64     `json:"pipeline_id,omitempty"`
-	Stage    int64     `json:"stage_id,omitempty"`
-	Create   bool      `json:"create"`
+	Episode         uuid.UUID `json:"episode_id"`
+	Account         int64     `json:"source_account_id"`
+	Binding         string    `json:"binding_revision"`
+	Title           string    `json:"title"`
+	Pipeline        int64     `json:"pipeline_id,omitempty"`
+	Stage           int64     `json:"stage_id,omitempty"`
+	Create          bool      `json:"create"`
+	ClientAccountID int64     `json:"client_amo_account_id,omitempty"`
+	ActiveUsers     *int      `json:"active_users,omitempty"`
 }
 
 type DealResult struct {
@@ -32,10 +35,12 @@ type DealResult struct {
 }
 
 type DealService struct {
-	CRM           *amocrm.Client
-	Host          string
-	Resolver      Resolver
-	MarkerFieldID int64
+	CRM              *amocrm.Client
+	Host             string
+	Resolver         Resolver
+	MarkerFieldID    int64
+	AccountIDFieldID int64
+	UserCountFieldID int64
 }
 
 func DealMarker(episode uuid.UUID) string { return "РКРС-" + episode.String() }
@@ -49,6 +54,8 @@ func (s *Service) installationDeal(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
 	if err != nil || wire.Decode(raw, &input) != nil || input.Episode == uuid.Nil || input.Account <= 0 ||
 		len(input.Title) > 512 || strings.TrimSpace(input.Title) == "" ||
+		input.ClientAccountID < 0 || (input.ActiveUsers != nil &&
+		(input.ClientAccountID <= 0 || *input.ActiveUsers < 0 || *input.ActiveUsers > 1000)) ||
 		(input.Create && (input.Pipeline <= 0 || input.Stage <= 0)) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -85,10 +92,20 @@ func (s *Service) installationDeal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *DealService) execute(ctx context.Context, binding Binding, in DealRequest, marker string, markerFieldID int64) (int64, error) {
-	if in.Create {
-		return s.CRM.CreateCompanyLead(ctx, binding.InstallationID, in.Title, in.Pipeline, in.Stage, markerFieldID, marker)
+	if !in.Create {
+		return s.CRM.FindCompanyLead(ctx, binding.InstallationID, marker, in.Title, markerFieldID)
 	}
-	return s.CRM.FindCompanyLead(ctx, binding.InstallationID, marker, in.Title, markerFieldID)
+	var fields []amocrm.CompanyLeadField
+	if markerFieldID > 0 {
+		fields = append(fields, amocrm.CompanyLeadField{ID: markerFieldID, Value: marker})
+	}
+	if s.AccountIDFieldID > 0 && in.ClientAccountID > 0 {
+		fields = append(fields, amocrm.CompanyLeadField{ID: s.AccountIDFieldID, Value: strconv.FormatInt(in.ClientAccountID, 10)})
+	}
+	if s.UserCountFieldID > 0 && in.ActiveUsers != nil {
+		fields = append(fields, amocrm.CompanyLeadField{ID: s.UserCountFieldID, Value: strconv.Itoa(*in.ActiveUsers)})
+	}
+	return s.CRM.CreateCompanyLead(ctx, binding.InstallationID, in.Title, in.Pipeline, in.Stage, fields)
 }
 
 func explicitLeadRejection(err error) bool {

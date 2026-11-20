@@ -149,15 +149,19 @@ func run() error {
 			handlers[productplatform.AccountRefreshJob] = accountObserver.RefreshJob
 		}
 		queueConfig := queue.DefaultConfig(cfg.workers)
+		queueConfig.HandlerTimeoutByKind = make(map[queue.Kind]time.Duration)
 		if companyObserver != nil {
 			companyKind := companyObserver.Kind()
 			handlers[companyKind] = companyObserver.RefreshJob
-			queueConfig.HandlerTimeoutByKind = map[queue.Kind]time.Duration{companyKind: companycrm.ReadTimeout + 10*time.Second}
+			queueConfig.HandlerTimeoutByKind[companyKind] = companycrm.ReadTimeout + 10*time.Second
 			queueConfig.LeaseDuration = companycrm.ReadTimeout + 30*time.Second
 		}
 		if companyDeals != nil {
-			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals, Manager: cfg.manager}
+			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals, Manager: cfg.manager, Accounts: accountObserver}
 			handlers[productplatform.InstallationDealJob] = deals.Run
+			if accountObserver != nil {
+				queueConfig.HandlerTimeoutByKind[productplatform.InstallationDealJob] = queueConfig.HandlerTimeout + productplatform.InstallationDealUsersTimeout
+			}
 		}
 		worker := queue.NewWorker(queue.NewStore(jobs), handlers, queueConfig, registry)
 		runWorker = func(ctx context.Context) {
