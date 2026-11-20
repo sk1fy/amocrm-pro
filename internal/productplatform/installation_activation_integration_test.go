@@ -15,7 +15,18 @@ import (
 	wire "github.com/sk1fy/amocrm-pro/internal/platformlifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
+	"github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+type dealUserObserver func(*platformpb.ObserveAccountRequest) (*platformpb.AccountObservation, error)
+
+func (f dealUserObserver) ObserveAccount(_ context.Context, request *platformpb.ObserveAccountRequest, _ ...grpc.CallOption) (*platformpb.AccountObservation, error) {
+	return f(request)
+}
 
 type installationDealStub struct {
 	requests []companycrm.DealRequest
@@ -149,11 +160,33 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		SELECT account_id,'fixture-account.amocrm.ru','Fixture account',statement_timestamp()
 		FROM platform_manager.installations WHERE id=$1`, episode)
 	mustManager(t, err)
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.account_rosters(account_id,roster,active_count,evidence_id,observed_at,fresh_until)
+		SELECT account_id,'[]'::jsonb,0,$2,statement_timestamp(),statement_timestamp()+interval '1 hour'
+		FROM platform_manager.installations WHERE id=$1`, episode, uuid.New())
+	mustManager(t, err)
 	zone, err := time.LoadLocation("Europe/Moscow")
 	mustManager(t, err)
 	date := at.In(zone).Format("02.01.2006")
 	fake := &installationDealStub{}
-	service := InstallationDeals{Pool: pool, Source: fake, Manager: &ManagerOptions{zone: zone}}
+	var observedAccounts []int64
+	gateway := dealUserObserver(func(request *platformpb.ObserveAccountRequest) (*platformpb.AccountObservation, error) {
+		observedAccounts = append(observedAccounts, request.AmoAccountId)
+		if request.Component != platformpb.AccountObservationComponent_ACCOUNT_OBSERVATION_COMPONENT_USERS {
+			t.Fatalf("unexpected observation type: %s", request.Component)
+		}
+		if request.AmoAccountId != 2542 {
+			return nil, status.Error(codes.Unavailable, "fixture gateway unavailable")
+		}
+		return &platformpb.AccountObservation{ObservedAt: timestamppb.Now(), Result: &platformpb.AccountObservation_Roster{
+			Roster: &platformpb.CRMUserRoster{Users: []*platformpb.ObservedCRMUser{
+				{Id: 1, Name: "Fixture employee", IsActive: true},
+				{Id: 2, Name: "Second fixture employee", IsActive: true},
+				{Id: 3, Name: "Inactive fixture employee"},
+			}},
+		}}, nil
+	})
+	service := InstallationDeals{Pool: pool, Source: fake, Manager: &ManagerOptions{zone: zone}, Accounts: NewAccountObserver(pool, gateway)}
 	run := func() {
 		completion := service.Run(ctx, queue.Job{ID: episode, Kind: InstallationDealJob})
 		if completion.Publish == nil {
@@ -181,6 +214,10 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		fake.requests[0].Title != found.Items[0].ProductName+" · fixture-account · Fixture employee · "+date ||
 		fake.requests[0].Title != fake.requests[1].Title || fake.requests[0].Pipeline != 100 || fake.requests[0].Stage != 101 {
 		t.Fatalf("uncertain request was not reconciled by its original title: %+v", fake.requests)
+	}
+	if fake.requests[0].ClientAccountID != scope.Account || fake.requests[0].ActiveUsers == nil || *fake.requests[0].ActiveUsers != 0 ||
+		fake.requests[1].ClientAccountID != 0 || fake.requests[1].ActiveUsers != nil || len(observedAccounts) != 0 {
+		t.Fatalf("account enrichment did not distinguish creation, zero users and reconciliation: %+v", fake.requests)
 	}
 	_, err = owner.Exec(ctx, `UPDATE platform_jobs.jobs SET status='succeeded' WHERE id=$1`, episode)
 	mustManager(t, err)
@@ -210,6 +247,12 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		SELECT d.episode_id,i.product_name FROM platform_manager.installation_deals d
 		JOIN platform_manager.installations i ON i.id=d.episode_id
 		WHERE i.amo_account_id=2542`).Scan(&otherEpisode, &otherProductName))
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.account_rosters(account_id,roster,active_count,evidence_id,observed_at,fresh_until)
+		SELECT account_id,'[{"id":"1","name":"Fixture employee","is_active":true,"is_admin":false}]'::jsonb,
+			1,$2,statement_timestamp()-interval '2 days',statement_timestamp()-interval '1 day'
+		FROM platform_manager.installations WHERE id=$1`, otherEpisode, uuid.New())
+	mustManager(t, err)
 	episode = otherEpisode
 	run()
 	if len(fake.requests) != 3 || !fake.requests[2].Create ||
@@ -217,11 +260,26 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		fake.requests[2].Pipeline != fake.requests[0].Pipeline || fake.requests[2].Stage != fake.requests[0].Stage {
 		t.Fatalf("different widgets must use the same destination: %+v", fake.requests)
 	}
+	if fake.requests[2].ClientAccountID != 2542 || fake.requests[2].ActiveUsers == nil || *fake.requests[2].ActiveUsers != 2 ||
+		len(observedAccounts) != 1 || observedAccounts[0] != 2542 {
+		t.Fatalf("second account was not observed before deal creation: %+v", fake.requests[2])
+	}
 
 	write(wire.Uninstalled, 2, 1)
 	write(wire.Reinstalled, 3, 2)
 	_, err = lifecycle.storeActivation(ctx, wire.ActivationRequest{Scope: scope, Contact: &contact})
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("old activation scope was accepted: %v", err)
+	}
+	mustManager(t, owner.QueryRow(ctx, `
+		SELECT id FROM platform_manager.installations WHERE amo_account_id=$1 AND lifecycle='current'`, scope.Account).Scan(&episode))
+	_, err = owner.Exec(ctx, `
+		UPDATE platform_manager.account_rosters SET failure_code='source_unavailable'
+		WHERE account_id=(SELECT account_id FROM platform_manager.installations WHERE id=$1)`, episode)
+	mustManager(t, err)
+	run()
+	if len(fake.requests) != 4 || !fake.requests[3].Create || fake.requests[3].ClientAccountID != scope.Account ||
+		fake.requests[3].ActiveUsers != nil || len(observedAccounts) != 2 || observedAccounts[1] != scope.Account {
+		t.Fatalf("unavailable user count prevented deal creation or carried an old count: %+v", fake.requests)
 	}
 }

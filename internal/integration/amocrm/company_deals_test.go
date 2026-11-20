@@ -26,7 +26,8 @@ func TestCompanyLeadMarkerField(t *testing.T) {
 			}
 			err := json.NewDecoder(r.Body).Decode(&leads)
 			if err != nil || len(leads) != 1 || leads[0].Name != title || leads[0].Pipeline != 100 ||
-				leads[0].Stage != 101 || !leads[0].hasMarker(5, marker) {
+				leads[0].Stage != 101 || len(leads[0].Fields) != 3 || !leads[0].hasFieldValue(5, marker) ||
+				!leads[0].hasFieldValue(6, "2542") || !leads[0].hasFieldValue(7, "0") {
 				t.Errorf("unexpected create request %+v, error %v", leads, err)
 			}
 			fmt.Fprint(w, `{"_embedded":{"leads":[{"id":10}]}}`)
@@ -44,7 +45,11 @@ func TestCompanyLeadMarkerField(t *testing.T) {
 		}
 	})
 	installation := uuid.New()
-	id, err := c.CreateCompanyLead(t.Context(), installation, title, 100, 101, 5, marker)
+	id, err := c.CreateCompanyLead(t.Context(), installation, title, 100, 101, []CompanyLeadField{
+		{ID: 5, Value: marker},
+		{ID: 6, Value: "2542"},
+		{ID: 7, Value: "0"},
+	})
 	if err != nil || id != 10 {
 		t.Fatalf("create id=%d err=%v", id, err)
 	}
