@@ -11,9 +11,13 @@ import (
 )
 
 type portraitTemplateTopic struct {
-	ID      uuid.UUID `json:"id"`
-	Title   string    `json:"title"`
-	Prompts []string  `json:"prompts"`
+	ID               uuid.UUID `json:"id"`
+	Title            string    `json:"title"`
+	Prompts          []string  `json:"prompts"`
+	Leader           string    `json:"leader,omitempty"`
+	MarketCategories []string  `json:"market_categories,omitempty"`
+	AnswerMode       string    `json:"answer_mode,omitempty"`
+	WarmthSteps      []string  `json:"warmth_steps,omitempty"`
 }
 
 type portraitTemplate struct {
@@ -92,7 +96,7 @@ func parsePortraitTemplateInput(raw []byte) ([]portraitTemplateTopic, error) {
 
 func parsePortraitTemplateTopic(raw []byte) (portraitTemplateTopic, error) {
 	var topic portraitTemplateTopic
-	fields, err := portraitObject(raw, "id", "title", "prompts")
+	fields, err := portraitObject(raw, "id", "title", "prompts", "leader", "market_categories", "answer_mode", "warmth_steps")
 	if err != nil {
 		return topic, err
 	}
@@ -106,6 +110,22 @@ func parsePortraitTemplateTopic(raw []byte) (portraitTemplateTopic, error) {
 	}
 	ok, err = portraitMember(fields, "prompts", &topic.Prompts, false)
 	if err != nil || !ok || !validPortraitStrings(topic.Prompts, 30, 2000) {
+		return topic, errManagerInput
+	}
+	if present, err := portraitMember(fields, "leader", &topic.Leader, false); err != nil ||
+		present && (!managerText(topic.Leader, 1, 300) || strings.TrimSpace(topic.Leader) == "") {
+		return topic, errManagerInput
+	}
+	if present, err := portraitMember(fields, "answer_mode", &topic.AnswerMode, false); err != nil ||
+		present && topic.AnswerMode != "note" && topic.AnswerMode != "yes_no" {
+		return topic, errManagerInput
+	}
+	if present, err := portraitMember(fields, "market_categories", &topic.MarketCategories, false); err != nil ||
+		present && !validPortraitStrings(topic.MarketCategories, 12, 120) {
+		return topic, errManagerInput
+	}
+	if present, err := portraitMember(fields, "warmth_steps", &topic.WarmthSteps, false); err != nil ||
+		present && !validPortraitStrings(topic.WarmthSteps, 4, 80) {
 		return topic, errManagerInput
 	}
 	return topic, nil

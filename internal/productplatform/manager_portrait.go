@@ -37,6 +37,7 @@ type portraitRecord struct {
 	Company  companyPortrait
 	Maturity map[uuid.UUID]bool
 	Notes    map[uuid.UUID]string
+	People   []portraitPerson `json:"-"`
 	Version  int64
 }
 
@@ -56,6 +57,14 @@ type portraitAuditDate struct {
 	Note *string   `json:"note"`
 }
 
+type portraitPerson struct {
+	ID     uuid.UUID `json:"id"`
+	Name   string    `json:"name"`
+	Phone  string    `json:"phone,omitempty"`
+	CRMURL string    `json:"crm_url,omitempty"`
+	Roles  []string  `json:"roles"`
+}
+
 type accountPortrait struct {
 	Account         uuid.UUID           `json:"account_id"`
 	TemplateVersion int64               `json:"template_version"`
@@ -63,6 +72,8 @@ type accountPortrait struct {
 	Maturity        []portraitMaturity  `json:"maturity_signals"`
 	Topics          []portraitTopicNote `json:"topics"`
 	AuditDates      []portraitAuditDate `json:"audit_dates"`
+	People          []portraitPerson    `json:"people"`
+	WidgetTiers     portraitWidgetTiers `json:"widget_tiers"`
 	Version         int64               `json:"version"`
 }
 
@@ -88,6 +99,7 @@ type accountPortraitPatch struct {
 	Company  portraitCompanyPatch
 	Maturity []portraitMaturityPatch
 	Topics   []portraitTopicNote
+	People   *[]portraitPerson `json:",omitempty"`
 }
 
 type portraitAuditInput struct {
@@ -108,16 +120,16 @@ func getAccountPortrait(ctx context.Context, db portraitQueryer, id uuid.UUID) (
 	var topics []portraitTemplateTopic
 	err := db.QueryRow(ctx, `
 		SELECT COALESCE(p.version,1),p.niche_id,p.site,p.rating,p.work_types,p.customer_types,
-		       p.maturity,p.topic_notes,t.version,t.topics,
+		       p.maturity,p.topic_notes,t.version,t.topics,COALESCE(p.people,'[]'::jsonb),
 		       COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'date',d.audit_date,'note',d.note)
 		                   ORDER BY d.audit_date DESC) FROM platform_manager.portrait_audit_dates d
-		                 WHERE d.account_id=a.account_id),'[]'::jsonb)
+		                 WHERE d.account_id=a.account_id),'[]'::jsonb), `+portraitWidgetTiersJSON+`
 		FROM platform_manager.visible_accounts a
 		LEFT JOIN platform_manager.account_portraits p USING(account_id)
 		CROSS JOIN platform_manager.portrait_template t
 		WHERE a.account_id=$1`, id).Scan(&out.Version, &out.Company.NicheID, &out.Company.Site,
 		&out.Company.Rating, &out.Company.WorkTypes, &out.Company.CustomerTypes,
-		&maturity, &notes, &out.TemplateVersion, &topics, &out.AuditDates)
+		&maturity, &notes, &out.TemplateVersion, &topics, &out.People, &out.AuditDates, &out.WidgetTiers)
 	if err != nil {
 		return out, accountReadError(err)
 	}
@@ -140,10 +152,10 @@ func lockAccountPortrait(ctx context.Context, tx pgx.Tx, account uuid.UUID) (por
 		ON CONFLICT(account_id) DO NOTHING`, account); err != nil {
 		return p, err
 	}
-	err := tx.QueryRow(ctx, `SELECT version,niche_id,site,rating,work_types,customer_types,maturity,topic_notes
+	err := tx.QueryRow(ctx, `SELECT version,niche_id,site,rating,work_types,customer_types,maturity,topic_notes,people
 		FROM platform_manager.account_portraits WHERE account_id=$1 FOR UPDATE`, account).
 		Scan(&p.Version, &p.Company.NicheID, &p.Company.Site, &p.Company.Rating, &p.Company.WorkTypes,
-			&p.Company.CustomerTypes, &p.Maturity, &p.Notes)
+			&p.Company.CustomerTypes, &p.Maturity, &p.Notes, &p.People)
 	return p, err
 }
 
@@ -255,17 +267,25 @@ func applyAccountPortraitPatch(ctx context.Context, tx pgx.Tx, cmd managerComman
 			changed = changed || !exists || value != topic.Note
 		}
 	}
-	if changed {
+	peopleChanged := input.People != nil && !reflect.DeepEqual(p.People, *input.People)
+	if peopleChanged {
+		p.People = *input.People
+	}
+	if changed || peopleChanged {
 		err := tx.QueryRow(ctx, `UPDATE platform_manager.account_portraits SET
-			version=version+1,niche_id=$2,site=$3,rating=$4,work_types=$5,customer_types=$6,maturity=$7,topic_notes=$8
+			version=version+1,niche_id=$2,site=$3,rating=$4,work_types=$5,customer_types=$6,maturity=$7,topic_notes=$8,people=$9
 			WHERE account_id=$1 RETURNING version`, cmd.Account, p.Company.NicheID, p.Company.Site,
-			p.Company.Rating, p.Company.WorkTypes, p.Company.CustomerTypes, p.Maturity, p.Notes).Scan(&p.Version)
+			p.Company.Rating, p.Company.WorkTypes, p.Company.CustomerTypes, p.Maturity, p.Notes, p.People).Scan(&p.Version)
 		if err != nil {
 			return managerOutcome{}, err
 		}
+		details := map[string]any{"before": previous, "after": p}
+		if peopleChanged {
+			details["people_changed"] = true
+		}
 		if _, err := recordAccountChange(ctx, tx, cmd, accountChange{
 			Account: cmd.Account, Kind: accountPortraitUpdated, Version: p.Version,
-			Details: map[string]any{"before": previous, "after": p},
+			Details: details,
 		}); err != nil {
 			return managerOutcome{}, err
 		}
