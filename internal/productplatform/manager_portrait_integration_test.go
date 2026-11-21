@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +54,7 @@ func TestPlatformPortraitAcrossReplicas(t *testing.T) {
 
 	initial := managerRequest(t, manager, http.MethodGet, first.private+portraitA, writer, none, "", http.StatusOK)
 	if initial.etag != `"1"` || !bytes.Contains(initial.body, []byte(`"company":{}`)) ||
-		!bytes.Contains(initial.body, []byte(`"topics":[]`)) {
+		!bytes.Contains(initial.body, []byte(`"topics":[]`)) || !bytes.Contains(initial.body, []byte(`"people":[]`)) {
 		t.Fatalf("unconfigured account is not an empty versioned portrait: %s", initial.body)
 	}
 	topic1, topic2 := uuid.New(), uuid.New()
@@ -60,7 +62,10 @@ func TestPlatformPortraitAcrossReplicas(t *testing.T) {
 		return fmt.Sprintf(`{"id":%q,"title":%q,"prompts":["Вопрос"]}`, id.String(), name)
 	}
 	template := func(a, b string) string { return fmt.Sprintf(`{"topics":[%s,%s]}`, a, b) }
-	topicA, topicB := topic(topic1, "Тема 1"), topic(topic2, "Тема 2")
+	topicA := topic(topic1, "Тема 1")
+	topicB := fmt.Sprintf(`{"id":%q,"title":"Тема 2","prompts":["Вопрос"],
+		"answer_mode":"yes_no","leader":"Решение","market_categories":["Аналитика"],
+		"warmth_steps":["показали","пользуется"]}`, topic2.String())
 	putTemplate := func(actor managerTestActor, version int64, input string, status int) observedManagerResponse {
 		return managerRequest(t, manager, http.MethodPut, first.private+templatePath, actor,
 			newManagerTestCommand(uuid.Nil, version), input, status)
@@ -69,6 +74,15 @@ func TestPlatformPortraitAcrossReplicas(t *testing.T) {
 	configured := putTemplate(config, 1, template(topicA, topicB), http.StatusOK)
 	if configured.etag != `"2"` {
 		t.Fatalf("initial template version %s", configured.etag)
+	}
+	savedTemplate := managerJSON[portraitTemplate](t, managerRequest(t, manager, http.MethodGet,
+		second.private+templatePath, writer, none, "", http.StatusOK).body)
+	if len(savedTemplate.Topics) != 2 ||
+		savedTemplate.Topics[1].AnswerMode != "yes_no" ||
+		savedTemplate.Topics[1].Leader != "Решение" ||
+		!slices.Equal(savedTemplate.Topics[1].MarketCategories, []string{"Аналитика"}) ||
+		!slices.Equal(savedTemplate.Topics[1].WarmthSteps, []string{"показали", "пользуется"}) {
+		t.Fatalf("template metadata was not preserved: %+v", savedTemplate)
 	}
 	createNiche := func(name string) portraitNiche {
 		res := managerRequest(t, manager, http.MethodPost, first.private+nichePath, config, newManagerTestCommand(uuid.Nil, 0),
@@ -217,5 +231,76 @@ func TestPlatformPortraitAcrossReplicas(t *testing.T) {
 		WHERE e.account_id=$1 AND e.kind='portrait_updated'`, accountA).Scan(&events, &safeRecords))
 	if events != 3 || safeRecords != 3 {
 		t.Fatalf("portrait projection recorded %d events, %d with matching safe outbox IDs", events, safeRecords)
+	}
+
+	verifyPortraitPeople(t, pilot, manager, first.private, second.private, portraitA, accountA, writer, restored.Version)
+}
+
+func verifyPortraitPeople(t *testing.T, pilot managerPilot, manager *http.Client, first, second, path string,
+	account uuid.UUID, writer managerTestActor, version int64) {
+	t.Helper()
+	id := uuid.New()
+	const privateName = "Synthetic private contact"
+	const phone = "+7 (000) 000-00-00"
+	const crmURL = "https://rakurscrm.amocrm.ru/contacts/detail/9007199254740993"
+	person := fmt.Sprintf(`{"id":%q,"name":%q,"phone":%q,"crm_url":%q,"roles":["setup","decision_maker"]}`,
+		id, " "+privateName+" ", " "+phone+" ", crmURL)
+	patch := `{"people":[` + person + `]}`
+	readonly := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read"}}
+	managerRequest(t, manager, http.MethodPatch, first+path, readonly, newManagerTestCommand(account, version), patch, http.StatusForbidden)
+	for _, invalid := range []string{
+		`{"people":null}`,
+		`{"people":[` + person + `,` + person + `]}`,
+		fmt.Sprintf(`{"people":[{"id":%q,"name":"Contact","crm_url":"https://rakurscrm.amocrm.ru@evil.example/contacts/detail/12","roles":[]}]}`, id),
+		fmt.Sprintf(`{"people":[{"id":%q,"name":"Contact","roles":["partner","partner"]}]}`, id),
+	} {
+		managerRequest(t, manager, http.MethodPatch, first+path, writer, newManagerTestCommand(account, version), invalid, http.StatusBadRequest).
+			requireCode(t, "validation_failed")
+	}
+
+	add := newManagerTestCommand(account, version)
+	created := managerRequest(t, manager, http.MethodPatch, first+path, writer, add, patch, http.StatusOK)
+	across := managerRequest(t, manager, http.MethodGet, second+path, writer, managerTestCommand{}, "", http.StatusOK)
+	loaded := managerJSON[accountPortrait](t, across.body)
+	if loaded.Version != version+1 || len(loaded.People) != 1 || loaded.People[0].ID != id ||
+		loaded.People[0].Name != privateName || loaded.People[0].Phone != phone || loaded.People[0].CRMURL != crmURL ||
+		!slices.Equal(loaded.People[0].Roles, []string{"decision_maker", "setup"}) {
+		t.Fatalf("unexpected preserved contact: %+v", loaded.People)
+	}
+	replay := managerRequest(t, manager, http.MethodPatch, second+path, writer, add, patch, http.StatusOK)
+	if !bytes.Equal(replay.body, created.body) || replay.etag != created.etag {
+		t.Fatal("portrait people command returned a different replay")
+	}
+	managerRequest(t, manager, http.MethodPatch, second+path, writer, add, `{"people":[]}`, http.StatusConflict).
+		requireCode(t, "idempotency_conflict")
+	managerRequest(t, manager, http.MethodPatch, first+path, writer, newManagerTestCommand(account, version),
+		`{"people":[]}`, http.StatusConflict).requireCode(t, "version_conflict")
+
+	none := newManagerTestCommand(account, version+1)
+	untouched := managerRequest(t, manager, http.MethodPatch, first+path, writer, none, `{}`, http.StatusOK)
+	if untouched.etag != created.etag || len(managerJSON[accountPortrait](t, untouched.body).People) != 1 {
+		t.Fatal("omitting people erased the contact or changed the version")
+	}
+	promoted := managerRequest(t, manager, http.MethodPatch, second+path, writer, newManagerTestCommand(account, version+1),
+		strings.Replace(patch, `"setup"`, `"billing"`, 1), http.StatusOK)
+	newRoles := managerJSON[accountPortrait](t, promoted.body).People
+	if len(newRoles) != 1 || !slices.Equal(newRoles[0].Roles, []string{"billing", "decision_maker"}) {
+		t.Fatalf("role change was not persisted: %+v", newRoles)
+	}
+	cleared := managerRequest(t, manager, http.MethodPatch, first+path, writer, newManagerTestCommand(account, version+2),
+		`{"people":[]}`, http.StatusOK)
+	newPortrait := managerJSON[accountPortrait](t, cleared.body)
+	if newPortrait.Version != version+3 || newPortrait.People == nil || len(newPortrait.People) != 0 {
+		t.Fatalf("people replacement did not clear the contact: %+v", newPortrait.People)
+	}
+	var changes int
+	var redacted bool
+	mustManager(t, pilot.owner.QueryRow(pilot.ctx, `
+		SELECT count(*),bool_and(strpos(e.details::text,$2)=0 AND strpos(e.details::text,$3)=0 AND strpos(e.details::text,$4)=0
+			AND strpos(o.payload::text,$2)=0 AND strpos(o.payload::text,$3)=0 AND strpos(o.payload::text,$4)=0)
+		FROM platform_manager.account_change_events e JOIN platform_manager.account_event_outbox o ON o.event_id=e.id
+		WHERE e.account_id=$1 AND e.details->>'people_changed'='true'`, account, privateName, phone, crmURL).Scan(&changes, &redacted))
+	if changes != 3 || !redacted {
+		t.Fatalf("people history has %d changes, contact data redacted: %t", changes, redacted)
 	}
 }

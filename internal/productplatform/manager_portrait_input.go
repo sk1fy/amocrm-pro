@@ -7,9 +7,11 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -43,7 +45,7 @@ func portraitObject(raw []byte, keys ...string) (map[string]json.RawMessage, err
 
 func parseAccountPortraitPatch(raw []byte) (accountPortraitPatch, error) {
 	var p accountPortraitPatch
-	fields, err := portraitObject(raw, "company", "maturity_signals", "topics")
+	fields, err := portraitObject(raw, "company", "maturity_signals", "topics", "people")
 	if err != nil {
 		return p, err
 	}
@@ -75,6 +77,66 @@ func parseAccountPortraitPatch(raw []byte) (accountPortraitPatch, error) {
 			if p.Topics[i-1].ID == p.Topics[i].ID {
 				return p, errManagerInput
 			}
+		}
+	}
+	if list := fields["people"]; list != nil {
+		people, err := parsePortraitList(list, parsePortraitPerson, 50)
+		if err != nil {
+			return p, err
+		}
+		seen := make(map[uuid.UUID]bool, len(people))
+		for _, person := range people {
+			if seen[person.ID] {
+				return p, errManagerInput
+			}
+			seen[person.ID] = true
+		}
+		p.People = &people
+	}
+	return p, nil
+}
+
+var portraitPhone = regexp.MustCompile(`^\+?[0-9(). -]*[0-9][0-9(). -]*$`)
+var portraitCRMContact = regexp.MustCompile(`^https://rakurscrm\.amocrm\.ru/contacts/detail/[1-9][0-9]{0,18}/?$`)
+
+func parsePortraitPerson(raw []byte) (portraitPerson, error) {
+	var p portraitPerson
+	fields, err := portraitObject(raw, "id", "name", "phone", "crm_url", "roles")
+	if err != nil {
+		return p, err
+	}
+	p.ID, err = portraitMemberUUID(fields, "id")
+	if err != nil {
+		return p, err
+	}
+	ok, err := portraitMember(fields, "name", &p.Name, false)
+	p.Name = strings.TrimSpace(p.Name)
+	if !ok || err != nil || !managerText(p.Name, 1, 160) || strings.ContainsFunc(p.Name, unicode.IsControl) {
+		return p, errManagerInput
+	}
+	ok, err = portraitMember(fields, "phone", &p.Phone, false)
+	p.Phone = strings.TrimSpace(p.Phone)
+	if err != nil || (ok && (!managerText(p.Phone, 1, 32) || !portraitPhone.MatchString(p.Phone))) {
+		return p, errManagerInput
+	}
+	ok, err = portraitMember(fields, "crm_url", &p.CRMURL, false)
+	p.CRMURL = strings.TrimSpace(p.CRMURL)
+	if err != nil || (ok && !portraitCRMContact.MatchString(p.CRMURL)) {
+		return p, errManagerInput
+	}
+	ok, err = portraitMember(fields, "roles", &p.Roles, false)
+	if !ok || err != nil || len(p.Roles) > 5 {
+		return p, errManagerInput
+	}
+	slices.Sort(p.Roles)
+	for i, role := range p.Roles {
+		if i > 0 && p.Roles[i-1] == role {
+			return p, errManagerInput
+		}
+		switch role {
+		case "decision_maker", "influencer", "billing", "setup", "partner":
+		default:
+			return p, errManagerInput
 		}
 	}
 	return p, nil

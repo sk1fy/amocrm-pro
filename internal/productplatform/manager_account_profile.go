@@ -124,9 +124,13 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
 			managerProblem(http.StatusUnprocessableEntity, "validation_failed", cmd.RequestID, 0, 0))
 	}
-	if value := patch.Classification.Value; value != nil && *value != "Без партнёра" && *value != "Запрет работы" && *value != "Клиент партнёра" {
-		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
-			managerProblem(http.StatusUnprocessableEntity, "classification_unavailable", cmd.RequestID, 0, 0))
+	if value := patch.Classification.Value; value != nil {
+		switch *value {
+		case "Без партнёра", "Запрет работы", "Клиент партнёра", "Наш клиент":
+		default:
+			return managerMutationResponse(http.StatusUnprocessableEntity, 0,
+				managerProblem(http.StatusUnprocessableEntity, "classification_unavailable", cmd.RequestID, 0, 0))
+		}
 	}
 
 	after := profileValues{DisplayName: patch.DisplayName.apply(before.DisplayName), Note: patch.Note.apply(before.Note),

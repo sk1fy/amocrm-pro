@@ -503,7 +503,9 @@ paths:
               properties:
                 display_name: {type: [string, 'null']}
                 note: {type: [string, 'null']}
-                classification: {type: [string, 'null']}
+                classification:
+                  type: [string, 'null']
+                  enum: ['Без партнёра', 'Запрет работы', 'Клиент партнёра', 'Наш клиент', null]
                 partner_name: {type: [string, 'null'], maxLength: 200}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
@@ -724,6 +726,7 @@ paths:
               type: object
               additionalProperties: false
               properties:
+                people: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/PortraitPerson'}}
                 company: {$ref: '#/components/schemas/CompanyPortrait'}
                 maturity_signals: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid},
                       manual: {type: [boolean, 'null']}}, required: [id, manual]}}
@@ -826,8 +829,7 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, title: {
-                        type: string}, prompts: {type: array, items: {type: string}}}, required: [id, title, prompts]}}
+                topics: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/PortraitTemplateTopic'}}
               required:
               - topics
       x-platform-grant: configuration.manage
@@ -2171,6 +2173,8 @@ components:
                 type: boolean}, observed: {type: boolean}, source: {type: string}}, required: [id]}}
         topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, note: {type: string}},
             required: [id, note]}}
+        people: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/PortraitPerson'}}
+        widget_tiers: {$ref: '#/components/schemas/PortraitWidgetTiers'}
         audit_dates: {type: array, items: {$ref: '#/components/schemas/AuditDate'}}
         version: {type: integer, minimum: 1, maximum: 9007199254740991}
       required:
@@ -2190,12 +2194,48 @@ components:
         rating: {type: [integer, 'null'], minimum: 0}
         work_types: {type: array, items: {type: string}}
         customer_types: {type: array, items: {type: string}}
+    PortraitPerson:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 160}
+        phone: {type: string, minLength: 1, maxLength: 32, pattern: '^\+?[0-9(). -]*[0-9][0-9(). -]*$'}
+        crm_url: {type: string, pattern: '^https://rakurscrm\.amocrm\.ru/contacts/detail/[1-9][0-9]{0,18}/?$'}
+        roles: {type: array, maxItems: 5, uniqueItems: true, items: {type: string, enum: [decision_maker, influencer, billing, setup, partner]}}
+      required: [id, name, roles]
+    PortraitWidgetTiers:
+      type: object
+      additionalProperties: false
+      properties:
+        free_installed: {type: integer, minimum: 0}
+        top: {$ref: '#/components/schemas/PortraitWidgetTier'}
+        pro: {$ref: '#/components/schemas/PortraitWidgetTier'}
+      required: [free_installed, top, pro]
+    PortraitWidgetTier:
+      type: object
+      additionalProperties: false
+      properties:
+        working: {type: integer, minimum: 0}
+        total: {type: integer, minimum: 0}
+      required: [working, total]
+    PortraitTemplateTopic:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string, minLength: 1, maxLength: 300}
+        prompts: {type: array, maxItems: 30, items: {type: string, minLength: 1, maxLength: 2000}}
+        leader: {type: string, minLength: 1, maxLength: 300}
+        market_categories: {type: array, maxItems: 12, items: {type: string, minLength: 1, maxLength: 120}}
+        answer_mode: {type: string, enum: [note, yes_no]}
+        warmth_steps: {type: array, maxItems: 4, items: {type: string, minLength: 1, maxLength: 80}}
+      required: [id, title, prompts]
     PortraitTemplate:
       type: object
       additionalProperties: false
       properties:
-        topics: {type: array, items: {type: object, additionalProperties: false, properties: {id: {type: string, format: uuid}, title: {type: string},
-              prompts: {type: array, items: {type: string}}}, required: [id, title, prompts]}}
+        topics: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/PortraitTemplateTopic'}}
         version: {type: integer, minimum: 1, maximum: 9007199254740991}
       required:
       - topics
@@ -2257,6 +2297,10 @@ components:
         note: {type: [string, 'null']}
         region: {type: [string, 'null']}
         time_zone: {type: [string, 'null']}
+        identity_observed_at:
+          type: string
+          format: date-time
+          description: Время последнего наблюдения домена, имени и часового пояса аккаунта в amoCRM.
         amostart: {$ref: '#/components/schemas/ObservationDate'}
         capabilities: {type: array, items: {$ref: '#/components/schemas/Capability'}}
       required:

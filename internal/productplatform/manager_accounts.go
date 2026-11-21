@@ -341,7 +341,8 @@ func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID,
 	var version int64
 	err := db.QueryRow(ctx, `
 		SELECT `+accountSummaryJSON+` || jsonb_build_object(
-			'note',p.note,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb),
+			'note',p.note,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb)
+			|| jsonb_strip_nulls(jsonb_build_object('identity_observed_at',i.observed_at)),
 			COALESCE(p.version,1)
 		FROM platform_manager.visible_accounts a `+accountObservationJoins+` WHERE a.account_id=$1`, id, actions).Scan(&body, &version)
 	return body, version, accountReadError(err)

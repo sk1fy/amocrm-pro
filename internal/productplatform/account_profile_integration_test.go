@@ -3,6 +3,7 @@ package productplatform
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"os"
@@ -38,19 +39,31 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 
 	var account uuid.UUID
 	mustManager(t, owner.QueryRow(ctx, `SELECT account_id FROM platform_manager.visible_accounts WHERE amo_account_id=2542`).Scan(&account))
-	_, err = owner.Exec(ctx, `
-		INSERT INTO platform_manager.account_identities(account_id,current_domain,display_name,observed_at)
-		VALUES($1,'profile.amocrm.ru','Observed account',statement_timestamp())`, account)
-	mustManager(t, err)
 
 	writer := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "clients.write"}}
 	revoked := managerTestActor{subject: writer.subject, version: 2, grants: []string{"clients.read"}}
 	foreign := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "clients.write"}}
 	accountPath := managerPath + "accounts/" + account.String()
 	profilePath := accountPath + "/profile"
+	unobserved := managerRequest(t, manager, http.MethodGet, first.private+accountPath, writer, managerTestCommand{}, "", http.StatusOK)
+	if bytes.Contains(unobserved.body, []byte(`"identity_observed_at"`)) {
+		t.Fatalf("identity observation time appeared without an observed identity: %s", unobserved.body)
+	}
+	observedAt := time.Date(2026, time.October, 1, 9, 0, 0, 0, time.UTC)
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.account_identities(account_id,current_domain,display_name,observed_at)
+		VALUES($1,'profile.amocrm.ru','Observed account',$2)`, account, observedAt)
+	mustManager(t, err)
 	start := managerRequest(t, manager, http.MethodGet, first.private+accountPath, writer, managerTestCommand{}, "", http.StatusOK)
 	if start.etag != `"1"` || !bytes.Contains(start.body, []byte(`"display_name":"Observed account"`)) {
 		t.Fatalf("initial profile did not reflect the observed account: %s", start.body)
+	}
+	var observation struct {
+		IdentityObservedAt time.Time `json:"identity_observed_at"`
+	}
+	mustManager(t, json.Unmarshal(start.body, &observation))
+	if !observation.IdentityObservedAt.Equal(observedAt) {
+		t.Fatalf("identity observation time = %s; want %s", observation.IdentityObservedAt, observedAt)
 	}
 
 	cmd := newManagerTestCommand(account, 1)
@@ -89,7 +102,7 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 	}
 	unsupported := newManagerTestCommand(account, 2)
 	managerRequest(t, manager, http.MethodPatch, second.private+profilePath, writer, unsupported,
-		`{"classification":"Наш клиент","reason":"unsupported source"}`, http.StatusUnprocessableEntity).
+		`{"classification":"Неизвестный статус","reason":"unsupported classification"}`, http.StatusUnprocessableEntity).
 		requireCode(t, "classification_unavailable")
 	unsupportedReceipt := managerRequest(t, manager, http.MethodGet, first.private+unsupported.receiptPath(),
 		writer, managerTestCommand{}, "", http.StatusOK)
@@ -178,6 +191,25 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 		writer, newManagerTestCommand(account, 4), `{"classification":"Без партнёра","reason":"free again"}`, http.StatusOK)
 	if !bytes.Contains(free.body, []byte(`"partner_name":null`)) {
 		t.Fatalf("partner was retained after change to free: %s", free.body)
+	}
+	managerRequest(t, manager, http.MethodPatch, second.private+profilePath,
+		writer, newManagerTestCommand(account, 5),
+		`{"classification":"Клиент партнёра","partner_name":"Fixture Partner","reason":"review status"}`, http.StatusOK)
+	own := managerRequest(t, manager, http.MethodPatch, first.private+profilePath,
+		writer, newManagerTestCommand(account, 6),
+		`{"classification":"Наш клиент","reason":"known returning client"}`, http.StatusOK)
+	if own.etag != `"7"` || !bytes.Contains(own.body, []byte(`"classification":"Наш клиент"`)) ||
+		!bytes.Contains(own.body, []byte(`"partner_name":null`)) {
+		t.Fatalf("our client assignment did not replace the partner assignment: %s", own.body)
+	}
+	q := url.Values{"classification": {"Наш клиент"}}
+	ownList := managerRequest(t, manager, http.MethodGet, second.private+listPath+"?"+q.Encode(),
+		writer, managerTestCommand{}, "", http.StatusOK)
+	ownPage := managerJSON[accountPage](t, ownList.body)
+	if ownPage.Summary.Total != 1 || len(ownPage.Items) != 1 ||
+		ownPage.Summary.Overview["all"].ByClassification["Наш клиент"] != 1 ||
+		bytes.Contains(ownPage.Items[0], []byte(`"renewal_channel"`)) {
+		t.Fatalf("our client assignment did not appear in the list and overview as expected: %s", ownList.body)
 	}
 	_, err = owner.Exec(ctx, `DELETE FROM platform_lifecycle.scope WHERE integration_id=$1 AND amo_account_id=2542`, pilot.otherIntegration)
 	mustManager(t, err)
