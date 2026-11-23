@@ -44,6 +44,7 @@ func rpcCallTimeout(method string) time.Duration {
 type Endpoints struct {
 	BootstrapAccount            serviceapi.CoreBootstrap
 	PlatformInstallations       serviceapi.CoreInstallations
+	PlatformAccountDirectory    serviceapi.CoreAccountDirectory
 	PlatformAccountObservations serviceapi.CoreAccountObservations
 	Ready                       func(context.Context) error
 	Metrics                     prometheus.Registerer
@@ -74,7 +75,7 @@ func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 		}()
 		identity := peerIdentity(ctx)
 		allowed := allowedCaller(info.FullMethod, identity)
-		if info.FullMethod == platformpb.CoreInstallations_GetSnapshot_FullMethodName ||
+		if info.FullMethod == platformpb.CoreAccountDirectory_ListInstallations_FullMethodName || info.FullMethod == platformpb.CoreInstallations_GetSnapshot_FullMethodName ||
 			info.FullMethod == platformpb.CoreAccountObservations_ObserveAccount_FullMethodName ||
 			(endpoints.PlatformAccountObservations != nil && info.FullMethod == grpc_health_v1.Health_Check_FullMethodName) {
 			allowed = platformPeer(ctx)
@@ -107,6 +108,9 @@ func NewServer(config *tls.Config, endpoints *Endpoints) *grpc.Server {
 	}))
 	if endpoints.PlatformInstallations != nil {
 		platformpb.RegisterCoreInstallationsServer(server, &platformInstallationsServer{impl: endpoints.PlatformInstallations})
+	}
+	if endpoints.PlatformAccountDirectory != nil {
+		platformpb.RegisterCoreAccountDirectoryServer(server, &accountDirectoryServer{impl: endpoints.PlatformAccountDirectory})
 	}
 	if endpoints.PlatformAccountObservations != nil {
 		platformpb.RegisterCoreAccountObservationsServer(server, &platformAccountObservationsServer{impl: endpoints.PlatformAccountObservations})

@@ -1967,10 +1967,24 @@ components:
       - total
       - reviewed
       - unreviewed
+    AccountCheck:
+      type: object
+      additionalProperties: false
+      required: [component, next_check_at]
+      properties:
+        component: {type: string, enum: [installations, identity, users]}
+        attempted_at: {type: string, format: date-time}
+        succeeded_at: {type: string, format: date-time}
+        next_check_at: {type: string, format: date-time}
+        reason: {type: string, maxLength: 40}
     AccountSummary:
       type: object
       additionalProperties: false
       properties:
+        checks:
+          type: array
+          maxItems: 3
+          items: {$ref: '#/components/schemas/AccountCheck'}
         account_id: {type: string, format: uuid}
         amo_account_id: {$ref: '#/components/schemas/AmoID'}
         current_domain: {type: [string, 'null']}
@@ -2283,6 +2297,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        checks:
+          type: array
+          maxItems: 3
+          items: {$ref: '#/components/schemas/AccountCheck'}
         account_id: {type: string, format: uuid}
         amo_account_id: {$ref: '#/components/schemas/AmoID'}
         current_domain: {type: [string, 'null']}

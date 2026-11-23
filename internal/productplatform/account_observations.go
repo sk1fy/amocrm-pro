@@ -28,15 +28,21 @@ const (
 )
 
 type AccountObserver struct {
-	pool    *pgxpool.Pool
-	gateway platformpb.CoreAccountObservationsClient
+	directory platformpb.CoreAccountDirectoryClient
+	pool      *pgxpool.Pool
+	gateway   platformpb.CoreAccountObservationsClient
 }
 
 func NewAccountObserver(pool *pgxpool.Pool, gateway platformpb.CoreAccountObservationsClient) *AccountObserver {
 	return &AccountObserver{pool: pool, gateway: gateway}
 }
 
+func (o *AccountObserver) SetDirectory(client platformpb.CoreAccountDirectoryClient) {
+	o.directory = client
+}
+
 type sourceScope struct {
+	ObservationOnly                   bool
 	AmoAccount                        int64
 	Installation, Integration         uuid.UUID
 	Generation, AuthorizationSequence int64
@@ -49,13 +55,17 @@ type accountScopeReader interface {
 }
 
 func accountSourceScope(ctx context.Context, db accountScopeReader, account uuid.UUID) (sourceScope, error) {
+	return nextAccountSource(ctx, db, account, uuid.Nil)
+}
+
+func nextAccountSource(ctx context.Context, db accountScopeReader, account, after uuid.UUID) (sourceScope, error) {
 	var scope sourceScope
 	err := db.QueryRow(ctx, `
-		SELECT amo_account_id,installation_id,integration_id,generation,authorization_sequence
-		FROM platform_manager.account_memberships
-		WHERE account_id=$1 AND `+validAccountObservationScope+`
-		ORDER BY installation_id LIMIT 1`, account).
-		Scan(&scope.AmoAccount, &scope.Installation, &scope.Integration, &scope.Generation, &scope.AuthorizationSequence)
+ SELECT amo_account_id,installation_id,integration_id,generation,authorization_sequence,observation_only
+ FROM platform_manager.account_read_sources m
+ WHERE account_id=$1 AND installation_id>$2
+ AND NOT EXISTS(SELECT FROM platform_manager.account_profiles p WHERE p.account_id=m.account_id AND p.classification='Запрет работы')
+ ORDER BY installation_id LIMIT 1`, account, after).Scan(&scope.AmoAccount, &scope.Installation, &scope.Integration, &scope.Generation, &scope.AuthorizationSequence, &scope.ObservationOnly)
 	return scope, err
 }
 
@@ -85,25 +95,78 @@ type accountObservation struct {
 
 func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.Completion {
 	var p accountRefreshPayload
-	if json.Unmarshal(job.Payload, &p) != nil || p.Account == uuid.Nil || !p.Component.valid() {
+	if json.Unmarshal(job.Payload, &p) != nil || p.Account == uuid.Nil || (!p.Component.valid() && p.Component != refreshInstallations) {
 		return queue.Completion{Outcome: queue.Outcome{FailureCode: "invalid_refresh_job"}}
 	}
-	scope, err := accountSourceScope(ctx, o.pool, p.Account)
+	var scope sourceScope
 	var observation accountObservation
+	var inventory []inventoryEntry
 	var outcome queue.Outcome
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		outcome = queue.Outcome{FailureCode: accountSourceChanged}
-	case err != nil:
-		return queue.Completion{Outcome: queue.Outcome{FailureCode: accountSourceUnavailable, Retry: true}}
-	default:
-		callCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		observation, outcome = observeAccount(callCtx, o.gateway, scope, p.Component)
-		cancel()
+	if p.Component == refreshInstallations {
+		inventory, outcome = o.readInventory(ctx, p.Account)
+	} else {
+		scope, observation, outcome = o.readAccountComponent(ctx, p)
 	}
 	return queue.Completion{Publish: func(ctx context.Context, tx pgx.Tx) (queue.Outcome, error) {
-		return publishAccountObservation(ctx, tx, p, scope, observation, outcome)
+		var err error
+		if p.Component == refreshInstallations {
+			if outcome.FailureCode == "" {
+				outcome, err = publishInventory(ctx, tx, p.Account, inventory)
+			}
+		} else {
+			outcome, err = publishAccountObservation(ctx, tx, p, scope, observation, outcome)
+		}
+		if err != nil {
+			return outcome, err
+		}
+		_, err = tx.Exec(ctx, `UPDATE platform_manager.account_refresh_slots SET attempted_at=statement_timestamp(),
+      result_code=NULLIF($3,''), succeeded_at=CASE WHEN $3='' THEN statement_timestamp() ELSE succeeded_at END
+      WHERE account_id=$1 AND component=$2`, p.Account, p.Component, outcome.FailureCode)
+		return outcome, err
 	}}
+}
+
+func (o *AccountObserver) readAccountComponent(ctx context.Context, p accountRefreshPayload) (sourceScope, accountObservation, queue.Outcome) {
+	var scope sourceScope
+	var observation accountObservation
+	var outcome queue.Outcome
+	var blocked bool
+	if err := o.pool.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.account_profiles WHERE account_id=$1 AND classification='Запрет работы')`, p.Account).Scan(&blocked); err != nil {
+		return scope, observation, queue.Outcome{FailureCode: accountSourceUnavailable, Retry: true}
+	}
+	if blocked {
+		return scope, observation, queue.Outcome{FailureCode: "account_blocked"}
+	}
+	for {
+		next, err := nextAccountSource(ctx, o.pool, p.Account, scope.Installation)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if outcome.FailureCode == "" {
+				outcome = o.missingSource(ctx, p.Account)
+			}
+			return scope, observation, outcome
+		}
+		if err != nil {
+			return scope, observation, queue.Outcome{FailureCode: accountSourceUnavailable, Retry: true}
+		}
+		scope = next
+		observation, outcome = observeAccount(ctx, o.gateway, scope, p.Component)
+		if outcome.FailureCode != "source_permission_denied" && outcome.FailureCode != accountSourceChanged {
+			return scope, observation, outcome
+		}
+	}
+}
+
+func (o *AccountObserver) missingSource(ctx context.Context, account uuid.UUID) queue.Outcome {
+	var needsAuthorization bool
+	err := o.pool.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.installation_directory d
+ WHERE d.account_id=$1 AND d.lifecycle='current' AND d.authorization IN ('disabled','reauth_required'))`, account).Scan(&needsAuthorization)
+	if err != nil {
+		return queue.Outcome{FailureCode: accountSourceUnavailable, Retry: true}
+	}
+	if needsAuthorization {
+		return queue.Outcome{FailureCode: "source_permission_denied"}
+	}
+	return queue.Outcome{FailureCode: accountSourceChanged}
 }
 
 func observeAccount(ctx context.Context, gateway platformpb.CoreAccountObservationsClient, scope sourceScope,
@@ -113,7 +176,7 @@ func observeAccount(ctx context.Context, gateway platformpb.CoreAccountObservati
 		component = platformpb.AccountObservationComponent_ACCOUNT_OBSERVATION_COMPONENT_USERS
 	}
 	response, err := gateway.ObserveAccount(ctx, &platformpb.ObserveAccountRequest{
-		AmoAccountId: scope.AmoAccount, CoreInstallationId: scope.Installation.String(), IntegrationId: scope.Integration.String(),
+		ObservationOnly: scope.ObservationOnly, AmoAccountId: scope.AmoAccount, CoreInstallationId: scope.Installation.String(), IntegrationId: scope.Integration.String(),
 		Generation: uint64(scope.Generation), AuthorizationSequence: uint64(scope.AuthorizationSequence), Component: component,
 	})
 	if err == nil {
@@ -217,7 +280,15 @@ func validObservedDomain(domain string) bool {
 
 func publishAccountObservation(ctx context.Context, tx pgx.Tx, p accountRefreshPayload, scope sourceScope,
 	obs accountObservation, outcome queue.Outcome) (queue.Outcome, error) {
-	if scope.Installation != uuid.Nil {
+	if scope.ObservationOnly {
+		var locked uuid.UUID
+		err := tx.QueryRow(ctx, `SELECT installation_id FROM platform_manager.core_inventory WHERE account_id=$1 AND installation_id=$2 AND integration_id=$3 AND current AND auth_state='authorized' AND observation_only FOR SHARE`, p.Account, scope.Installation, scope.Integration).Scan(&locked)
+		if errors.Is(err, pgx.ErrNoRows) {
+			outcome = queue.Outcome{FailureCode: accountSourceChanged}
+		} else if err != nil {
+			return outcome, err
+		}
+	} else if scope.Installation != uuid.Nil {
 		// Lock the cursor until commit so a local transition cannot invalidate an
 		// authorization between the final check and publishing its observation.
 		var installation uuid.UUID
@@ -316,31 +387,34 @@ func (o *AccountObserver) enroll(ctx context.Context) error {
 		return nil
 	}
 	rows, err := tx.Query(ctx, `
-		WITH sources AS (
-			SELECT DISTINCT ON(account_id) account_id,amo_account_id,installation_id,integration_id,generation,authorization_sequence
-			FROM platform_manager.account_memberships WHERE `+validAccountObservationScope+`
-			ORDER BY account_id,installation_id
-		)
-		SELECT a.account_id,part.component,a.amo_account_id,a.installation_id,a.integration_id,a.generation,a.authorization_sequence
-		FROM sources a CROSS JOIN (VALUES ('license'),('users')) AS part(component)
-		LEFT JOIN platform_manager.account_refresh_slots s ON s.account_id=a.account_id AND s.component=part.component
-		LEFT JOIN platform_jobs.jobs j ON j.id=s.job_id
-		WHERE (j.id IS NULL OR j.status IN ('succeeded','dead'))
-		  AND (s.seed_installation_id,s.seed_generation,s.seed_authorization_sequence)
-		      IS DISTINCT FROM (a.installation_id,a.generation,a.authorization_sequence)
-		ORDER BY a.account_id,part.component LIMIT $1`, limit)
+ SELECT a.account_id,part.component
+ FROM platform_manager.visible_accounts a CROSS JOIN (VALUES ('installations'),('license'),('users')) AS part(component)
+ LEFT JOIN platform_manager.account_refresh_slots s ON s.account_id=a.account_id AND s.component=part.component
+ LEFT JOIN platform_jobs.jobs j ON j.id=s.job_id
+ LEFT JOIN LATERAL (SELECT CASE WHEN NOT m.observation_only THEN m.installation_id END AS installation_id,m.generation,m.authorization_sequence FROM platform_manager.account_read_sources m
+     WHERE m.account_id=a.account_id ORDER BY m.installation_id LIMIT 1) src ON true
+ WHERE (part.component<>'installations' OR $2)
+ AND (part.component='installations' OR NOT $2 OR src.installation_id IS NOT NULL OR EXISTS(
+      SELECT FROM platform_manager.account_refresh_slots done JOIN platform_jobs.jobs dj ON dj.id=done.job_id
+      WHERE done.account_id=a.account_id AND done.component='installations'
+        AND done.attempted_at IS NOT NULL AND done.next_check_at>statement_timestamp() AND dj.status IN ('succeeded','dead')))
+ AND (j.id IS NULL OR j.status IN ('succeeded','dead'))
+ AND (s.next_check_at IS NULL OR s.next_check_at<=statement_timestamp()
+     OR (part.component<>'installations' AND src.installation_id IS NOT NULL
+         AND NOT EXISTS(SELECT FROM platform_manager.account_profiles p WHERE p.account_id=a.account_id AND p.classification='Запрет работы')
+         AND (s.seed_installation_id,s.seed_generation,s.seed_authorization_sequence)
+                IS DISTINCT FROM (src.installation_id,src.generation,src.authorization_sequence)))
+ ORDER BY s.next_check_at NULLS FIRST,a.account_id,part.component LIMIT $1`, limit, o.directory != nil)
 	if err != nil {
 		return err
 	}
 	type seed struct {
 		account uuid.UUID
 		part    accountComponent
-		scope   sourceScope
 	}
 	seeds, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (seed, error) {
 		var s seed
-		err := row.Scan(&s.account, &s.part, &s.scope.AmoAccount, &s.scope.Installation, &s.scope.Integration,
-			&s.scope.Generation, &s.scope.AuthorizationSequence)
+		err := row.Scan(&s.account, &s.part)
 		return s, err
 	})
 	if err != nil {
@@ -350,18 +424,24 @@ func (o *AccountObserver) enroll(ctx context.Context) error {
 		if err := lockRefreshSlot(ctx, tx, s.account, s.part); err != nil {
 			return err
 		}
-		var unchanged bool
-		err := tx.QueryRow(ctx, `
-			SELECT (seed_installation_id,seed_generation,seed_authorization_sequence) IS NOT DISTINCT FROM ($3::uuid,$4::bigint,$5::bigint)
-			FROM platform_manager.account_refresh_slots WHERE account_id=$1 AND component=$2`,
-			s.account, s.part, s.scope.Installation, s.scope.Generation, s.scope.AuthorizationSequence).Scan(&unchanged)
+		var scope sourceScope
+		if s.part != refreshInstallations {
+			scope, err = accountSourceScope(ctx, tx, s.account)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+		}
+		var due bool
+		err = tx.QueryRow(ctx, `SELECT next_check_at<=statement_timestamp() OR
+ ($3::uuid IS NOT NULL AND (seed_installation_id,seed_generation,seed_authorization_sequence) IS DISTINCT FROM ($3::uuid,$4::bigint,$5::bigint))
+ FROM platform_manager.account_refresh_slots WHERE account_id=$1 AND component=$2`, s.account, s.part, nullableSeed(scope), scope.Generation, scope.AuthorizationSequence).Scan(&due)
 		if err != nil {
 			return err
 		}
-		if unchanged {
+		if !due {
 			continue
 		}
-		if _, err := joinAccountRefresh(ctx, tx, s.account, s.part, s.scope); err != nil {
+		if _, err := joinAccountRefresh(ctx, tx, s.account, s.part, scope); err != nil {
 			return err
 		}
 	}

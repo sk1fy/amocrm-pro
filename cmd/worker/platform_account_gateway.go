@@ -30,9 +30,10 @@ func startPlatformAccountGateway(pool *pgxpool.Pool, client *amocrmclient.Client
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	observer := corelifecycle.NewAccountObservationService(corelifecycle.NewStore(pool), client)
 	server := servicerpc.NewServer(config, &servicerpc.Endpoints{
-		PlatformAccountObservations: corelifecycle.NewAccountObservationService(corelifecycle.NewStore(pool), client),
-		Ready:                       pool.Ping,
+		PlatformAccountObservations: observer, PlatformAccountDirectory: observer,
+		Ready: pool.Ping,
 	})
 	outcome := make(chan error, 1)
 	go func() { outcome <- server.Serve(listener) }()

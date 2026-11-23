@@ -54,6 +54,7 @@ message ObserveAccountRequest {
   uint64 generation = 4;
   uint64 authorization_sequence = 5;
   AccountObservationComponent component = 6;
+  bool observation_only = 7;
 }
 
 message AccountObservation {
@@ -79,4 +80,26 @@ message ObservedCRMUser {
   string name = 2;
   bool is_active = 3;
   bool is_admin = 4;
+}
+
+service CoreAccountDirectory {
+  rpc ListInstallations(AccountDirectoryRequest) returns (AccountDirectoryPage);
+}
+message AccountDirectoryRequest {
+  int64 amo_account_id = 1;
+  string after_installation_id = 2;
+}
+message AccountDirectoryEntry {
+  string installation_id = 1;
+  string integration_id = 2;
+  string product_code = 3;
+  string authorization = 4;
+  bool current = 5;
+  bool observation_only = 6;
+  google.protobuf.Timestamp registered_at = 7;
+  int64 lifecycle_sequence = 8;
+}
+message AccountDirectoryPage {
+  repeated AccountDirectoryEntry entries = 1;
+  string next_cursor = 2;
 }

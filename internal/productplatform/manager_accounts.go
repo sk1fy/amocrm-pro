@@ -89,7 +89,12 @@ const accountSummaryJSON = `jsonb_build_object(
 	'domain_aliases',(SELECT array_agg(d.domain ORDER BY d.domain) FROM platform_manager.account_domains d
 		WHERE d.account_id=a.account_id AND d.domain<>i.current_domain),
 	'display_name',COALESCE(p.display_name,i.display_name),'classification',p.classification,'partner_name',p.partner_name,'version',COALESCE(p.version,1),
-	'active_products_count',a.active_products_count,'license',` + unsupportedAccountObservation + `,
+	'checks',COALESCE((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+        'component', CASE s.component WHEN 'license' THEN 'identity' ELSE s.component END,
+        'attempted_at',s.attempted_at,'succeeded_at',COALESCE(s.succeeded_at,CASE s.component WHEN 'users' THEN u.observed_at WHEN 'license' THEN i.observed_at END),
+        'next_check_at',s.next_check_at,'reason',s.result_code)) ORDER BY s.component)
+        FROM platform_manager.account_refresh_slots s WHERE s.account_id=a.account_id),'[]'::jsonb),
+    'active_products_count',a.active_products_count,'license',` + unsupportedAccountObservation + `,
 	'active_users',jsonb_strip_nulls(jsonb_build_object('value',u.active_count,` + rosterObservationFields + `)))`
 
 const accountListJSON = accountSummaryJSON + ` || jsonb_strip_nulls(jsonb_build_object(
@@ -102,8 +107,7 @@ const accountStatusJoin = `
             WHEN p.classification='Запрет работы' THEN 'blocked'
             WHEN u.observed_at IS NOT NULL AND u.failure_code IS NULL
                  AND u.fresh_until>transaction_timestamp()
-                 AND EXISTS (SELECT FROM platform_manager.account_memberships m
-                    WHERE m.account_id=a.account_id AND ` + validAccountObservationScope + `)
+                 AND EXISTS (SELECT FROM platform_manager.account_read_sources m WHERE m.account_id=a.account_id)
                 THEN 'receiving'
             ELSE 'no_data'
         END AS data_group,

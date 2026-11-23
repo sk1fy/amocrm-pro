@@ -23,8 +23,9 @@ var errAccountGatewayDisabled = errors.New("account Gateway is disabled")
 type accountComponent string
 
 const (
-	refreshLicense accountComponent = "license"
-	refreshUsers   accountComponent = "users"
+	refreshLicense       accountComponent = "license"
+	refreshUsers         accountComponent = "users"
+	refreshInstallations accountComponent = "installations"
 )
 
 func (c accountComponent) valid() bool {
@@ -146,6 +147,13 @@ func lockRefreshSlot(ctx context.Context, tx pgx.Tx, account uuid.UUID, part acc
 		WHERE account_id=$1 AND component=$2 FOR UPDATE`, account, part).Scan(&id)
 }
 
+func nullableSeed(scope sourceScope) *uuid.UUID {
+	if scope.Installation == uuid.Nil || scope.ObservationOnly {
+		return nil
+	}
+	return &scope.Installation
+}
+
 func joinAccountRefresh(ctx context.Context, tx pgx.Tx, account uuid.UUID, part accountComponent, scope sourceScope) (uuid.UUID, error) {
 	var current *uuid.UUID
 	err := tx.QueryRow(ctx, `
@@ -164,11 +172,13 @@ func joinAccountRefresh(ctx context.Context, tx pgx.Tx, account uuid.UUID, part 
 	}
 	var installation *uuid.UUID
 	var generation, sequence *int64
-	if scope.Installation != uuid.Nil {
+	if nullableSeed(scope) != nil {
 		installation, generation, sequence = &scope.Installation, &scope.Generation, &scope.AuthorizationSequence
 	}
 	_, err = tx.Exec(ctx, `
 		UPDATE platform_manager.account_refresh_slots SET job_id=$3,
+      next_check_at=date_bin(interval '1 day',statement_timestamp(),
+        timestamptz '2000-01-01 00:00:00+00' + mod(abs(hashtext(account_id::text)::bigint),86400)*interval '1 second') + interval '1 day',
 			seed_installation_id=$4,seed_generation=$5,seed_authorization_sequence=$6
 		WHERE account_id=$1 AND component=$2`, account, part, id, installation, generation, sequence)
 	return id, err
