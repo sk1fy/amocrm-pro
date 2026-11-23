@@ -66,3 +66,5 @@ scope belongs in GitHub Issues.
 - [0054. Подписи событий кабинета менеджеров](0054-manager-feed-presentation.md).
 
 - [0055. Отдельное право на каталог виджетов](0055-manager-catalog-read.md).
+
+- [0056. Суточная сверка аккаунтов](0056-account-daily-observations.md).

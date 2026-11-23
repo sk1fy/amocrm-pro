@@ -115,6 +115,7 @@ func run() error {
 		}
 		defer conn.Close()
 		accountObserver = productplatform.NewAccountObserver(jobs, platformpb.NewCoreAccountObservationsClient(conn))
+		accountObserver.SetDirectory(platformpb.NewCoreAccountDirectoryClient(conn))
 	}
 
 	var companyObserver *productplatform.CompanyObserver

@@ -30,7 +30,7 @@ func (s *platformAccountObservationsServer) ObserveAccount(ctx context.Context, 
 		return nil, serviceapi.Fail(serviceapi.InvalidArgument, "invalid account observation component")
 	}
 	result, err := s.impl.ObserveAccount(ctx, serviceapi.AccountObservationScope{
-		Installation: installation, Integration: integration, Account: req.GetAmoAccountId(),
+		ObservationOnly: req.GetObservationOnly(), Installation: installation, Integration: integration, Account: req.GetAmoAccountId(),
 		Generation: int64(req.GetGeneration()), AuthorizationSequence: int64(req.GetAuthorizationSequence()),
 	}, component)
 	if err != nil {

@@ -23,7 +23,7 @@ func NewAccountObservationService(store *Store, crm *amocrm.Client) *AccountObse
 
 func (s *AccountObservationService) ObserveAccount(ctx context.Context, scope serviceapi.AccountObservationScope, component serviceapi.AccountObservationComponent) (serviceapi.AccountObservation, error) {
 	if scope.Account <= 0 || scope.Installation == uuid.Nil || scope.Integration == uuid.Nil ||
-		scope.Generation <= 0 || scope.Generation > wire.MaxPosition ||
+		(scope.ObservationOnly && (scope.Generation != 0 || scope.AuthorizationSequence != 0)) || (!scope.ObservationOnly && scope.Generation <= 0) || scope.Generation > wire.MaxPosition ||
 		scope.AuthorizationSequence < scope.Generation || scope.AuthorizationSequence > wire.MaxPosition ||
 		(component != serviceapi.AccountObservationIdentity && component != serviceapi.AccountObservationUsers) {
 		return serviceapi.AccountObservation{}, serviceapi.Fail(serviceapi.InvalidArgument, "invalid account observation scope or component")
@@ -61,6 +61,9 @@ func (s *AccountObservationService) ObserveAccount(ctx context.Context, scope se
 }
 
 func (s *AccountObservationService) checkAuthority(ctx context.Context, scope serviceapi.AccountObservationScope) (platformInstallationAuthority, error) {
+	if scope.ObservationOnly {
+		return s.legacyObservationAuthority(ctx, scope)
+	}
 	authority, err := s.store.platformInstallationAuthority(ctx, scope.Account, scope.Installation, scope.Integration)
 	switch {
 	case errors.Is(err, ErrAccessProofDenied), errors.Is(err, ErrAccessProofPolicy):

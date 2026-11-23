@@ -295,6 +295,7 @@ type ObserveAccountRequest struct {
 	Generation            uint64                      `protobuf:"varint,4,opt,name=generation,proto3" json:"generation,omitempty"`
 	AuthorizationSequence uint64                      `protobuf:"varint,5,opt,name=authorization_sequence,json=authorizationSequence,proto3" json:"authorization_sequence,omitempty"`
 	Component             AccountObservationComponent `protobuf:"varint,6,opt,name=component,proto3,enum=amocrm.platform.v1.AccountObservationComponent" json:"component,omitempty"`
+	ObservationOnly       bool                        `protobuf:"varint,7,opt,name=observation_only,json=observationOnly,proto3" json:"observation_only,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -369,6 +370,13 @@ func (x *ObserveAccountRequest) GetComponent() AccountObservationComponent {
 		return x.Component
 	}
 	return AccountObservationComponent_ACCOUNT_OBSERVATION_COMPONENT_UNSPECIFIED
+}
+
+func (x *ObserveAccountRequest) GetObservationOnly() bool {
+	if x != nil {
+		return x.ObservationOnly
+	}
+	return false
 }
 
 type AccountObservation struct {
@@ -633,6 +641,210 @@ func (x *ObservedCRMUser) GetIsAdmin() bool {
 	return false
 }
 
+type AccountDirectoryRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	AmoAccountId        int64                  `protobuf:"varint,1,opt,name=amo_account_id,json=amoAccountId,proto3" json:"amo_account_id,omitempty"`
+	AfterInstallationId string                 `protobuf:"bytes,2,opt,name=after_installation_id,json=afterInstallationId,proto3" json:"after_installation_id,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *AccountDirectoryRequest) Reset() {
+	*x = AccountDirectoryRequest{}
+	mi := &file_api_proto_platform_v1_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccountDirectoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccountDirectoryRequest) ProtoMessage() {}
+
+func (x *AccountDirectoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_platform_v1_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccountDirectoryRequest.ProtoReflect.Descriptor instead.
+func (*AccountDirectoryRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_platform_v1_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *AccountDirectoryRequest) GetAmoAccountId() int64 {
+	if x != nil {
+		return x.AmoAccountId
+	}
+	return 0
+}
+
+func (x *AccountDirectoryRequest) GetAfterInstallationId() string {
+	if x != nil {
+		return x.AfterInstallationId
+	}
+	return ""
+}
+
+type AccountDirectoryEntry struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId    string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	IntegrationId     string                 `protobuf:"bytes,2,opt,name=integration_id,json=integrationId,proto3" json:"integration_id,omitempty"`
+	ProductCode       string                 `protobuf:"bytes,3,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	Authorization     string                 `protobuf:"bytes,4,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	Current           bool                   `protobuf:"varint,5,opt,name=current,proto3" json:"current,omitempty"`
+	ObservationOnly   bool                   `protobuf:"varint,6,opt,name=observation_only,json=observationOnly,proto3" json:"observation_only,omitempty"`
+	RegisteredAt      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
+	LifecycleSequence int64                  `protobuf:"varint,8,opt,name=lifecycle_sequence,json=lifecycleSequence,proto3" json:"lifecycle_sequence,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AccountDirectoryEntry) Reset() {
+	*x = AccountDirectoryEntry{}
+	mi := &file_api_proto_platform_v1_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccountDirectoryEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccountDirectoryEntry) ProtoMessage() {}
+
+func (x *AccountDirectoryEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_platform_v1_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccountDirectoryEntry.ProtoReflect.Descriptor instead.
+func (*AccountDirectoryEntry) Descriptor() ([]byte, []int) {
+	return file_api_proto_platform_v1_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *AccountDirectoryEntry) GetInstallationId() string {
+	if x != nil {
+		return x.InstallationId
+	}
+	return ""
+}
+
+func (x *AccountDirectoryEntry) GetIntegrationId() string {
+	if x != nil {
+		return x.IntegrationId
+	}
+	return ""
+}
+
+func (x *AccountDirectoryEntry) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+func (x *AccountDirectoryEntry) GetAuthorization() string {
+	if x != nil {
+		return x.Authorization
+	}
+	return ""
+}
+
+func (x *AccountDirectoryEntry) GetCurrent() bool {
+	if x != nil {
+		return x.Current
+	}
+	return false
+}
+
+func (x *AccountDirectoryEntry) GetObservationOnly() bool {
+	if x != nil {
+		return x.ObservationOnly
+	}
+	return false
+}
+
+func (x *AccountDirectoryEntry) GetRegisteredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RegisteredAt
+	}
+	return nil
+}
+
+func (x *AccountDirectoryEntry) GetLifecycleSequence() int64 {
+	if x != nil {
+		return x.LifecycleSequence
+	}
+	return 0
+}
+
+type AccountDirectoryPage struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Entries       []*AccountDirectoryEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	NextCursor    string                   `protobuf:"bytes,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccountDirectoryPage) Reset() {
+	*x = AccountDirectoryPage{}
+	mi := &file_api_proto_platform_v1_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccountDirectoryPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccountDirectoryPage) ProtoMessage() {}
+
+func (x *AccountDirectoryPage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_platform_v1_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccountDirectoryPage.ProtoReflect.Descriptor instead.
+func (*AccountDirectoryPage) Descriptor() ([]byte, []int) {
+	return file_api_proto_platform_v1_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *AccountDirectoryPage) GetEntries() []*AccountDirectoryEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+func (x *AccountDirectoryPage) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
 var File_api_proto_platform_v1_proto protoreflect.FileDescriptor
 
 const file_api_proto_platform_v1_proto_rawDesc = "" +
@@ -656,7 +868,7 @@ const file_api_proto_platform_v1_proto_rawDesc = "" +
 	"\x0f_current_domainB\r\n" +
 	"\v_generationB\v\n" +
 	"\t_sequenceB\x19\n" +
-	"\x17_authorization_sequence\"\xbc\x02\n" +
+	"\x17_authorization_sequence\"\xe7\x02\n" +
 	"\x15ObserveAccountRequest\x12$\n" +
 	"\x0eamo_account_id\x18\x01 \x01(\x03R\famoAccountId\x120\n" +
 	"\x14core_installation_id\x18\x02 \x01(\tR\x12coreInstallationId\x12%\n" +
@@ -665,7 +877,8 @@ const file_api_proto_platform_v1_proto_rawDesc = "" +
 	"generation\x18\x04 \x01(\x04R\n" +
 	"generation\x125\n" +
 	"\x16authorization_sequence\x18\x05 \x01(\x04R\x15authorizationSequence\x12M\n" +
-	"\tcomponent\x18\x06 \x01(\x0e2/.amocrm.platform.v1.AccountObservationComponentR\tcomponent\"\xdb\x01\n" +
+	"\tcomponent\x18\x06 \x01(\x0e2/.amocrm.platform.v1.AccountObservationComponentR\tcomponent\x12)\n" +
+	"\x10observation_only\x18\a \x01(\bR\x0fobservationOnly\"\xdb\x01\n" +
 	"\x12AccountObservation\x12;\n" +
 	"\vobserved_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"observedAt\x12A\n" +
@@ -684,7 +897,23 @@ const file_api_proto_platform_v1_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n" +
 	"\tis_active\x18\x03 \x01(\bR\bisActive\x12\x19\n" +
-	"\bis_admin\x18\x04 \x01(\bR\aisAdmin*\xa6\x01\n" +
+	"\bis_admin\x18\x04 \x01(\bR\aisAdmin\"s\n" +
+	"\x17AccountDirectoryRequest\x12$\n" +
+	"\x0eamo_account_id\x18\x01 \x01(\x03R\famoAccountId\x122\n" +
+	"\x15after_installation_id\x18\x02 \x01(\tR\x13afterInstallationId\"\xe5\x02\n" +
+	"\x15AccountDirectoryEntry\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12%\n" +
+	"\x0eintegration_id\x18\x02 \x01(\tR\rintegrationId\x12!\n" +
+	"\fproduct_code\x18\x03 \x01(\tR\vproductCode\x12$\n" +
+	"\rauthorization\x18\x04 \x01(\tR\rauthorization\x12\x18\n" +
+	"\acurrent\x18\x05 \x01(\bR\acurrent\x12)\n" +
+	"\x10observation_only\x18\x06 \x01(\bR\x0fobservationOnly\x12?\n" +
+	"\rregistered_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x12-\n" +
+	"\x12lifecycle_sequence\x18\b \x01(\x03R\x11lifecycleSequence\"|\n" +
+	"\x14AccountDirectoryPage\x12C\n" +
+	"\aentries\x18\x01 \x03(\v2).amocrm.platform.v1.AccountDirectoryEntryR\aentries\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\tR\n" +
+	"nextCursor*\xa6\x01\n" +
 	"\rAuthorization\x12\x1d\n" +
 	"\x19AUTHORIZATION_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18AUTHORIZATION_AUTHORIZED\x10\x01\x12!\n" +
@@ -698,7 +927,9 @@ const file_api_proto_platform_v1_proto_rawDesc = "" +
 	"\x11CoreInstallations\x12_\n" +
 	"\vGetSnapshot\x12&.amocrm.platform.v1.GetSnapshotRequest\x1a(.amocrm.platform.v1.InstallationSnapshot2~\n" +
 	"\x17CoreAccountObservations\x12c\n" +
-	"\x0eObserveAccount\x12).amocrm.platform.v1.ObserveAccountRequest\x1a&.amocrm.platform.v1.AccountObservationB<Z:github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpbb\x06proto3"
+	"\x0eObserveAccount\x12).amocrm.platform.v1.ObserveAccountRequest\x1a&.amocrm.platform.v1.AccountObservation2\x82\x01\n" +
+	"\x14CoreAccountDirectory\x12j\n" +
+	"\x11ListInstallations\x12+.amocrm.platform.v1.AccountDirectoryRequest\x1a(.amocrm.platform.v1.AccountDirectoryPageB<Z:github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpbb\x06proto3"
 
 var (
 	file_api_proto_platform_v1_proto_rawDescOnce sync.Once
@@ -713,7 +944,7 @@ func file_api_proto_platform_v1_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_platform_v1_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_api_proto_platform_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_api_proto_platform_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_proto_platform_v1_proto_goTypes = []any{
 	(Authorization)(0),               // 0: amocrm.platform.v1.Authorization
 	(AccountObservationComponent)(0), // 1: amocrm.platform.v1.AccountObservationComponent
@@ -724,24 +955,31 @@ var file_api_proto_platform_v1_proto_goTypes = []any{
 	(*AccountIdentity)(nil),          // 6: amocrm.platform.v1.AccountIdentity
 	(*CRMUserRoster)(nil),            // 7: amocrm.platform.v1.CRMUserRoster
 	(*ObservedCRMUser)(nil),          // 8: amocrm.platform.v1.ObservedCRMUser
-	(*timestamppb.Timestamp)(nil),    // 9: google.protobuf.Timestamp
+	(*AccountDirectoryRequest)(nil),  // 9: amocrm.platform.v1.AccountDirectoryRequest
+	(*AccountDirectoryEntry)(nil),    // 10: amocrm.platform.v1.AccountDirectoryEntry
+	(*AccountDirectoryPage)(nil),     // 11: amocrm.platform.v1.AccountDirectoryPage
+	(*timestamppb.Timestamp)(nil),    // 12: google.protobuf.Timestamp
 }
 var file_api_proto_platform_v1_proto_depIdxs = []int32{
-	0, // 0: amocrm.platform.v1.InstallationSnapshot.authorization:type_name -> amocrm.platform.v1.Authorization
-	1, // 1: amocrm.platform.v1.ObserveAccountRequest.component:type_name -> amocrm.platform.v1.AccountObservationComponent
-	9, // 2: amocrm.platform.v1.AccountObservation.observed_at:type_name -> google.protobuf.Timestamp
-	6, // 3: amocrm.platform.v1.AccountObservation.identity:type_name -> amocrm.platform.v1.AccountIdentity
-	7, // 4: amocrm.platform.v1.AccountObservation.roster:type_name -> amocrm.platform.v1.CRMUserRoster
-	8, // 5: amocrm.platform.v1.CRMUserRoster.users:type_name -> amocrm.platform.v1.ObservedCRMUser
-	2, // 6: amocrm.platform.v1.CoreInstallations.GetSnapshot:input_type -> amocrm.platform.v1.GetSnapshotRequest
-	4, // 7: amocrm.platform.v1.CoreAccountObservations.ObserveAccount:input_type -> amocrm.platform.v1.ObserveAccountRequest
-	3, // 8: amocrm.platform.v1.CoreInstallations.GetSnapshot:output_type -> amocrm.platform.v1.InstallationSnapshot
-	5, // 9: amocrm.platform.v1.CoreAccountObservations.ObserveAccount:output_type -> amocrm.platform.v1.AccountObservation
-	8, // [8:10] is the sub-list for method output_type
-	6, // [6:8] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0,  // 0: amocrm.platform.v1.InstallationSnapshot.authorization:type_name -> amocrm.platform.v1.Authorization
+	1,  // 1: amocrm.platform.v1.ObserveAccountRequest.component:type_name -> amocrm.platform.v1.AccountObservationComponent
+	12, // 2: amocrm.platform.v1.AccountObservation.observed_at:type_name -> google.protobuf.Timestamp
+	6,  // 3: amocrm.platform.v1.AccountObservation.identity:type_name -> amocrm.platform.v1.AccountIdentity
+	7,  // 4: amocrm.platform.v1.AccountObservation.roster:type_name -> amocrm.platform.v1.CRMUserRoster
+	8,  // 5: amocrm.platform.v1.CRMUserRoster.users:type_name -> amocrm.platform.v1.ObservedCRMUser
+	12, // 6: amocrm.platform.v1.AccountDirectoryEntry.registered_at:type_name -> google.protobuf.Timestamp
+	10, // 7: amocrm.platform.v1.AccountDirectoryPage.entries:type_name -> amocrm.platform.v1.AccountDirectoryEntry
+	2,  // 8: amocrm.platform.v1.CoreInstallations.GetSnapshot:input_type -> amocrm.platform.v1.GetSnapshotRequest
+	4,  // 9: amocrm.platform.v1.CoreAccountObservations.ObserveAccount:input_type -> amocrm.platform.v1.ObserveAccountRequest
+	9,  // 10: amocrm.platform.v1.CoreAccountDirectory.ListInstallations:input_type -> amocrm.platform.v1.AccountDirectoryRequest
+	3,  // 11: amocrm.platform.v1.CoreInstallations.GetSnapshot:output_type -> amocrm.platform.v1.InstallationSnapshot
+	5,  // 12: amocrm.platform.v1.CoreAccountObservations.ObserveAccount:output_type -> amocrm.platform.v1.AccountObservation
+	11, // 13: amocrm.platform.v1.CoreAccountDirectory.ListInstallations:output_type -> amocrm.platform.v1.AccountDirectoryPage
+	11, // [11:14] is the sub-list for method output_type
+	8,  // [8:11] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_platform_v1_proto_init() }
@@ -761,9 +999,9 @@ func file_api_proto_platform_v1_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_platform_v1_proto_rawDesc), len(file_api_proto_platform_v1_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   3,
 		},
 		GoTypes:           file_api_proto_platform_v1_proto_goTypes,
 		DependencyIndexes: file_api_proto_platform_v1_proto_depIdxs,

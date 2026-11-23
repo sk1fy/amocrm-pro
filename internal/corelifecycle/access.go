@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -27,6 +28,7 @@ func (s *Store) AccessProofScope(ctx context.Context, principal widgetauth.Princ
 }
 
 type platformInstallationAuthority struct {
+	observedRevision      time.Time
 	productCode           string
 	domain                string
 	generation            int64

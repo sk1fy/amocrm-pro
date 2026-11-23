@@ -15,6 +15,7 @@ const (
 )
 
 type AccountObservationScope struct {
+	ObservationOnly           bool
 	Installation, Integration uuid.UUID
 	Account                   int64
 	Generation                int64

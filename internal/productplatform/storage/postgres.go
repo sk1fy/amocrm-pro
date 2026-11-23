@@ -76,7 +76,9 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		       event.source,event.id,event.kind,event.occurred_at,event.recorded_at,event.account_id,event.product_id,event.episode_id,
 		       snapshot.route,snapshot.account_id,snapshot.query_hash,snapshot.scope_hash,snapshot.total,item.ordinal,item.source,item.event_id
 		FROM platform_manager.visible_accounts a
-		CROSS JOIN platform_manager.installation_directory installation
+		CROSS JOIN platform_manager.account_read_sources readable
+        CROSS JOIN platform_manager.account_refresh_slots daily_check
+        CROSS JOIN platform_manager.installation_directory installation
 		CROSS JOIN platform_manager.installation_contacts contact
 		CROSS JOIN platform_manager.installation_deals deal
 		CROSS JOIN platform_manager.installation_deal_retries retry
@@ -106,7 +108,9 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	var allowed bool
 	err := pool.QueryRow(ctx, `
-		SELECT has_table_privilege('platform_company.generations','SELECT')
+		SELECT has_table_privilege('platform_manager.core_inventory','INSERT,DELETE')
+           AND has_column_privilege('platform_manager.account_refresh_slots','attempted_at','UPDATE')
+           AND has_table_privilege('platform_company.generations','SELECT')
            AND has_table_privilege('platform_company.product_workflow_revisions','INSERT')
            AND has_table_privilege('platform_company.installation_deal_settings_revisions','INSERT')
            AND has_column_privilege('platform_company.product_workflow_heads','version','UPDATE')

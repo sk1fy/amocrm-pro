@@ -168,6 +168,36 @@ func TestPlatformAccountGatewayAcrossCoreAndProvider(t *testing.T) {
 		t.Fatalf("requests without current authority reached amoCRM: %d", requests.Load())
 	}
 
+	directory := platformpb.NewCoreAccountDirectoryClient(connection)
+	page, err := directory.ListInstallations(ctx, &platformpb.AccountDirectoryRequest{AmoAccountId: account})
+	requireAccountGateway(t, err)
+	if len(page.Entries) != 1 || page.Entries[0].InstallationId != installation.String() || page.Entries[0].ObservationOnly {
+		t.Fatalf("wrong lifecycle inventory: %v", page)
+	}
+	legacy := proto.CloneOf(usersRequest)
+	legacy.CoreInstallationId = unapproved.String()
+	legacy.AmoAccountId = account + 1
+	legacy.ObservationOnly = true
+	legacy.Generation, legacy.AuthorizationSequence = 0, 0
+	if _, err := platform.ObserveAccount(ctx, legacy); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("missing approved historical binding: %v", err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO platform_observation_bindings(installation_id,integration_id,amo_account_id,product_code) VALUES ($1,$2,$3,'pilot-account')`, unapproved, integration.ID, account+1)
+	requireAccountGateway(t, err)
+	page, err = directory.ListInstallations(ctx, &platformpb.AccountDirectoryRequest{AmoAccountId: account + 1})
+	requireAccountGateway(t, err)
+	if len(page.Entries) != 1 || !page.Entries[0].ObservationOnly || page.Entries[0].Authorization != "authorized" {
+		t.Fatalf("missing approved historical installation: %v", page)
+	}
+	response, err = platform.ObserveAccount(ctx, legacy)
+	requireAccountGateway(t, err)
+	if len(response.GetRoster().GetUsers()) != 1 {
+		t.Fatalf("legacy observation: %v", response)
+	}
+	if _, err := platformpb.NewCoreAccountDirectoryClient(dial("manager-bff")).ListInstallations(ctx, &platformpb.AccountDirectoryRequest{AmoAccountId: account}); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("untrusted directory reader: %v", err)
+	}
+
 	mode.Store(throttled)
 	if res, err := platform.ObserveAccount(ctx, usersRequest); res != nil || status.Code(err) != codes.ResourceExhausted || gatewayRetryDelay(err) != 7*time.Second {
 		t.Fatalf("provider throttle lost retry metadata: %v, %v", res, err)
