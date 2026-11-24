@@ -247,6 +247,7 @@ func run() error {
 			return err
 		}
 		defer catalog.Close()
+		oauthStore.SetInstallPolicy(catalog.AllowsNewInstallation)
 		crm := amocrmclient.NewClient(externalHTTPClient, oauthflow.NewTokenProvider(pool, keyRing, oauthGateway))
 		registerWidgetActivation(router, corelifecycle.NewStore(pool), crm, activation, widgetRoute, widgetCORSMiddleware)
 	}

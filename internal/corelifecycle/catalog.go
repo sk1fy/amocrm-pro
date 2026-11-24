@@ -31,8 +31,11 @@ func NewCatalogClient(origin, identity string) (*CatalogClient, error) {
 
 func (c *CatalogClient) Close() { c.http.CloseIdleConnections() }
 
-func (c *CatalogClient) lookup(ctx context.Context, id uuid.UUID, registration *wire.IntegrationRegistration) (wire.CatalogPolicy, error) {
+func (c *CatalogClient) lookup(ctx context.Context, id uuid.UUID, registration *wire.IntegrationRegistration, availability bool) (wire.CatalogPolicy, error) {
 	method, path := http.MethodGet, c.endpoint+"?integration_id="+url.QueryEscape(id.String())
+	if availability {
+		path += "&include_availability=true"
+	}
 	var body []byte
 	if registration != nil {
 		method, path = http.MethodPost, c.endpoint
@@ -57,8 +60,28 @@ func (c *CatalogClient) lookup(ctx context.Context, id uuid.UUID, registration *
 }
 
 func (c *CatalogClient) Managed(ctx context.Context, id uuid.UUID) (bool, error) {
-	p, err := c.lookup(ctx, id, nil)
+	p, err := c.lookup(ctx, id, nil, false)
 	return p.Product != "", err
+}
+
+// AllowsNewInstallation reads current policy at OAuth admission. Runtime access
+// and catalog synchronization keep their existing semantics for archived products.
+func (c *CatalogClient) AllowsNewInstallation(ctx context.Context, id uuid.UUID) (bool, error) {
+	policy, err := c.lookup(ctx, id, nil, true)
+	if err != nil {
+		return false, err
+	}
+	if policy.Product == "" {
+		return true, nil
+	} // Core-only integrations
+	switch policy.Availability {
+	case "archived":
+		return false, nil
+	case "draft", "pilot", "active":
+		return true, nil
+	default:
+		return false, errors.New("missing or invalid catalog availability")
+	}
 }
 
 func (s *Store) SyncCatalog(ctx context.Context, c *CatalogClient, after map[uuid.UUID]uuid.UUID) error {
@@ -79,7 +102,7 @@ func (s *Store) SyncCatalog(ctx context.Context, c *CatalogClient, after map[uui
 		if cursor, ok := after[r.ID]; ok {
 			r.After = &cursor
 		}
-		p, err := c.lookup(ctx, r.ID, &r)
+		p, err := c.lookup(ctx, r.ID, &r, false)
 		if err == nil && p.Product != "" && r.Active {
 			err = s.enrollCatalogProduct(ctx, r.ID, p.Product)
 			if err == nil && len(p.Confirmed) > 0 {

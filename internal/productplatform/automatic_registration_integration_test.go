@@ -2,6 +2,7 @@ package productplatform_test
 
 import (
 	"bytes"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
 	"github.com/sk1fy/amocrm-pro/internal/jobs"
@@ -40,6 +41,7 @@ func TestCatalogInstallationBeforeActivation(t *testing.T) {
 	client, err := corelifecycle.NewCatalogClient(server, filepath.Join(certs, "core"))
 	require(t, err)
 	defer client.Close()
+	o.SetInstallPolicy(client.AllowsNewInstallation)
 	activate, err := corelifecycle.NewActivationClient(server, filepath.Join(certs, "core"))
 	require(t, err)
 	defer activate.Close()
@@ -108,4 +110,42 @@ func TestCatalogInstallationBeforeActivation(t *testing.T) {
 		}
 		assertCount(t, ctx, owner, 1, "SELECT count(*) FROM platform_lifecycle.episodes e JOIN platform_manager.installation_contacts c ON c.episode_id=e.id WHERE e.installation_id=$1 AND reviewed_at IS NULL", installation.ID)
 	}
+	t.Run("archive closes admission without revoking existing access", func(t *testing.T) {
+		_, err := owner.Exec(ctx, "UPDATE platform_lifecycle.products SET availability='archived' WHERE id=$1", product)
+		require(t, err)
+		const newAccount = earlier + 2
+		save := func(account int64) (oauth.InstallationResult, error) {
+			return o.SaveInstallation(ctx, integration, oauth.Account{ID: account}, "sample.amocrm.ru", credential())
+		}
+		_, err = save(newAccount)
+		if !errors.Is(err, oauth.ErrProductArchived) {
+			t.Fatalf("fresh installation: %v", err)
+		}
+		assertCount(t, ctx, core, 0, "SELECT count(*) FROM installations WHERE integration_id=$1 AND account_id=$2", integration.ID, newAccount)
+		principal := widgetauth.Principal{IntegrationID: integration.ID, InstallationID: old.ID, AccountID: earlier}
+		allowed, err := journal.CanUseWidget(ctx, principal, client, activate)
+		require(t, err)
+		if !allowed {
+			t.Fatal("archiving revoked existing access")
+		}
+		_, err = core.Exec(ctx, "UPDATE installations SET status='reauth_required' WHERE id=$1", old.ID)
+		require(t, err)
+		renewed, err := save(earlier)
+		require(t, err)
+		if renewed.ID != old.ID {
+			t.Fatal("reauthorization created a second installation")
+		}
+		_, err = core.Exec(ctx, "UPDATE installations SET status='uninstalled' WHERE id=$1", old.ID)
+		require(t, err)
+		_, err = save(earlier)
+		if !errors.Is(err, oauth.ErrProductArchived) {
+			t.Fatalf("reinstall: %v", err)
+		}
+		assertCount(t, ctx, core, 1, "SELECT count(*) FROM installations WHERE id=$1 AND status='uninstalled'", old.ID)
+		_, err = owner.Exec(ctx, "UPDATE platform_lifecycle.products SET availability='active' WHERE id=$1", product)
+		require(t, err)
+		_, err = save(newAccount)
+		require(t, err)
+	})
+
 }

@@ -11,8 +11,9 @@ type IntegrationRegistration struct {
 }
 
 type CatalogPolicy struct {
-	Confirmed []ConfirmedInstallation `json:"confirmed,omitempty"`
-	Product   string                  `json:"product_code"`
+	Availability string                  `json:"availability,omitempty"`
+	Confirmed    []ConfirmedInstallation `json:"confirmed,omitempty"`
+	Product      string                  `json:"product_code"`
 }
 
 type ConfirmedInstallation struct {

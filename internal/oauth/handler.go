@@ -101,6 +101,10 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		if !retryable {
 			message = "authorization failed; restart authorization"
 		}
+		if errors.Is(err, ErrProductArchived) {
+			writeOAuthError(w, http.StatusForbidden, "widget_archived", "Виджет в архиве. Новые установки закрыты.", false)
+			return
+		}
 		if retryable && errors.Is(err, errInstallCapacity) {
 			status, code = http.StatusTooManyRequests, "rate_limited"
 			w.Header().Set("Retry-After", "1")

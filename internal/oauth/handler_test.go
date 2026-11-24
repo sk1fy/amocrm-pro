@@ -393,3 +393,18 @@ func assertInstallRateLimitHTTP(t *testing.T, service *Service, clientID, code s
 		t.Fatalf("preclaim denial status=%d headers=%v body=%s", w.Code, w.Header(), w.Body)
 	}
 }
+
+func TestArchivedInstallationRejectedOnBothCallbacks(t *testing.T) {
+	deny := func(context.Context, string, string, string) (InstallationResult, error) {
+		return InstallationResult{}, withCallbackOutcome(ErrProductArchived, callbackConsumed)
+	}
+	handler := testHandler(fakeFlow{callback: deny, install: deny}, nil)
+	for _, query := range []string{"state=state&code=test", "from_widget=1&code=test"} {
+		w := requestIDRecorder()
+		handler.Callback(w, httptest.NewRequest(http.MethodGet, "/oauth/amocrm/callback?"+query, nil))
+		code, _, _, retryable := decodeOAuthError(t, w.Body.Bytes())
+		if w.Code != http.StatusForbidden || code != "widget_archived" || retryable {
+			t.Fatalf("%s: %d %s", query, w.Code, w.Body.String())
+		}
+	}
+}

@@ -21,6 +21,7 @@ import (
 )
 
 var (
+	ErrProductArchived     = errors.New("widget is archived for new installations")
 	ErrIntegrationNotFound = errors.New("integration not found")
 	ErrInvalidState        = errors.New("OAuth state is invalid, expired, or already used")
 )
@@ -36,12 +37,18 @@ type IntegrationInput struct {
 }
 
 type Store struct {
-	pool   *pgxpool.Pool
-	cipher Cipher
+	installPolicy func(context.Context, uuid.UUID) (bool, error)
+	pool          *pgxpool.Pool
+	cipher        Cipher
 }
 
 func NewStore(pool *pgxpool.Pool, cipher Cipher) *Store {
 	return &Store{pool: pool, cipher: cipher}
+}
+
+// SetInstallPolicy wires the Platform decision before the OAuth HTTP listener starts.
+func (s *Store) SetInstallPolicy(policy func(context.Context, uuid.UUID) (bool, error)) {
+	s.installPolicy = policy
 }
 
 // EnsureIntegration is initial bootstrap only. Existing configuration, secrets,
@@ -258,6 +265,39 @@ func (s *Store) ConsumeState(ctx context.Context, rawState string) (State, error
 	return state, nil
 }
 
+func (s *Store) checkInstallAdmission(ctx context.Context, tx pgx.Tx, integration uuid.UUID, account int64) error {
+	// Keep a concurrent uninstall from turning a permitted renewal into a reinstall.
+	var status string
+	err := tx.QueryRow(ctx, `SELECT status FROM installations WHERE integration_id=$1 AND account_id=$2 FOR UPDATE`, integration, account).Scan(&status)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if status == "active" || status == "reauth_required" {
+		return nil
+	}
+
+	if s.installPolicy == nil {
+		// Standalone Core has no catalog. If this integration was enrolled by
+		// Platform, missing configuration cannot authorize a new installation.
+		var managed bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_lifecycle_integrations WHERE integration_id=$1 AND auto_enroll)`, integration).Scan(&managed); err != nil {
+			return err
+		}
+		if managed {
+			return errors.New("Platform catalog is not configured")
+		}
+		return nil
+	}
+	allowed, err := s.installPolicy(ctx, integration)
+	if err != nil {
+		return fmt.Errorf("check catalog availability: %w", err)
+	}
+	if !allowed {
+		return ErrProductArchived
+	}
+	return nil
+}
+
 func (s *Store) SaveInstallation(
 	ctx context.Context,
 	integration Integration,
@@ -281,6 +321,9 @@ func (s *Store) SaveInstallation(
 		return InstallationResult{}, fmt.Errorf("check integration before authorization: %w", err)
 	}
 
+	if err := s.checkInstallAdmission(ctx, tx, integration.ID, account.ID); err != nil {
+		return InstallationResult{}, err
+	}
 	candidateID := uuid.New()
 	var installationID uuid.UUID
 	var existingWebhookHash, existingWebhookCiphertext []byte
