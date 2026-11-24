@@ -233,33 +233,60 @@ func run() error {
 	widgetRoute := func(consume bool, handler http.Handler) http.Handler {
 		return protectWidgetRoute(widgetAuthenticator, widgetLimiter, widgetCORSMiddleware, consume, handler)
 	}
+	var activation *corelifecycle.ActivationClient
+	var catalog *corelifecycle.CatalogClient
+	lifecycleStore := corelifecycle.NewStore(pool)
 	if origin := os.Getenv("PLATFORM_ACTIVATION_ORIGIN"); origin != "" {
-		activation, err := corelifecycle.NewActivationClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		activation, err = corelifecycle.NewActivationClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
 		if err != nil {
 			return err
 		}
 		defer activation.Close()
+		catalog, err = corelifecycle.NewCatalogClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		if err != nil {
+			return err
+		}
+		defer catalog.Close()
 		crm := amocrmclient.NewClient(externalHTTPClient, oauthflow.NewTokenProvider(pool, keyRing, oauthGateway))
 		registerWidgetActivation(router, corelifecycle.NewStore(pool), crm, activation, widgetRoute, widgetCORSMiddleware)
 	}
+	workRoute := func(consume bool, next http.Handler) http.Handler {
+		return widgetRoute(consume, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p, ok := widgetauth.PrincipalFromContext(r.Context())
+			if !ok {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+			allowed, err := lifecycleStore.CanUseWidget(r.Context(), p, catalog, activation)
+			if err != nil {
+				platformaccess.WriteError(w, r.Context(), http.StatusServiceUnavailable, "activation_unavailable", 0)
+				return
+			}
+			if !allowed {
+				platformaccess.WriteError(w, r.Context(), http.StatusForbidden, "activation_required", 0)
+				return
+			}
+			next.ServeHTTP(w, r)
+		}))
+	}
 	if proofSigner != nil {
 		registerPlatformAccessProof(router, corelifecycle.NewStore(pool), proofSigner,
-			cfg.DatabaseTimeout, widgetRoute, widgetCORSMiddleware)
+			cfg.DatabaseTimeout, workRoute, widgetCORSMiddleware)
 	}
 	if components.Bridge != nil {
 		components.Bridge.ConfigureShare(cfg.ActivityAppOrigins, cfg.ActivityManagementToken)
-		components.Bridge.RegisterHTTP(router, func(handler http.Handler) http.Handler { return widgetRoute(true, handler) }, func(handler http.Handler) http.Handler { return widgetRoute(false, handler) })
+		components.Bridge.RegisterHTTP(router, func(handler http.Handler) http.Handler { return workRoute(true, handler) }, func(handler http.Handler) http.Handler { return workRoute(false, handler) })
 		components.Bridge.RegisterShareHTTP(router)
 	}
 	router.Method(apicontract.WidgetBootstrap.Method, apicontract.WidgetBootstrap.Path,
 		widgetRoute(true, http.HandlerFunc(widgetHandler.Bootstrap)))
 	router.Method(apicontract.WidgetPing.Method, apicontract.WidgetPing.Path,
-		widgetRoute(false, http.HandlerFunc(widgetHandler.Ping)))
+		workRoute(false, http.HandlerFunc(widgetHandler.Ping)))
 	leadStatusModule.RegisterHTTP(router, func(handler http.Handler) http.Handler {
-		return widgetRoute(false, handler)
+		return workRoute(false, handler)
 	})
 	router.Method(apicontract.WidgetJob.Method, apicontract.WidgetJob.Path,
-		widgetRoute(true, http.HandlerFunc(widgetHandler.JobStatus)))
+		workRoute(true, http.HandlerFunc(widgetHandler.JobStatus)))
 	for _, widgetRouteContract := range []apicontract.Route{
 		apicontract.WidgetBootstrap,
 		apicontract.WidgetPing,

@@ -14,8 +14,9 @@ type BootstrapAccountRequest struct {
 	AccessToken   string    `json:"access_token"`
 }
 type BootstrapAccount struct {
-	ID        int64  `json:"id"`
-	Subdomain string `json:"subdomain"`
+	CurrentUserID int64
+	ID            int64  `json:"id"`
+	Subdomain     string `json:"subdomain"`
 }
 type CoreBootstrap interface {
 	GetAccount(context.Context, BootstrapAccountRequest) (BootstrapAccount, error)

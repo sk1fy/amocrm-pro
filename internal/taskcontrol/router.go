@@ -23,7 +23,7 @@ func Router(ctx context.Context, pool *pgxpool.Pool, secrets *cryptox.KeyRing, c
 	if c.JWTLeeway == 0 {
 		c.JWTLeeway = 5 * time.Second
 	}
-	auth, err := widgetauth.NewAuthenticator(widgetauth.NewStore(pool), secrets,
+	auth, err := widgetauth.NewAuthenticator(widgetauth.NewProductStore(pool), secrets,
 		widgetauth.WithMaxLifetime(c.JWTMaxLifetime), widgetauth.WithLeeway(c.JWTLeeway), widgetauth.WithLogger(slog.Default()))
 	if err != nil {
 		return nil, err

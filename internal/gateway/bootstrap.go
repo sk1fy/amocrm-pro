@@ -50,7 +50,7 @@ func (s *BootstrapService) GetAccount(ctx context.Context, r serviceapi.Bootstra
 	if err != nil {
 		return serviceapi.BootstrapAccount{}, corepolicy.MapUpstreamError(err)
 	}
-	return serviceapi.BootstrapAccount{ID: account.ID, Subdomain: account.Subdomain}, nil
+	return serviceapi.BootstrapAccount{ID: account.ID, Subdomain: account.Subdomain, CurrentUserID: account.CurrentUserID}, nil
 }
 
 type bootstrapDatabase struct{ pool *pgxpool.Pool }

@@ -49,5 +49,5 @@ func (g *Gateway) GetAccount(ctx context.Context, accountDomain, accessToken str
 	if err != nil {
 		return Account{}, err
 	}
-	return Account{ID: response.ID, Subdomain: response.Subdomain}, nil
+	return Account{ID: response.ID, Subdomain: response.Subdomain, CurrentUserID: response.CurrentUserID}, nil
 }

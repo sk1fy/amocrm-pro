@@ -189,8 +189,8 @@ func mappedProduct(ctx context.Context, tx pgx.Tx, e wire.Event) (uuid.UUID, err
 	var product uuid.UUID
 	err := tx.QueryRow(ctx, `
 		SELECT i.product_id FROM platform_lifecycle.integrations i
-		JOIN platform_lifecycle.scope s ON s.integration_id=i.id
-		WHERE i.id=$1 AND s.amo_account_id=$2`, e.Integration, account).Scan(&product)
+		JOIN platform_lifecycle.products p ON p.id=i.product_id
+		WHERE i.id=$1 AND (p.catalog_version IS NOT NULL OR EXISTS(SELECT FROM platform_lifecycle.scope s WHERE s.integration_id=i.id AND s.amo_account_id=$2))`, e.Integration, account).Scan(&product)
 	return product, err
 }
 
@@ -237,8 +237,8 @@ func (c *stream) apply(ctx context.Context, tx pgx.Tx, e wire.Event) (string, er
 	case wire.Installed, wire.Reinstalled:
 		episode = uuid.New()
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO platform_lifecycle.episodes(id,installation_id,generation,opened_at)
-			VALUES($1,$2,$3,$4)`, episode, c.id, e.Generation, e.OccurredAt); err != nil {
+			INSERT INTO platform_lifecycle.episodes(id,installation_id,generation,opened_at,installed_by)
+			VALUES($1,$2,$3,$4,NULLIF($5,'')::bigint)`, episode, c.id, e.Generation, e.OccurredAt, e.InstalledBy); err != nil {
 			return "", err
 		}
 	case wire.Uninstalled:
@@ -303,7 +303,8 @@ func bindPair(ctx context.Context, tx pgx.Tx, account int64, product uuid.UUID, 
 	if err != nil || tag.RowsAffected() == 0 {
 		return uuid.Nil, err
 	}
-	return accountID, nil
+	_, err = tx.Exec(ctx, `INSERT INTO platform_lifecycle.scope(integration_id,amo_account_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, e.Integration, account)
+	return accountID, err
 }
 
 func note(ctx context.Context, tx pgx.Tx, e wire.Event, reason string) error {

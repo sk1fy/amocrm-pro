@@ -48,6 +48,7 @@ func PrivateHandler(core, manager http.Handler) http.Handler {
 	}
 
 	mux := http.NewServeMux()
+	mux.Handle(wire.CatalogPath, requireIdentity(coreIdentity, core))
 	mux.Handle(coreEventsPath, requireIdentity(coreIdentity, core))
 	mux.Handle(wire.ActivationPath, requireIdentity(coreIdentity, core))
 	mux.Handle(managerPath, requireIdentity(managerBFFIdentity, manager))

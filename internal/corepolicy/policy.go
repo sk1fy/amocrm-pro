@@ -278,7 +278,7 @@ func (d *databaseChecker) Check(ctx context.Context, scope serviceapi.Scope, act
 func (d *databaseChecker) CheckDelegation(ctx context.Context, scope serviceapi.Scope) error {
 	var enabled bool
 	var reauth bool
-	err := d.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM installations i JOIN integrations n ON n.id=i.integration_id JOIN integration_services c ON c.integration_id=n.id AND c.service_code='activity' JOIN activity_pilots p ON p.installation_id=i.id WHERE i.id=$1 AND n.id=$2 AND i.status='active' AND n.status='active' AND c.enabled AND p.enabled), EXISTS(SELECT 1 FROM installations WHERE id=$1 AND integration_id=$2 AND status='reauth_required')`, scope.InstallationID, scope.IntegrationID).Scan(&enabled, &reauth)
+	err := d.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM installations i JOIN integrations n ON n.id=i.integration_id JOIN integration_services c ON c.integration_id=n.id AND c.service_code='activity' JOIN activity_pilots p ON p.installation_id=i.id WHERE i.id=$1 AND n.id=$2 AND i.status='active' AND n.status='active' AND c.enabled AND p.enabled AND widget_work_enabled(i.id,n.id)), EXISTS(SELECT 1 FROM installations WHERE id=$1 AND integration_id=$2 AND status='reauth_required')`, scope.InstallationID, scope.IntegrationID).Scan(&enabled, &reauth)
 	if err != nil {
 		return serviceapi.Fail(serviceapi.Unavailable, "live policy is unavailable")
 	}

@@ -86,7 +86,7 @@ func Router(ctx context.Context, pool *pgxpool.Pool, keys *cryptox.KeyRing, crm 
 	return routerWithHTTPClient(ctx, pool, keys, crm, c, nil)
 }
 func routerWithHTTPClient(ctx context.Context, pool *pgxpool.Pool, keys *cryptox.KeyRing, crm CRM, c Config, httpClient *http.Client) (http.Handler, error) {
-	authenticator, err := widgetauth.NewAuthenticator(widgetauth.NewStore(pool), keys, widgetauth.WithLeeway(c.JWTLeeway), widgetauth.WithMaxLifetime(c.JWTMaxLifetime))
+	authenticator, err := widgetauth.NewAuthenticator(widgetauth.NewProductStore(pool), keys, widgetauth.WithLeeway(c.JWTLeeway), widgetauth.WithMaxLifetime(c.JWTMaxLifetime))
 	if err != nil {
 		return nil, err
 	}

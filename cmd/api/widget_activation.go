@@ -64,8 +64,15 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 			fail(http.StatusServiceUnavailable, "unavailable")
 			return
 		}
-		if result.Activated {
+		confirmed := func() {
+			if err := store.ConfirmActivation(r.Context(), principal.InstallationID, scope.Generation); err != nil {
+				fail(http.StatusServiceUnavailable, "unavailable")
+				return
+			}
 			platformaccess.WriteJSON(w, http.StatusOK, result)
+		}
+		if result.Activated {
+			confirmed()
 			return
 		}
 		profile, err := crm.WidgetActivationProfile(r.Context(), principal.InstallationID, principal.UserID)
@@ -87,7 +94,7 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 			fail(http.StatusServiceUnavailable, "unavailable")
 			return
 		}
-		platformaccess.WriteJSON(w, http.StatusOK, result)
+		confirmed()
 	}))
 	router.Method(http.MethodGet, widgetActivationPath, handler)
 	router.Method(http.MethodPost, widgetActivationPath, handler)

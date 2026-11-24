@@ -36,7 +36,7 @@ func (s *Store) FindActiveByWebhookKeyHash(ctx context.Context, keyHash []byte) 
 		FROM installations
 		WHERE webhook_key_hash = $1
 		  AND status = 'active'
-		  AND webhook_status <> 'disabled'`, keyHash,
+		  AND webhook_status <> 'disabled' AND widget_work_enabled(id,integration_id)`, keyHash,
 	).Scan(
 		&installation.ID,
 		&installation.IntegrationID,

@@ -50,8 +50,9 @@ type Token struct {
 }
 
 type Account struct {
-	ID        int64
-	Subdomain string
+	CurrentUserID int64
+	ID            int64
+	Subdomain     string
 }
 
 func integrationSecretAAD(id uuid.UUID) []byte {

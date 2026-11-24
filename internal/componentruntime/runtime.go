@@ -131,7 +131,7 @@ func StartAPI(ctx context.Context, c Config, core *pgxpool.Pool, reg prometheus.
 	}
 	g.AccountReader = func(ctx context.Context, integrationID uuid.UUID, domain, accessToken string) (oauthflow.Account, error) {
 		a, err := policyClient.BootstrapAccount.GetAccount(ctx, serviceapi.BootstrapAccountRequest{IntegrationID: integrationID, AccountDomain: domain, AccessToken: accessToken})
-		return oauthflow.Account{ID: a.ID, Subdomain: a.Subdomain}, err
+		return oauthflow.Account{ID: a.ID, Subdomain: a.Subdomain, CurrentUserID: a.CurrentUserID}, err
 	}
 	var product serviceapi.Activity
 	var events serviceapi.CRMEvents

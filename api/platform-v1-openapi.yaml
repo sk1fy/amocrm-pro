@@ -4,6 +4,45 @@ info:
   version: 1.0.0
   description: Контракт Core lifecycle, доступа виджета и закрытых операций для BFF. Порядок проверок и доверие описаны в docs/platform-v1-contract.md.
 paths:
+  /internal/platform/v1/widget-catalog:
+    get:
+      operationId: getWidgetCatalogPolicy
+      security: [{coreService: []}]
+      parameters:
+      - in: query
+        name: integration_id
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Product bound to the integration; an empty code means no catalog entry.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WidgetCatalogPolicy'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '503': {$ref: '#/components/responses/Error503'}
+    post:
+      operationId: observeTechnicalIntegration
+      security: [{coreService: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [integration_id, active]
+              properties:
+                integration_id: {type: string, format: uuid}
+                active: {type: boolean}
+                after: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Catalog mapping and a page of confirmed installation generations.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WidgetCatalogPolicy'}
+        '400': {$ref: '#/components/responses/Error400'}
+        '503': {$ref: '#/components/responses/Error503'}
   /internal/platform/v1/core-events:
     post:
       operationId: recordCoreEvent
@@ -1627,12 +1666,27 @@ components:
       - request_id
       - issued_at
       - deadline_at
+    WidgetCatalogPolicy:
+      type: object
+      required: [product_code]
+      properties:
+        product_code: {type: string}
+        confirmed:
+          type: array
+          maxItems: 64
+          items:
+            type: object
+            required: [id, generation]
+            properties:
+              id: {type: string, format: uuid}
+              generation: {type: integer, minimum: 1, maximum: 9007199254740991}
     CoreLifecycleEvent:
       type: object
       additionalProperties: false
       properties:
         schema_version: {type: integer, enum: [1]}
         event_id: {type: string, format: uuid}
+        installed_by: {type: string, pattern: "^[1-9][0-9]*$"}
         kind: {$ref: '#/components/schemas/LifecycleKind'}
         occurred_at: {type: string, format: date-time}
         amo_account_id: {$ref: '#/components/schemas/AmoID'}
@@ -1913,6 +1967,7 @@ components:
         core_installation_id: {type: string, format: uuid}
         generation: {type: integer, minimum: 0, maximum: 9007199254740991}
         kind: {type: string, enum: [install, reinstall, observed]}
+        installed_by: {type: string, pattern: "^[1-9][0-9]*$"}
         installed_at: {type: string, format: date-time}
         removed_at: {type: [string, 'null'], format: date-time}
         last_lifecycle_event: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled, unknown]}
