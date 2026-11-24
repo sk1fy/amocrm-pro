@@ -52,28 +52,28 @@ func saveInstallationDealSettings(ctx context.Context, tx pgx.Tx, cmd managerCom
 	if current.Version != cmd.Version {
 		return managerVersionConflict(cmd, current.Version)
 	}
-	if rejected, err := validateCompanyWorkflow(ctx, tx, cmd, input, account, binding, retry); err != nil || rejected.status != 0 {
+	if rejected, err := validateCompanyWorkflow(ctx, tx, cmd, &input, account, binding, retry); err != nil || rejected.status != 0 {
 		return rejected, err
 	}
 	owners := current.Owners
 	if input.Owners != nil {
 		owners = *input.Owners
-		if len(owners) != 0 {
-			employees, err := installationDealEmployees(ctx, tx, input.Generation)
-			if err != nil {
-				return managerOutcome{}, err
-			}
-			if employees == nil {
-				return managerOutcome{}, &companyMetadataUnavailable{retry}
-			}
-			active := make(map[string]bool, len(*employees))
-			for _, user := range *employees {
-				active[user.ID] = true
-			}
-			for _, id := range owners {
-				if !active[id] {
-					return managerMutationResponse(422, 0, managerProblem(422, "validation_failed", cmd.RequestID, 0, 0))
-				}
+	}
+	if len(owners) != 0 {
+		employees, err := installationDealEmployees(ctx, tx, input.Generation)
+		if err != nil {
+			return managerOutcome{}, err
+		}
+		if employees == nil {
+			return managerOutcome{}, &companyMetadataUnavailable{retry}
+		}
+		active := make(map[string]bool, len(*employees))
+		for _, user := range *employees {
+			active[user.ID] = true
+		}
+		for _, id := range owners {
+			if !active[id] {
+				return managerMutationResponse(422, 0, managerProblem(422, "validation_failed", cmd.RequestID, 0, 0))
 			}
 		}
 	}
