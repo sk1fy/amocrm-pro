@@ -219,6 +219,31 @@ paths:
         '404': {description: Deal writing is disabled.}
         '429': {$ref: '#/components/responses/Busy'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/company-crm/installation-deals/tags:
+    post:
+      operationId: AddInstallationDealTags
+      description: Add installation and optionally reauthorization tags to an existing deal in the bound corporate account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [source_account_id, binding_revision, deal_id, reauthorized]
+              properties:
+                source_account_id: {type: integer, format: int64, minimum: 1}
+                binding_revision: {type: string, minLength: 1}
+                deal_id: {type: integer, format: int64, minimum: 1}
+                reauthorized: {type: boolean}
+      responses:
+        '204': {description: Tags applied.}
+        '400': {description: Invalid request.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: Deal writing is disabled.}
+        '429': {$ref: '#/components/responses/Busy'}
+        '502': {description: Tag update unconfirmed.}
+        '503': {$ref: '#/components/responses/Unavailable'}
 components:
   schemas:
     Envelope:

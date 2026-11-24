@@ -274,6 +274,7 @@ paths:
       - {name: q, in: query, required: false, schema: {type: string, maxLength: 200}}
       - {name: review, in: query, required: false, schema: {type: string, enum: [reviewed, unreviewed]}}
       - {name: kind, in: query, required: false, schema: {type: string, enum: [install, reinstall]}}
+      - {name: state, in: query, required: false, schema: {type: string, enum: [current, removed]}}
       - {name: last_lifecycle_event, in: query, required: false, schema: {$ref: '#/components/schemas/LifecycleKind'}}
       - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: line, in: query, required: false, schema: {type: string, enum: [FREE, TOP, PRO]}}

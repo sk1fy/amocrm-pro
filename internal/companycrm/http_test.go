@@ -171,3 +171,36 @@ func TestInstallationDealWritesClientFieldsDuringCreation(t *testing.T) {
 		t.Fatalf("sent %d requests, want 2", calls)
 	}
 }
+
+func TestTagExistingDealWithoutReplacingOtherTags(t *testing.T) {
+	b := binding()
+	const host = "fixture-company.amocrm.ru"
+	token := &fakeTokens{token: amocrm.AccessToken{InstallationID: b.InstallationID, IntegrationID: b.IntegrationID, AccountID: b.AccountID, AccountDomain: host}}
+	calls := 0
+	client := amocrm.NewClient(&http.Client{Transport: dealTransport(func(r *http.Request) (*http.Response, error) {
+		calls++
+		var patch []map[string]json.RawMessage
+		if r.Method != http.MethodPatch || r.URL.Host != host || r.URL.Path != "/api/v4/leads" || json.NewDecoder(r.Body).Decode(&patch) != nil || len(patch) != 1 || len(patch[0]) != 2 || string(patch[0]["id"]) != "101" {
+			t.Fatal("unexpected update")
+		}
+		var tags []map[string]string
+		if json.Unmarshal(patch[0]["tags_to_add"], &tags) != nil || len(tags) != calls || tags[0]["name"] != "Установка" || (calls == 2 && tags[1]["name"] != "Повторная авторизация") {
+			t.Fatalf("unexpected tags: %v", tags)
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"_embedded":{"leads":[{"id":101}]}}`))}, nil
+	})}, token)
+	handler := Router(&Service{Deals: &DealService{CRM: client, Resolver: resolverFunc(func(context.Context) (Binding, error) { return b, nil })}})
+	for _, reauth := range []bool{false, true} {
+		data, err := json.Marshal(DealTagsRequest{Account: b.AccountID, Binding: b.Revision, DealID: 101, Reauthorized: reauth})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := request("spiffe://amocrm-pro/platform-company-crm", DealTagsPath, http.MethodPost)
+		r.Body = io.NopCloser(bytes.NewReader(data))
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != 204 {
+			t.Fatalf("status=%d", w.Code)
+		}
+	}
+}

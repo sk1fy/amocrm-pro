@@ -410,6 +410,11 @@ func parseInstallationFilters(raw string, zone *time.Location) (installationFilt
 				return filters, "", errManagerInput
 			}
 			filters.Kind = value
+		case "state":
+			if value != "current" && value != "removed" {
+				return filters, "", errManagerInput
+			}
+			filters.Lifecycle = value
 		case "last_lifecycle_event":
 			switch wire.Kind(value) {
 			case wire.Installed, wire.Reinstalled, wire.Reauthorized, wire.Uninstalled:

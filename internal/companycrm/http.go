@@ -32,7 +32,7 @@ func Router(s *Service) http.Handler {
 		actor := identity(r)
 		staff := r.URL.Path == "/v1/company-crm/staff" && r.Method == http.MethodGet
 		platform := (r.URL.Path == "/v1/company-crm/clients" || r.URL.Path == "/v1/company-crm/workflow-metadata") && r.Method == http.MethodGet || r.URL.Path == "/v1/company-crm/validate-workflow" && r.Method == http.MethodPost
-		platform = platform || (r.URL.Path == DealPath && r.Method == http.MethodPost)
+		platform = platform || ((r.URL.Path == DealPath || r.URL.Path == DealTagsPath) && r.Method == http.MethodPost)
 		if !(staff && actor == "admin-company-directory" || platform && actor == "platform-company-crm") {
 			w.WriteHeader(http.StatusForbidden)
 			_ = json.NewEncoder(w).Encode(map[string]string{"code": "permission_denied"})
@@ -60,6 +60,8 @@ func Router(s *Service) http.Handler {
 			_ = json.NewEncoder(w).Encode(body)
 		}
 		switch r.URL.Path {
+		case DealTagsPath:
+			s.installationDealTags(w, r)
 		case DealPath:
 			s.installationDeal(w, r)
 		case "/v1/company-crm/staff":

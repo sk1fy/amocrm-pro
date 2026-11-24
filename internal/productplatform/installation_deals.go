@@ -2,6 +2,7 @@ package productplatform
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strconv"
@@ -367,4 +368,28 @@ func parseDealRetryError(err error) error {
 		return errManagerNotFound
 	}
 	return err
+}
+
+const InstallationDealTagsJob queue.Kind = "installation.deal.tags"
+
+func (d InstallationDeals) SyncTags(send func(context.Context, companycrm.DealTagsRequest) error) func(context.Context, queue.Job) queue.Completion {
+	return func(ctx context.Context, job queue.Job) queue.Completion {
+		var payload struct {
+			Episode uuid.UUID `json:"episode_id"`
+		}
+		if json.Unmarshal(job.Payload, &payload) != nil || payload.Episode == uuid.Nil {
+			return queue.Completion{Outcome: queue.Outcome{FailureCode: "invalid_payload"}}
+		}
+		var in companycrm.DealTagsRequest
+		err := d.Pool.QueryRow(ctx, `SELECT d.company_account,d.binding_revision,d.deal_id,
+ EXISTS (SELECT FROM platform_lifecycle.history h WHERE h.episode_id=d.episode_id AND h.kind='reauthorized')
+ FROM platform_manager.installation_deals d WHERE d.episode_id=$1 AND d.status='succeeded'`, payload.Episode).Scan(&in.Account, &in.Binding, &in.DealID, &in.Reauthorized)
+		if err == nil {
+			err = send(ctx, in)
+		}
+		if err != nil {
+			return queue.Completion{Outcome: queue.Outcome{FailureCode: "deal_tags_unavailable", Retry: true, RetryAfter: time.Minute}}
+		}
+		return queue.Completion{}
+	}
 }
