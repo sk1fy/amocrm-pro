@@ -53,7 +53,7 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 	mustManager(t, err)
 	_, err = owner.Exec(ctx, `
 		INSERT INTO platform_manager.account_profiles(account_id,display_name,classification)
-		SELECT id,'Retail Alias','Без партнёра'
+		SELECT id,'Retail Alias','Свободный клиент'
 		FROM platform_lifecycle.accounts WHERE amo_account_id=9007199254740993`)
 	mustManager(t, err)
 
@@ -114,7 +114,7 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 		if item.ProductLine != "PRO" || item.AccountDomain == nil || *item.AccountDomain != "fixture-retail.amocrm.test" ||
 			item.AccountName == nil || *item.AccountName != "Retail Alias" ||
 			item.AccountZone == nil || *item.AccountZone != "Asia/Yekaterinburg" ||
-			item.AccountClass == nil || *item.AccountClass != "Без партнёра" {
+			item.AccountClass == nil || *item.AccountClass != "Свободный клиент" {
 			t.Fatalf("queue lost account or product projection: %+v", item)
 		}
 	}

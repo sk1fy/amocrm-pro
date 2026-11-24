@@ -90,6 +90,7 @@ type workflowPipeline struct {
 	Stages []workflowStage `json:"stages"`
 }
 type companyWorkflowMetadata struct {
+	Employees           *[]workflowStage   `json:"employees,omitempty"`
 	Generation          *uuid.UUID         `json:"generation_id"`
 	Source              companySource      `json:"source"`
 	Pipelines           []workflowPipeline `json:"pipelines"`
@@ -110,6 +111,10 @@ func (s managerStore) companyWorkflowMetadata(ctx context.Context) (companyWorkf
 	}
 	result.Generation, result.Source = p.generation, p.source
 	if p.generation != nil {
+		result.Employees, err = installationDealEmployees(ctx, tx, *p.generation)
+		if err != nil {
+			return result, err
+		}
 		rows, err := tx.Query(ctx, `SELECT p.pipeline_id::text,p.name,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',s.stage_id::text,'name',s.name) ORDER BY s.stage_id) FROM platform_company.workflow_stages s WHERE s.generation_id=p.generation_id AND s.pipeline_id=p.pipeline_id),'[]') FROM platform_company.workflow_pipelines p WHERE p.generation_id=$1 ORDER BY p.pipeline_id`, *p.generation)
 		if err != nil {
 			return result, err
@@ -165,11 +170,12 @@ func readProductCompanyWorkflow(ctx context.Context, tx pgx.Tx, id uuid.UUID) (p
 }
 
 type companyWorkflowInput struct {
-	Account    string    `json:"source_account_id"`
-	Binding    string    `json:"binding_revision"`
-	Generation uuid.UUID `json:"metadata_generation_id"`
-	Pipeline   string    `json:"pipeline_id"`
-	Stage      string    `json:"initial_stage_id"`
+	Owners     *map[string]string `json:"owners,omitempty"`
+	Account    string             `json:"source_account_id"`
+	Binding    string             `json:"binding_revision"`
+	Generation uuid.UUID          `json:"metadata_generation_id"`
+	Pipeline   string             `json:"pipeline_id"`
+	Stage      string             `json:"initial_stage_id"`
 }
 
 func positiveCRMID(s string) bool {
@@ -317,9 +323,21 @@ func (m managerHTTP) setWorkflow(w http.ResponseWriter, r *http.Request, env man
 	}
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
 	var in companyWorkflowInput
-	if err != nil || readManagerObject(raw, map[string]any{"source_account_id": &in.Account, "binding_revision": &in.Binding, "metadata_generation_id": &in.Generation, "pipeline_id": &in.Pipeline, "initial_stage_id": &in.Stage}) != nil || !positiveCRMID(in.Account) || !positiveCRMID(in.Pipeline) || !positiveCRMID(in.Stage) || !managerText(in.Binding, 1, 256) || in.Generation == uuid.Nil {
+	fields := map[string]any{"source_account_id": &in.Account, "binding_revision": &in.Binding, "metadata_generation_id": &in.Generation, "pipeline_id": &in.Pipeline, "initial_stage_id": &in.Stage}
+	if kind == installationDealSettingsCommandKind {
+		fields["owners"] = &in.Owners
+	}
+	if err != nil || readManagerObject(raw, fields) != nil || !positiveCRMID(in.Account) || !positiveCRMID(in.Pipeline) || !positiveCRMID(in.Stage) || !managerText(in.Binding, 1, 256) || in.Generation == uuid.Nil {
 		writeManagerError(w, 400, "validation_failed", env.RequestID, 0)
 		return
+	}
+	if in.Owners != nil {
+		for key, id := range *in.Owners {
+			if (key != "own" && key != "partner" && key != "direct" && key != "unclassified") || !positiveCRMID(id) {
+				writeManagerError(w, 400, "validation_failed", env.RequestID, 0)
+				return
+			}
+		}
 	}
 	cmd := managerCommand{ID: env.Command, Key: key, Subject: env.Actor.Subject, RequestID: env.RequestID, Product: product, Kind: kind, Version: version}
 	outcome, err := m.store.mutate(r.Context(), cmd, in, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {

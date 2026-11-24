@@ -3,6 +3,7 @@ package companycrm
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"time"
 
@@ -224,7 +225,21 @@ func (s *Service) WorkflowMetadata(ctx context.Context) Response[WorkflowMetadat
 			return result, err
 		}
 		result.LeadFields, err = s.CRM.CompanyCRMFields(ctx, b.InstallationID, "leads")
-		return result, err
+		if err != nil {
+			return result, err
+		}
+		users, err := s.CRM.CompanyCRMStaff(ctx, b.InstallationID)
+		if err != nil {
+			return result, err
+		}
+		active := make([]WorkflowEmployee, 0, len(users))
+		for _, user := range users {
+			if user.Rights.Active != nil && *user.Rights.Active {
+				active = append(active, WorkflowEmployee{ID: strconv.FormatInt(user.ID, 10), Name: user.Name})
+			}
+		}
+		result.Employees = &active
+		return result, nil
 	})
 }
 func (s *Service) ValidateWorkflow(ctx context.Context, r WorkflowRequest) WorkflowValidation {

@@ -85,7 +85,8 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	until := at.Add(time.Minute)
 	pipeline := amocrm.CompanyCRMPipeline{ID: 100, AccountID: 12, Name: "Sales"}
 	pipeline.Embedded.Statuses = []amocrm.CompanyCRMStage{{ID: 101, AccountID: 12, PipelineID: 100, Name: "New"}}
-	observation := companyObservation{source: companycrm.Source{AccountID: 12, BindingRevision: "r1", State: "fresh", Complete: true, ObservedAt: &at, FreshUntil: &until}, metadata: &companycrm.WorkflowMetadata{RequiredFieldsState: "unknown", Pipelines: []amocrm.CompanyCRMPipeline{pipeline}}}
+	employees := []companycrm.WorkflowEmployee{{ID: "42", Name: "Active manager"}}
+	observation := companyObservation{source: companycrm.Source{AccountID: 12, BindingRevision: "r1", State: "fresh", Complete: true, ObservedAt: &at, FreshUntil: &until}, metadata: &companycrm.WorkflowMetadata{Employees: &employees, RequiredFieldsState: "unknown", Pipelines: []amocrm.CompanyCRMPipeline{pipeline}}}
 	tx, err := pool.Begin(ctx)
 	mustManager(t, err)
 	_, err = publishCompanyObservation(ctx, tx, companyJobPayload{activation, companyMetadata}, job, observation)
@@ -98,7 +99,25 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	mustManager(t, owner.QueryRow(ctx, `SELECT current_generation FROM platform_company.source_components WHERE scope_id=$1 AND component='metadata'`, activation.Scope).Scan(&generation))
 	workflow := command(installationDealSettingsCommandKind, 1)
 	workflow.Product = uuid.Nil
-	workflowInput := companyWorkflowInput{Account: "12", Binding: "r1", Generation: generation, Pipeline: "100", Stage: "101"}
+	owners := map[string]string{"direct": "42"}
+	workflowInput := companyWorkflowInput{Owners: &owners, Account: "12", Binding: "r1", Generation: generation, Pipeline: "100", Stage: "101"}
+	meta, err := store.companyWorkflowMetadata(ctx)
+	mustManager(t, err)
+	if meta.Employees == nil || len(*meta.Employees) != 1 || (*meta.Employees)[0].ID != "42" {
+		t.Fatalf("missing corporate staff: %+v", meta)
+	}
+	invalid := command(installationDealSettingsCommandKind, 1)
+	invalid.Product = uuid.Nil
+	inactive := map[string]string{"own": "99"}
+	invalidInput := workflowInput
+	invalidInput.Owners = &inactive
+	rejected, err := store.mutate(ctx, invalid, invalidInput, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {
+		return saveInstallationDealSettings(ctx, tx, invalid, invalidInput)
+	})
+	mustManager(t, err)
+	if rejected.status != 422 {
+		t.Fatalf("unknown employee accepted: %d", rejected.status)
+	}
 	saved, err := store.mutate(ctx, workflow, workflowInput, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {
 		return saveInstallationDealSettings(ctx, tx, workflow, workflowInput)
 	})
@@ -147,6 +166,10 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		t.Fatalf("activation did not keep the first contact or search by phone: %+v", found)
 	}
 	episode := found.Items[0].ID
+	_, err = owner.Exec(ctx, `INSERT INTO platform_manager.account_profiles(account_id,classification)
+ SELECT account_id,'Свободный клиент' FROM platform_manager.installations WHERE id=$1
+ ON CONFLICT(account_id) DO UPDATE SET classification=EXCLUDED.classification`, episode)
+	mustManager(t, err)
 	review, err := store.review(ctx, reviewCommand{ID: uuid.New(), Key: uuid.New(), Episode: episode, Subject: subject,
 		RequestID: uuid.New(), Version: found.Items[0].Version, Input: reviewInput{Reviewed: true}})
 	mustManager(t, err)
@@ -212,7 +235,7 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	run()
 	if len(fake.requests) != 2 || !fake.requests[0].Create || fake.requests[1].Create ||
 		fake.requests[0].Title != found.Items[0].ProductName+" · fixture-account · Fixture employee · "+date ||
-		fake.requests[0].Title != fake.requests[1].Title || fake.requests[0].Pipeline != 100 || fake.requests[0].Stage != 101 {
+		fake.requests[0].Title != fake.requests[1].Title || fake.requests[0].Pipeline != 100 || fake.requests[0].Stage != 101 || fake.requests[0].ResponsibleUserID != 42 || fake.requests[1].ResponsibleUserID != 0 {
 		t.Fatalf("uncertain request was not reconciled by its original title: %+v", fake.requests)
 	}
 	if fake.requests[0].ClientAccountID != scope.Account || fake.requests[0].ActiveUsers == nil || *fake.requests[0].ActiveUsers != 0 ||
@@ -281,5 +304,15 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	if len(fake.requests) != 4 || !fake.requests[3].Create || fake.requests[3].ClientAccountID != scope.Account ||
 		fake.requests[3].ActiveUsers != nil || len(observedAccounts) != 2 || observedAccounts[1] != scope.Account {
 		t.Fatalf("unavailable user count prevented deal creation or carried an old count: %+v", fake.requests)
+	}
+}
+
+func TestInstallationDealOwnerByClassification(t *testing.T) {
+	for classification, key := range map[string]string{
+		"Свободный клиент": "direct", "Клиент партнёра": "partner", "Наш клиент": "own", "": "unclassified", "Запрет работы": "",
+	} {
+		if got := installationDealOwnerKey(classification); got != key {
+			t.Errorf("classification %q: got %q, want %q", classification, got, key)
+		}
 	}
 }

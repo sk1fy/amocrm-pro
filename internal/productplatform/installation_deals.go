@@ -167,17 +167,21 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	}
 	var pipeline, stage int64
 	err = tx.QueryRow(ctx, `
-		SELECT r.pipeline_id,r.stage_id
+		SELECT r.pipeline_id,r.stage_id,COALESCE((r.owners->>$3::text)::bigint,0)
 		FROM platform_company.source_control c
 		JOIN LATERAL (
-			SELECT pipeline_id,stage_id FROM platform_company.installation_deal_settings_revisions
+			SELECT pipeline_id,stage_id,owners FROM platform_company.installation_deal_settings_revisions
 			WHERE scope_id=c.scope_id ORDER BY revision DESC LIMIT 1
 		) r ON true
 		JOIN platform_company.source_scopes s ON s.id=c.scope_id
 		JOIN platform_company.source_components m ON m.scope_id=s.id AND m.component='metadata'
+		JOIN platform_company.generations metadata ON metadata.id=m.current_generation
 		JOIN platform_company.workflow_stages g ON g.generation_id=m.current_generation
 			AND g.pipeline_id=r.pipeline_id AND g.stage_id=r.stage_id
-		WHERE s.account_id=$1 AND s.binding_revision=$2`, account, revision).Scan(&pipeline, &stage)
+		WHERE s.account_id=$1 AND s.binding_revision=$2
+          AND (NOT (r.owners ? $3::text) OR EXISTS (
+            SELECT FROM jsonb_array_elements(metadata.employees) employee
+            WHERE employee->>'id'=r.owners->>$3::text))`, account, revision, installationDealOwnerKey(classification)).Scan(&pipeline, &stage, &request.ResponsibleUserID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return request, "failed", nil
 	}

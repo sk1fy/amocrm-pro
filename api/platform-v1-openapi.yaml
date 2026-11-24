@@ -547,7 +547,7 @@ paths:
                 note: {type: [string, 'null']}
                 classification:
                   type: [string, 'null']
-                  enum: ['Без партнёра', 'Запрет работы', 'Клиент партнёра', 'Наш клиент', null]
+                  enum: ['Свободный клиент', 'Запрет работы', 'Клиент партнёра', 'Наш клиент', null]
                 partner_name: {type: [string, 'null'], maxLength: 200}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
@@ -1555,7 +1555,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetProductCompanyWorkflow'
+              $ref: '#/components/schemas/SetInstallationDealSettings'
       description: Единая воронка и начальный этап для новых сделок по установкам.
 components:
   securitySchemes:
@@ -2802,6 +2802,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyWorkflowStage'
         generation_id:
           anyOf:
           - *id009
@@ -2875,6 +2879,8 @@ components:
       type: object
       additionalProperties: false
       properties:
+        owners:
+          $ref: '#/components/schemas/InstallationDealOwners'
         version:
           $ref: '#/components/schemas/Version'
         configuration:
@@ -2888,6 +2894,41 @@ components:
       type: object
       additionalProperties: false
       properties:
+        source_account_id:
+          $ref: '#/components/schemas/AmoID'
+        binding_revision:
+          type: string
+          minLength: 1
+          maxLength: 256
+        metadata_generation_id: *id009
+        pipeline_id:
+          $ref: '#/components/schemas/AmoID'
+        initial_stage_id:
+          $ref: '#/components/schemas/AmoID'
+      required:
+      - source_account_id
+      - binding_revision
+      - metadata_generation_id
+      - pipeline_id
+      - initial_stage_id
+    InstallationDealOwners:
+      type: object
+      additionalProperties: false
+      properties:
+        own:
+          $ref: '#/components/schemas/AmoID'
+        partner:
+          $ref: '#/components/schemas/AmoID'
+        direct:
+          $ref: '#/components/schemas/AmoID'
+        unclassified:
+          $ref: '#/components/schemas/AmoID'
+    SetInstallationDealSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        owners:
+          $ref: '#/components/schemas/InstallationDealOwners'
         source_account_id:
           $ref: '#/components/schemas/AmoID'
         binding_revision:

@@ -208,6 +208,15 @@ func validCompanyObservation(o companyObservation, part companyComponent) bool {
 	if o.metadata == nil || o.metadata.RequiredFieldsState != "unknown" {
 		return false
 	}
+	if o.metadata.Employees != nil {
+		users := map[string]bool{}
+		for _, user := range *o.metadata.Employees {
+			if !positiveCRMID(user.ID) || users[user.ID] || !managerText(user.Name, 0, 512) {
+				return false
+			}
+			users[user.ID] = true
+		}
+	}
 	seen := map[int64]bool{}
 	for _, p := range o.metadata.Pipelines {
 		if p.ID <= 0 || seen[p.ID] || p.AccountID != o.source.AccountID || !managerText(p.Name, 0, 512) {
@@ -287,10 +296,12 @@ func publishCompanyObservation(ctx context.Context, tx pgx.Tx, p companyJobPaylo
 			if generation == uuid.Nil {
 				generation = uuid.New()
 				var fields *string
+				var employees *[]companycrm.WorkflowEmployee
 				if o.metadata != nil {
 					fields = &o.metadata.RequiredFieldsState
+					employees = o.metadata.Employees
 				}
-				_, err = tx.Exec(ctx, `INSERT INTO platform_company.generations(id,scope_id,component,observed_at,fresh_until,source_state,content_hash,required_fields_state) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, generation, p.Scope, p.Component, o.source.ObservedAt, o.source.FreshUntil, o.source.State, hash[:], fields)
+				_, err = tx.Exec(ctx, `INSERT INTO platform_company.generations(id,scope_id,component,observed_at,fresh_until,source_state,content_hash,required_fields_state,employees) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, generation, p.Scope, p.Component, o.source.ObservedAt, o.source.FreshUntil, o.source.State, hash[:], fields, employees)
 				if err != nil {
 					return outcome, err
 				}

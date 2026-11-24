@@ -112,7 +112,7 @@ func TestPlatformRecovery(t *testing.T) {
 		installation := page.Items[0]
 		commands := []recoveryCommand{
 			{Target: installation.ID, Version: installation.Version, Path: managerPath + "installations/" + installation.ID.String() + "/review", Body: `{"reviewed":true,"reason":"recovery proof"}`},
-			{Target: installation.Account, Version: 1, Path: managerPath + "accounts/" + installation.Account.String() + "/profile", Body: `{"display_name":"Synthetic recovery account","classification":"Без партнёра","note":"Synthetic recovery note","reason":"recovery proof"}`},
+			{Target: installation.Account, Version: 1, Path: managerPath + "accounts/" + installation.Account.String() + "/profile", Body: `{"display_name":"Synthetic recovery account","classification":"Свободный клиент","note":"Synthetic recovery note","reason":"recovery proof"}`},
 		}
 		for i, c := range commands {
 			c.ID, c.Key = uuid.New(), uuid.New()
