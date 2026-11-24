@@ -67,7 +67,7 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 	}
 
 	cmd := newManagerTestCommand(account, 1)
-	const patch = `{"display_name":"Managed account","classification":"Без партнёра","note":"private note","reason":"private reason"}`
+	const patch = `{"display_name":"Managed account","classification":"Свободный клиент","note":"private note","reason":"private reason"}`
 	applied := managerRequest(t, manager, http.MethodPatch, first.private+profilePath, writer, cmd, patch, http.StatusOK)
 	if applied.etag != `"2"` || !bytes.Contains(applied.body, []byte(`"capabilities":[]`)) ||
 		!bytes.Contains(applied.body, []byte(`"display_name":"Managed account"`)) {
@@ -81,13 +81,13 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 		t.Fatalf("profile did not persist after restart: %s", persisted.body)
 	}
 	lookup := managerRequest(t, manager, http.MethodGet, second.private+managerPath+"accounts?q=managed&classification="+
-		url.QueryEscape("Без партнёра"), writer, managerTestCommand{}, "", http.StatusOK)
+		url.QueryEscape("Свободный клиент"), writer, managerTestCommand{}, "", http.StatusOK)
 	page := managerJSON[accountPage](t, lookup.body)
 	if page.Summary.Total != 1 || len(page.Items) != 1 || !bytes.Contains(page.Items[0], []byte(`"version":2`)) {
 		t.Fatalf("manager list did not use the saved profile: %s", lookup.body)
 	}
 	replayed := managerRequest(t, manager, http.MethodPatch, first.private+profilePath, writer, cmd,
-		`{"reason":"private reason","display_name":" Managed account ","note":"private note","classification":"Без партнёра"}`, http.StatusOK)
+		`{"reason":"private reason","display_name":" Managed account ","note":"private note","classification":"Свободный клиент"}`, http.StatusOK)
 	if !bytes.Equal(replayed.body, applied.body) || replayed.etag != applied.etag {
 		t.Fatalf("profile returned a different recorded response: %s / %s", applied.body, replayed.body)
 	}
@@ -114,7 +114,7 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 	cleared := managerRequest(t, manager, http.MethodPatch, first.private+profilePath, writer, clear,
 		`{"display_name":null,"note":null,"reason":"clear optional fields"}`, http.StatusOK)
 	if cleared.etag != `"3"` || !bytes.Contains(cleared.body, []byte(`"display_name":"Observed account"`)) ||
-		!bytes.Contains(cleared.body, []byte(`"note":null`)) || !bytes.Contains(cleared.body, []byte(`"classification":"Без партнёра"`)) {
+		!bytes.Contains(cleared.body, []byte(`"note":null`)) || !bytes.Contains(cleared.body, []byte(`"classification":"Свободный клиент"`)) {
 		t.Fatalf("explicit null or omitted fields were not preserved: %s", cleared.body)
 	}
 	unchanged := managerRequest(t, manager, http.MethodPatch, second.private+profilePath, writer, newManagerTestCommand(account, 3),
@@ -159,7 +159,7 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 		writer, managerTestCommand{}, "", http.StatusOK)
 	before := managerJSON[accountPage](t, list.body)
 	if before.Next == nil || before.Summary.Overview["all"].Total != 2 ||
-		before.Summary.Overview["all"].ByClassification["Без партнёра"] != 1 {
+		before.Summary.Overview["all"].ByClassification["Свободный клиент"] != 1 {
 		t.Fatalf("account overview is not based on the full snapshot: %s", list.body)
 	}
 	managerRequest(t, manager, http.MethodPatch, second.private+profilePath, writer, newManagerTestCommand(account, 3),
@@ -188,7 +188,7 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 		t.Fatalf("partner and tariff filters disagreed with the overview: %s", filtered.body)
 	}
 	free := managerRequest(t, manager, http.MethodPatch, first.private+profilePath,
-		writer, newManagerTestCommand(account, 4), `{"classification":"Без партнёра","reason":"free again"}`, http.StatusOK)
+		writer, newManagerTestCommand(account, 4), `{"classification":"Свободный клиент","reason":"free again"}`, http.StatusOK)
 	if !bytes.Contains(free.body, []byte(`"partner_name":null`)) {
 		t.Fatalf("partner was retained after change to free: %s", free.body)
 	}

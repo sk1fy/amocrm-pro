@@ -126,7 +126,7 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 	}
 	if value := patch.Classification.Value; value != nil {
 		switch *value {
-		case "Без партнёра", "Запрет работы", "Клиент партнёра", "Наш клиент":
+		case "Свободный клиент", "Запрет работы", "Клиент партнёра", "Наш клиент":
 		default:
 			return managerMutationResponse(http.StatusUnprocessableEntity, 0,
 				managerProblem(http.StatusUnprocessableEntity, "classification_unavailable", cmd.RequestID, 0, 0))

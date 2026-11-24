@@ -122,6 +122,14 @@ paths:
                                           name: {type: string}
                                           pipeline_id: {type: integer, format: int64}
                                           type: {type: integer}
+                          employees:
+                            type: array
+                            items:
+                              type: object
+                              required: [id, name]
+                              properties:
+                                id: {type: string, pattern: '^[1-9][0-9]*$'}
+                                name: {type: string}
                           lead_fields:
                             type: array
                             items:
@@ -190,6 +198,7 @@ paths:
                 pipeline_id: {type: integer, format: int64, minimum: 1}
                 stage_id: {type: integer, format: int64, minimum: 1}
                 create: {type: boolean}
+                responsible_user_id: {type: integer, format: int64, minimum: 1, description: Selected corporate amoCRM user for the client account classification.}
                 client_amo_account_id: {type: integer, format: int64, minimum: 1, description: Account that installed the widget. Sent when creating the deal.}
                 active_users: {type: integer, minimum: 0, maximum: 1000, description: Active CRM users from a fresh complete observation for the client account.}
       responses:

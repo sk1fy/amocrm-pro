@@ -112,7 +112,7 @@ const accountStatusJoin = `
             ELSE 'no_data'
         END AS data_group,
         CASE p.classification
-            WHEN 'Без партнёра' THEN 'direct'
+            WHEN 'Свободный клиент' THEN 'direct'
             WHEN 'Клиент партнёра' THEN 'partner'
         END AS renewal_channel
     ) status`

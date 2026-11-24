@@ -56,7 +56,13 @@ type Clients struct {
 	Contacts  []Contact `json:"contacts"`
 }
 
+type WorkflowEmployee struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type WorkflowMetadata struct {
+	Employees           *[]WorkflowEmployee         `json:"employees,omitempty"`
 	RequiredFieldsState string                      `json:"required_fields_state"`
 	Pipelines           []amocrm.CompanyCRMPipeline `json:"pipelines"`
 	LeadFields          []amocrm.CompanyCRMField    `json:"lead_fields"`

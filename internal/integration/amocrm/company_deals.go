@@ -41,14 +41,15 @@ type companyLeads struct {
 
 func (l *companyLeads) NoContent() { l.empty = true }
 
-func (c *Client) CreateCompanyLead(ctx context.Context, installation uuid.UUID, name string, pipeline, stage int64, fields []CompanyLeadField) (int64, error) {
+func (c *Client) CreateCompanyLead(ctx context.Context, installation uuid.UUID, name string, pipeline, stage, responsible int64, fields []CompanyLeadField) (int64, error) {
 	type lead struct {
-		Name     string             `json:"name"`
-		Pipeline int64              `json:"pipeline_id"`
-		Stage    int64              `json:"status_id"`
-		Fields   []companyLeadField `json:"custom_fields_values,omitempty"`
+		Responsible int64              `json:"responsible_user_id,omitempty"`
+		Name        string             `json:"name"`
+		Pipeline    int64              `json:"pipeline_id"`
+		Stage       int64              `json:"status_id"`
+		Fields      []companyLeadField `json:"custom_fields_values,omitempty"`
 	}
-	input := lead{Name: name, Pipeline: pipeline, Stage: stage}
+	input := lead{Name: name, Pipeline: pipeline, Stage: stage, Responsible: responsible}
 	for _, field := range fields {
 		input.Fields = append(input.Fields, companyLeadField{ID: field.ID, Values: []companyLeadFieldValue{{Value: field.Value}}})
 	}
