@@ -85,22 +85,31 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	until := at.Add(time.Minute)
 	pipeline := amocrm.CompanyCRMPipeline{ID: 100, AccountID: 12, Name: "Sales"}
 	pipeline.Embedded.Statuses = []amocrm.CompanyCRMStage{{ID: 101, AccountID: 12, PipelineID: 100, Name: "New"}}
-	employees := []companycrm.WorkflowEmployee{{ID: "42", Name: "Active manager"}}
+	employees := []companycrm.WorkflowEmployee{{ID: "42", Name: "Active manager"}, {ID: "99", Name: "Former manager"}}
 	observation := companyObservation{source: companycrm.Source{AccountID: 12, BindingRevision: "r1", State: "fresh", Complete: true, ObservedAt: &at, FreshUntil: &until}, metadata: &companycrm.WorkflowMetadata{Employees: &employees, RequiredFieldsState: "unknown", Pipelines: []amocrm.CompanyCRMPipeline{pipeline}}}
-	tx, err := pool.Begin(ctx)
-	mustManager(t, err)
-	_, err = publishCompanyObservation(ctx, tx, companyJobPayload{activation, companyMetadata}, job, observation)
-	if err != nil {
-		_ = tx.Rollback(ctx)
-		t.Fatal(err)
+	publishMetadata := func() {
+		tx, err := pool.Begin(ctx)
+		mustManager(t, err)
+		_, err = publishCompanyObservation(ctx, tx, companyJobPayload{activation, companyMetadata}, job, observation)
+		if err != nil {
+			_ = tx.Rollback(ctx)
+			t.Fatal(err)
+		}
+		mustManager(t, tx.Commit(ctx))
 	}
-	mustManager(t, tx.Commit(ctx))
+	publishMetadata()
 	var generation uuid.UUID
 	mustManager(t, owner.QueryRow(ctx, `SELECT current_generation FROM platform_company.source_components WHERE scope_id=$1 AND component='metadata'`, activation.Scope).Scan(&generation))
 	workflow := command(installationDealSettingsCommandKind, 1)
 	workflow.Product = uuid.Nil
 	owners := map[string]string{"direct": "42"}
 	workflowInput := companyWorkflowInput{Owners: &owners, Account: "12", Binding: "r1", Generation: generation, Pipeline: "100", Stage: "101"}
+	// A regular refresh occurs after the manager opens the form. One selected
+	// candidate disappears, while the stage and the other employee remain.
+	refreshed := at.Add(time.Microsecond)
+	observation.source.ObservedAt = &refreshed
+	employees = employees[:1]
+	publishMetadata()
 	meta, err := store.companyWorkflowMetadata(ctx)
 	mustManager(t, err)
 	if meta.Employees == nil || len(*meta.Employees) != 1 || (*meta.Employees)[0].ID != "42" {
@@ -124,6 +133,22 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	mustManager(t, err)
 	if saved.status != 200 {
 		t.Fatalf("saving workflow returned %d: %s", saved.status, saved.body)
+	}
+
+	var settings installationDealSettings
+	mustManager(t, json.Unmarshal(saved.body, &settings))
+	if meta.Generation == nil || *meta.Generation == generation || settings.Configuration == nil ||
+		settings.Configuration.Generation != *meta.Generation || settings.Owners["direct"] != "42" {
+		t.Fatalf("saved settings do not match refreshed directory: %+v", settings)
+	}
+	competing := command(installationDealSettingsCommandKind, 1)
+	competing.Product = uuid.Nil
+	outdated, err := store.mutate(ctx, competing, workflowInput, func(ctx context.Context, tx pgx.Tx) (managerOutcome, error) {
+		return saveInstallationDealSettings(ctx, tx, competing, workflowInput)
+	})
+	mustManager(t, err)
+	if outdated.status != 409 {
+		t.Fatalf("stale settings version returned %d", outdated.status)
 	}
 
 	lifecycle := NewLifecycleStore(pool)

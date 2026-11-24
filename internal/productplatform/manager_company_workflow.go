@@ -194,7 +194,7 @@ func lockCompanyWorkflowSource(ctx context.Context, tx pgx.Tx) (scope uuid.UUID,
 	return
 }
 
-func validateCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in companyWorkflowInput, account, binding string, retry *time.Time) (managerOutcome, error) {
+func validateCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in *companyWorkflowInput, account, binding string, retry *time.Time) (managerOutcome, error) {
 	reject := func(status int, code string) (managerOutcome, error) {
 		return managerMutationResponse(status, 0, managerProblem(status, code, cmd.RequestID, 0, 0))
 	}
@@ -208,7 +208,10 @@ func validateCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand,
 	if p.generation == nil || !p.source.Complete || p.source.State != "fresh" || p.source.FreshUntil == nil || !p.source.FreshUntil.After(time.Now()) {
 		return managerOutcome{}, &companyMetadataUnavailable{retry}
 	}
-	if *p.generation != in.Generation {
+	// Installation deals use the latest complete directory under the source lock.
+	if cmd.Kind == installationDealSettingsCommandKind {
+		in.Generation = *p.generation
+	} else if *p.generation != in.Generation {
 		return reject(409, "company_metadata_conflict")
 	}
 	var member bool
@@ -242,7 +245,7 @@ func saveCompanyWorkflow(ctx context.Context, tx pgx.Tx, cmd managerCommand, in 
 	if current.Version != cmd.Version {
 		return managerVersionConflict(cmd, current.Version)
 	}
-	if rejected, err := validateCompanyWorkflow(ctx, tx, cmd, in, account, binding, retry); err != nil || rejected.status != 0 {
+	if rejected, err := validateCompanyWorkflow(ctx, tx, cmd, &in, account, binding, retry); err != nil || rejected.status != 0 {
 		return rejected, err
 	}
 	revision := current.Version
