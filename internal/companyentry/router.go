@@ -16,7 +16,7 @@ import (
 )
 
 func Router(ctx context.Context, pool *pgxpool.Pool, keys *cryptox.KeyRing, crm IdentityReader, c Config) (http.Handler, error) {
-	auth, err := widgetauth.NewAuthenticator(widgetauth.NewStore(pool), keys, widgetauth.WithMaxLifetime(30*time.Minute), widgetauth.WithLeeway(5*time.Second), widgetauth.WithLogger(slog.Default()))
+	auth, err := widgetauth.NewAuthenticator(widgetauth.NewProductStore(pool), keys, widgetauth.WithMaxLifetime(30*time.Minute), widgetauth.WithLeeway(5*time.Second), widgetauth.WithLogger(slog.Default()))
 	if err != nil {
 		return nil, err
 	}

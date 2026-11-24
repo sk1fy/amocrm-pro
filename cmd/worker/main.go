@@ -183,6 +183,11 @@ func run() error {
 			return err
 		}
 		handlers[corelifecycle.JobType] = handler
+		catalog, err := corelifecycle.NewCatalogClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		if err != nil {
+			return err
+		}
+		go corelifecycle.NewStore(pool).RunCatalogSync(ctx, catalog, logger)
 	}
 
 	adminExecutor := admincommand.NewWorkerExecutor(pool, amocrmAPI, keyRing, oauthGateway)

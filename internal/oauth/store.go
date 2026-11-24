@@ -288,24 +288,25 @@ func (s *Store) SaveInstallation(
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO installations (
 			id, integration_id, account_id, account_domain, status,
-			webhook_status, webhook_settings
-		) VALUES ($1, $2, $3, $4, 'active', 'pending', $5)
+			webhook_status, webhook_settings, installed_by
+		) VALUES ($1, $2, $3, $4, 'active', 'pending', $5, NULLIF($6::bigint,0))
 		ON CONFLICT (integration_id, account_id) DO UPDATE
 		SET account_domain = EXCLUDED.account_domain,
+            installed_by = CASE WHEN installations.status='uninstalled' THEN EXCLUDED.installed_by ELSE installations.installed_by END,
 			status = 'active',
 			webhook_status = 'pending',
 			webhook_settings = EXCLUDED.webhook_settings,
 			webhook_last_error = NULL,
 			updated_at = now()
 		RETURNING id, webhook_key_hash, webhook_key_ciphertext, webhook_key_key_version`,
-		candidateID, integration.ID, account.ID, accountDomain, integration.WebhookEvents,
+		candidateID, integration.ID, account.ID, accountDomain, integration.WebhookEvents, account.CurrentUserID,
 	).Scan(&installationID, &existingWebhookHash, &existingWebhookCiphertext, &existingWebhookKeyVersion); err != nil {
 		return InstallationResult{}, fmt.Errorf("upsert installation: %w", err)
 	}
 
 	evidence := uuid.New()
 	rotateWebhook, err := corelifecycle.NewStore(s.pool).RecordOAuth(ctx, tx, corelifecycle.Installation{
-		ID: installationID, Integration: integration.ID, Account: account.ID,
+		ID: installationID, Integration: integration.ID, Account: account.ID, InstalledBy: account.CurrentUserID,
 	}, installationID == candidateID, evidence)
 	if err != nil {
 		return InstallationResult{}, fmt.Errorf("record Platform OAuth lifecycle: %w", err)

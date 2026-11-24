@@ -1682,6 +1682,7 @@ func toBootstrapAccount(src serviceapi.BootstrapAccount) *pb.BootstrapAccount {
 	out := new(pb.BootstrapAccount)
 	out.Id = src.ID
 	out.Subdomain = src.Subdomain
+	out.CurrentUserId = src.CurrentUserID
 	return out
 }
 func fromBootstrapAccount(src *pb.BootstrapAccount) serviceapi.BootstrapAccount {
@@ -1691,6 +1692,7 @@ func fromBootstrapAccount(src *pb.BootstrapAccount) serviceapi.BootstrapAccount 
 	}
 	out.ID = src.Id
 	out.Subdomain = src.Subdomain
+	out.CurrentUserID = src.CurrentUserId
 	return out
 }
 func toSessionContext(src serviceapi.SessionContext) *pb.SessionContext {

@@ -40,6 +40,7 @@ type installationReview struct {
 }
 
 type managerInstallation struct {
+	InstalledBy   *string              `json:"installed_by,omitempty"`
 	ID            uuid.UUID            `json:"id"`
 	Account       uuid.UUID            `json:"account_id"`
 	AmoAccount    string               `json:"amo_account_id"`
@@ -110,7 +111,7 @@ const installationColumns = `inst.id,account_id,amo_account_id,product_id,produc
 	"authorization",reviewed_by,reviewed_at,valid_until,term_source,entitlement_version,inst.version,
 	i.current_domain,COALESCE(p.display_name,i.display_name),p.classification,i.time_zone,
 	w.amo_user_id,w.name,w.phone,w.email,w.role,
-	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at`
+	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at,(SELECT ep.installed_by::text FROM platform_lifecycle.episodes ep WHERE ep.id=inst.id)`
 
 const installationFrom = ` FROM platform_manager.installation_directory inst ` + installationProfileJoins
 
@@ -151,7 +152,7 @@ func scanManagerInstallation(row pgx.Row, now time.Time) (managerInstallation, e
 		&item.Installation, &item.Generation, &item.Kind, &item.InstalledAt, &item.RemovedAt, &item.LastLifecycle,
 		&item.Lifecycle, &item.Authorization, &item.Review.By, &item.Review.At, &access.until, &access.source,
 		&access.version, &item.Version, &item.AccountDomain, &item.AccountName, &item.AccountClass, &item.AccountZone,
-		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun)
+		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun, &item.InstalledBy)
 	if err != nil {
 		return item, err
 	}

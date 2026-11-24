@@ -42,7 +42,7 @@ func (s *Store) platformInstallationAuthority(ctx context.Context, account int64
 	err := s.pool.QueryRow(ctx, `
 		SELECT m.product_code,i.account_domain,
 			p.account_id IS NOT NULL
-				AND EXISTS(SELECT 1 FROM platform_lifecycle_manifest WHERE version=1)
+				AND (m.auto_enroll OR EXISTS(SELECT 1 FROM platform_lifecycle_manifest WHERE version=1))
 				AND NOT EXISTS(
 					SELECT 1 FROM platform_lifecycle_integrations other
 					JOIN platform_lifecycle_scope approved USING(integration_id)

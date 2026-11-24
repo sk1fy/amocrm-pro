@@ -326,3 +326,30 @@ func TestPlatformProductCreateReplayAfterBootstrap(t *testing.T) {
 	managerRequest(t, client, http.MethodGet, second.private+acceptedCmd.receiptPath(), editor, managerTestCommand{}, "", http.StatusNotFound)
 	managerRequest(t, client, http.MethodPost, second.private+path, editor, acceptedCmd, body, http.StatusNotFound)
 }
+
+func TestManagerBindsTechnicalIntegration(t *testing.T) {
+	if os.Getenv("PLATFORM_TEST_BINARY") == "" {
+		t.Skip("requires Platform manager process")
+	}
+	server := startManagerProcess(t)
+	manager := tlsClient(t, os.Getenv("PLATFORM_TEST_CERTS_DIR"), "manager-bff")
+	core := tlsClient(t, os.Getenv("PLATFORM_TEST_CERTS_DIR"), "core")
+	editor := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read", "catalog.manage"}}
+	id := uuid.New()
+	base := server.private + managerPath + "products"
+	body := fmt.Sprintf(`{"code":"check-%s","display_name":"Тест","line":"FREE","availability":"pilot","integration_refs":[],"tariff_version":null,"trial_policy":{"kind":"none","duration_days":null},"links":[]}`, id)
+	p := managerJSON[managerProduct](t, managerRequest(t, manager, http.MethodPost, base, editor, newManagerTestCommand(uuid.Nil, 0), body, http.StatusCreated).body)
+	patch := fmt.Sprintf(`{"integration_refs":[%q]}`, id)
+	managerRequest(t, manager, http.MethodPatch, base+"/"+p.ID.String(), editor, newManagerTestCommand(p.ID, 1), patch, http.StatusUnprocessableEntity).requireCode(t, "integration_mapping_mismatch")
+	registration := fmt.Sprintf(`{"integration_id":%q,"active":true}`, id)
+	res, err := core.Post(server.private+wire.CatalogPath, "application/json", strings.NewReader(registration))
+	mustManager(t, err)
+	res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Fatalf("register: %d", res.StatusCode)
+	}
+	updated := managerJSON[managerProduct](t, managerRequest(t, manager, http.MethodPatch, base+"/"+p.ID.String(), editor, newManagerTestCommand(p.ID, 1), patch, http.StatusOK).body)
+	if len(updated.Integrations) != 1 || updated.Integrations[0] != id {
+		t.Fatalf("incorrect binding: %v", updated.Integrations)
+	}
+}

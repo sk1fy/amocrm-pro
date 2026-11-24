@@ -32,6 +32,7 @@ func NewStore(pool *pgxpool.Pool) *Store {
 }
 
 type Installation struct {
+	InstalledBy       int64
 	ID                uuid.UUID
 	Integration       uuid.UUID
 	Account           int64
@@ -85,9 +86,34 @@ func readCursor(ctx context.Context, tx pgx.Tx, id uuid.UUID) (cursor, error) {
 	return c, err
 }
 
+// enrollAccount keeps a catalog product unambiguous when an account installs two
+// integration UUIDs for that product concurrently. Existing manual scopes survive.
+func enrollAccount(ctx context.Context, tx pgx.Tx, integration uuid.UUID, account int64) error {
+	var code string
+	err := tx.QueryRow(ctx, `SELECT product_code FROM platform_lifecycle_integrations WHERE integration_id=$1 AND auto_enroll`, integration).Scan(&code)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,$2))`, code, account); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO platform_lifecycle_scope(integration_id,account_id)
+        SELECT $1::uuid,$2::bigint WHERE NOT EXISTS(
+            SELECT FROM platform_lifecycle_scope s JOIN platform_lifecycle_integrations m USING(integration_id)
+            WHERE m.product_code=$3 AND s.account_id=$2 AND s.integration_id<>$1)
+        ON CONFLICT DO NOTHING`, integration, account, code)
+	return err
+}
+
 // RecordOAuth runs under the installation row lock taken by the OAuth upsert.
 // Its result tells OAuth to replace the destination key fenced to an old attempt.
 func (s *Store) RecordOAuth(ctx context.Context, tx pgx.Tx, i Installation, inserted bool, evidence uuid.UUID) (bool, error) {
+	if err := enrollAccount(ctx, tx, i.Integration, i.Account); err != nil {
+		return false, err
+	}
 	if inScope, err := InScope(ctx, tx, i); err != nil || !inScope {
 		return false, err
 	}
@@ -176,15 +202,22 @@ func (s *Store) RecordIntegrationAuthorization(ctx context.Context, tx pgx.Tx, i
 }
 
 func (s *Store) append(ctx context.Context, tx pgx.Tx, i Installation, c cursor, kind wire.Kind, auth wire.Authorization, source string, evidence uuid.UUID, reason string) error {
+	return s.appendAt(ctx, tx, i, c, kind, auth, source, evidence, reason, time.Now().UTC())
+}
+
+func (s *Store) appendAt(ctx context.Context, tx pgx.Tx, i Installation, c cursor, kind wire.Kind, auth wire.Authorization, source string, evidence uuid.UUID, reason string, occurred time.Time) error {
 	c.sequence++
 	if kind != wire.Uninstalled {
 		c.authorizationSequence = c.sequence
 	}
 	event := wire.Event{
 		Version: 1, Account: strconv.FormatInt(i.Account, 10), Integration: i.Integration,
-		Installation: i.ID, ID: uuid.New(), Kind: kind, OccurredAt: time.Now().UTC(),
+		Installation: i.ID, ID: uuid.New(), Kind: kind, OccurredAt: occurred.UTC(),
 		Generation: c.generation, Sequence: c.sequence, Authorization: auth,
 		Evidence: wire.Evidence{Source: source, ID: evidence},
+	}
+	if (kind == wire.Installed || kind == wire.Reinstalled) && i.InstalledBy > 0 {
+		event.InstalledBy = strconv.FormatInt(i.InstalledBy, 10)
 	}
 	body, err := json.Marshal(event)
 	if err != nil {

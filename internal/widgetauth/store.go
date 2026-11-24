@@ -11,12 +11,16 @@ import (
 
 // Store is the PostgreSQL implementation of Repository.
 type Store struct {
-	pool *pgxpool.Pool
+	pool              *pgxpool.Pool
+	requireActivation bool
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
+
+// NewProductStore is for product endpoints which cannot perform activation themselves.
+func NewProductStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool, requireActivation: true} }
 
 // FindVerificationMaterial intentionally uses only unverified client_uuid and
 // account_id hints. None of the returned or hinted values authorize a request;
@@ -42,9 +46,9 @@ func (s *Store) FindVerificationMaterial(
 		WHERE integration.client_id = $1
 		  AND installation.account_id = $2
 		  AND integration.status = 'active'
-		  AND installation.status = 'active'`,
+		  AND installation.status = 'active' AND (NOT $3::boolean OR widget_work_enabled(installation.id,integration.id))`,
 		clientUUID,
-		accountID,
+		accountID, s.requireActivation,
 	).Scan(
 		&material.IntegrationID,
 		&material.InstallationID,

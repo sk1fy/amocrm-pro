@@ -88,7 +88,7 @@ service Activity { rpc ViewActivityRatings(ActivityRatingRequest) returns (Activ
 // Core-only OAuth discovery. mTLS core identity is mandatory. The transient
 // candidate credential is never persisted or exposed to Activity/CRM Events.
 message BootstrapAccountRequest { string integration_id = 1; string account_domain = 2; string access_token = 3; }
-message BootstrapAccount { int64 id = 1; string subdomain = 2; }
+message BootstrapAccount { int64 id = 1; string subdomain = 2; int64 current_user_id = 3; }
 service CoreBootstrap { rpc GetAccount(BootstrapAccountRequest) returns (BootstrapAccount); }
 
 message SessionContext { int64 task_id = 1; string task_name = 2; int64 task_type_id = 3; string task_type_name = 4; string task_result = 5; string activity_name = 6; string activity_type = 7; int64 entity_id = 8; string entity_type = 9; string entity_name = 10; int64 pipeline_id = 11; string pipeline_name = 12; int64 status_id = 13; string status_name = 14; string status_color = 15; string client_id = 16; }

@@ -40,6 +40,7 @@ const (
 )
 
 type Event struct {
+	InstalledBy   string        `json:"installed_by,omitempty"`
 	Version       int           `json:"schema_version"`
 	Account       string        `json:"amo_account_id"`
 	Integration   uuid.UUID     `json:"integration_id"`
@@ -83,6 +84,11 @@ func DecodeEvent(raw []byte) (Event, error) {
 		event.OccurredAt.IsZero() || event.Generation < 1 || event.Generation > event.Sequence ||
 		event.Sequence > MaxPosition || event.Evidence.ID == uuid.Nil {
 		return event, errors.New("invalid lifecycle event")
+	}
+	if event.InstalledBy != "" {
+		if _, err := AccountID(event.InstalledBy); err != nil || (event.Kind != Installed && event.Kind != Reinstalled) {
+			return event, errors.New("invalid installer identity")
+		}
 	}
 	var source string
 	switch event.Kind {

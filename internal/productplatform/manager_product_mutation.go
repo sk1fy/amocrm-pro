@@ -69,8 +69,18 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 	if err != nil {
 		return managerOutcome{}, err
 	}
-	if input.Integrations != nil && !slices.Equal(current.Integrations, *input.Integrations) {
-		return productValidation(cmd, "integration_mapping_mismatch")
+	var additions []uuid.UUID
+	if input.Integrations != nil {
+		for _, existing := range current.Integrations {
+			if !slices.Contains(*input.Integrations, existing) {
+				return productValidation(cmd, "integration_mapping_mismatch")
+			}
+		}
+		for _, ref := range *input.Integrations {
+			if !slices.Contains(current.Integrations, ref) {
+				additions = append(additions, ref)
+			}
+		}
 	}
 	if create && policyVersion == nil {
 		var initialRevision int64
@@ -90,6 +100,9 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 		current.Trial = trialForRule(rule)
 	}
 	next := current
+	if input.Integrations != nil {
+		next.Integrations = *input.Integrations
+	}
 	if input.DisplayName != nil {
 		next.DisplayName = *input.DisplayName
 	}
@@ -139,6 +152,17 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 	if version != nil && string(currentRaw) == string(nextRaw) {
 		current.Version = *version
 		return managerMutationResponse(http.StatusOK, current.Version, current)
+	}
+	if len(additions) > 0 {
+		tag, err := tx.Exec(ctx, `INSERT INTO platform_lifecycle.integrations(id,product_id)
+            SELECT id,$2 FROM platform_lifecycle.core_integrations WHERE id=ANY($1::uuid[]) AND active ORDER BY id
+            ON CONFLICT DO NOTHING`, additions, id)
+		if err != nil {
+			return managerOutcome{}, err
+		}
+		if tag.RowsAffected() != int64(len(additions)) {
+			return productValidation(cmd, "integration_mapping_mismatch")
+		}
 	}
 	next.Version = 1
 	if version != nil {

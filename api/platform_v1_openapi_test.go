@@ -28,7 +28,7 @@ func TestPlatformV1OpenAPIContract(t *testing.T) {
 				assertPlatformSecurity(t, operation, "widgetProof")
 			case "/v1/installations/{id}/activation":
 				assertPlatformSecurity(t, operation, "activationProof")
-			case "/internal/platform/v1/core-events", "/internal/platform/v1/activation":
+			case "/internal/platform/v1/widget-catalog", "/internal/platform/v1/core-events", "/internal/platform/v1/activation":
 				assertPlatformSecurity(t, operation, "coreService")
 			default:
 				assertPlatformSecurity(t, operation, "adminService")

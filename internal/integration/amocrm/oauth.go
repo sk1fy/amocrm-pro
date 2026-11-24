@@ -30,8 +30,9 @@ type OAuthToken struct {
 }
 
 type Account struct {
-	ID        int64  `json:"id"`
-	Subdomain string `json:"subdomain"`
+	CurrentUserID int64  `json:"current_user_id"`
+	ID            int64  `json:"id"`
+	Subdomain     string `json:"subdomain"`
 }
 
 type OAuthClient struct {
