@@ -40,12 +40,17 @@ func (s *LifecycleStore) catalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var p wire.CatalogPolicy
-	err := s.pool.QueryRow(ctx, `SELECT p.code FROM platform_lifecycle.integrations i
+	var availability string
+	err := s.pool.QueryRow(ctx, `SELECT p.code,p.availability FROM platform_lifecycle.integrations i
 		JOIN platform_lifecycle.products p ON p.id=i.product_id
-		WHERE i.id=$1 AND p.catalog_version IS NOT NULL`, id).Scan(&p.Product)
+		WHERE i.id=$1 AND p.catalog_version IS NOT NULL`, id).Scan(&p.Product, &availability)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
+	}
+	// Older clients strictly decode the original response.
+	if r.Method == http.MethodGet && r.URL.Query().Get("include_availability") == "true" {
+		p.Availability = availability
 	}
 	if r.Method == http.MethodPost && p.Product != "" && registration.Active {
 		after := uuid.Nil

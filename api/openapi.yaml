@@ -179,6 +179,11 @@ paths:
                 $ref: '#/components/schemas/InstallationResult'
         '400':
           $ref: '#/components/responses/OAuthError'
+        '403':
+          description: The widget is archived and this account has no continuing installation.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OAuthError'}
         '429':
           $ref: '#/components/responses/OAuthRateLimited'
         '502':
@@ -2688,6 +2693,7 @@ components:
               type: string
               enum:
               - invalid_argument
+              - widget_archived
               - unavailable
               - rate_limited
             message:
