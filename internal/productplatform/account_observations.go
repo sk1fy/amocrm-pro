@@ -75,8 +75,9 @@ type accountRefreshPayload struct {
 }
 
 type accountIdentityObservation struct {
-	Domain, Name string
-	TimeZone     *string
+	WidgetVersions map[string]string
+	Domain, Name   string
+	TimeZone       *string
 }
 
 type accountCRMUser struct {
@@ -237,7 +238,12 @@ func decodeAccountObservation(response *platformpb.AccountObservation, part acco
 				return out, false
 			}
 		}
-		out.Identity = &accountIdentityObservation{Domain: identity.CurrentDomain, Name: identity.DisplayName, TimeZone: identity.TimeZone}
+		for id, v := range identity.WidgetVersions {
+			if _, err := managerUUID(id); err != nil || !managerText(v, 1, 64) {
+				return out, false
+			}
+		}
+		out.Identity = &accountIdentityObservation{WidgetVersions: identity.WidgetVersions, Domain: identity.CurrentDomain, Name: identity.DisplayName, TimeZone: identity.TimeZone}
 		return out, true
 	}
 	roster := response.GetRoster()
@@ -333,6 +339,17 @@ func publishAccountObservation(ctx context.Context, tx pgx.Tx, p accountRefreshP
 			   OR platform_manager.account_rosters.observed_at<=EXCLUDED.observed_at`,
 			p.Account, obs.Roster, obs.Active, uuid.New(), obs.At, obs.At.Add(rosterFreshness))
 		return outcome, err
+	}
+	if len(obs.Identity.WidgetVersions) > 0 {
+		_, err := tx.Exec(ctx, `INSERT INTO platform_manager.installation_widget_versions(installation_id,generation,widget_version,observed_at)
+             SELECT d.installation_id,d.generation,w.value,$3 FROM platform_manager.installation_directory d
+             JOIN jsonb_each_text($2::jsonb) w ON d.installation_id=w.key::uuid
+             WHERE d.account_id=$1 AND d.lifecycle='current' AND d.opened_at<=$3
+             ON CONFLICT(installation_id,generation) DO UPDATE SET widget_version=EXCLUDED.widget_version,observed_at=EXCLUDED.observed_at
+             WHERE platform_manager.installation_widget_versions.observed_at<=EXCLUDED.observed_at`, p.Account, obs.Identity.WidgetVersions, obs.At)
+		if err != nil {
+			return outcome, err
+		}
 	}
 	_, err := tx.Exec(ctx, `
 		WITH observed AS (

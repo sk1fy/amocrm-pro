@@ -23,9 +23,10 @@ type AccountObservationScope struct {
 }
 
 type ObservedAccountIdentity struct {
-	CurrentDomain string
-	DisplayName   string
-	TimeZone      *string
+	WidgetVersions map[string]string
+	CurrentDomain  string
+	DisplayName    string
+	TimeZone       *string
 }
 
 func (ObservedAccountIdentity) isAccountObservation() {}

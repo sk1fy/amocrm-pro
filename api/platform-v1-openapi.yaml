@@ -2021,6 +2021,7 @@ components:
         core_installation_id: {type: string, format: uuid}
         generation: {type: integer, minimum: 0, maximum: 9007199254740991}
         kind: {type: string, enum: [install, reinstall, observed]}
+        widget_version: {type: string, minLength: 1, maxLength: 64}
         installed_by: {type: string, pattern: "^[1-9][0-9]*$"}
         installed_at: {type: string, format: date-time}
         removed_at: {type: [string, 'null'], format: date-time}

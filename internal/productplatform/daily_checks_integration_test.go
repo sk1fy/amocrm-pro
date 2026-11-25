@@ -43,7 +43,7 @@ func (f *dailyFixture) ObserveAccount(_ context.Context, r *pb.ObserveAccountReq
 	if r.Component == pb.AccountObservationComponent_ACCOUNT_OBSERVATION_COMPONENT_USERS {
 		result.Result = &pb.AccountObservation_Roster{Roster: &pb.CRMUserRoster{Users: []*pb.ObservedCRMUser{{Id: 1, IsActive: true}}}}
 	} else {
-		result.Result = &pb.AccountObservation_Identity{Identity: &pb.AccountIdentity{CurrentDomain: "pilot.amocrm.ru", DisplayName: "Pilot"}}
+		result.Result = &pb.AccountObservation_Identity{Identity: &pb.AccountIdentity{CurrentDomain: "pilot.amocrm.ru", DisplayName: "Pilot", WidgetVersions: map[string]string{f.installations[0]: "2.3.1"}}}
 	}
 	return result, nil
 }
@@ -112,6 +112,20 @@ func TestPlatformDailyChecks(t *testing.T) {
 		t.Fatalf("users=%d bindings=%d terms=%d episodes=%d", roster, bindings, terms, episodes)
 	}
 	account := uuid.MustParse("10000000-1111-4400-8000-000000000001")
+	page, _, err := (managerStore{pool: pool}).list(ctx, managerActor{}, installationFilters{Account: &account, Limit: 10}, installationSeek{})
+	mustManager(t, err)
+	if len(page.Items) != 2 {
+		t.Fatalf("expected two installations, got %d", len(page.Items))
+	}
+	for _, item := range page.Items {
+		if item.Installation.String() == f.installations[0] {
+			if item.WidgetVersion == nil || *item.WidgetVersion != "2.3.1" {
+				t.Fatal("observed version absent from the matching installation")
+			}
+		} else if item.WidgetVersion != nil {
+			t.Fatal("version leaked into another installation of the same product")
+		}
+	}
 	f.blocked.Store(true)
 	_, _, failure := observer.readAccountComponent(ctx, accountRefreshPayload{Account: account, Component: refreshUsers})
 	if !failure.Retry || failure.FailureCode != "source_unavailable" {

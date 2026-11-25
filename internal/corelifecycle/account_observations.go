@@ -32,18 +32,28 @@ func (s *AccountObservationService) ObserveAccount(ctx context.Context, scope se
 	if err != nil {
 		return serviceapi.AccountObservation{}, err
 	}
+	observedAt := time.Now().UTC()
 	var result serviceapi.AccountObservationResult
 	var providerErr error
 	if component == serviceapi.AccountObservationIdentity {
 		var identity serviceapi.ObservedAccountIdentity
 		identity, providerErr = s.crm.ObserveAccountIdentity(ctx, scope.Installation, scope.Account, before.domain)
+		if providerErr == nil {
+			// Preserve the identity observation if the optional widget directory is unavailable.
+			budget := 10 * time.Second
+			if deadline, ok := ctx.Deadline(); ok {
+				budget = min(budget, time.Until(deadline)/2)
+			}
+			directoryCtx, cancel := context.WithTimeout(ctx, budget)
+			identity.WidgetVersions = s.widgetVersions(directoryCtx, scope)
+			cancel()
+		}
 		result = identity
 	} else {
 		var users serviceapi.ObservedCRMUserRoster
 		users, providerErr = s.crm.ObserveCRMUsers(ctx, scope.Installation)
 		result = users
 	}
-	observedAt := time.Now().UTC()
 	if ctx.Err() != nil {
 		return serviceapi.AccountObservation{}, ctx.Err()
 	}
@@ -95,4 +105,29 @@ func observationProviderError(cause error) error {
 		}
 	}
 	return fmt.Errorf("%w: %w", failure, cause)
+}
+
+func (s *AccountObservationService) widgetVersions(ctx context.Context, scope serviceapi.AccountObservationScope) map[string]string {
+	rows, err := s.store.pool.Query(ctx, `SELECT lower(n.client_id),i.id::text
+        FROM installations i JOIN integrations n ON n.id=i.integration_id WHERE i.account_id=$1 AND (
+        EXISTS (SELECT FROM platform_lifecycle_scope s WHERE s.integration_id=i.integration_id AND s.account_id=i.account_id)
+        OR EXISTS (SELECT FROM platform_observation_bindings b WHERE b.installation_id=i.id AND b.amo_account_id=i.account_id))`, scope.Account)
+	if err != nil {
+		return nil
+	}
+	targets := map[string]string{}
+	for rows.Next() {
+		var client, id string
+		if err := rows.Scan(&client, &id); err != nil {
+			rows.Close()
+			return nil
+		}
+		targets[client] = id
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return nil
+	}
+	versions, _ := s.crm.InstalledWidgetVersions(ctx, scope.Installation, targets)
+	return versions
 }

@@ -40,7 +40,7 @@ func (s *platformAccountObservationsServer) ObserveAccount(ctx context.Context, 
 	switch observed := result.Result.(type) {
 	case serviceapi.ObservedAccountIdentity:
 		response.Result = &platformpb.AccountObservation_Identity{Identity: &platformpb.AccountIdentity{
-			CurrentDomain: observed.CurrentDomain, DisplayName: observed.DisplayName, TimeZone: observed.TimeZone,
+			CurrentDomain: observed.CurrentDomain, DisplayName: observed.DisplayName, TimeZone: observed.TimeZone, WidgetVersions: observed.WidgetVersions,
 		}}
 	case serviceapi.ObservedCRMUserRoster:
 		roster := &platformpb.CRMUserRoster{Users: make([]*platformpb.ObservedCRMUser, 0, len(observed))}

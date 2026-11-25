@@ -94,6 +94,8 @@ func TestPlatformAccountGatewayAcrossCoreAndProvider(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v4/account":
 			_, _ = fmt.Fprintf(w, `{"id":%d,"name":"Pilot Company","subdomain":"pilot","_embedded":{"datetime_settings":{"timezone":"Europe/Moscow"}}}`, account)
+		case "/api/v4/widgets":
+			_, _ = fmt.Fprintf(w, `{"_embedded":{"widgets":[{"client_uuid":"%s","is_active_in_account":true,"version":"3.1.7"}]}}`, integration.ClientID)
 		case "/api/v4/users":
 			_, _ = fmt.Fprint(w, `{"_page":1,"_page_count":1,"_total_items":1,"_embedded":{"users":[{"id":42,"name":"Local Staff","email":"excluded@example.test","rights":{"is_active":false,"is_admin":true}}]}}`)
 		default:
@@ -136,7 +138,7 @@ func TestPlatformAccountGatewayAcrossCoreAndProvider(t *testing.T) {
 	}
 	identity, err := platform.ObserveAccount(ctx, req)
 	requireAccountGateway(t, err)
-	if identity.GetIdentity().GetDisplayName() != "Pilot Company" || identity.GetIdentity().GetCurrentDomain() != "pilot.amocrm.ru" ||
+	if identity.GetIdentity().GetWidgetVersions()[installation.String()] != "3.1.7" || identity.GetIdentity().GetDisplayName() != "Pilot Company" || identity.GetIdentity().GetCurrentDomain() != "pilot.amocrm.ru" ||
 		identity.GetIdentity().GetTimeZone() != "Europe/Moscow" || identity.GetObservedAt().AsTime().Before(time.Now().Add(-10*time.Second)) {
 		t.Fatalf("scoped identity missing provider evidence: %v", identity)
 	}
@@ -164,7 +166,7 @@ func TestPlatformAccountGatewayAcrossCoreAndProvider(t *testing.T) {
 			t.Fatalf("wrong Core scope returned %v, %v", res, err)
 		}
 	}
-	if requests.Load() != 2 {
+	if requests.Load() != 3 {
 		t.Fatalf("requests without current authority reached amoCRM: %d", requests.Load())
 	}
 
