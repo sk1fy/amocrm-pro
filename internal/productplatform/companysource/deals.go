@@ -54,7 +54,7 @@ func (c *Client) SendInstallationDeal(ctx context.Context, input companycrm.Deal
 	return companycrm.DealResult{}, errors.New("invalid installation deal outcome")
 }
 
-func (c *Client) AddInstallationDealTags(ctx context.Context, input companycrm.DealTagsRequest) error {
+func (c *Client) UpdateInstallationDealTitle(ctx context.Context, input companycrm.DealTitleRequest) error {
 	if input.Account != c.config.AccountID || input.Binding != c.config.Revision {
 		return errors.New("installation deal binding mismatch")
 	}
@@ -62,7 +62,7 @@ func (c *Client) AddInstallationDealTags(ctx context.Context, input companycrm.D
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.Origin+companycrm.DealTagsPath, bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.Origin+companycrm.DealTitlePath, bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}

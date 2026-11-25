@@ -147,10 +147,11 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	}
 
 	var name, accountLabel, contactName, lifecycle, classification string
+	var generation int64
 	var installedAt time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
-			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,''),inst.opened_at,
+			COALESCE(c.name,''),inst.lifecycle,inst.generation,COALESCE(p.classification,''),inst.opened_at,
 			inst.amo_account_id,u.active_count
 		FROM platform_manager.installations inst
 		LEFT JOIN platform_manager.account_identities i USING(account_id)
@@ -158,7 +159,7 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		LEFT JOIN platform_manager.account_rosters u
 			ON u.account_id=inst.account_id AND u.failure_code IS NULL AND u.fresh_until>transaction_timestamp()
 		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
-		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification, &installedAt,
+		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &generation, &classification, &installedAt,
 		&request.ClientAccountID, &request.ActiveUsers)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
 		return request, "skipped", nil
@@ -192,6 +193,9 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	date := installedAt.UTC()
 	if d.Manager != nil {
 		date = date.In(d.Manager.zone)
+	}
+	if generation > 1 {
+		name = "Переустановка · " + name
 	}
 	request.Title = installationDealTitle(name, accountLabel, contactName, date)
 	request.Pipeline, request.Stage, request.Create = pipeline, stage, true
@@ -370,9 +374,9 @@ func parseDealRetryError(err error) error {
 	return err
 }
 
-const InstallationDealTagsJob queue.Kind = "installation.deal.tags"
+const InstallationDealTitleJob queue.Kind = "installation.deal.title"
 
-func (d InstallationDeals) SyncTags(send func(context.Context, companycrm.DealTagsRequest) error) func(context.Context, queue.Job) queue.Completion {
+func (d InstallationDeals) SyncTitle(send func(context.Context, companycrm.DealTitleRequest) error) func(context.Context, queue.Job) queue.Completion {
 	return func(ctx context.Context, job queue.Job) queue.Completion {
 		var payload struct {
 			Episode uuid.UUID `json:"episode_id"`
@@ -380,15 +384,15 @@ func (d InstallationDeals) SyncTags(send func(context.Context, companycrm.DealTa
 		if json.Unmarshal(job.Payload, &payload) != nil || payload.Episode == uuid.Nil {
 			return queue.Completion{Outcome: queue.Outcome{FailureCode: "invalid_payload"}}
 		}
-		var in companycrm.DealTagsRequest
+		var in companycrm.DealTitleRequest
 		err := d.Pool.QueryRow(ctx, `SELECT d.company_account,d.binding_revision,d.deal_id,
- EXISTS (SELECT FROM platform_lifecycle.history h WHERE h.episode_id=d.episode_id AND h.kind='reauthorized')
- FROM platform_manager.installation_deals d WHERE d.episode_id=$1 AND d.status='succeeded'`, payload.Episode).Scan(&in.Account, &in.Binding, &in.DealID, &in.Reauthorized)
-		if err == nil {
+ CASE WHEN e.generation>1 THEN 'reinstalled' WHEN EXISTS (SELECT FROM platform_lifecycle.history h WHERE h.episode_id=d.episode_id AND h.kind='reauthorized') THEN 'reauthorized' ELSE '' END
+ FROM platform_manager.installation_deals d JOIN platform_lifecycle.episodes e ON e.id=d.episode_id WHERE d.episode_id=$1 AND d.status='succeeded'`, payload.Episode).Scan(&in.Account, &in.Binding, &in.DealID, &in.Event)
+		if err == nil && in.Event != "" {
 			err = send(ctx, in)
 		}
 		if err != nil {
-			return queue.Completion{Outcome: queue.Outcome{FailureCode: "deal_tags_unavailable", Retry: true, RetryAfter: time.Minute}}
+			return queue.Completion{Outcome: queue.Outcome{FailureCode: "deal_title_unavailable", Retry: true, RetryAfter: time.Minute}}
 		}
 		return queue.Completion{}
 	}
