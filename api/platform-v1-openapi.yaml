@@ -637,7 +637,7 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                components: {type: array, items: {type: string, enum: [license, users]}, minItems: 1, uniqueItems: true}
+                components: {type: array, items: {type: string, enum: [license, users, amostart]}, minItems: 1, uniqueItems: true}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
               - components
@@ -2439,6 +2439,15 @@ components:
         note: {type: [string, 'null']}
         region: {type: [string, 'null']}
         time_zone: {type: [string, 'null']}
+        classification_change:
+          type: object
+          additionalProperties: false
+          required: [occurred_at, source]
+          properties:
+            occurred_at: {type: string, format: date-time}
+            source: {type: string, enum: [manual, subscription]}
+            previous: {type: string}
+            current: {type: string}
         identity_observed_at:
           type: string
           format: date-time

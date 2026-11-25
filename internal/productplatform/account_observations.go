@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/amostart"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc/platformpb"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -28,6 +29,7 @@ const (
 )
 
 type AccountObserver struct {
+	amoStart  *amostart.Client
 	directory platformpb.CoreAccountDirectoryClient
 	pool      *pgxpool.Pool
 	gateway   platformpb.CoreAccountObservationsClient
@@ -39,6 +41,10 @@ func NewAccountObserver(pool *pgxpool.Pool, gateway platformpb.CoreAccountObserv
 
 func (o *AccountObserver) SetDirectory(client platformpb.CoreAccountDirectoryClient) {
 	o.directory = client
+}
+
+func (o *AccountObserver) SetAmoStart(client *amostart.Client) {
+	o.amoStart = client
 }
 
 type sourceScope struct {
@@ -103,18 +109,28 @@ func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.C
 	var observation accountObservation
 	var inventory []inventoryEntry
 	var outcome queue.Outcome
-	if p.Component == refreshInstallations {
+	var amoAccount int64
+	var license amostart.License
+	switch p.Component {
+	case refreshInstallations:
 		inventory, outcome = o.readInventory(ctx, p.Account)
-	} else {
+	case refreshAmoStart:
+		amoAccount, license, outcome = o.readAmoStart(ctx, p.Account)
+	default:
 		scope, observation, outcome = o.readAccountComponent(ctx, p)
 	}
 	return queue.Completion{Publish: func(ctx context.Context, tx pgx.Tx) (queue.Outcome, error) {
 		var err error
-		if p.Component == refreshInstallations {
+		switch p.Component {
+		case refreshAmoStart:
+			if outcome.FailureCode == "" {
+				outcome, err = publishAmoStart(ctx, tx, p.Account, amoAccount, license)
+			}
+		case refreshInstallations:
 			if outcome.FailureCode == "" {
 				outcome, err = publishInventory(ctx, tx, p.Account, inventory)
 			}
-		} else {
+		default:
 			outcome, err = publishAccountObservation(ctx, tx, p, scope, observation, outcome)
 		}
 		if err != nil {

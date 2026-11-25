@@ -69,7 +69,9 @@ type accountSeek struct {
 const accountObservationJoins = `
 	LEFT JOIN platform_manager.account_identities i USING(account_id)
 	LEFT JOIN platform_manager.account_rosters u USING(account_id)
-	LEFT JOIN platform_manager.account_profiles p USING(account_id)`
+	LEFT JOIN platform_manager.account_profiles p USING(account_id)
+	LEFT JOIN platform_manager.account_amostart_licenses l USING(account_id)
+	LEFT JOIN platform_manager.account_refresh_slots ls ON ls.account_id=a.account_id AND ls.component='amostart'`
 
 const rosterObservationState = `
 	CASE WHEN u.observed_at IS NULL THEN 'unknown'
@@ -81,8 +83,18 @@ const rosterObservationFields = `
 	'source','` + crmUsersSource + `',
 	'observed_at',u.observed_at,'fresh_until',u.fresh_until,'evidence_id',u.evidence_id,'error_code',u.failure_code`
 
-// These two commercial observations have no verified Core source in V1.
-const unsupportedAccountObservation = `jsonb_build_object('state','unsupported','source','unverified')`
+const amoStartObservationFields = `
+	'state',CASE WHEN l.observed_at IS NULL AND (ls.account_id IS NULL OR ls.result_code='amostart_not_configured') THEN 'unsupported'
+		WHEN l.observed_at IS NULL THEN 'unknown'
+		WHEN ls.result_code IS NOT NULL OR l.observed_at+interval '24 hours'<=transaction_timestamp() THEN 'stale'
+		ELSE 'fresh' END,
+	'source','amoSTART','observed_at',l.observed_at,'fresh_until',l.observed_at+interval '24 hours',
+	'evidence_id',l.evidence_id,'error_code',ls.result_code`
+
+const licenseObservation = `jsonb_strip_nulls(jsonb_build_object(` + amoStartObservationFields + `,
+	'value',CASE WHEN l.observed_at IS NOT NULL THEN jsonb_build_object(
+		'license_until',l.license_until,'tariff',l.tariff
+	) END))`
 
 const accountSummaryJSON = `jsonb_build_object(
 	'account_id',a.account_id,'amo_account_id',a.amo_account_id::text,'current_domain',i.current_domain,
@@ -93,8 +105,8 @@ const accountSummaryJSON = `jsonb_build_object(
         'component', CASE s.component WHEN 'license' THEN 'identity' ELSE s.component END,
         'attempted_at',s.attempted_at,'succeeded_at',COALESCE(s.succeeded_at,CASE s.component WHEN 'users' THEN u.observed_at WHEN 'license' THEN i.observed_at END),
         'next_check_at',s.next_check_at,'reason',s.result_code)) ORDER BY s.component)
-        FROM platform_manager.account_refresh_slots s WHERE s.account_id=a.account_id),'[]'::jsonb),
-    'active_products_count',a.active_products_count,'license',` + unsupportedAccountObservation + `,
+        FROM platform_manager.account_refresh_slots s WHERE s.account_id=a.account_id AND s.component<>'amostart'),'[]'::jsonb),
+    'active_products_count',a.active_products_count,'license',` + licenseObservation + `,
 	'active_users',jsonb_strip_nulls(jsonb_build_object('value',u.active_count,` + rosterObservationFields + `)))`
 
 const accountListJSON = accountSummaryJSON + ` || jsonb_strip_nulls(jsonb_build_object(
@@ -161,8 +173,11 @@ func accountOrder(sort string) string {
 		return "lower(i.current_domain) NULLS LAST, a.amo_account_id, a.account_id"
 	case "display_name":
 		return "lower(COALESCE(p.display_name,i.display_name)) NULLS LAST, a.amo_account_id, a.account_id"
+	case "license_until":
+		return "l.license_until NULLS LAST, a.amo_account_id, a.account_id"
+	case "-license_until":
+		return "l.license_until DESC NULLS LAST, a.amo_account_id, a.account_id"
 	default:
-		// License dates are unknown for every account, so both license sorts use the same tie breaker.
 		return "a.amo_account_id, a.account_id"
 	}
 }
@@ -295,7 +310,7 @@ const accountListWhere = `
 	  AND (COALESCE(cardinality($2::text[]),0)=0 OR p.classification=ANY($2))
 	  AND ($3::uuid IS NULL OR EXISTS (
 		SELECT FROM platform_manager.account_product_directory p WHERE p.account_id=a.account_id AND p.product_id=$3))
-	  AND $4::timestamptz IS NULL
+	  AND ($4::timestamptz IS NULL OR l.license_until<$4)
 	  AND ($5::integer IS NULL OR u.active_count>=$5)
 	  AND ($6::integer IS NULL OR u.active_count<=$6)
       AND ($7='' OR status.data_group=$7)
@@ -346,8 +361,13 @@ func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID,
 	err := db.QueryRow(ctx, `
 		SELECT `+accountSummaryJSON+` || jsonb_build_object(
 			'feedback_product_ids',ARRAY(SELECT product_id FROM platform_manager.widget_feedback WHERE account_id=a.account_id ORDER BY product_id),
-            'note',p.note,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb)
+            'note',p.note,'region',NULL,'time_zone',i.time_zone,
+            'amostart',jsonb_strip_nulls(jsonb_build_object(`+amoStartObservationFields+`,'value',l.observed_at)),
+            'capabilities',$2::jsonb)
 			|| jsonb_strip_nulls(jsonb_build_object('identity_observed_at',i.observed_at,
+                'classification_change',(SELECT jsonb_build_object('occurred_at',c.occurred_at,'source',c.source,
+                    'previous',c.previous,'current',c.current) FROM platform_manager.account_classification_changes c
+                    WHERE c.account_id=a.account_id ORDER BY c.version DESC LIMIT 1),
                 'subscription',(SELECT to_jsonb(s)-ARRAY['account_id','version','action','valid_until'] FROM platform_manager.account_subscriptions s WHERE s.account_id=a.account_id),
                 'previous_subscription',(SELECT jsonb_build_object('plan',r.plan,'ends_on',r.ends_on,'seats',r.seats,'deal_id',r.deal_id,
                      'changed_at',r.changed_at,'state','revoked') FROM platform_manager.account_subscription_revisions r
