@@ -108,7 +108,7 @@ type installationSeek struct {
 
 const installationColumns = `inst.id,account_id,amo_account_id,product_id,product_code,product_name,COALESCE(line,''),
 	installation_id,generation,inst.kind,opened_at,closed_at,last_lifecycle_event,lifecycle,
-	"authorization",reviewed_by,reviewed_at,valid_until,term_source,entitlement_version,inst.version,
+	"authorization",reviewed_by,reviewed_at,valid_until,term_source,entitlement_version,inst.version, CASE WHEN lifecycle='current' AND "authorization"='authorized' THEN package_until END,
 	i.current_domain,COALESCE(p.display_name,i.display_name),p.classification,i.time_zone,
 	w.amo_user_id,w.name,w.phone,w.email,w.role,
 	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at,(SELECT ep.installed_by::text FROM platform_lifecycle.episodes ep WHERE ep.id=inst.id)`
@@ -116,6 +116,7 @@ const installationColumns = `inst.id,account_id,amo_account_id,product_id,produc
 const installationFrom = ` FROM platform_manager.installation_directory inst ` + installationProfileJoins
 
 const installationProfileJoins = `
+	LEFT JOIN platform_manager.subscription_terms USING(account_id,product_id)
 	LEFT JOIN platform_manager.account_identities i USING(account_id)
 	LEFT JOIN platform_manager.account_profiles p USING(account_id)
 	LEFT JOIN platform_manager.installation_contacts w ON w.episode_id=inst.id
@@ -134,7 +135,8 @@ const installationListWhere = `
 	  AND ($4::uuid IS NULL OR product_id=$4)
 	  AND ($5='' OR line=$5)
 	  AND ($6='' OR $6=CASE WHEN w.episode_id IS NOT NULL THEN 'activated' ELSE 'unavailable' END)
-	  AND ($7='' OR COALESCE(valid_until>$10 AND term_source IN ('own_trial','free','own_paid','manual'), false) = ($7='active'))
+	  AND ($7='' OR (COALESCE(valid_until>$10 AND term_source IN ('own_trial','free','own_paid','manual'), false)
+        OR COALESCE(lifecycle='current' AND "authorization"='authorized' AND package_until>$10,false)) = ($7='active'))
 	  AND ($8::timestamptz IS NULL OR opened_at >= $8)
 	  AND ($9::timestamptz IS NULL OR opened_at < $9)
 	  AND ($11::uuid IS NULL OR account_id=$11)
@@ -151,7 +153,7 @@ func scanManagerInstallation(row pgx.Row, now time.Time) (managerInstallation, e
 	err := row.Scan(&item.ID, &item.Account, &account, &item.Product, &item.ProductCode, &item.ProductName, &item.ProductLine,
 		&item.Installation, &item.Generation, &item.Kind, &item.InstalledAt, &item.RemovedAt, &item.LastLifecycle,
 		&item.Lifecycle, &item.Authorization, &item.Review.By, &item.Review.At, &access.until, &access.source,
-		&access.version, &item.Version, &item.AccountDomain, &item.AccountName, &item.AccountClass, &item.AccountZone,
+		&access.version, &item.Version, &access.packageUntil, &item.AccountDomain, &item.AccountName, &item.AccountClass, &item.AccountZone,
 		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun, &item.InstalledBy)
 	if err != nil {
 		return item, err

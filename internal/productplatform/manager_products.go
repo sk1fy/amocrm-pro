@@ -165,8 +165,8 @@ func (s managerStore) productMetrics(ctx context.Context, id uuid.UUID, start, b
 	var m productMetrics
 	err := s.pool.QueryRow(ctx, `
 		SELECT episodes.installations,episodes.activations,
-			(SELECT count(*) FROM platform_manager.product_access access WHERE access.product_id=p.id AND access.authorized
-				AND access.own_until>statement_timestamp() AND access.source IN ('own_trial','free','own_paid','manual')),
+			(SELECT count(*) FROM platform_manager.product_access access LEFT JOIN platform_manager.subscription_terms USING(account_id,product_id) WHERE access.product_id=p.id AND access.authorized
+				AND (package_until>statement_timestamp() OR (access.own_until>statement_timestamp() AND access.source IN ('own_trial','free','own_paid','manual')))),
 			statement_timestamp()
 		FROM platform_lifecycle.products p
 		CROSS JOIN LATERAL (

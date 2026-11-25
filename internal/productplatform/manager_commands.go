@@ -16,6 +16,7 @@ const (
 	profileCommandKind             = "account.profile"
 	portraitCommandKind            = "account.portrait"
 	portraitAuditCommandKind       = "account.portrait_audit_date"
+	subscriptionCommandKind        = "account.subscription"
 	renewalCommandKind             = "account.renewal"
 	portraitTemplateCommandKind    = "portrait.template"
 	portraitNicheCreateCommandKind = "portrait.niche.create"
@@ -193,7 +194,7 @@ func commandGrant(kind string) string {
 	switch kind {
 	case reviewCommandKind, accountRefreshKind, profileCommandKind, portraitCommandKind, portraitAuditCommandKind:
 		return "clients.write"
-	case renewalCommandKind:
+	case renewalCommandKind, subscriptionCommandKind:
 		return "clients.renew"
 	case productCreateCommandKind, productUpdateCommandKind, companyWorkflowCommandKind, installationDealSettingsCommandKind:
 		return "catalog.manage"
@@ -211,7 +212,7 @@ func requireCommandScope(ctx context.Context, tx pgx.Tx, kind string, episode, a
 	switch kind {
 	case reviewCommandKind:
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.installations WHERE id=$1)`, episode).Scan(&visible)
-	case accountRefreshKind, profileCommandKind, portraitCommandKind, portraitAuditCommandKind:
+	case subscriptionCommandKind, accountRefreshKind, profileCommandKind, portraitCommandKind, portraitAuditCommandKind:
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.visible_accounts WHERE account_id=$1)`, account).Scan(&visible)
 	case productCreateCommandKind, installationDealSettingsCommandKind:
 		return nil
