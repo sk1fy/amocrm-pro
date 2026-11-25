@@ -63,7 +63,11 @@ var eventSummaries = map[string]string{
 	"installed": "Виджет установлен", "reinstalled": "Виджет переустановлен", "reauthorized": "Авторизация восстановлена", "uninstalled": "Виджет удалён",
 	"installation_reviewed": "Установка проверена", "installation_unreviewed": "Проверка установки снята",
 	"account_profile_updated": "Профиль аккаунта обновлён", "portrait_updated": "Портрет аккаунта обновлён", "access_renewed": "Доступ продлён",
-	"activated": "Виджет активирован",
+	"activated":            "Виджет активирован",
+	"subscription_granted": "Подписка выдана",
+	"subscription_renewed": "Подписка продлена",
+	"subscription_seats":   "Изменён лимит подписки",
+	"subscription_revoked": "Подписка снята",
 }
 
 const eventVisible = `EXISTS (SELECT FROM platform_manager.visible_accounts a WHERE a.account_id=e.account_id)

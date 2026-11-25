@@ -37,7 +37,11 @@ func recordAccountChange(ctx context.Context, tx pgx.Tx, cmd managerCommand, cha
 			'summary',CASE kind
 				WHEN 'account_profile_updated' THEN 'Обновлён профиль клиента'
 				WHEN 'portrait_updated' THEN 'Обновлён портрет клиента'
-				WHEN 'access_renewed' THEN 'Обновлён срок доступа'
+				WHEN 'subscription_granted' THEN 'Подписка выдана'
+WHEN 'subscription_renewed' THEN 'Подписка продлена'
+WHEN 'subscription_seats' THEN 'Изменён лимит подписки'
+WHEN 'subscription_revoked' THEN 'Подписка снята'
+WHEN 'access_renewed' THEN 'Обновлён срок доступа'
 			END,
 			'related_refs',jsonb_build_array(jsonb_build_object('kind','account','id',account_id)) ||
 				CASE WHEN product_id IS NOT NULL THEN jsonb_build_array(jsonb_build_object('kind','product','id',product_id))

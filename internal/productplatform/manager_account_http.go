@@ -192,7 +192,7 @@ func (m managerHTTP) account(w http.ResponseWriter, r *http.Request, env manager
 		refresh.ReasonCodes = append(refresh.ReasonCodes, "source_unavailable")
 	}
 	capabilities := []accountCapability{refresh}
-	for _, action := range []string{profileCommandKind, portraitCommandKind, portraitAuditCommandKind, renewalCommandKind} {
+	for _, action := range []string{profileCommandKind, portraitCommandKind, portraitAuditCommandKind, renewalCommandKind, subscriptionCommandKind} {
 		grant := commandGrant(action)
 		capability := accountCapability{Action: action, Allowed: env.Actor.Grants[grant],
 			RequiredGrants: []string{grant}, ReasonCodes: []string{}}

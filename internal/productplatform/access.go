@@ -21,7 +21,7 @@ type accessProjection struct {
 	account, product, integration, installation uuid.UUID
 	generation, authorizationSequence, version  int64
 	authorized                                  bool
-	until                                       *time.Time
+	until, packageUntil                         *time.Time
 	source                                      *string
 }
 
@@ -42,24 +42,28 @@ func (p accessProjection) state(now time.Time) accessState {
 		Account: p.account, Product: p.product, Source: "none", ReasonCodes: []string{"term_missing"},
 		Version: p.version, ComputedAt: now.UTC(),
 	}
-	if p.until == nil {
-		return result
-	}
-	until := p.until.UTC()
-	result.OwnUntil = &until
-	if p.source != nil {
-		switch *p.source {
-		case "own_trial", "free", "own_paid", "manual":
-			result.ValidUntil, result.Source = &until, *p.source
-			result.Active = now.Before(until)
-			result.ReasonCodes = []string{"term_expired"}
-			if result.Active {
-				result.ReasonCodes = []string{}
+	result.OwnUntil = p.until
+
+	if p.until != nil {
+		result.ReasonCodes = []string{"term_unavailable"}
+		if p.source != nil {
+			switch *p.source {
+			case "own_trial", "free", "own_paid", "manual":
+				until := p.until.UTC()
+				result.ValidUntil, result.Source = &until, *p.source
+				result.Active = now.Before(until)
+				result.ReasonCodes = []string{"term_expired"}
+				if result.Active {
+					result.ReasonCodes = []string{}
+				}
 			}
-			return result
 		}
 	}
-	result.ReasonCodes = []string{"term_unavailable"}
+	if p.packageUntil != nil && now.Before(*p.packageUntil) &&
+		(result.ValidUntil == nil || p.packageUntil.After(*result.ValidUntil)) {
+		result.ValidUntil, result.Source, result.Active = p.packageUntil, "subscription", true
+		result.ReasonCodes = []string{}
+	}
 	return result
 }
 
@@ -97,11 +101,11 @@ func AccessHandler(pool *pgxpool.Pool, verifier *platformaccess.Verifier, origin
 		var snapshot accessProjection
 		err = pool.QueryRow(ctx, `
 			SELECT account_id,product_id,integration_id,installation_id,generation,authorization_sequence,
-				authorized,own_until,source,entitlement_version
-			FROM platform_access.current_access WHERE amo_account_id=$1 AND product_code=$2`, account, product).
+				authorized,own_until,source,entitlement_version,package_until
+			FROM platform_access.current_access LEFT JOIN platform_access.subscription_terms USING(account_id,product_id) WHERE amo_account_id=$1 AND product_code=$2`, account, product).
 			Scan(&snapshot.account, &snapshot.product, &snapshot.integration, &snapshot.installation,
 				&snapshot.generation, &snapshot.authorizationSequence, &snapshot.authorized, &snapshot.until,
-				&snapshot.source, &snapshot.version)
+				&snapshot.source, &snapshot.version, &snapshot.packageUntil)
 		now := time.Now()
 		switch {
 		case now.Unix() >= claims.ExpiresAt:

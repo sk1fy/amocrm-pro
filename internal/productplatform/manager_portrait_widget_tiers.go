@@ -16,16 +16,19 @@ const portraitWidgetTiersJSON = `(
 		SELECT id, line FROM platform_lifecycle.products
 		WHERE availability IN ('active', 'pilot') AND line IN ('TOP', 'PRO')
 	),
-	current_products AS (
-		SELECT product_id, line, "authorization", valid_until, term_source
-		FROM platform_manager.installation_directory
-		WHERE account_id=a.account_id AND lifecycle='current'
+	covered AS MATERIALIZED (
+        SELECT product_id,package_until FROM platform_manager.subscription_terms WHERE account_id=$1
+    ),
+    current_products AS (
+		SELECT product_id, line, "authorization", valid_until, term_source, package_until
+		FROM platform_manager.installation_directory LEFT JOIN covered USING(product_id)
+		WHERE account_id=$1 AND lifecycle='current'
 	),
 	working AS (
 		SELECT DISTINCT product_id FROM current_products
 		WHERE "authorization"='authorized'
-		  AND valid_until > statement_timestamp()
-		  AND term_source IN ('own_trial', 'own_paid', 'manual', 'free')
+		  AND (package_until > statement_timestamp() OR (valid_until > statement_timestamp()
+		  AND term_source IN ('own_trial', 'own_paid', 'manual', 'free')))
 	)
 	SELECT jsonb_build_object(
 		'free_installed', (SELECT count(DISTINCT product_id) FROM current_products WHERE line='FREE'),

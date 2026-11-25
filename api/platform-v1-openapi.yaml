@@ -554,6 +554,48 @@ paths:
               required:
               - reason
       x-platform-grant: clients.write
+  /internal/platform/v1/managers/accounts/{id}/subscription:
+    post:
+      operationId: changeAccountSubscription
+      security:
+      - adminService: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountDetail'}
+          headers:
+            ETag:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '404': {$ref: '#/components/responses/Error404'}
+        '409': {$ref: '#/components/responses/Error409'}
+        '422': {$ref: '#/components/responses/Error422'}
+        '429': {$ref: '#/components/responses/Error429'}
+        '503': {$ref: '#/components/responses/Error503'}
+      parameters:
+      - {$ref: '#/components/parameters/Actor'}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      - {$ref: '#/components/parameters/IfMatch'}
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action]
+              properties:
+                action: {type: string, enum: [grant, renew, seats, revoke], x-enum-varnames: [SubscriptionGrant, SubscriptionRenew, SubscriptionSeats, SubscriptionRevoke]}
+                plan: {type: string, enum: [top, unified]}
+                ends_on: {type: string, format: date}
+                seats: {type: integer, minimum: 1, maximum: 1000000}
+                deal_id: {type: string, pattern: '^[1-9][0-9]{0,14}$'}
+      x-platform-grant: clients.renew
   /internal/platform/v1/managers/accounts/{id}/refresh:
     post:
       operationId: requestAccountRefresh
@@ -1227,7 +1269,7 @@ paths:
       - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
       - {name: cursor, in: query, required: false, schema: {type: string}}
       - {name: kind, in: query, required: false, schema: {type: array, items: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled,
-              activated, installation_reviewed, installation_unreviewed, account_profile_updated, portrait_updated, access_renewed]}}}
+              activated, installation_reviewed, installation_unreviewed, account_profile_updated, portrait_updated, access_renewed, subscription_granted, subscription_renewed, subscription_seats, subscription_revoked]}}}
       - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: from, in: query, required: false, schema: {type: string, format: date}}
       - {name: to, in: query, required: false, schema: {type: string, format: date}}
@@ -1256,7 +1298,7 @@ paths:
       - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
       - {name: cursor, in: query, required: false, schema: {type: string}}
       - {name: kind, in: query, required: false, schema: {type: array, items: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled,
-              activated, installation_reviewed, installation_unreviewed, account_profile_updated, portrait_updated, access_renewed]}}}
+              activated, installation_reviewed, installation_unreviewed, account_profile_updated, portrait_updated, access_renewed, subscription_granted, subscription_renewed, subscription_seats, subscription_revoked]}}}
       - {name: product_id, in: query, required: false, schema: {type: string, format: uuid}}
       - {name: from, in: query, required: false, schema: {type: string, format: date}}
       - {name: to, in: query, required: false, schema: {type: string, format: date}}
@@ -1831,7 +1873,7 @@ components:
         product_id: {type: string, format: uuid}
         active: {type: boolean}
         valid_until: {type: [string, 'null'], format: date-time}
-        source: {type: string, enum: [own_trial, free, own_paid, manual, none]}
+        source: {type: string, enum: [own_trial, free, own_paid, manual, subscription, none]}
         reason_codes: {type: array, items: {type: string}}
         own_until: {type: [string, 'null'], format: date-time}
         entitlement_version: {type: integer, minimum: 1, maximum: 9007199254740991}
@@ -2218,7 +2260,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         kind: {type: string, enum: [installed, reinstalled, reauthorized, uninstalled, activated, installation_reviewed, installation_unreviewed,
-            account_profile_updated, portrait_updated, access_renewed]}
+            account_profile_updated, portrait_updated, access_renewed, subscription_granted, subscription_renewed, subscription_seats, subscription_revoked]}
         occurred_at: {type: string, format: date-time}
         recorded_at: {type: string, format: date-time}
         account_id: {type: string, format: uuid}
@@ -2353,10 +2395,23 @@ components:
       - target_until
       - reason
       - access
+    AccountSubscription:
+      type: object
+      additionalProperties: false
+      required: [plan, ends_on, seats, deal_id, state, changed_at]
+      properties:
+        plan: {type: string, enum: [top, unified]}
+        ends_on: {type: string, format: date}
+        seats: {type: integer, minimum: 1}
+        deal_id: {type: string}
+        state: {type: string, enum: [active, suspended, expired, revoked, awaiting_users]}
+        changed_at: {type: string, format: date-time}
     AccountDetail:
       type: object
       additionalProperties: false
       properties:
+        subscription: {$ref: '#/components/schemas/AccountSubscription'}
+        previous_subscription: {$ref: '#/components/schemas/AccountSubscription'}
         checks:
           type: array
           maxItems: 3

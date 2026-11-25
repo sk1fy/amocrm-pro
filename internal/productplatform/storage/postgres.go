@@ -60,7 +60,7 @@ func Open(ctx context.Context, dsn string, role Role, maxConns int32) (*pgxpool.
 
 func CheckAccess(ctx context.Context, pool *pgxpool.Pool) error {
 	var ready bool
-	err := pool.QueryRow(ctx, `SELECT ready FROM platform_access.runtime_probe`).Scan(&ready)
+	err := pool.QueryRow(ctx, `SELECT ready AND has_table_privilege('platform_access.subscription_terms','SELECT') FROM platform_access.runtime_probe`).Scan(&ready)
 	if err != nil || !ready {
 		return errors.New("access database is unavailable")
 	}
@@ -110,6 +110,8 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	err := pool.QueryRow(ctx, `
 		SELECT has_table_privilege('platform_manager.core_inventory','INSERT,DELETE')
            AND has_column_privilege('platform_manager.account_refresh_slots','attempted_at','UPDATE')
+           AND has_table_privilege('platform_manager.account_subscription_revisions','INSERT')
+           AND has_table_privilege('platform_manager.subscription_terms','SELECT')
            AND has_table_privilege('platform_company.generations','SELECT')
            AND has_table_privilege('platform_company.product_workflow_revisions','INSERT')
            AND has_table_privilege('platform_company.installation_deal_settings_revisions','INSERT')

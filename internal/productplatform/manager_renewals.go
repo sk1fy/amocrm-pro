@@ -154,6 +154,9 @@ func renewAccountAccess(ctx context.Context, tx pgx.Tx, cmd managerCommand, inpu
 		return managerOutcome{}, err
 	}
 	access := accessProjection{account: cmd.Account, product: cmd.Product, until: updated.Until, source: &updated.Source, version: updated.Version}
+	if err := tx.QueryRow(ctx, `SELECT (SELECT package_until FROM platform_manager.subscription_terms WHERE account_id=$1 AND product_id=$2)`, cmd.Account, cmd.Product).Scan(&access.packageUntil); err != nil {
+		return managerOutcome{}, err
+	}
 	return managerMutationResponse(http.StatusCreated, updated.Version, accountRenewal{
 		ID: event, Account: cmd.Account, Product: cmd.Product, TargetUntil: input.TargetUntil, Reason: input.Reason, Access: access.state(now),
 	})
