@@ -24,7 +24,13 @@ func (f profileField) apply(previous *string) *string {
 	return previous
 }
 
+type widgetFeedback struct {
+	Product string `json:"product_id"`
+	Left    bool   `json:"left"`
+}
+
 type profilePatch struct {
+	Feedback                          *widgetFeedback `json:",omitempty"`
 	DisplayName, Note, Classification profileField
 	Reason                            string
 	PartnerName                       profileField `json:",omitzero"`
@@ -39,15 +45,28 @@ type profileValues struct {
 
 func parseProfilePatch(raw []byte) (profilePatch, error) {
 	var patch profilePatch
-	var name, note, classification, partner json.RawMessage
+	var name, note, classification, partner, feedback json.RawMessage
 	if err := readManagerObject(raw, map[string]any{
-		"display_name": &name, "note": &note, "classification": &classification, "partner_name": &partner, "reason": &patch.Reason,
+		"widget_feedback": &feedback, "display_name": &name, "note": &note, "classification": &classification, "partner_name": &partner, "reason": &patch.Reason,
 	}); err != nil {
 		return patch, err
 	}
 	patch.Reason = strings.TrimSpace(patch.Reason)
 	if !managerText(patch.Reason, 1, 1000) {
 		return patch, errManagerInput
+	}
+	if feedback != nil {
+		var value widgetFeedback
+		var left *bool
+		if err := readManagerObject(feedback, map[string]any{"product_id": &value.Product, "left": &left}); err != nil || left == nil || name != nil || note != nil || classification != nil || partner != nil {
+			return patch, errManagerInput
+		}
+		product, err := managerUUID(value.Product)
+		if err != nil {
+			return patch, errManagerInput
+		}
+		value.Product, value.Left = product.String(), *left
+		patch.Feedback = &value
 	}
 	for _, field := range []struct {
 		raw json.RawMessage
@@ -119,6 +138,9 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 	if version != cmd.Version {
 		return managerVersionConflict(cmd, version)
 	}
+	if patch.Feedback != nil {
+		return updateWidgetFeedback(ctx, tx, cmd, patch)
+	}
 	if patch.DisplayName.Value != nil && !managerText(*patch.DisplayName.Value, 1, 512) ||
 		patch.Note.Value != nil && !managerText(*patch.Note.Value, 0, 4000) {
 		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
@@ -156,6 +178,40 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 			Kind: accountProfileUpdated, Version: version, Reason: &patch.Reason,
 			Details: map[string]profileValues{"before": before, "after": after}})
 		if err != nil {
+			return managerOutcome{}, err
+		}
+	}
+	detail, version, err := readAccountDetail(ctx, tx, cmd.Account, []accountCapability{})
+	if err != nil {
+		return managerOutcome{}, err
+	}
+	return managerMutationResponse(http.StatusOK, version, detail)
+}
+
+// The profile version is locked by updateAccountProfile. The flag belongs to
+// the product in this account and survives changes to its installation episode.
+func updateWidgetFeedback(ctx context.Context, tx pgx.Tx, cmd managerCommand, patch profilePatch) (managerOutcome, error) {
+	feedback := patch.Feedback
+	var visible bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.account_product_directory WHERE account_id=$1 AND product_id=$2)`, cmd.Account, feedback.Product).Scan(&visible); err != nil {
+		return managerOutcome{}, err
+	}
+	if !visible {
+		return managerMutationResponse(http.StatusUnprocessableEntity, 0, managerProblem(http.StatusUnprocessableEntity, "validation_failed", cmd.RequestID, 0, 0))
+	}
+	query := `DELETE FROM platform_manager.widget_feedback WHERE account_id=$1 AND product_id=$2`
+	if feedback.Left {
+		query = `INSERT INTO platform_manager.widget_feedback(account_id,product_id) VALUES($1,$2) ON CONFLICT DO NOTHING`
+	}
+	changed, err := tx.Exec(ctx, query, cmd.Account, feedback.Product)
+	if err != nil {
+		return managerOutcome{}, err
+	}
+	if changed.RowsAffected() > 0 {
+		if _, err = tx.Exec(ctx, `UPDATE platform_manager.account_profiles SET version=version+1 WHERE account_id=$1`, cmd.Account); err != nil {
+			return managerOutcome{}, err
+		}
+		if _, err = recordAccountChange(ctx, tx, cmd, accountChange{Account: cmd.Account, Kind: accountProfileUpdated, Version: cmd.Version + 1, Reason: &patch.Reason, Details: feedback}); err != nil {
 			return managerOutcome{}, err
 		}
 	}

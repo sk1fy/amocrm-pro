@@ -131,6 +131,11 @@ func TestPlatformManualRenewal(t *testing.T) {
 	otherPath := managerPath + "accounts/" + otherAccount.String() + "/renewals"
 	missing := newManagerTestCommand(otherAccount, 1)
 	missingBody := renewalTestBody(otherProduct, normalized.Add(24*time.Hour), "Issue without trial")
+	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.products SET line='FREE' WHERE id=$1`, otherProduct)
+	mustManager(t, err)
+	managerRequest(t, manager, http.MethodPost, first.private+otherPath, writer, newManagerTestCommand(otherAccount, 1), missingBody, http.StatusUnprocessableEntity).requireCode(t, "renewal_unavailable")
+	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.products SET line='PRO' WHERE id=$1`, otherProduct)
+	mustManager(t, err)
 	_, err = owner.Exec(ctx, `CREATE FUNCTION p07_fail_renewal_outbox() RETURNS trigger LANGUAGE plpgsql AS $$
 		BEGIN RAISE EXCEPTION 'renewal outbox failure in test'; END $$;
 		CREATE TRIGGER p07_fail_renewal_outbox BEFORE INSERT ON platform_manager.account_event_outbox

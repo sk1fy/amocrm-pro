@@ -549,6 +549,13 @@ paths:
                 classification:
                   type: [string, 'null']
                   enum: ['Свободный клиент', 'Запрет работы', 'Клиент партнёра', 'Наш клиент', null]
+                widget_feedback:
+                  type: object
+                  additionalProperties: false
+                  required: [product_id, left]
+                  properties:
+                    product_id: {type: string, format: uuid}
+                    left: {type: boolean}
                 partner_name: {type: [string, 'null'], maxLength: 200}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
@@ -2411,6 +2418,7 @@ components:
       additionalProperties: false
       properties:
         subscription: {$ref: '#/components/schemas/AccountSubscription'}
+        feedback_product_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
         previous_subscription: {$ref: '#/components/schemas/AccountSubscription'}
         checks:
           type: array

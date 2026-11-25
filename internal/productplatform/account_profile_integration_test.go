@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -210,6 +211,27 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 		ownPage.Summary.Overview["all"].ByClassification["Наш клиент"] != 1 ||
 		bytes.Contains(ownPage.Items[0], []byte(`"renewal_channel"`)) {
 		t.Fatalf("our client assignment did not appear in the list and overview as expected: %s", ownList.body)
+	}
+	var product uuid.UUID
+	mustManager(t, owner.QueryRow(ctx, `SELECT product_id FROM platform_manager.account_product_directory WHERE account_id=$1`, account).Scan(&product))
+	feedback := func(product uuid.UUID, left bool) string {
+		return fmt.Sprintf(`{"widget_feedback":{"product_id":"%s","left":%t},"reason":"feedback"}`, product, left)
+	}
+	managerRequest(t, manager, http.MethodPatch, first.private+profilePath, writer, newManagerTestCommand(account, 7), feedback(pilot.product, true), http.StatusUnprocessableEntity)
+	mark := newManagerTestCommand(account, 7)
+	for _, base := range []string{first.private, second.private} {
+		res := managerRequest(t, manager, http.MethodPatch, base+profilePath, writer, mark, feedback(product, true), http.StatusOK)
+		if res.etag != `"8"` {
+			t.Fatalf("feedback version %s", res.etag)
+		}
+	}
+	marked := managerRequest(t, manager, http.MethodGet, second.private+accountPath, writer, managerTestCommand{}, "", http.StatusOK)
+	if !bytes.Contains(marked.body, []byte(`"feedback_product_ids":["`+product.String()+`"]`)) {
+		t.Fatalf("missing saved feedback: %s", marked.body)
+	}
+	clearedFeedback := managerRequest(t, manager, http.MethodPatch, first.private+profilePath, writer, newManagerTestCommand(account, 8), feedback(product, false), http.StatusOK)
+	if !bytes.Contains(clearedFeedback.body, []byte(`"feedback_product_ids":[]`)) {
+		t.Fatal("feedback not cleared")
 	}
 	_, err = owner.Exec(ctx, `DELETE FROM platform_lifecycle.scope WHERE integration_id=$1 AND amo_account_id=2542`, pilot.otherIntegration)
 	mustManager(t, err)
