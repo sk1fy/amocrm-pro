@@ -71,7 +71,9 @@ const accountObservationJoins = `
 	LEFT JOIN platform_manager.account_rosters u USING(account_id)
 	LEFT JOIN platform_manager.account_profiles p USING(account_id)
 	LEFT JOIN platform_manager.account_amostart_licenses l USING(account_id)
-	LEFT JOIN platform_manager.account_refresh_slots ls ON ls.account_id=a.account_id AND ls.component='amostart'`
+	LEFT JOIN (
+		SELECT account_id,result_code FROM platform_manager.account_refresh_slots WHERE component='amostart'
+	) ls USING(account_id)`
 
 const rosterObservationState = `
 	CASE WHEN u.observed_at IS NULL THEN 'unknown'
@@ -365,9 +367,10 @@ func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID,
             'amostart',jsonb_strip_nulls(jsonb_build_object(`+amoStartObservationFields+`,'value',l.observed_at)),
             'capabilities',$2::jsonb)
 			|| jsonb_strip_nulls(jsonb_build_object('identity_observed_at',i.observed_at,
-                'classification_change',(SELECT jsonb_build_object('occurred_at',c.occurred_at,'source',c.source,
-                    'previous',c.previous,'current',c.current) FROM platform_manager.account_classification_changes c
-                    WHERE c.account_id=a.account_id ORDER BY c.version DESC LIMIT 1),
+                'classification_change',(SELECT CASE WHEN c.current IS NOT DISTINCT FROM p.classification THEN
+                    jsonb_build_object('occurred_at',c.occurred_at,'source',c.source,'previous',c.previous,'current',c.current)
+                    END FROM platform_manager.account_classification_changes c WHERE c.account_id=a.account_id
+                    ORDER BY c.version DESC LIMIT 1),
                 'subscription',(SELECT to_jsonb(s)-ARRAY['account_id','version','action','valid_until'] FROM platform_manager.account_subscriptions s WHERE s.account_id=a.account_id),
                 'previous_subscription',(SELECT jsonb_build_object('plan',r.plan,'ends_on',r.ends_on,'seats',r.seats,'deal_id',r.deal_id,
                      'changed_at',r.changed_at,'state','revoked') FROM platform_manager.account_subscription_revisions r

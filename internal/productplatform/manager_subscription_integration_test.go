@@ -140,4 +140,18 @@ func TestPlatformAccountSubscription(t *testing.T) {
 		t.Fatalf("expected manual status change under unified subscription: %s", updated.body)
 	}
 
+	request(7, `{"action":"revoke"}`)
+	request(8, body)
+	_, err = owner.Exec(ctx, `UPDATE platform_manager.account_subscription_revisions
+		SET ends_on=(statement_timestamp() AT TIME ZONE 'Europe/Moscow')::date - 1 WHERE account_id=$1 AND version=9`, account)
+	mustManager(t, err)
+	managerRequest(t, manager, http.MethodPatch, profile, writer, newManagerTestCommand(account, 9), freeClient, http.StatusOK)
+	reactivated := managerRequest(t, manager, http.MethodPost, path, actor, newManagerTestCommand(account, 10),
+		fmt.Sprintf(`{"action":"renew","plan":"top","seats":3,"deal_id":"902","ends_on":"%s"}`, until), http.StatusOK)
+	mustManager(t, json.Unmarshal(reactivated.body, &result))
+	if result.Classification != "Наш клиент" || result.Change.Source != "subscription" || result.Change.Current != "Наш клиент" {
+		t.Fatalf("expected reactivated TOP subscription to restore status: %s", reactivated.body)
+	}
+	assertLocked(11)
+
 }

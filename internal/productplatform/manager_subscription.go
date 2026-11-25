@@ -118,7 +118,7 @@ func applySubscription(ctx context.Context, tx pgx.Tx, cmd managerCommand, in su
 			kind = "subscription_revoked"
 		}
 	}
-	setOurClient := in.Plan == "top" && in.Action == "grant"
+	setOurClient := in.Plan == "top" && (in.Action == "grant" || in.Action == "renew")
 	if _, err = tx.Exec(ctx, `UPDATE platform_manager.account_profiles SET version=version+1,
  classification=CASE WHEN $2 THEN 'Наш клиент' ELSE classification END,partner_name=CASE WHEN $2 THEN NULL ELSE partner_name END WHERE account_id=$1`, cmd.Account, setOurClient); err != nil {
 		return managerOutcome{}, err
