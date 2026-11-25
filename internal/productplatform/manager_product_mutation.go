@@ -28,10 +28,10 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 	var current managerProduct
 	var displayName, line, availability *string
 	var policyVersion *int64
-	err := tx.QueryRow(ctx, `SELECT id,code,display_name,line,availability,links,tariff_version,catalog_version,catalog_policy_version
+	err := tx.QueryRow(ctx, `SELECT id,code,display_name,line,availability,links,tariff_version,catalog_version,catalog_policy_version,tariff_options,trial_extension_days
 		FROM platform_lifecycle.products WHERE id=$1 FOR UPDATE`, id).
 		Scan(&current.ID, &code, &displayName, &line,
-			&availability, &current.Links, &current.Tariff, &version, &policyVersion)
+			&availability, &current.Links, &current.Tariff, &version, &policyVersion, &current.TariffOptions, &current.TrialExtensionDays)
 	if err != nil {
 		return managerOutcome{}, accountReadError(err)
 	}
@@ -112,6 +112,12 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 	if input.Availability != nil {
 		next.Availability = *input.Availability
 	}
+	if input.TrialExtensionDays != nil {
+		next.TrialExtensionDays = *input.TrialExtensionDays
+	}
+	if input.TariffOptions != nil {
+		next.TariffOptions = *input.TariffOptions
+	}
 	if input.TariffSet {
 		next.Tariff = input.Tariff
 	}
@@ -132,6 +138,12 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 		}
 		if !verified {
 			return productValidation(cmd, "tariff_evidence_required")
+		}
+	}
+	if rule == "free" && (create || current.Line != "FREE") {
+		// The product row is locked for the duration of this catalog command.
+		if _, err := tx.Exec(ctx, `SELECT platform_manager.record_free_category($1,$2)`, id, cmd.Subject); err != nil {
+			return managerOutcome{}, err
 		}
 	}
 	var selectedRevision int64
@@ -169,8 +181,8 @@ func saveProduct(ctx context.Context, tx pgx.Tx, cmd managerCommand, input produ
 		next.Version = *version + 1
 	}
 	_, err = tx.Exec(ctx, `UPDATE platform_lifecycle.products SET display_name=$2,line=$3,availability=$4,links=$5,
-		tariff_version=$6,catalog_version=$7,catalog_policy_version=$8 WHERE id=$1`,
-		id, next.DisplayName, next.Line, next.Availability, next.Links, next.Tariff, next.Version, selectedRevision)
+		tariff_version=$6,catalog_version=$7,catalog_policy_version=$8,tariff_options=$9,trial_extension_days=$10 WHERE id=$1`,
+		id, next.DisplayName, next.Line, next.Availability, next.Links, next.Tariff, next.Version, selectedRevision, next.TariffOptions, next.TrialExtensionDays)
 	if err != nil {
 		return managerOutcome{}, err
 	}

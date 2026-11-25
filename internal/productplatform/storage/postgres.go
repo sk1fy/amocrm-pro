@@ -139,10 +139,11 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		   AND has_table_privilege('platform_manager.account_change_events', 'INSERT')
 		   AND has_table_privilege('platform_manager.account_event_outbox', 'INSERT')
 		   AND has_table_privilege('platform_lifecycle.product_trial_revisions','INSERT')
+		   AND has_function_privilege('platform_manager.record_free_category(uuid,uuid)','EXECUTE')
 		   AND has_function_privilege('platform_manager.apply_catalog_policy(uuid,bigint)','EXECUTE')
 		   AND has_function_privilege('platform_manager.adopt_trial_evidence(uuid)','EXECUTE')
 		   AND (SELECT bool_and(has_column_privilege('platform_lifecycle.products',field,'UPDATE'))
-		        FROM unnest(ARRAY['catalog_version','catalog_policy_version','display_name','line','availability','links','tariff_version']) field)
+		        FROM unnest(ARRAY['catalog_version','catalog_policy_version','display_name','line','availability','links','tariff_version','tariff_options','trial_extension_days']) field)
 		   AND (SELECT bool_and(
 		            has_column_privilege('platform_lifecycle.terms', field, 'INSERT')
 		        AND has_column_privilege('platform_lifecycle.terms', field, 'UPDATE'))

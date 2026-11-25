@@ -752,6 +752,7 @@ paths:
               additionalProperties: false
               properties:
                 product_id: {type: string, format: uuid}
+                trial_days: {type: integer, minimum: 1, maximum: 365}
                 target_until: {type: string, format: date-time}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
@@ -1150,6 +1151,8 @@ paths:
                 line: {type: string, enum: [FREE, TOP, PRO]}
                 availability: {type: string, enum: [draft, pilot, active, archived]}
                 integration_refs: {type: array, items: {type: string, format: uuid}}
+                trial_extension_days: {type: integer, minimum: 1, maximum: 365}
+                tariff_options: {$ref: '#/components/schemas/ProductTariffOptions'}
                 tariff_version: {type: [integer, 'null'], minimum: 1, maximum: 9007199254740991}
                 trial_policy: {$ref: '#/components/schemas/TrialPolicy'}
                 links: {type: array, items: {type: object, additionalProperties: false, properties: {label: {type: string}, url: {type: string,
@@ -1226,6 +1229,8 @@ paths:
                 line: {type: string, enum: [FREE, TOP, PRO]}
                 availability: {type: string, enum: [draft, pilot, active, archived]}
                 integration_refs: {type: array, items: {type: string, format: uuid}}
+                trial_extension_days: {type: integer, minimum: 1, maximum: 365}
+                tariff_options: {$ref: '#/components/schemas/ProductTariffOptions'}
                 tariff_version: {type: [integer, 'null'], minimum: 1, maximum: 9007199254740991}
                 trial_policy: {$ref: '#/components/schemas/TrialPolicy'}
                 links: {type: array, items: {type: object, additionalProperties: false, properties: {label: {type: string}, url: {type: string,
@@ -1667,6 +1672,18 @@ components:
         Retry-After:
           schema: {type: string}
   schemas:
+    ProductTariffOptions:
+      type: array
+      maxItems: 50
+      items:
+        type: object
+        additionalProperties: false
+        required: [name, months, price_kopecks, per_user]
+        properties:
+          name: {type: string, minLength: 1, maxLength: 200}
+          months: {type: integer, minimum: 1, maximum: 1200}
+          price_kopecks: {type: integer, format: int64, minimum: 0, maximum: 999999999999}
+          per_user: {type: boolean}
     AmoID: {type: string, pattern: '^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$'}
     ProductCode: {type: string, maxLength: 63, pattern: '^[a-z0-9]+(?:[-_][a-z0-9]+)*$'}
     Version: {type: integer, minimum: 1, maximum: 9007199254740991}
@@ -2012,6 +2029,7 @@ components:
         amo_account_id: {$ref: '#/components/schemas/AmoID'}
         product_id: {type: string, format: uuid}
         product_code: {$ref: '#/components/schemas/ProductCode'}
+        trial_extension_days: {type: integer, minimum: 1, maximum: 365}
         product_name: {type: string}
         product_line: {type: string, enum: [FREE, TOP, PRO]}
         account_domain: {type: string}
@@ -2184,6 +2202,8 @@ components:
         line: {type: string, enum: [FREE, TOP, PRO]}
         availability: {type: string, enum: [draft, pilot, active, archived]}
         integration_refs: {type: array, items: {type: string, format: uuid}}
+        trial_extension_days: {type: integer, minimum: 1, maximum: 365}
+        tariff_options: {$ref: '#/components/schemas/ProductTariffOptions'}
         tariff_version: {type: [integer, 'null'], minimum: 1, maximum: 9007199254740991}
         trial_policy: {$ref: '#/components/schemas/TrialPolicy'}
         links: {type: array, items: {type: object, additionalProperties: false, properties: {label: {type: string}, url: {type: string, format: uri}},

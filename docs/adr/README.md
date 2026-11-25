@@ -68,3 +68,5 @@ scope belongs in GitHub Issues.
 - [0055. Отдельное право на каталог виджетов](0055-manager-catalog-read.md).
 
 - [0056. Суточная сверка аккаунтов](0056-account-daily-observations.md).
+
+- [0059. Цены виджетов и шаг продления теста](0059-manager-product-tariffs.md).

@@ -40,34 +40,35 @@ type installationReview struct {
 }
 
 type managerInstallation struct {
-	WidgetVersion *string              `json:"widget_version,omitempty"`
-	InstalledBy   *string              `json:"installed_by,omitempty"`
-	ID            uuid.UUID            `json:"id"`
-	Account       uuid.UUID            `json:"account_id"`
-	AmoAccount    string               `json:"amo_account_id"`
-	Product       uuid.UUID            `json:"product_id"`
-	ProductCode   string               `json:"product_code"`
-	ProductName   string               `json:"product_name"`
-	ProductLine   string               `json:"product_line,omitempty"`
-	AccountDomain *string              `json:"account_domain,omitempty"`
-	AccountName   *string              `json:"account_name,omitempty"`
-	AccountClass  *string              `json:"account_classification,omitempty"`
-	AccountZone   *string              `json:"account_time_zone,omitempty"`
-	Installation  uuid.UUID            `json:"core_installation_id"`
-	Generation    int64                `json:"generation"`
-	Kind          string               `json:"kind"`
-	InstalledAt   time.Time            `json:"installed_at"`
-	RemovedAt     *time.Time           `json:"removed_at"`
-	LastLifecycle string               `json:"last_lifecycle_event"`
-	Lifecycle     string               `json:"lifecycle"`
-	Authorization string               `json:"authorization"`
-	Activation    string               `json:"activation_status"`
-	Review        installationReview   `json:"review"`
-	CRMWorkflow   string               `json:"crm_workflow"`
-	Access        accessState          `json:"access"`
-	Contact       *installationContact `json:"contact,omitempty"`
-	Deal          *installationDeal    `json:"deal,omitempty"`
-	Version       int64                `json:"version"`
+	TrialExtensionDays int                  `json:"trial_extension_days,omitempty"`
+	WidgetVersion      *string              `json:"widget_version,omitempty"`
+	InstalledBy        *string              `json:"installed_by,omitempty"`
+	ID                 uuid.UUID            `json:"id"`
+	Account            uuid.UUID            `json:"account_id"`
+	AmoAccount         string               `json:"amo_account_id"`
+	Product            uuid.UUID            `json:"product_id"`
+	ProductCode        string               `json:"product_code"`
+	ProductName        string               `json:"product_name"`
+	ProductLine        string               `json:"product_line,omitempty"`
+	AccountDomain      *string              `json:"account_domain,omitempty"`
+	AccountName        *string              `json:"account_name,omitempty"`
+	AccountClass       *string              `json:"account_classification,omitempty"`
+	AccountZone        *string              `json:"account_time_zone,omitempty"`
+	Installation       uuid.UUID            `json:"core_installation_id"`
+	Generation         int64                `json:"generation"`
+	Kind               string               `json:"kind"`
+	InstalledAt        time.Time            `json:"installed_at"`
+	RemovedAt          *time.Time           `json:"removed_at"`
+	LastLifecycle      string               `json:"last_lifecycle_event"`
+	Lifecycle          string               `json:"lifecycle"`
+	Authorization      string               `json:"authorization"`
+	Activation         string               `json:"activation_status"`
+	Review             installationReview   `json:"review"`
+	CRMWorkflow        string               `json:"crm_workflow"`
+	Access             accessState          `json:"access"`
+	Contact            *installationContact `json:"contact,omitempty"`
+	Deal               *installationDeal    `json:"deal,omitempty"`
+	Version            int64                `json:"version"`
 }
 
 type installationFilters struct {
@@ -112,7 +113,7 @@ const installationColumns = `inst.id,account_id,amo_account_id,product_id,produc
 	"authorization",reviewed_by,reviewed_at,valid_until,term_source,entitlement_version,inst.version, CASE WHEN lifecycle='current' AND "authorization"='authorized' THEN package_until END,
 	i.current_domain,COALESCE(p.display_name,i.display_name),p.classification,i.time_zone,
 	w.amo_user_id,w.name,w.phone,w.email,w.role,
-	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at,(SELECT ep.installed_by::text FROM platform_lifecycle.episodes ep WHERE ep.id=inst.id),versions.widget_version`
+	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at,(SELECT ep.installed_by::text FROM platform_lifecycle.episodes ep WHERE ep.id=inst.id),versions.widget_version,(SELECT trial_extension_days FROM platform_lifecycle.products WHERE id=inst.product_id)`
 
 const installationFrom = ` FROM platform_manager.installation_directory inst ` + installationProfileJoins
 
@@ -156,7 +157,7 @@ func scanManagerInstallation(row pgx.Row, now time.Time) (managerInstallation, e
 		&item.Installation, &item.Generation, &item.Kind, &item.InstalledAt, &item.RemovedAt, &item.LastLifecycle,
 		&item.Lifecycle, &item.Authorization, &item.Review.By, &item.Review.At, &access.until, &access.source,
 		&access.version, &item.Version, &access.packageUntil, &item.AccountDomain, &item.AccountName, &item.AccountClass, &item.AccountZone,
-		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun, &item.InstalledBy, &item.WidgetVersion)
+		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun, &item.InstalledBy, &item.WidgetVersion, &item.TrialExtensionDays)
 	if err != nil {
 		return item, err
 	}

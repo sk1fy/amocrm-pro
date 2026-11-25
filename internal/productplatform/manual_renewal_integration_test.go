@@ -188,3 +188,52 @@ func TestPlatformManualRenewal(t *testing.T) {
 func renewalTestBody(product uuid.UUID, target time.Time, reason string) string {
 	return fmt.Sprintf(`{"product_id":%q,"target_until":%q,"reason":%q}`, product.String(), target.Format(time.RFC3339Nano), reason)
 }
+
+func TestPlatformTrialExtension(t *testing.T) {
+	for _, name := range []string{"PLATFORM_TEST_BINARY", "PLATFORM_TEST_CERTS_DIR", "PLATFORM_TEST_OWNER_DSN", "PLATFORM_TEST_JOBS_DSN", "PLATFORM_TEST_ACCESS_DSN"} {
+		if os.Getenv(name) == "" {
+			t.Skip("run make platform-test for Platform manager process checks")
+		}
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 70*time.Second)
+	defer cancel()
+	owner, err := storage.Open(ctx, os.Getenv("PLATFORM_TEST_OWNER_DSN"), storage.Owner, 2)
+	mustManager(t, err)
+	defer owner.Close()
+
+	pilot := managerPilot{ctx: ctx, owner: owner}
+	pilot.fixture(t)
+	first := startManagerProcess(t)
+	certs := os.Getenv("PLATFORM_TEST_CERTS_DIR")
+	manager, core := tlsClient(t, certs, "manager-bff"), tlsClient(t, certs, "core")
+	manager.Timeout, core.Timeout = 7*time.Second, 8*time.Second
+	pilot.deliver(t, core, first.private)
+
+	var account uuid.UUID
+	var until time.Time
+	mustManager(t, owner.QueryRow(ctx, `SELECT account_id,valid_until FROM platform_lifecycle.terms WHERE product_id=$1`, pilot.product).Scan(&account, &until))
+	actor := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.renew"}}
+	path := first.private + managerPath + "accounts/" + account.String() + "/renewals"
+	version := int64(1)
+	for _, expired := range []bool{false, true} {
+		base := until
+		if expired {
+			base = time.Now().UTC().Truncate(time.Millisecond)
+			_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.terms SET valid_until=$2 WHERE product_id=$1`, pilot.product, base.Add(-time.Hour))
+			mustManager(t, err)
+		}
+		target := base.UTC().AddDate(0, 0, 7).Truncate(time.Millisecond)
+		body := fmt.Sprintf(`{"product_id":%q,"target_until":%q,"reason":"Extend trial","trial_days":7}`, pilot.product, target.Format(time.RFC3339Nano))
+		cmd := newManagerTestCommand(account, version)
+		created := managerRequest(t, manager, http.MethodPost, path, actor, cmd, body, http.StatusCreated)
+		result := managerJSON[accountRenewal](t, created.body)
+		if result.Access.Source != "own_trial" || result.Access.Version != version+1 || !result.TargetUntil.Truncate(time.Millisecond).Equal(target) {
+			t.Fatalf("unexpected trial extension: %+v", result)
+		}
+		replay := managerRequest(t, manager, http.MethodPost, path, actor, cmd, body, http.StatusCreated)
+		if !bytes.Equal(replay.body, created.body) {
+			t.Fatal("retry extended trial twice")
+		}
+		version++
+	}
+}
