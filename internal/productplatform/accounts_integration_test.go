@@ -3,6 +3,7 @@ package productplatform
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/amostart"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
 	"github.com/sk1fy/amocrm-pro/internal/servicerpc"
@@ -238,6 +240,38 @@ func TestPlatformAccountsAcrossReplicas(t *testing.T) {
 	if detail.etag != `"1"` || !bytes.Contains(detail.body, []byte(`"state":"unsupported"`)) {
 		t.Fatalf("account detail or provenance missing: %s", detail.body)
 	}
+	license, err := time.Parse(time.RFC3339, "2030-03-15T00:00:00+03:00")
+	mustManager(t, err)
+	tx, err := jobs.Begin(ctx)
+	mustManager(t, err)
+	defer tx.Rollback(ctx)
+	outcome, err := publishAmoStart(ctx, tx, account, 2542, amostart.License{Until: license, Tariff: "Расширенный"})
+	mustManager(t, err)
+	if outcome.FailureCode != "" {
+		t.Fatalf("amoSTART publication failed: %+v", outcome)
+	}
+	mustManager(t, tx.Commit(ctx))
+	accountURL := first.private + managerPath + "accounts/" + account.String()
+	assertLicense := func(wantState string) {
+		t.Helper()
+		detail := managerRequest(t, manager, http.MethodGet, accountURL, writer, managerTestCommand{}, "", http.StatusOK)
+		var body struct {
+			License struct {
+				State, Source string
+				Value         struct {
+					Until time.Time `json:"license_until"`
+				}
+			}
+		}
+		mustManager(t, json.Unmarshal(detail.body, &body))
+		if body.License.State != wantState || body.License.Source != "amoSTART" || !body.License.Value.Until.Equal(license) {
+			t.Fatalf("unexpected license observation: %s", detail.body)
+		}
+	}
+	assertLicense("fresh")
+	_, err = owner.Exec(ctx, `INSERT INTO platform_manager.account_refresh_slots(account_id,component,result_code) VALUES($1,'amostart','amostart_unavailable')`, account)
+	mustManager(t, err)
+	assertLicense("stale")
 	managerRequest(t, manager, http.MethodGet, second.private+secondPageURL, reader, managerTestCommand{}, "", http.StatusBadRequest)
 
 	_, err = owner.Exec(ctx, `INSERT INTO platform_manager.account_domains(account_id,domain) VALUES($1,'previous.amocrm.ru')`, account)

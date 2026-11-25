@@ -83,6 +83,8 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		CROSS JOIN platform_manager.installation_deals deal
 		CROSS JOIN platform_manager.installation_deal_retries retry
 		CROSS JOIN platform_manager.account_profiles p
+		CROSS JOIN platform_manager.account_amostart_licenses license
+		CROSS JOIN platform_manager.account_classification_changes status_change
 		CROSS JOIN platform_manager.account_snapshots accounts_snapshot
 		CROSS JOIN platform_manager.commands c
 		CROSS JOIN platform_manager.account_portraits pt
@@ -111,6 +113,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		SELECT has_table_privilege('platform_manager.core_inventory','INSERT,DELETE')
            AND has_column_privilege('platform_manager.account_refresh_slots','attempted_at','UPDATE')
            AND has_table_privilege('platform_manager.account_subscription_revisions','INSERT')
+           AND has_table_privilege('platform_manager.account_amostart_licenses','INSERT,UPDATE')
            AND has_table_privilege('platform_manager.installation_widget_versions','SELECT')
            AND has_table_privilege('platform_manager.installation_widget_versions','INSERT')
            AND has_column_privilege('platform_manager.installation_widget_versions','widget_version','UPDATE')

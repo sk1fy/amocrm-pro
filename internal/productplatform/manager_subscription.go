@@ -82,7 +82,8 @@ func applySubscription(ctx context.Context, tx pgx.Tx, cmd managerCommand, in su
 	}
 	var version int64
 	var today string
-	if err := tx.QueryRow(ctx, `SELECT version,to_char(statement_timestamp() AT TIME ZONE 'Europe/Moscow','YYYY-MM-DD') FROM platform_manager.account_profiles WHERE account_id=$1 FOR UPDATE`, cmd.Account).Scan(&version, &today); err != nil {
+	var previousClassification *string
+	if err := tx.QueryRow(ctx, `SELECT version,to_char(statement_timestamp() AT TIME ZONE 'Europe/Moscow','YYYY-MM-DD'),classification FROM platform_manager.account_profiles WHERE account_id=$1 FOR UPDATE`, cmd.Account).Scan(&version, &today, &previousClassification); err != nil {
 		return managerOutcome{}, err
 	}
 	if version != cmd.Version {
@@ -117,15 +118,26 @@ func applySubscription(ctx context.Context, tx pgx.Tx, cmd managerCommand, in su
 			kind = "subscription_revoked"
 		}
 	}
+	setOurClient := in.Plan == "top" && (in.Action == "grant" || in.Action == "renew")
 	if _, err = tx.Exec(ctx, `UPDATE platform_manager.account_profiles SET version=version+1,
- classification=CASE WHEN $2 THEN 'Наш клиент' ELSE classification END,partner_name=CASE WHEN $2 THEN NULL ELSE partner_name END WHERE account_id=$1`, cmd.Account, in.Plan == "top" && in.Action == "grant"); err != nil {
+ classification=CASE WHEN $2 THEN 'Наш клиент' ELSE classification END,partner_name=CASE WHEN $2 THEN NULL ELSE partner_name END WHERE account_id=$1`, cmd.Account, setOurClient); err != nil {
 		return managerOutcome{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO platform_manager.account_subscription_revisions(account_id,version,action,plan,ends_on,seats,deal_id,command_id)
  VALUES($1,$2,$3,$4,$5::text::date,$6,$7,$8)`, cmd.Account, version+1, in.Action, in.Plan, in.EndsOn, in.Seats, in.Deal, cmd.ID); err != nil {
 		return managerOutcome{}, err
 	}
-	if _, err = recordAccountChange(ctx, tx, cmd, accountChange{Account: cmd.Account, Kind: kind, Version: version + 1, Details: in}); err != nil {
+	details := struct {
+		subscriptionInput
+		Before map[string]*string `json:"before,omitempty"`
+		After  map[string]*string `json:"after,omitempty"`
+	}{subscriptionInput: in}
+	if setOurClient {
+		current := "Наш клиент"
+		details.Before = map[string]*string{"classification": previousClassification}
+		details.After = map[string]*string{"classification": &current}
+	}
+	if _, err = recordAccountChange(ctx, tx, cmd, accountChange{Account: cmd.Account, Kind: kind, Version: version + 1, Details: details}); err != nil {
 		return managerOutcome{}, err
 	}
 	detail, version, err := readAccountDetail(ctx, tx, cmd.Account, []accountCapability{})

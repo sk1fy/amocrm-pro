@@ -53,12 +53,25 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	var result struct {
 		Classification string
 		Subscription   struct{ State string }
+		Change         struct {
+			Source  string
+			Current string
+		} `json:"classification_change"`
 	}
 	mustManager(t, json.Unmarshal(reply.body, &result))
-	if result.Classification != "Наш клиент" || result.Subscription.State != "awaiting_users" {
+	if result.Classification != "Наш клиент" || result.Subscription.State != "awaiting_users" || result.Change.Source != "subscription" || result.Change.Current != "Наш клиент" {
 		t.Fatalf("unexpected grant: %s", reply.body)
 	}
 	managerRequest(t, manager, http.MethodPost, path, actor, cmd, body, http.StatusOK)
+	writer := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.write"}}
+	profile := proc.private + managerPath + "accounts/" + account.String() + "/profile"
+	const freeClient = `{"classification":"Свободный клиент","reason":"Изменение статуса клиента"}`
+	assertLocked := func(version int64) {
+		t.Helper()
+		managerRequest(t, manager, http.MethodPatch, profile, writer, newManagerTestCommand(account, version),
+			freeClient, http.StatusUnprocessableEntity).requireCode(t, "classification_unavailable")
+	}
+	assertLocked(2)
 	roster := func(n int) {
 		_, err := owner.Exec(ctx, `INSERT INTO platform_manager.account_rosters(account_id,roster,active_count,evidence_id,observed_at,fresh_until)
  VALUES($1,(SELECT jsonb_agg(i) FROM generate_series(1,$2::integer) i),$2,$3,now(),now()+interval '1 day')
@@ -91,6 +104,7 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	check("active", true)
 	roster(3)
 	check("suspended", false)
+	assertLocked(2)
 	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.terms SET valid_until=now()-interval '1 day' WHERE account_id=$1 AND product_id=$2`, account, product)
 	mustManager(t, err)
 	if access := recoveryPublicAccess(t, ctx, proc.public, private, scope); access.Active {
@@ -119,5 +133,25 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	// Even when the individual term wins the expiry calculation, the package covers PRO.
 	managerRequest(t, manager, http.MethodPost, proc.private+managerPath+"accounts/"+account.String()+"/renewals", actor,
 		newManagerTestCommand(account, 1), renewalTestBody(product, time.Now().AddDate(4, 0, 0), "covered product"), http.StatusUnprocessableEntity).requireCode(t, "renewal_unavailable")
+
+	updated := managerRequest(t, manager, http.MethodPatch, profile, writer, newManagerTestCommand(account, 6), freeClient, http.StatusOK)
+	mustManager(t, json.Unmarshal(updated.body, &result))
+	if result.Classification != "Свободный клиент" || result.Change.Source != "manual" || result.Change.Current != "Свободный клиент" {
+		t.Fatalf("expected manual status change under unified subscription: %s", updated.body)
+	}
+
+	request(7, `{"action":"revoke"}`)
+	request(8, body)
+	_, err = owner.Exec(ctx, `UPDATE platform_manager.account_subscription_revisions
+		SET ends_on=(statement_timestamp() AT TIME ZONE 'Europe/Moscow')::date - 1 WHERE account_id=$1 AND version=9`, account)
+	mustManager(t, err)
+	managerRequest(t, manager, http.MethodPatch, profile, writer, newManagerTestCommand(account, 9), freeClient, http.StatusOK)
+	reactivated := managerRequest(t, manager, http.MethodPost, path, actor, newManagerTestCommand(account, 10),
+		fmt.Sprintf(`{"action":"renew","plan":"top","seats":3,"deal_id":"902","ends_on":"%s"}`, until), http.StatusOK)
+	mustManager(t, json.Unmarshal(reactivated.body, &result))
+	if result.Classification != "Наш клиент" || result.Change.Source != "subscription" || result.Change.Current != "Наш клиент" {
+		t.Fatalf("expected reactivated TOP subscription to restore status: %s", reactivated.body)
+	}
+	assertLocked(11)
 
 }

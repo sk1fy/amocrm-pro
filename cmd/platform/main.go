@@ -21,6 +21,7 @@ import (
 	"github.com/sk1fy/amocrm-pro/internal/companycrm"
 	"github.com/sk1fy/amocrm-pro/internal/platformaccess"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/amostart"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/companysource"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
@@ -44,6 +45,7 @@ type config struct {
 	accessOrigin            string
 	manager                 *productplatform.ManagerOptions
 	accountGateway          accountGatewayConfig
+	amoStart                *amostart.Client
 	companySource           companysource.Config
 	companyDealsEnabled     bool
 }
@@ -116,6 +118,7 @@ func run() error {
 		defer conn.Close()
 		accountObserver = productplatform.NewAccountObserver(jobs, platformpb.NewCoreAccountObservationsClient(conn))
 		accountObserver.SetDirectory(platformpb.NewCoreAccountDirectoryClient(conn))
+		accountObserver.SetAmoStart(cfg.amoStart)
 	}
 
 	var companyObserver *productplatform.CompanyObserver
@@ -321,6 +324,17 @@ func loadConfig(getenv func(string) string) (config, error) {
 	cfg.accountGateway, err = readAccountGatewayConfig(getenv)
 	if err != nil {
 		return config{}, err
+	}
+	cfg.amoStart, err = amostart.New(amostart.Config{
+		Username: getenv("PLATFORM_AMOSTART_USERNAME"), Password: getenv("PLATFORM_AMOSTART_PASSWORD"),
+		Contract: getenv("PLATFORM_AMOSTART_CONTRACT"), PartnerID: getenv("PLATFORM_AMOSTART_PARTNER_ID"),
+		UserID: getenv("PLATFORM_AMOSTART_USER_ID"), Discount: getenv("PLATFORM_AMOSTART_DISCOUNT"),
+	})
+	if err != nil {
+		return config{}, err
+	}
+	if cfg.amoStart != nil && (cfg.accountGateway.address == "" || cfg.workers == 0) {
+		return config{}, errors.New("Platform amoSTART requires an account Gateway and workers")
 	}
 	cfg.companySource, err = companysource.ParseConfig(getenv)
 	if err != nil {

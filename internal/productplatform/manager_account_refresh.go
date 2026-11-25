@@ -25,11 +25,12 @@ type accountComponent string
 const (
 	refreshLicense       accountComponent = "license"
 	refreshUsers         accountComponent = "users"
+	refreshAmoStart      accountComponent = "amostart"
 	refreshInstallations accountComponent = "installations"
 )
 
 func (c accountComponent) valid() bool {
-	return c == refreshLicense || c == refreshUsers
+	return c == refreshLicense || c == refreshUsers || c == refreshAmoStart
 }
 
 type accountRefreshInput struct {
@@ -39,11 +40,16 @@ type accountRefreshInput struct {
 
 func (i *accountRefreshInput) normalize() bool {
 	i.Reason = strings.TrimSpace(i.Reason)
-	if !managerText(i.Reason, 1, 1000) || len(i.Components) == 0 || len(i.Components) > 2 {
+	if !managerText(i.Reason, 1, 1000) || len(i.Components) == 0 || len(i.Components) > 3 {
 		return false
 	}
 	slices.Sort(i.Components)
-	return i.Components[0].valid() && (len(i.Components) == 1 || i.Components[1].valid() && i.Components[0] != i.Components[1])
+	for index, component := range i.Components {
+		if !component.valid() || index > 0 && component == i.Components[index-1] {
+			return false
+		}
+	}
+	return true
 }
 
 type accountRefreshCommand struct {
@@ -105,7 +111,11 @@ func (s managerStore) refreshAccount(ctx context.Context, cmd accountRefreshComm
 		if err := lockRefreshSlot(ctx, tx, cmd.Account, part); err != nil {
 			return nil, err
 		}
-		job, err := joinAccountRefresh(ctx, tx, cmd.Account, part, scope)
+		seed := scope
+		if part == refreshAmoStart {
+			seed = sourceScope{}
+		}
+		job, err := joinAccountRefresh(ctx, tx, cmd.Account, part, seed)
 		if err != nil {
 			return nil, err
 		}
@@ -205,7 +215,7 @@ func (s managerStore) accountOperation(ctx context.Context, id, actor, requestID
 		return operation, err
 	}
 	defer rows.Close()
-	work := make([]accountWorkState, 0, 2)
+	work := make([]accountWorkState, 0, 3)
 	var account uuid.UUID
 	var created, now time.Time
 	for rows.Next() {
