@@ -1,0 +1,1 @@
+DROP TABLE platform_manager.installation_widget_versions;

@@ -116,4 +116,8 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.terms SET valid_until=now()+interval '3 years' WHERE account_id=$1 AND product_id=$2`, account, product)
 	mustManager(t, err)
 	check("active", false)
+	// Even when the individual term wins the expiry calculation, the package covers PRO.
+	managerRequest(t, manager, http.MethodPost, proc.private+managerPath+"accounts/"+account.String()+"/renewals", actor,
+		newManagerTestCommand(account, 1), renewalTestBody(product, time.Now().AddDate(4, 0, 0), "covered product"), http.StatusUnprocessableEntity).requireCode(t, "renewal_unavailable")
+
 }

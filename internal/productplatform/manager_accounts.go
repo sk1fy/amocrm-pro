@@ -345,7 +345,8 @@ func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID,
 	var version int64
 	err := db.QueryRow(ctx, `
 		SELECT `+accountSummaryJSON+` || jsonb_build_object(
-			'note',p.note,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb)
+			'feedback_product_ids',ARRAY(SELECT product_id FROM platform_manager.widget_feedback WHERE account_id=a.account_id ORDER BY product_id),
+            'note',p.note,'region',NULL,'time_zone',i.time_zone,'amostart',`+unsupportedAccountObservation+`,'capabilities',$2::jsonb)
 			|| jsonb_strip_nulls(jsonb_build_object('identity_observed_at',i.observed_at,
                 'subscription',(SELECT to_jsonb(s)-ARRAY['account_id','version','action','valid_until'] FROM platform_manager.account_subscriptions s WHERE s.account_id=a.account_id),
                 'previous_subscription',(SELECT jsonb_build_object('plan',r.plan,'ends_on',r.ends_on,'seats',r.seats,'deal_id',r.deal_id,

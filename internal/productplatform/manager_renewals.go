@@ -104,7 +104,8 @@ func renewAccountAccess(ctx context.Context, tx pgx.Tx, cmd managerCommand, inpu
 	}
 	var current bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM platform_manager.installations
-		WHERE account_id=$1 AND product_id=$2 AND installation_id=$3 AND generation=$4 AND lifecycle='current')`,
+		WHERE account_id=$1 AND product_id=$2 AND installation_id=$3 AND generation=$4 AND lifecycle='current' AND line IN ('TOP','PRO')
+        AND NOT EXISTS(SELECT FROM platform_manager.subscription_terms WHERE account_id=$1 AND product_id=$2))`,
 		cmd.Account, cmd.Product, installation, stream.generation).Scan(&current)
 	if err != nil {
 		return managerOutcome{}, err

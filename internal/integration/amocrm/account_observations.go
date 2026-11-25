@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
@@ -136,4 +137,38 @@ func consistentObservedPage(page, entries, seen int, more bool, total, pages *in
 		return seen <= *total && more == (seen < *total)
 	}
 	return more || pages != nil || entries < observedUsersPageSize
+}
+
+// InstalledWidgetVersions retains only active widgets belonging to the supplied OAuth clients.
+// Pagination uses local page numbers; the upstream link never controls the destination.
+func (c *Client) InstalledWidgetVersions(ctx context.Context, installation uuid.UUID, clients map[string]string) (map[string]string, error) {
+	versions := make(map[string]string)
+	for page := 1; page <= 32 && len(versions) < len(clients); page++ {
+		var response struct {
+			Links struct {
+				Next *struct{} `json:"next"`
+			} `json:"_links"`
+			Embedded struct {
+				Widgets []struct {
+					Client  string `json:"client_uuid"`
+					Active  bool   `json:"is_active_in_account"`
+					Version string `json:"version"`
+				} `json:"widgets"`
+			} `json:"_embedded"`
+		}
+		path := fmt.Sprintf("/api/v4/widgets?limit=250&page=%d", page)
+		if err := c.DoJSON(ctx, installation, http.MethodGet, path, nil, &response); err != nil {
+			return versions, err
+		}
+		for _, w := range response.Embedded.Widgets {
+			id, known := clients[strings.ToLower(w.Client)]
+			if known && w.Active && w.Version != "" && len(w.Version) <= 64 && strings.IndexFunc(w.Version, unicode.IsControl) < 0 {
+				versions[id] = w.Version
+			}
+		}
+		if response.Links.Next == nil || len(response.Embedded.Widgets) == 0 {
+			break
+		}
+	}
+	return versions, nil
 }

@@ -69,6 +69,7 @@ message AccountIdentity {
   string current_domain = 1;
   string display_name = 2;
   optional string time_zone = 3;
+  map<string,string> widget_versions = 4; // Core installation UUID to observed amoCRM version.
 }
 
 message CRMUserRoster {

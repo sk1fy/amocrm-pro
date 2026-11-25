@@ -549,6 +549,13 @@ paths:
                 classification:
                   type: [string, 'null']
                   enum: ['Свободный клиент', 'Запрет работы', 'Клиент партнёра', 'Наш клиент', null]
+                widget_feedback:
+                  type: object
+                  additionalProperties: false
+                  required: [product_id, left]
+                  properties:
+                    product_id: {type: string, format: uuid}
+                    left: {type: boolean}
                 partner_name: {type: [string, 'null'], maxLength: 200}
                 reason: {type: string, minLength: 1, maxLength: 1000}
               required:
@@ -2014,6 +2021,7 @@ components:
         core_installation_id: {type: string, format: uuid}
         generation: {type: integer, minimum: 0, maximum: 9007199254740991}
         kind: {type: string, enum: [install, reinstall, observed]}
+        widget_version: {type: string, minLength: 1, maxLength: 64}
         installed_by: {type: string, pattern: "^[1-9][0-9]*$"}
         installed_at: {type: string, format: date-time}
         removed_at: {type: [string, 'null'], format: date-time}
@@ -2411,6 +2419,7 @@ components:
       additionalProperties: false
       properties:
         subscription: {$ref: '#/components/schemas/AccountSubscription'}
+        feedback_product_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
         previous_subscription: {$ref: '#/components/schemas/AccountSubscription'}
         checks:
           type: array

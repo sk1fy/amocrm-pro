@@ -98,3 +98,24 @@ func observationTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	client.resolveAccount = url.Parse
 	return client
 }
+
+func TestInstalledWidgetVersionsMatchActiveOAuthClientsAcrossPages(t *testing.T) {
+	installation := uuid.New()
+	wanted, disabled := uuid.NewString(), uuid.NewString()
+	calls := 0
+	client := observationTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/api/v4/widgets" || r.URL.Query().Get("page") != strconv.Itoa(calls) {
+			t.Errorf("unexpected request %s", r.URL.RequestURI())
+		}
+		if calls == 1 {
+			_, _ = fmt.Fprintf(w, `{"_links":{"next":{"href":"https://ignored.example.test"}},"_embedded":{"widgets":[{"client_uuid":%q,"version":"9","is_active_in_account":false},{"client_uuid":null,"version":"1","is_active_in_account":true}]}}`, disabled)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `{"_embedded":{"widgets":[{"client_uuid":%q,"version":"1.12.4","is_active_in_account":true}]}}`, wanted)
+	})
+	got, err := client.InstalledWidgetVersions(t.Context(), installation, map[string]string{wanted: "first", disabled: "second"})
+	if err != nil || calls != 2 || len(got) != 1 || got["first"] != "1.12.4" {
+		t.Fatalf("calls=%d, versions=%v, err=%v", calls, got, err)
+	}
+}
