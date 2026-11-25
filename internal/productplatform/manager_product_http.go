@@ -180,7 +180,7 @@ func (m managerHTTP) writeProduct(w http.ResponseWriter, r *http.Request, env ma
 			return
 		}
 	}
-	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 512<<10))
 	input, inputErr := parseProductInput(raw, create)
 	if err != nil || inputErr != nil {
 		writeManagerError(w, http.StatusBadRequest, "validation_failed", env.RequestID, 0)

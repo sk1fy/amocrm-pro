@@ -27,23 +27,35 @@ type productLink struct {
 	URL   string `json:"url"`
 }
 
+type productTariffOption struct {
+	Name         string `json:"name"`
+	Months       int    `json:"months"`
+	PriceKopecks int64  `json:"price_kopecks"`
+	PerUser      bool   `json:"per_user"`
+}
+
 type managerProduct struct {
-	ID           uuid.UUID     `json:"id"`
-	Code         string        `json:"code"`
-	DisplayName  string        `json:"display_name"`
-	Line         string        `json:"line"`
-	Availability string        `json:"availability"`
-	Integrations []uuid.UUID   `json:"integration_refs"`
-	Tariff       *int64        `json:"tariff_version"`
-	Trial        productTrial  `json:"trial_policy"`
-	Links        []productLink `json:"links"`
-	Version      int64         `json:"version"`
+	TrialExtensionDays int                   `json:"trial_extension_days"`
+	TariffOptions      []productTariffOption `json:"tariff_options,omitempty"`
+	ID                 uuid.UUID             `json:"id"`
+	Code               string                `json:"code"`
+	DisplayName        string                `json:"display_name"`
+	Line               string                `json:"line"`
+	Availability       string                `json:"availability"`
+	Integrations       []uuid.UUID           `json:"integration_refs"`
+	Tariff             *int64                `json:"tariff_version"`
+	Trial              productTrial          `json:"trial_policy"`
+	Links              []productLink         `json:"links"`
+	Version            int64                 `json:"version"`
 }
 
 const productColumns = `
 	p.id,p.code,p.display_name,p.line,p.availability,
 	ARRAY(SELECT id FROM platform_lifecycle.integrations WHERE product_id=p.id ORDER BY id),
-	p.tariff_version,r.rule,p.links,p.catalog_version`
+	p.tariff_version,r.rule,p.links,p.catalog_version,p.trial_extension_days`
+
+// Only the detail editor consumes price options. Keep paginated list responses compact.
+const productListColumns = productColumns + `,'[]'::jsonb`
 
 const productFrom = `
 	FROM platform_lifecycle.products p JOIN platform_lifecycle.product_trial_revisions r
@@ -52,7 +64,7 @@ const productFrom = `
 func scanProduct(row pgx.Row) (managerProduct, error) {
 	var p managerProduct
 	var rule string
-	err := row.Scan(&p.ID, &p.Code, &p.DisplayName, &p.Line, &p.Availability, &p.Integrations, &p.Tariff, &rule, &p.Links, &p.Version)
+	err := row.Scan(&p.ID, &p.Code, &p.DisplayName, &p.Line, &p.Availability, &p.Integrations, &p.Tariff, &rule, &p.Links, &p.Version, &p.TrialExtensionDays, &p.TariffOptions)
 	p.Trial = trialForRule(rule)
 	return p, err
 }
@@ -76,7 +88,7 @@ func trialForRule(rule string) productTrial {
 }
 
 func (s managerStore) product(ctx context.Context, id uuid.UUID) (managerProduct, error) {
-	p, err := scanProduct(s.pool.QueryRow(ctx, `SELECT `+productColumns+productFrom+` WHERE p.id=$1 AND p.catalog_version IS NOT NULL`, id))
+	p, err := scanProduct(s.pool.QueryRow(ctx, `SELECT `+productColumns+`,p.tariff_options`+productFrom+` WHERE p.id=$1 AND p.catalog_version IS NOT NULL`, id))
 	return p, accountReadError(err)
 }
 
@@ -132,7 +144,7 @@ func (s managerStore) products(ctx context.Context, f productFilters, after prod
 	if f.Overview {
 		return readProductOverview(ctx, tx, f, after, page, revision, zone)
 	}
-	rows, err := tx.Query(ctx, `SELECT `+productColumns+productFrom+`
+	rows, err := tx.Query(ctx, `SELECT `+productListColumns+productFrom+`
 		WHERE p.catalog_version IS NOT NULL
 		  AND ($1='' OR strpos(lower(p.code),lower($1))>0 OR strpos(lower(p.display_name),lower($1))>0)
 		  AND ($2='' OR p.line=$2) AND ($3='' OR p.availability=$3)

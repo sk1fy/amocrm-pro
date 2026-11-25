@@ -11,23 +11,25 @@ import (
 )
 
 type productInput struct {
-	Code         string
-	DisplayName  *string
-	Line         *string
-	Availability *string
-	Integrations *[]uuid.UUID
-	Tariff       *int64
-	TariffSet    bool
-	Trial        *productTrial
-	Links        *[]productLink
+	TrialExtensionDays *int                   `json:",omitempty"`
+	TariffOptions      *[]productTariffOption `json:",omitempty"`
+	Code               string
+	DisplayName        *string
+	Line               *string
+	Availability       *string
+	Integrations       *[]uuid.UUID
+	Tariff             *int64
+	TariffSet          bool
+	Trial              *productTrial
+	Links              *[]productLink
 }
 
 func parseProductInput(raw []byte, create bool) (productInput, error) {
 	var input productInput
-	var code, name, line, availability, refs, tariff, trial, links json.RawMessage
+	var code, name, line, availability, refs, tariff, trial, links, options, extension json.RawMessage
 	fields := map[string]any{
 		"display_name": &name, "line": &line, "availability": &availability, "integration_refs": &refs,
-		"tariff_version": &tariff, "trial_policy": &trial, "links": &links,
+		"tariff_version": &tariff, "trial_policy": &trial, "links": &links, "tariff_options": &options, "trial_extension_days": &extension,
 	}
 	if create {
 		fields["code"] = &code
@@ -78,6 +80,31 @@ func parseProductInput(raw []byte, create bool) (productInput, error) {
 			}
 		}
 		input.Integrations = &list
+	}
+	if extension != nil {
+		if json.Unmarshal(extension, &input.TrialExtensionDays) != nil || input.TrialExtensionDays == nil || *input.TrialExtensionDays < 1 || *input.TrialExtensionDays > 365 {
+			return input, errManagerInput
+		}
+	}
+	if options != nil {
+		var rows []json.RawMessage
+		if json.Unmarshal(options, &rows) != nil || rows == nil || len(rows) > 50 {
+			return input, errManagerInput
+		}
+		parsed := make([]productTariffOption, 0, len(rows))
+		for _, row := range rows {
+			var option productTariffOption
+			fields := map[string]any{"name": &option.Name, "months": &option.Months, "price_kopecks": &option.PriceKopecks, "per_user": &option.PerUser}
+			if readManagerObject(row, fields) != nil || len(fields) != 0 {
+				return input, errManagerInput
+			}
+			option.Name = strings.TrimSpace(option.Name)
+			if !managerText(option.Name, 1, 200) || option.Months < 1 || option.Months > 1200 || option.PriceKopecks < 0 || option.PriceKopecks > 999999999999 {
+				return input, errManagerInput
+			}
+			parsed = append(parsed, option)
+		}
+		input.TariffOptions = &parsed
 	}
 	if tariff != nil {
 		input.TariffSet = true

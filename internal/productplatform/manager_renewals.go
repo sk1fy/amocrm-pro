@@ -15,6 +15,7 @@ import (
 )
 
 type renewalInput struct {
+	TrialDays   *int      `json:"trial_days,omitempty"`
 	Product     uuid.UUID `json:"product_id"`
 	TargetUntil time.Time `json:"target_until"`
 	Reason      string    `json:"reason"`
@@ -45,13 +46,16 @@ type renewalEvidence struct {
 func parseRenewalInput(raw []byte) (renewalInput, error) {
 	var input renewalInput
 	var product, target string
-	if err := readManagerObject(raw, map[string]any{"product_id": &product, "target_until": &target, "reason": &input.Reason}); err != nil {
+	if err := readManagerObject(raw, map[string]any{"product_id": &product, "target_until": &target, "reason": &input.Reason, "trial_days": &input.TrialDays}); err != nil {
 		return renewalInput{}, err
 	}
 	id, idErr := managerUUID(product)
 	until, dateErr := time.Parse(time.RFC3339Nano, target)
 	until = until.UTC().Truncate(time.Microsecond)
 	input.Reason = strings.TrimSpace(input.Reason)
+	if input.TrialDays != nil && (*input.TrialDays < 1 || *input.TrialDays > 365) {
+		return renewalInput{}, errManagerInput
+	}
 	if idErr != nil || dateErr != nil || strings.Contains(target, ",") || until.Year() < 1 || until.Year() > 9999 ||
 		!managerText(input.Reason, 1, 1000) {
 		return renewalInput{}, errManagerInput
@@ -133,10 +137,35 @@ func renewAccountAccess(ctx context.Context, tx pgx.Tx, cmd managerCommand, inpu
 	if err := tx.QueryRow(ctx, `SELECT statement_timestamp()`).Scan(&now); err != nil {
 		return managerOutcome{}, err
 	}
+	source := "manual"
+	if input.TrialDays != nil {
+		if previous == nil || previous.Source != "own_trial" {
+			return rejectRenewal(cmd, "renewal_unavailable")
+		}
+		var days int
+		if err := tx.QueryRow(ctx, `SELECT trial_extension_days FROM platform_lifecycle.products WHERE id=$1 FOR SHARE`, cmd.Product).Scan(&days); err != nil {
+			return managerOutcome{}, err
+		}
+		if *input.TrialDays != days {
+			return rejectRenewal(cmd, "renewal_unavailable")
+		}
+		// The browser confirms an absolute instant. Keep that instant when an
+		// expired trial was previewed. The snapshot carries the Platform clock.
+		base := input.TargetUntil.AddDate(0, 0, -days)
+		if previous.Until.After(now) {
+			if !base.Truncate(time.Millisecond).Equal(previous.Until.Truncate(time.Millisecond)) {
+				return rejectRenewal(cmd, "target_not_extended")
+			}
+			input.TargetUntil = previous.Until.UTC().AddDate(0, 0, days)
+		} else if base.After(now) || base.Before(*previous.Until) {
+			return rejectRenewal(cmd, "target_not_extended")
+		}
+		source = "own_trial"
+	}
 	if !input.TargetUntil.After(now) || previous != nil && !input.TargetUntil.After(*previous.Until) {
 		return rejectRenewal(cmd, "target_not_extended")
 	}
-	updated := renewalTerm{Until: &input.TargetUntil, Source: "manual", Version: version + 1}
+	updated := renewalTerm{Until: &input.TargetUntil, Source: source, Version: version + 1}
 	if previous == nil {
 		_, err = tx.Exec(ctx, `INSERT INTO platform_lifecycle.terms(account_id,product_id,valid_until,source,reason,entitlement_version)
 			VALUES($1,$2,$3,$4,$5,$6)`, cmd.Account, cmd.Product, updated.Until, updated.Source, input.Reason, updated.Version)

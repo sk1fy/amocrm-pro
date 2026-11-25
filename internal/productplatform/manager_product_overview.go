@@ -251,7 +251,7 @@ func readProductOverview(ctx context.Context, tx pgx.Tx, f productFilters, after
 			ids = append(ids, item.ID)
 			overview.Statistics[item.ID] = item.Stats
 		}
-		products, err := tx.Query(ctx, `SELECT `+productColumns+productFrom+`
+		products, err := tx.Query(ctx, `SELECT `+productListColumns+productFrom+`
 			WHERE p.id=ANY($1::uuid[]) ORDER BY array_position($1::uuid[],p.id)`, ids)
 		if err != nil {
 			return page, productSeek{}, err

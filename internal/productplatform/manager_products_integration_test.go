@@ -132,12 +132,17 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 		VALUES($1,3,'approved tariff revision')`, pilot.product)
 	mustManager(t, err)
 	changedCmd := newManagerTestCommand(pilot.product, 1)
-	const changedBody = `{"line":"TOP","trial_policy":{"kind":"once","duration_days":90},"tariff_version":3,"display_name":"Current catalog",
+	const changedBody = `{"line":"TOP","trial_policy":{"kind":"once","duration_days":90},"tariff_version":3,"display_name":"Current catalog","trial_extension_days":14,
+        "tariff_options":[{"name":"Base","price_kopecks":150050,"months":12,"per_user":true},{"name":"Promo","months":2,"price_kopecks":0,"per_user":false}],
 		"links":[{"label":"Инструкция","url":"https://docs.example.test/widget"}]}`
 	changed := managerRequest(t, client, http.MethodPatch, first.private+productPath, editor, changedCmd, changedBody, http.StatusOK)
 	current := managerJSON[managerProduct](t, changed.body)
 	if changed.etag != `"2"` || current.Tariff == nil || *current.Tariff != 3 || current.Line != "TOP" {
 		t.Fatalf("verified policy selection failed: %s", changed.body)
+	}
+	persisted := managerJSON[managerProduct](t, managerRequest(t, client, http.MethodGet, second.private+productPath, catalogReader, managerTestCommand{}, "", http.StatusOK).body)
+	if persisted.TrialExtensionDays != 14 || len(persisted.TariffOptions) != 2 || persisted.TariffOptions[0] != (productTariffOption{Name: "Base", PriceKopecks: 150050, Months: 12, PerUser: true}) || persisted.TariffOptions[1].PriceKopecks != 0 {
+		t.Fatalf("unexpected persisted tariffs: %+v", persisted)
 	}
 	managerRequest(t, client, http.MethodGet, second.private+cursorPath, editor, managerTestCommand{}, "", http.StatusBadRequest).requireCode(t, "invalid_cursor")
 	if _, err := owner.Exec(ctx, `UPDATE platform_lifecycle.initial_term_policies SET evidence='unapproved direct edit' WHERE product_id=$1`, pilot.product); err == nil {
@@ -255,6 +260,14 @@ func TestPlatformProductsAcrossReplicas(t *testing.T) {
 	if len(restored.Integrations) != 1 || restored.Integrations[0] != pilot.integration {
 		t.Fatal("owner fixture did not restore integration refs")
 	}
+	freeBody := `{"code":"free-category-test","display_name":"Free","line":"FREE","availability":"draft","integration_refs":[],"tariff_version":null,"trial_policy":{"kind":"free","duration_days":null},"links":[]}`
+	freeProduct := managerJSON[managerProduct](t, managerRequest(t, client, http.MethodPost, first.private+base, editor, newManagerTestCommand(uuid.Nil, 0), freeBody, http.StatusCreated).body)
+	var rule string
+	mustManager(t, owner.QueryRow(ctx, `SELECT rule FROM platform_lifecycle.initial_term_policies WHERE product_id=$1`, freeProduct.ID).Scan(&rule))
+	if rule != "free" {
+		t.Fatalf("FREE creation selected %q", rule)
+	}
+
 }
 
 func deliverProductEvent(t *testing.T, p managerPilot, client *http.Client, base string, e wire.Event) {
