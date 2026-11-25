@@ -160,6 +160,7 @@ func run() error {
 		if companyDeals != nil {
 			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals, Manager: cfg.manager, Accounts: accountObserver}
 			handlers[productplatform.InstallationDealJob] = deals.Run
+			handlers[productplatform.InstallationDealTitleJob] = deals.SyncTitle(companyDeals.UpdateInstallationDealTitle)
 			if accountObserver != nil {
 				queueConfig.HandlerTimeoutByKind[productplatform.InstallationDealJob] = queueConfig.HandlerTimeout + productplatform.InstallationDealUsersTimeout
 			}

@@ -171,3 +171,51 @@ func TestInstallationDealWritesClientFieldsDuringCreation(t *testing.T) {
 		t.Fatalf("sent %d requests, want 2", calls)
 	}
 }
+
+func TestPrefixExistingDealTitleOnce(t *testing.T) {
+	b := binding()
+	const host = "fixture-company.amocrm.ru"
+	token := &fakeTokens{token: amocrm.AccessToken{InstallationID: b.InstallationID, IntegrationID: b.IntegrationID, AccountID: b.AccountID, AccountDomain: host}}
+	calls := 0
+	name := "Название менеджера"
+	var expected string
+	client := amocrm.NewClient(&http.Client{Transport: dealTransport(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/leads/101" {
+			raw, _ := json.Marshal(map[string]any{"id": 101, "name": name})
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(raw))}, nil
+		}
+		calls++
+		var patch []map[string]json.RawMessage
+		if r.Method != http.MethodPatch || r.URL.Host != host || r.URL.Path != "/api/v4/leads" || json.NewDecoder(r.Body).Decode(&patch) != nil || len(patch) != 1 || len(patch[0]) != 2 || string(patch[0]["id"]) != "101" {
+			t.Fatal("unexpected update")
+		}
+		if json.Unmarshal(patch[0]["name"], &name) != nil || name != expected {
+			t.Fatalf("name=%q want %q", name, expected)
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"_embedded":{"leads":[{"id":101}]}}`))}, nil
+	})}, token)
+	handler := Router(&Service{Deals: &DealService{CRM: client, Resolver: resolverFunc(func(context.Context) (Binding, error) { return b, nil })}})
+	for _, event := range []string{"reauthorized", "reauthorized", "reinstalled", "reinstalled"} {
+		expected = "Повторная авторизация · Название менеджера"
+		if event == "reinstalled" {
+			if calls == 1 {
+				name = "Название менеджера"
+			}
+			expected = "Переустановка · Название менеджера"
+		}
+		data, err := json.Marshal(DealTitleRequest{Account: b.AccountID, Binding: b.Revision, DealID: 101, Event: event})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := request("spiffe://amocrm-pro/platform-company-crm", DealTitlePath, http.MethodPost)
+		r.Body = io.NopCloser(bytes.NewReader(data))
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != 204 {
+			t.Fatalf("status=%d", w.Code)
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("sent %d writes, want 2", calls)
+	}
+}

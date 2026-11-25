@@ -53,3 +53,27 @@ func (c *Client) SendInstallationDeal(ctx context.Context, input companycrm.Deal
 	}
 	return companycrm.DealResult{}, errors.New("invalid installation deal outcome")
 }
+
+func (c *Client) UpdateInstallationDealTitle(ctx context.Context, input companycrm.DealTitleRequest) error {
+	if input.Account != c.config.AccountID || input.Binding != c.config.Revision {
+		return errors.New("installation deal binding mismatch")
+	}
+	raw, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.Origin+companycrm.DealTitlePath, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		return errors.New("installation deal tag update failed")
+	}
+	return nil
+}

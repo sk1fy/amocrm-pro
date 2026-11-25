@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -281,6 +282,24 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		t.Fatalf("successful deal link missing from the queue: %+v", view)
 	}
 
+	checkTitle := func(expectedJobs int, reauthorized bool) {
+		t.Helper()
+		var count int
+		var payload []byte
+		mustManager(t, owner.QueryRow(ctx, `SELECT count(*),(array_agg(payload))[1] FROM platform_jobs.jobs WHERE kind='installation.deal.title' AND payload->>'episode_id'=$1`, episode.String()).Scan(&count, &payload))
+		if count != expectedJobs {
+			t.Fatalf("got %d tag jobs, want %d", count, expectedJobs)
+		}
+		var sent companycrm.DealTitleRequest
+		res := service.SyncTitle(func(_ context.Context, in companycrm.DealTitleRequest) error { sent = in; return nil })(ctx, queue.Job{Payload: payload})
+		if res.Outcome.FailureCode != "" || (!reauthorized && sent.DealID != 0) || (reauthorized && (sent.Event != "reauthorized" || sent.DealID != 101 || sent.Account != 12 || sent.Binding != "r1")) {
+			t.Fatalf("unexpected deal tag sync: %+v, %+v", sent, res.Outcome)
+		}
+	}
+	checkTitle(1, false)
+	write(wire.Reauthorized, 2, 1)
+	checkTitle(2, true)
+
 	// A second product has no product-specific configuration.
 	otherEvent := wire.Event{ID: uuid.New(), Version: 1, Kind: wire.Installed, Installation: pilot.otherInstallation,
 		Integration: pilot.otherIntegration, Account: "2542", Sequence: 1, Generation: 1, OccurredAt: at,
@@ -313,8 +332,8 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		t.Fatalf("second account was not observed before deal creation: %+v", fake.requests[2])
 	}
 
-	write(wire.Uninstalled, 2, 1)
-	write(wire.Reinstalled, 3, 2)
+	write(wire.Uninstalled, 3, 1)
+	write(wire.Reinstalled, 4, 2)
 	_, err = lifecycle.storeActivation(ctx, wire.ActivationRequest{Scope: scope, Contact: &contact})
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("old activation scope was accepted: %v", err)
@@ -326,7 +345,7 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 		WHERE account_id=(SELECT account_id FROM platform_manager.installations WHERE id=$1)`, episode)
 	mustManager(t, err)
 	run()
-	if len(fake.requests) != 4 || !fake.requests[3].Create || fake.requests[3].ClientAccountID != scope.Account ||
+	if len(fake.requests) != 4 || !fake.requests[3].Create || !strings.HasPrefix(fake.requests[3].Title, "Переустановка · ") || fake.requests[3].ClientAccountID != scope.Account ||
 		fake.requests[3].ActiveUsers != nil || len(observedAccounts) != 2 || observedAccounts[1] != scope.Account {
 		t.Fatalf("unavailable user count prevented deal creation or carried an old count: %+v", fake.requests)
 	}
