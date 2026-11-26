@@ -88,6 +88,9 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 	if reinstalled.CRMWorkflow != "pending" || reinstalled.Deal == nil || reinstalled.Deal.State != "pending" || reinstalled.Deal.NextRun == nil {
 		t.Fatalf("reinstall did not expose its scheduled deal: %+v", reinstalled)
 	}
+	if queue := managerList(t, manager, first.private, subject, "?state=current&review=unreviewed&product_id="+reinstalled.Product.String()); len(queue.Items) != 1 || queue.Items[0].ID != reinstalled.ID || queue.Summary.Unreviewed != 1 {
+		t.Fatalf("pending first review did not move to the current episode: %+v", queue)
+	}
 	if other.ID == uuid.Nil || !other.InstalledAt.Equal(reinstalled.InstalledAt) || other.Access.Active || other.Access.Source != "none" {
 		t.Fatalf("unexpected other installation: %+v", other)
 	}
@@ -251,6 +254,7 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 	pilot.verifyReviewRollback(t, manager, second.private, reinstalled.ID, subject)
 	pilot.verifyTermExpiry(t, manager, restarted.private, second.private, subject, reinstalled)
 	pilot.verifyScope(t, manager, restarted.private, second.private, subject, original, originalReview, reinstalled)
+	pilot.verifyReviewContinuity(t, manager, core, second.private, subject, reinstalled)
 	pilot.verifySnapshotCaps(t, manager, restarted.private, second.private, subject)
 }
 
@@ -307,19 +311,24 @@ func (p managerPilot) deliver(t *testing.T, client *http.Client, base string) {
 			e.Installation, e.Integration, e.Account = p.otherInstallation, p.otherIntegration, "2542"
 			e.Sequence, e.OccurredAt = 1, p.opened
 		}
-		raw, err := json.Marshal(e)
-		mustManager(t, err)
-		req, err := http.NewRequestWithContext(p.ctx, http.MethodPost, base+coreEventsPath, bytes.NewReader(raw))
-		mustManager(t, err)
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		mustManager(t, err)
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		mustManager(t, err)
-		if resp.StatusCode != http.StatusAccepted {
-			t.Fatalf("confirmed Core event %s returned %d: %s", kind, resp.StatusCode, body)
-		}
+		p.deliverEvent(t, client, base, e)
+	}
+}
+
+func (p managerPilot) deliverEvent(t *testing.T, client *http.Client, base string, event wire.Event) {
+	t.Helper()
+	raw, err := json.Marshal(event)
+	mustManager(t, err)
+	req, err := http.NewRequestWithContext(p.ctx, http.MethodPost, base+coreEventsPath, bytes.NewReader(raw))
+	mustManager(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	mustManager(t, err)
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	mustManager(t, err)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("confirmed Core event %s returned %d: %s", event.Kind, resp.StatusCode, body)
 	}
 }
 
@@ -724,6 +733,90 @@ func (p managerPilot) verifyScope(t *testing.T, client *http.Client, first, seco
 	}()
 	managerRequest(t, client, http.MethodGet, first+managerPath+"installations",
 		actor, managerTestCommand{}, "", http.StatusServiceUnavailable).requireCode(t, "dependency_unavailable")
+}
+
+func (p managerPilot) verifyReviewContinuity(t *testing.T, manager, core *http.Client, base string, actor managerTestActor, original managerInstallation) {
+	t.Helper()
+	sequence := int64(6)
+	deliver := func(kind wire.Kind, generation int64, source string) {
+		t.Helper()
+		sequence++
+		p.deliverEvent(t, core, base, wire.Event{
+			ID: uuid.New(), Version: 1, Kind: kind, Installation: p.installation,
+			Integration: p.integration, Account: original.AmoAccount, Sequence: sequence,
+			Generation: generation, OccurredAt: p.opened.Add(time.Duration(sequence) * time.Second),
+			Evidence: wire.Evidence{ID: uuid.New(), Source: source},
+		})
+	}
+	list := func(query string) installationPage {
+		return managerList(t, manager, base, actor, "?product_id="+original.Product.String()+query)
+	}
+	reviewed := list("&state=current&review=reviewed")
+	if len(reviewed.Items) != 1 || reviewed.Items[0].Review.At == nil || reviewed.Items[0].Review.By == nil {
+		t.Fatalf("expected one reviewed current installation: %+v", reviewed)
+	}
+	approved := reviewed.Items[0]
+	deliver(wire.Reauthorized, 2, "core_oauth")
+	reauthorized := list("&state=current&review=reviewed")
+	if len(reauthorized.Items) != 1 || reauthorized.Items[0].ID != approved.ID ||
+		reauthorized.Items[0].LastLifecycle != "reauthorized" || reauthorized.Items[0].Review.At == nil ||
+		!reauthorized.Items[0].Review.At.Equal(*approved.Review.At) {
+		t.Fatalf("reauthorization did not preserve the reviewed current episode: %+v", reauthorized)
+	}
+
+	deliver(wire.Uninstalled, 2, "core_uninstall")
+	deliver(wire.Reinstalled, 3, "core_oauth")
+	reinstalled := list("&state=current&review=reviewed")
+	if len(reinstalled.Items) != 1 || reinstalled.Items[0].ID == approved.ID ||
+		reinstalled.Items[0].Kind != "reinstall" || reinstalled.Items[0].Review.By == nil ||
+		*reinstalled.Items[0].Review.By != *approved.Review.By || reinstalled.Items[0].Review.At == nil ||
+		!reinstalled.Items[0].Review.At.Equal(*approved.Review.At) ||
+		reinstalled.QueueCounts == nil || reinstalled.QueueCounts.Unreviewed != 0 {
+		t.Fatalf("reinstall did not preserve the original review without a new queue item: %+v", reinstalled)
+	}
+	previous := list("&state=removed&review=reviewed")
+	if len(previous.Items) != 1 || previous.Items[0].ID != approved.ID {
+		t.Fatalf("expected the previously reviewed episode in history: %+v", previous)
+	}
+	closed := previous.Items[0]
+	stale := newManagerTestCommand(closed.ID, closed.Version)
+	managerRequest(t, manager, http.MethodPut, base+stale.reviewPath(), actor, stale, `{"reviewed":false}`,
+		http.StatusConflict).requireCode(t, "version_conflict")
+	p.countEffects(t, 3)
+
+	current := reinstalled.Items[0]
+	undo := newManagerTestCommand(current.ID, current.Version)
+	managerRequest(t, manager, http.MethodPut, base+undo.reviewPath(), actor, undo, `{"reviewed":false}`, http.StatusOK)
+	deliver(wire.Uninstalled, 3, "core_uninstall")
+	deliver(wire.Reinstalled, 4, "core_oauth")
+	pending := list("&state=current&review=unreviewed")
+	if len(pending.Items) != 1 || pending.Items[0].Generation != 4 || pending.Items[0].Review.Reviewed ||
+		pending.QueueCounts == nil || pending.QueueCounts.Reviewed != 0 || pending.QueueCounts.Unreviewed != 1 {
+		t.Fatalf("explicit undo did not remain pending after reinstall: %+v", pending)
+	}
+	history := list("")
+	if history.Summary.Total != 4 || len(history.Items) != 4 ||
+		!history.Items[2].Review.Reviewed || history.Items[2].ID != approved.ID {
+		t.Fatalf("reinstall and undo changed the preceding episode: %+v", history)
+	}
+	current = pending.Items[0]
+	_, err := p.owner.Exec(p.ctx, `
+		INSERT INTO platform_manager.core_inventory(
+			installation_id,account_id,integration_id,product_id,registered_at,observed_at,
+			current,lifecycle_sequence,observation_only,auth_state)
+		SELECT $1,$2,$3,$4,$5,now(),false,sequence,false,'disabled'
+		FROM platform_lifecycle.cursors WHERE installation_id=$1`,
+		p.installation, current.Account, p.integration, current.Product, current.InstalledAt)
+	mustManager(t, err)
+	if queue := list("&state=current&review=unreviewed"); len(queue.Items) != 0 {
+		t.Fatalf("queue still included the installation Core observed as removed: %+v", queue)
+	}
+	stale = newManagerTestCommand(current.ID, current.Version)
+	managerRequest(t, manager, http.MethodPut, base+stale.reviewPath(), actor, stale, `{"reviewed":true}`,
+		http.StatusConflict).requireCode(t, "version_conflict")
+	_, err = p.owner.Exec(p.ctx, `DELETE FROM platform_manager.core_inventory WHERE installation_id=$1`, p.installation)
+	mustManager(t, err)
+	p.countEffects(t, 4)
 }
 
 func (p managerPilot) verifySnapshotCaps(t *testing.T, client *http.Client, first, second string, actor managerTestActor) {

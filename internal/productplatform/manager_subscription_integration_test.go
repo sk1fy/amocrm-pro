@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/platformaccess"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
 )
 
@@ -23,6 +24,9 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	owner, err := storage.Open(ctx, os.Getenv("PLATFORM_TEST_OWNER_DSN"), storage.Owner, 2)
 	mustManager(t, err)
 	defer owner.Close()
+	jobs, err := storage.Open(ctx, os.Getenv("PLATFORM_TEST_JOBS_DSN"), storage.Jobs, 1)
+	mustManager(t, err)
+	defer jobs.Close()
 	access, err := storage.Open(ctx, os.Getenv("PLATFORM_TEST_ACCESS_DSN"), storage.Access, 1)
 	mustManager(t, err)
 	defer access.Close()
@@ -66,29 +70,53 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	writer := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.write"}}
 	profile := proc.private + managerPath + "accounts/" + account.String() + "/profile"
 	const freeClient = `{"classification":"Свободный клиент","reason":"Изменение статуса клиента"}`
-	assertLocked := func(version int64) {
+	publish := func(n int, at time.Time, eligible bool, outcome queue.Outcome) {
 		t.Helper()
-		managerRequest(t, manager, http.MethodPatch, profile, writer, newManagerTestCommand(account, version),
-			freeClient, http.StatusUnprocessableEntity).requireCode(t, "classification_unavailable")
-	}
-	assertLocked(2)
-	roster := func(n int) {
-		_, err := owner.Exec(ctx, `INSERT INTO platform_manager.account_rosters(account_id,roster,active_count,evidence_id,observed_at,fresh_until)
- VALUES($1,(SELECT jsonb_agg(i) FROM generate_series(1,$2::integer) i),$2,$3,now(),now()+interval '1 day')
- ON CONFLICT(account_id) DO UPDATE SET roster=EXCLUDED.roster,active_count=EXCLUDED.active_count,observed_at=EXCLUDED.observed_at,fresh_until=EXCLUDED.fresh_until,failure_code=NULL`, account, n, uuid.New())
+		rows := make([]accountCRMUser, n)
+		for i := range rows {
+			rows[i] = accountCRMUser{ID: fmt.Sprint(i + 1), Active: true}
+		}
+		tx, err := jobs.Begin(ctx)
 		mustManager(t, err)
+		defer func() { _ = tx.Rollback(ctx) }()
+		_, err = publishAccountObservation(ctx, tx, accountRefreshPayload{Account: account, Component: refreshUsers},
+			sourceScope{}, accountObservation{At: at, Active: n, Roster: rows}, outcome, eligible)
+		mustManager(t, err)
+		mustManager(t, tx.Commit(ctx))
 	}
-	check := func(state string, covered bool) {
+	var at time.Time
+	sourceClockOffset := -20 * time.Second
+	next := func() time.Time {
 		t.Helper()
-		var actual string
-		mustManager(t, owner.QueryRow(ctx, `SELECT state FROM platform_manager.account_subscriptions WHERE account_id=$1`, account).Scan(&actual))
+		var now time.Time
+		mustManager(t, owner.QueryRow(ctx, `SELECT statement_timestamp()`).Scan(&now))
+		at = now.Add(sourceClockOffset)
+		return at
+	}
+	roster := func(n int) {
+		t.Helper()
+		publish(n, next(), true, queue.Outcome{})
+	}
+	reader := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read"}}
+	detail := proc.private + managerPath + "accounts/" + account.String()
+	check := func(state string, warning, covered bool) {
+		t.Helper()
+		response := managerRequest(t, manager, http.MethodGet, detail, reader, managerTestCommand{}, "", http.StatusOK)
+		var actual struct {
+			Subscription struct {
+				State   string
+				Warning bool `json:"seats_warning"`
+			}
+		}
+		mustManager(t, json.Unmarshal(response.body, &actual))
 		snapshot := recoveryPublicAccess(t, ctx, proc.public, private, scope)
-		if actual != state || (snapshot.Source == "subscription") != covered || snapshot.OwnUntil == nil || !snapshot.Active {
-			t.Fatalf("state %s access %+v", actual, snapshot)
+		if actual.Subscription.State != state || actual.Subscription.Warning != warning ||
+			(snapshot.Source == "subscription") != covered || snapshot.OwnUntil == nil || !snapshot.Active {
+			t.Fatalf("subscription %+v access %+v", actual.Subscription, snapshot)
 		}
 	}
 	roster(2)
-	check("active", true)
+	check("active", false, true)
 	// A TOP product added after the grant inherits coverage when it is installed.
 	added := uuid.New()
 	_, err = owner.Exec(ctx, `INSERT INTO platform_lifecycle.products(id,code,line) VALUES($1,'subsequent-top','TOP')`, added)
@@ -99,12 +127,15 @@ func TestPlatformAccountSubscription(t *testing.T) {
 		t.Fatal("new TOP product is missing from existing subscription")
 	}
 
-	_, err = owner.Exec(ctx, `UPDATE platform_manager.account_rosters SET failure_code='source_timeout' WHERE account_id=$1`, account)
-	mustManager(t, err)
-	check("active", true)
 	roster(3)
-	check("suspended", false)
-	assertLocked(2)
+	check("active", true, true)
+	publish(3, at, true, queue.Outcome{}) // An exact replay does not add a check.
+	publish(0, next(), true, queue.Outcome{FailureCode: "source_timeout"})
+	publish(2, next(), false, queue.Outcome{}) // Installation-deal prefetch does not clear the warning.
+	publish(2, at.Add(-25*time.Hour), true, queue.Outcome{})
+	check("active", true, true)
+	roster(3)
+	check("suspended", false, false)
 	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.terms SET valid_until=now()-interval '1 day' WHERE account_id=$1 AND product_id=$2`, account, product)
 	mustManager(t, err)
 	if access := recoveryPublicAccess(t, ctx, proc.public, private, scope); access.Active {
@@ -114,22 +145,33 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	mustManager(t, err)
 
 	request(2, `{"action":"seats","seats":3}`)
-	check("active", true)
+	check("active", false, true)
+	// A fresh check from a slow source clock still counts after a limit
+	// change, even when its source time predates the change.
 	roster(4)
-	check("suspended", false)
-	roster(3)
-	check("active", true)
+	check("active", true, true)
 	request(3, fmt.Sprintf(`{"action":"renew","plan":"top","seats":3,"deal_id":"456","ends_on":"%s"}`, time.Now().AddDate(2, 0, 0).Format(time.DateOnly)))
+	check("active", true, true)
+	roster(4)
+	check("suspended", false, false)
+	roster(3)
+	check("active", false, true)
 	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.products SET line='PRO' WHERE id=$1`, product)
 	mustManager(t, err)
-	check("active", false)
+	check("active", false, false)
 	request(4, `{"action":"revoke"}`)
-	check("revoked", false)
+	check("revoked", false, false)
 	request(5, fmt.Sprintf(`{"action":"grant","plan":"unified","seats":3,"deal_id":"789","ends_on":"%s"}`, until))
-	check("active", true)
+	check("active", false, true)
+	roster(4)
+	check("active", true, true)
+	roster(4)
+	check("suspended", false, false)
+	roster(3)
+	check("active", false, true)
 	_, err = owner.Exec(ctx, `UPDATE platform_lifecycle.terms SET valid_until=now()+interval '3 years' WHERE account_id=$1 AND product_id=$2`, account, product)
 	mustManager(t, err)
-	check("active", false)
+	check("active", false, false)
 	// Even when the individual term wins the expiry calculation, the package covers PRO.
 	managerRequest(t, manager, http.MethodPost, proc.private+managerPath+"accounts/"+account.String()+"/renewals", actor,
 		newManagerTestCommand(account, 1), renewalTestBody(product, time.Now().AddDate(4, 0, 0), "covered product"), http.StatusUnprocessableEntity).requireCode(t, "renewal_unavailable")
@@ -152,6 +194,18 @@ func TestPlatformAccountSubscription(t *testing.T) {
 	if result.Classification != "Наш клиент" || result.Change.Source != "subscription" || result.Change.Current != "Наш клиент" {
 		t.Fatalf("expected reactivated TOP subscription to restore status: %s", reactivated.body)
 	}
-	assertLocked(11)
 
+	// An already accepted check from a fast source clock must not count for
+	// a new limit, even when its source time is later than the limit change.
+	sourceClockOffset = 20 * time.Second
+	roster(5)
+	check("active", true, false)
+	request(11, `{"action":"seats","seats":4}`)
+	check("active", false, false)
+	publish(5, at, true, queue.Outcome{})
+	check("active", false, false)
+	roster(5)
+	check("active", true, false)
+	roster(5)
+	check("suspended", false, false)
 }

@@ -110,7 +110,7 @@ func (o *AccountObserver) refreshInstallationDealUsers(ctx context.Context, epis
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := publishAccountObservation(ctx, tx, accountRefreshPayload{Account: account, Component: refreshUsers}, scope, observation, outcome); err != nil {
+	if _, err := publishAccountObservation(ctx, tx, accountRefreshPayload{Account: account, Component: refreshUsers}, scope, observation, outcome, false); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

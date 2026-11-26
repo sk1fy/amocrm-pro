@@ -157,20 +157,6 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 
 	after := profileValues{DisplayName: patch.DisplayName.apply(before.DisplayName), Note: patch.Note.apply(before.Note),
 		Classification: patch.Classification.apply(before.Classification), PartnerName: patch.PartnerName.apply(before.PartnerName)}
-	if before.Classification != after.Classification &&
-		(before.Classification == nil || after.Classification == nil || *before.Classification != *after.Classification) {
-		var locked bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(
-			SELECT FROM platform_manager.account_subscriptions
-			WHERE account_id=$1 AND plan='top' AND state IN ('active','suspended','awaiting_users')
-		)`, cmd.Account).Scan(&locked); err != nil {
-			return managerOutcome{}, err
-		}
-		if locked {
-			return managerMutationResponse(http.StatusUnprocessableEntity, 0,
-				managerProblem(http.StatusUnprocessableEntity, "classification_unavailable", cmd.RequestID, 0, 0))
-		}
-	}
 	partner := after.Classification != nil && *after.Classification == "Клиент партнёра"
 	if !partner && !patch.PartnerName.Present {
 		after.PartnerName = nil

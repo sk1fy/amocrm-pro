@@ -90,7 +90,11 @@ func applySubscription(ctx context.Context, tx pgx.Tx, cmd managerCommand, in su
 		return managerVersionConflict(cmd, version)
 	}
 	var prior subscriptionInput
-	err := tx.QueryRow(ctx, `SELECT action,plan,to_char(ends_on,'YYYY-MM-DD'),seats,deal_id FROM platform_manager.account_subscriptions WHERE account_id=$1`, cmd.Account).Scan(&prior.Action, &prior.Plan, &prior.EndsOn, &prior.Seats, &prior.Deal)
+	var seatsCheckedThrough int64
+	err := tx.QueryRow(ctx, `
+		SELECT action,plan,to_char(ends_on,'YYYY-MM-DD'),seats,deal_id,seats_checked_through
+		FROM platform_manager.account_subscription_revisions WHERE account_id=$1 ORDER BY version DESC LIMIT 1`, cmd.Account).
+		Scan(&prior.Action, &prior.Plan, &prior.EndsOn, &prior.Seats, &prior.Deal, &seatsCheckedThrough)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return managerOutcome{}, err
 	}
@@ -123,8 +127,23 @@ func applySubscription(ctx context.Context, tx pgx.Tx, cmd managerCommand, in su
  classification=CASE WHEN $2 THEN 'Наш клиент' ELSE classification END,partner_name=CASE WHEN $2 THEN NULL ELSE partner_name END WHERE account_id=$1`, cmd.Account, setOurClient); err != nil {
 		return managerOutcome{}, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO platform_manager.account_subscription_revisions(account_id,version,action,plan,ends_on,seats,deal_id,command_id)
- VALUES($1,$2,$3,$4,$5::text::date,$6,$7,$8)`, cmd.Account, version+1, in.Action, in.Plan, in.EndsOn, in.Seats, in.Deal, cmd.ID); err != nil {
+	resetSeatChecks := in.Action == "grant" || in.Seats != prior.Seats || (in.Action == "renew" && prior.EndsOn < today)
+	if resetSeatChecks {
+		// Hold the same row that roster publications advance, even before the
+		// first observation. The revision and any new check are then ordered by
+		// PostgreSQL independently of the Core reader's clock.
+		if _, err = tx.Exec(ctx, `INSERT INTO platform_manager.account_subscription_rosters(account_id)
+			VALUES($1) ON CONFLICT(account_id) DO NOTHING`, cmd.Account); err != nil {
+			return managerOutcome{}, err
+		}
+		if err = tx.QueryRow(ctx, `SELECT check_number FROM platform_manager.account_subscription_rosters
+			WHERE account_id=$1 FOR UPDATE`, cmd.Account).Scan(&seatsCheckedThrough); err != nil {
+			return managerOutcome{}, err
+		}
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO platform_manager.account_subscription_revisions(account_id,version,action,plan,ends_on,seats,deal_id,command_id,seats_checked_through)
+ VALUES($1,$2,$3,$4,$5::text::date,$6,$7,$8,$9)`,
+		cmd.Account, version+1, in.Action, in.Plan, in.EndsOn, in.Seats, in.Deal, cmd.ID, seatsCheckedThrough); err != nil {
 		return managerOutcome{}, err
 	}
 	details := struct {

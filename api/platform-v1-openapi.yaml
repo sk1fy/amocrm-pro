@@ -2433,6 +2433,7 @@ components:
         seats: {type: integer, minimum: 1}
         deal_id: {type: string}
         state: {type: string, enum: [active, suspended, expired, revoked, awaiting_users]}
+        seats_warning: {type: boolean, description: First consecutive observation over the seat limit}
         changed_at: {type: string, format: date-time}
     AccountDetail:
       type: object

@@ -238,7 +238,7 @@ func (s managerStore) list(ctx context.Context, actor managerActor, filters inst
 	args := []any{filters.Q, filters.Kind, filters.LastLifecycle, filters.Product, filters.Line, filters.Activation,
 		filters.Access, filters.start, filters.before, page.SnapshotAt, filters.Account, filters.Lifecycle}
 	rows, err := tx.Query(ctx, `SELECT `+installationColumns+installationFrom+installationListWhere+`
-		AND ($13='' OR (reviewed_by IS NOT NULL) = ($13='reviewed'))
+		AND ($13='' OR (inst.kind<>'observed' AND (reviewed_by IS NOT NULL) = ($13='reviewed')))
 		ORDER BY `+installationOrder(filters.Ascending, "opened_at", "inst.id")+` LIMIT $14`,
 		append(args, filters.Review, managerSnapshotRows+1)...)
 	if err != nil {
@@ -264,7 +264,7 @@ func (s managerStore) list(ctx context.Context, actor managerActor, filters inst
 	if filters.Review != "" {
 		var opposite int
 		if err := tx.QueryRow(ctx, `SELECT count(*)`+installationFrom+installationListWhere+
-			` AND (reviewed_by IS NOT NULL) <> ($13='reviewed')`, append(args, filters.Review)...).Scan(&opposite); err != nil {
+			` AND inst.kind<>'observed' AND (reviewed_by IS NOT NULL) <> ($13='reviewed')`, append(args, filters.Review)...).Scan(&opposite); err != nil {
 			return page, installationSeek{}, err
 		}
 		counts.Total += opposite
