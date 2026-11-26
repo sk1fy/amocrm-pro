@@ -90,6 +90,25 @@ func TestObservedAccountIdentityChecksIDAndProviderFields(t *testing.T) {
 	}
 }
 
+func TestObservedAccountIdentityPaymentEvidenceComesFromIdentityEndpoint(t *testing.T) {
+	client := observationTestClient(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusPaymentRequired) })
+	installation := uuid.New()
+	_, err := client.ObserveAccountIdentity(t.Context(), installation, 42, "fixture.amocrm.ru")
+	if !errors.Is(err, ErrAccountIdentityPaymentRequired) {
+		t.Fatalf("HTTP 402 on the account endpoint returned %v", err)
+	}
+	_, err = client.ObserveCRMUsers(t.Context(), installation)
+	var provider *APIError
+	if !errors.As(err, &provider) || provider.Kind != ErrorPayment || errors.Is(err, ErrAccountIdentityPaymentRequired) {
+		t.Fatalf("HTTP 402 on the users endpoint returned %v", err)
+	}
+	unauthorized := observationTestClient(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusUnauthorized) })
+	_, err = unauthorized.ObserveAccountIdentity(t.Context(), installation, 42, "fixture.amocrm.ru")
+	if !errors.As(err, &provider) || provider.Kind != ErrorUnauthorized {
+		t.Fatalf("HTTP 401 on the account endpoint returned %v", err)
+	}
+}
+
 func observationTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	server := httptest.NewServer(handler)

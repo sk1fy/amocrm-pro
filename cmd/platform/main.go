@@ -48,6 +48,7 @@ type config struct {
 	amoStart                *amostart.Client
 	companySource           companysource.Config
 	companyDealsEnabled     bool
+	requireKnownTariff      bool
 }
 
 func main() {
@@ -161,7 +162,10 @@ func run() error {
 			queueConfig.LeaseDuration = companycrm.ReadTimeout + 30*time.Second
 		}
 		if companyDeals != nil {
-			deals := productplatform.InstallationDeals{Pool: jobs, Source: companyDeals, Manager: cfg.manager, Accounts: accountObserver}
+			deals := productplatform.InstallationDeals{
+				Pool: jobs, Source: companyDeals, Manager: cfg.manager, Accounts: accountObserver,
+				RequireKnownTariff: cfg.requireKnownTariff,
+			}
 			handlers[productplatform.InstallationDealJob] = deals.Run
 			handlers[productplatform.InstallationDealTitleJob] = deals.SyncTitle(companyDeals.UpdateInstallationDealTitle)
 			if accountObserver != nil {
@@ -345,6 +349,15 @@ func loadConfig(getenv func(string) string) (config, error) {
 		if err != nil || (cfg.companyDealsEnabled && (cfg.companySource.Origin == "" || cfg.workers == 0)) {
 			return config{}, errors.New("Platform company deals require a configured company source and workers")
 		}
+	}
+	if strict := getenv("PLATFORM_COMPANY_DEALS_REQUIRE_KNOWN_TARIFF"); strict != "" {
+		cfg.requireKnownTariff, err = strconv.ParseBool(strict)
+		if err != nil {
+			return config{}, errors.New("PLATFORM_COMPANY_DEALS_REQUIRE_KNOWN_TARIFF must be a boolean")
+		}
+	}
+	if cfg.manager != nil {
+		cfg.manager.RequireKnownTariff = cfg.requireKnownTariff
 	}
 	return cfg, nil
 }

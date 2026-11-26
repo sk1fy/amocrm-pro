@@ -24,8 +24,9 @@ import (
 )
 
 type ManagerOptions struct {
-	cursorKey []byte
-	zone      *time.Location
+	cursorKey          []byte
+	zone               *time.Location
+	RequireKnownTariff bool
 }
 
 func ParseManagerOptions(key, zone string) (*ManagerOptions, error) {
@@ -129,6 +130,7 @@ func (m managerHTTP) list(w http.ResponseWriter, r *http.Request, env managerEnv
 }
 
 func (m managerHTTP) writeInstallations(w http.ResponseWriter, r *http.Request, env managerEnvelope, filters installationFilters, cursor string) {
+	filters.requireKnownTariff = m.options.RequireKnownTariff
 	var seek installationSeek
 	var err error
 	if cursor != "" {

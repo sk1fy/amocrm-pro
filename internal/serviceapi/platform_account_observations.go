@@ -31,6 +31,10 @@ type ObservedAccountIdentity struct {
 
 func (ObservedAccountIdentity) isAccountObservation() {}
 
+type ObservedAccountPaymentRequired struct{}
+
+func (ObservedAccountPaymentRequired) isAccountObservation() {}
+
 type ObservedCRMUser struct {
 	ID       int64
 	Name     string

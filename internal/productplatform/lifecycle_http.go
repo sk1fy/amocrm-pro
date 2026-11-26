@@ -14,12 +14,15 @@ import (
 
 func LifecycleHandler(store *LifecycleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == wire.CatalogPath {
+		switch r.URL.Path {
+		case wire.CatalogPath:
 			store.catalog(w, r)
 			return
-		}
-		if r.URL.Path == wire.ActivationPath {
+		case wire.ActivationPath:
 			store.activation(w, r)
+			return
+		case wire.AccountLicensePath:
+			store.accountLicense(w, r)
 			return
 		}
 		if r.Method != http.MethodPost {
@@ -54,6 +57,36 @@ func LifecycleHandler(store *LifecycleStore) http.Handler {
 			writeLifecycleJSON(w, http.StatusAccepted, receipt)
 		}
 	})
+}
+
+func (s *LifecycleStore) accountLicense(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if r.Method != http.MethodPost || contentType != "application/json" || r.URL.RawQuery != "" {
+		lifecycleHTTPError(w, http.StatusBadRequest, "invalid_account_license")
+		return
+	}
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, wire.MaxBody))
+	if err != nil {
+		lifecycleHTTPError(w, http.StatusBadRequest, "invalid_account_license")
+		return
+	}
+	input, err := wire.DecodeAccountLicenseRequest(raw)
+	if err != nil {
+		lifecycleHTTPError(w, http.StatusBadRequest, "invalid_account_license")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), lifecycleTimeout)
+	defer cancel()
+	err = s.RecordAccountLicense(ctx, input)
+	switch {
+	case errors.Is(err, ErrEventScope):
+		lifecycleHTTPError(w, http.StatusNotFound, "scope_unmapped")
+	case err != nil:
+		lifecycleHTTPError(w, http.StatusServiceUnavailable, "account_license_unavailable")
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func lifecycleHTTPError(w http.ResponseWriter, status int, code string) {

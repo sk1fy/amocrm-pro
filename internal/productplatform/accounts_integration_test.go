@@ -245,7 +245,9 @@ func TestPlatformAccountsAcrossReplicas(t *testing.T) {
 	tx, err := jobs.Begin(ctx)
 	mustManager(t, err)
 	defer tx.Rollback(ctx)
-	outcome, err := publishAmoStart(ctx, tx, account, 2542, amostart.License{Until: license, Tariff: "Расширенный"})
+	outcome, err := publishAmoStart(ctx, tx, account, amoStartObservation{
+		AmoAccount: 2542, At: time.Now().UTC(), License: amostart.License{Until: license, Tariff: "Расширенный"},
+	})
 	mustManager(t, err)
 	if outcome.FailureCode != "" {
 		t.Fatalf("amoSTART publication failed: %+v", outcome)

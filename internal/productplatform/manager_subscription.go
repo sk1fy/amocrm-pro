@@ -123,6 +123,13 @@ func applySubscription(ctx context.Context, tx pgx.Tx, cmd managerCommand, in su
 		}
 	}
 	setOurClient := in.Plan == "top" && (in.Action == "grant" || in.Action == "renew")
+	if setOurClient {
+		technical, err := accountHasTechnicalTariff(ctx, tx, cmd.Account)
+		if err != nil {
+			return managerOutcome{}, err
+		}
+		setOurClient = !technical && (previousClassification == nil || *previousClassification != "Запрет работы")
+	}
 	if _, err = tx.Exec(ctx, `UPDATE platform_manager.account_profiles SET version=version+1,
  classification=CASE WHEN $2 THEN 'Наш клиент' ELSE classification END,partner_name=CASE WHEN $2 THEN NULL ELSE partner_name END WHERE account_id=$1`, cmd.Account, setOurClient); err != nil {
 		return managerOutcome{}, err

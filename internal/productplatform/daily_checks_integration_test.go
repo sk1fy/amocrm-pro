@@ -89,7 +89,7 @@ func TestPlatformDailyChecks(t *testing.T) {
 			observer.SetDirectory(f)
 		}
 		for {
-			mustManager(t, observer.enroll(ctx))
+			mustManager(t, observer.enroll(ctx, false))
 			var n int
 			mustManager(t, owner.QueryRow(ctx, `SELECT count(*) FROM platform_jobs.jobs WHERE kind='accounts.refresh' AND status='succeeded'`).Scan(&n))
 			if n == cycle*3 {
@@ -101,7 +101,7 @@ func TestPlatformDailyChecks(t *testing.T) {
 			case <-time.After(30 * time.Millisecond):
 			}
 		}
-		mustManager(t, observer.enroll(ctx))
+		mustManager(t, observer.enroll(ctx, false))
 	}
 	if f.calls.Load() != 8 {
 		t.Fatalf("expected one fallback per account component per cycle, calls=%d", f.calls.Load())

@@ -64,6 +64,9 @@ func (s *AccountObservationService) ObserveAccount(ctx context.Context, scope se
 	if before != after {
 		return serviceapi.AccountObservation{}, serviceapi.Fail(serviceapi.PermissionDenied, "account observation scope changed")
 	}
+	if component == serviceapi.AccountObservationIdentity && errors.Is(providerErr, amocrm.ErrAccountIdentityPaymentRequired) {
+		return serviceapi.AccountObservation{ObservedAt: observedAt, Result: serviceapi.ObservedAccountPaymentRequired{}}, nil
+	}
 	if providerErr != nil {
 		return serviceapi.AccountObservation{}, observationProviderError(providerErr)
 	}

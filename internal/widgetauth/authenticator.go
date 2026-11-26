@@ -188,6 +188,8 @@ func (a *Authenticator) Verify(ctx context.Context, rawToken string) (Principal,
 		ClientUUID:       claims.ClientUUID,
 		Issuer:           expectedIssuer,
 		TokenID:          claims.ID,
+		TokenIssuedAt:    claims.IssuedAt.Time.UTC(),
+		TokenClockLeeway: a.leeway,
 		TokenRetainUntil: claims.ExpiresAt.Time.UTC().Add(a.leeway),
 		TokenExpiresAt:   claims.ExpiresAt.Time.UTC(),
 	}, nil

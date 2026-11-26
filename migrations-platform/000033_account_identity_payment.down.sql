@@ -1,0 +1,3 @@
+ALTER TABLE platform_manager.account_tariff_fields DROP COLUMN trial_or_blocked_at, DROP COLUMN value_changed_at;
+DROP INDEX platform_manager.account_refresh_amostart_attempt_idx;
+ALTER TABLE platform_manager.account_refresh_slots DROP COLUMN payment_required_at;

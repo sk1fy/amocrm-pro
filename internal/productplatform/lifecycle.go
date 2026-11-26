@@ -248,6 +248,11 @@ func (c *stream) apply(ctx context.Context, tx pgx.Tx, e wire.Event) (string, er
 			c.id, e.Generation, e.OccurredAt).Scan(&episode); err != nil {
 			return "", err
 		}
+		if e.Generation == 1 {
+			if err := skipRemovedInstallationDealWaitingForTariff(ctx, tx, episode); err != nil {
+				return "", err
+			}
+		}
 	default:
 		if err := tx.QueryRow(ctx, `
 			SELECT id FROM platform_lifecycle.episodes WHERE installation_id=$1 AND generation=$2`,

@@ -42,6 +42,8 @@ func (s *platformAccountObservationsServer) ObserveAccount(ctx context.Context, 
 		response.Result = &platformpb.AccountObservation_Identity{Identity: &platformpb.AccountIdentity{
 			CurrentDomain: observed.CurrentDomain, DisplayName: observed.DisplayName, TimeZone: observed.TimeZone, WidgetVersions: observed.WidgetVersions,
 		}}
+	case serviceapi.ObservedAccountPaymentRequired:
+		response.Result = &platformpb.AccountObservation_PaymentRequired{PaymentRequired: &platformpb.AccountPaymentRequired{}}
 	case serviceapi.ObservedCRMUserRoster:
 		roster := &platformpb.CRMUserRoster{Users: make([]*platformpb.ObservedCRMUser, 0, len(observed))}
 		for _, user := range observed {

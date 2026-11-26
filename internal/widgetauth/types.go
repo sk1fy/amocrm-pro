@@ -76,6 +76,8 @@ type Principal struct {
 	ClientUUID       string
 	Issuer           string
 	TokenID          string
+	TokenIssuedAt    time.Time
+	TokenClockLeeway time.Duration
 	TokenRetainUntil time.Time
 	TokenExpiresAt   time.Time
 }
