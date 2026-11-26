@@ -74,7 +74,7 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 		if e.Product != nil && *e.Product == pilot.product {
 			account = e.Account
 			for _, ref := range e.Related {
-				if ref.Kind == "installation" {
+				if ref.Kind == "installation" && e.Kind == "reinstalled" {
 					episode = ref.ID
 				}
 				if ref.Kind == "product" {
@@ -133,11 +133,9 @@ func TestPlatformFeedAcrossReplicas(t *testing.T) {
 	}
 	managerRequest(t, manager, http.MethodGet, first.private+managerPath+history+"?account_id="+account.String(), all, none, "", http.StatusBadRequest)
 
-	review := newManagerTestCommand(episode, 1)
-	// The chosen episode can be closed; both generations retain their own review version.
 	var version int64
 	mustManager(t, owner.QueryRow(ctx, `SELECT version FROM platform_lifecycle.episodes WHERE id=$1`, episode).Scan(&version))
-	review = newManagerTestCommand(episode, version)
+	review := newManagerTestCommand(episode, version)
 	const privateReason = `{"reviewed":true,"reason":"private review reason"}`
 	managerRequest(t, manager, http.MethodPut, first.private+review.reviewPath(), all, review, privateReason, http.StatusOK)
 	managerRequest(t, manager, http.MethodPut, second.private+review.reviewPath(), all, review, privateReason, http.StatusOK)
