@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -338,16 +337,42 @@ func TestInstallationActivationAndUncertainDeal(t *testing.T) {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("old activation scope was accepted: %v", err)
 	}
+	current, _, err := store.list(ctx, managerActor{Subject: subject}, installationFilters{
+		Limit: 25, Q: "9007199254740993", Lifecycle: "current", Review: "reviewed",
+	}, installationSeek{})
+	mustManager(t, err)
+	if len(current.Items) != 1 || current.Items[0].Kind != "reinstall" || current.Items[0].Deal != nil ||
+		current.QueueCounts == nil || current.QueueCounts.Unreviewed != 0 {
+		t.Fatalf("reinstall did not preserve review without creating a deal record: %+v", current)
+	}
+	episode = current.Items[0].ID
+	scope.Generation, scope.AuthorizationSequence = 2, 4
+	state, err = lifecycle.storeActivation(ctx, wire.ActivationRequest{Scope: scope, Contact: &contact})
+	mustManager(t, err)
+	if !state.Activated {
+		t.Fatal("reinstalled widget could not be activated")
+	}
+	var dealJobs, titleJobs int
 	mustManager(t, owner.QueryRow(ctx, `
-		SELECT id FROM platform_manager.installations WHERE amo_account_id=$1 AND lifecycle='current'`, scope.Account).Scan(&episode))
+		SELECT count(*) FILTER (WHERE kind='installation.deal'), count(*) FILTER (WHERE kind='installation.deal.title')
+		FROM platform_jobs.jobs WHERE payload->>'episode_id'=$1`, episode.String()).Scan(&dealJobs, &titleJobs))
+	if dealJobs != 0 || titleJobs != 0 {
+		t.Fatalf("reinstall or its activation enqueued CRM work: %d create, %d title", dealJobs, titleJobs)
+	}
+
+	// An older worker may republish a reserved request as pending after a rate limit.
+	_, err = owner.Exec(ctx, `
+		INSERT INTO platform_manager.installation_deals(episode_id) VALUES($1)`, episode)
+	mustManager(t, err)
 	_, err = owner.Exec(ctx, `
 		UPDATE platform_manager.account_rosters SET failure_code='source_unavailable'
 		WHERE account_id=(SELECT account_id FROM platform_manager.installations WHERE id=$1)`, episode)
 	mustManager(t, err)
 	run()
-	if len(fake.requests) != 4 || !fake.requests[3].Create || !strings.HasPrefix(fake.requests[3].Title, "Переустановка · ") || fake.requests[3].ClientAccountID != scope.Account ||
-		fake.requests[3].ActiveUsers != nil || len(observedAccounts) != 2 || observedAccounts[1] != scope.Account {
-		t.Fatalf("unavailable user count prevented deal creation or carried an old count: %+v", fake.requests)
+	var dealStatus string
+	mustManager(t, owner.QueryRow(ctx, `SELECT status FROM platform_manager.installation_deals WHERE episode_id=$1`, episode).Scan(&dealStatus))
+	if dealStatus != "skipped" || len(fake.requests) != 3 || len(observedAccounts) != 1 {
+		t.Fatalf("legacy reinstall job queried the account or CRM: %s, %+v, %v", dealStatus, fake.requests, observedAccounts)
 	}
 }
 

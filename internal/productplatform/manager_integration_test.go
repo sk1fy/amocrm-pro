@@ -85,8 +85,8 @@ func TestPlatformManagerAcrossReplicas(t *testing.T) {
 		reinstalled.ProductName != "Pilot % Review" || reinstalled.Activation != "unavailable" {
 		t.Fatalf("reinstall lost scoped lifecycle or term provenance: %+v", reinstalled)
 	}
-	if reinstalled.CRMWorkflow != "pending" || reinstalled.Deal == nil || reinstalled.Deal.State != "pending" || reinstalled.Deal.NextRun == nil {
-		t.Fatalf("reinstall did not expose its scheduled deal: %+v", reinstalled)
+	if reinstalled.CRMWorkflow != "unsupported" || reinstalled.Deal != nil {
+		t.Fatalf("reinstall unexpectedly exposed a deal: %+v", reinstalled)
 	}
 	if queue := managerList(t, manager, first.private, subject, "?state=current&review=unreviewed&product_id="+reinstalled.Product.String()); len(queue.Items) != 1 || queue.Items[0].ID != reinstalled.ID || queue.Summary.Unreviewed != 1 {
 		t.Fatalf("pending first review did not move to the current episode: %+v", queue)
