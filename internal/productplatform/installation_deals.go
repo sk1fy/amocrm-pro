@@ -82,7 +82,7 @@ func (o *AccountObserver) refreshInstallationDealUsers(ctx context.Context, epis
 		SELECT i.account_id FROM platform_manager.installation_deals d
 		JOIN platform_manager.installations i ON i.id=d.episode_id
 		LEFT JOIN platform_manager.account_profiles p ON p.account_id=i.account_id
-		WHERE d.episode_id=$1 AND d.status='pending' AND d.title IS NULL AND i.lifecycle='current'
+		WHERE d.episode_id=$1 AND d.status='pending' AND d.title IS NULL AND i.lifecycle='current' AND i.kind='install'
 			AND p.classification IS DISTINCT FROM 'Запрет работы'
 			AND NOT EXISTS(
 				SELECT FROM platform_manager.account_rosters r
@@ -126,10 +126,13 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	var status string
 	var title, previousBinding *string
 	var previousAccount *int64
+	var generation int64
 	err = tx.QueryRow(ctx, `
-		SELECT status,title,company_account,binding_revision
-		FROM platform_manager.installation_deals WHERE episode_id=$1 FOR UPDATE`, episode).
-		Scan(&status, &title, &previousAccount, &previousBinding)
+		SELECT d.status,d.title,d.company_account,d.binding_revision,e.generation
+		FROM platform_manager.installation_deals d
+		JOIN platform_lifecycle.episodes e ON e.id=d.episode_id
+		WHERE d.episode_id=$1 FOR UPDATE OF d`, episode).
+		Scan(&status, &title, &previousAccount, &previousBinding, &generation)
 	if err != nil {
 		return request, "", err
 	}
@@ -145,13 +148,15 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		request.Title = *title
 		return request, "", tx.Commit(ctx)
 	}
+	if generation > 1 {
+		return request, "skipped", nil
+	}
 
 	var name, accountLabel, contactName, lifecycle, classification string
-	var generation int64
 	var installedAt time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
-			COALESCE(c.name,''),inst.lifecycle,inst.generation,COALESCE(p.classification,''),inst.opened_at,
+			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,''),inst.opened_at,
 			inst.amo_account_id,u.active_count
 		FROM platform_manager.installations inst
 		LEFT JOIN platform_manager.account_identities i USING(account_id)
@@ -159,7 +164,7 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		LEFT JOIN platform_manager.account_rosters u
 			ON u.account_id=inst.account_id AND u.failure_code IS NULL AND u.fresh_until>transaction_timestamp()
 		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
-		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &generation, &classification, &installedAt,
+		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification, &installedAt,
 		&request.ClientAccountID, &request.ActiveUsers)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
 		return request, "skipped", nil
@@ -193,9 +198,6 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 	date := installedAt.UTC()
 	if d.Manager != nil {
 		date = date.In(d.Manager.zone)
-	}
-	if generation > 1 {
-		name = "Переустановка · " + name
 	}
 	request.Title = installationDealTitle(name, accountLabel, contactName, date)
 	request.Pipeline, request.Stage, request.Create = pipeline, stage, true
