@@ -71,7 +71,7 @@ func (s managerStore) review(ctx context.Context, cmd reviewCommand) (managerOut
 	}
 	now = now.UTC()
 	item, err := scanManagerInstallation(tx.QueryRow(ctx,
-		`SELECT `+installationColumns+` FROM platform_manager.installations inst `+installationProfileJoins+` WHERE inst.id=$1`, cmd.Episode), now)
+		`SELECT `+installationColumns+installationFrom+` WHERE inst.id=$1`, cmd.Episode), now)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return outcome, errManagerNotFound
 	}
@@ -82,7 +82,7 @@ func (s managerStore) review(ctx context.Context, cmd reviewCommand) (managerOut
 	// Review receipts may be read with clients.write alone and persist after a contact changes.
 	item.Contact, item.Deal = nil, nil
 	var response any
-	if item.Version != cmd.Version {
+	if item.Version != cmd.Version || item.Lifecycle != "current" {
 		outcome.status = http.StatusConflict
 		response = managerProblem(http.StatusConflict, "version_conflict", cmd.RequestID, item.Version, 0)
 	} else {

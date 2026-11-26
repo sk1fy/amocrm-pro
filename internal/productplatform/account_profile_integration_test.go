@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sk1fy/amocrm-pro/internal/productplatform/queue"
 	"github.com/sk1fy/amocrm-pro/internal/productplatform/storage"
 )
 
@@ -233,6 +234,78 @@ func TestPlatformAccountProfileAcrossReplicas(t *testing.T) {
 	if !bytes.Contains(clearedFeedback.body, []byte(`"feedback_product_ids":[]`)) {
 		t.Fatal("feedback not cleared")
 	}
+	t.Run("change classification during TOP subscription", func(t *testing.T) {
+		accountPath := second.private + accountPath
+		profilePath := second.private + profilePath
+		until := time.Now().AddDate(1, 0, 0).Format(time.DateOnly)
+		grant := fmt.Sprintf(`{"action":"grant","plan":"top","seats":2,"deal_id":"123","ends_on":"%s"}`, until)
+		renewer := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.renew"}}
+		managerRequest(t, manager, http.MethodPost, accountPath+"/subscription", renewer,
+			newManagerTestCommand(account, 9), grant, http.StatusOK)
+		const free = `{"classification":"Свободный клиент","reason":"change during TOP"}`
+		reader := managerTestActor{subject: uuid.New(), version: 1, grants: []string{"clients.read"}}
+		managerRequest(t, manager, http.MethodPatch, profilePath, reader, newManagerTestCommand(account, 10), free, http.StatusForbidden)
+		managerRequest(t, manager, http.MethodPatch, profilePath, writer, newManagerTestCommand(account, 9), free, http.StatusConflict).
+			requireCode(t, "version_conflict")
+
+		assertChange := func(version int64, state, previous, next, body string) {
+			t.Helper()
+			type result struct {
+				Classification string
+				Subscription   json.RawMessage
+				Change         struct{ Source, Previous, Current string } `json:"classification_change"`
+			}
+			get := managerRequest(t, manager, http.MethodGet, accountPath, writer, managerTestCommand{}, "", http.StatusOK)
+			var before, after result
+			mustManager(t, json.Unmarshal(get.body, &before))
+			var subscription struct{ State string }
+			mustManager(t, json.Unmarshal(before.Subscription, &subscription))
+			if subscription.State != state {
+				t.Fatalf("expected %s TOP subscription, got %s", state, before.Subscription)
+			}
+			command := newManagerTestCommand(account, version)
+			reply := managerRequest(t, manager, http.MethodPatch, profilePath, writer, command, body, http.StatusOK)
+			mustManager(t, json.Unmarshal(reply.body, &after))
+			if reply.etag != managerETag(version+1) || after.Classification != next ||
+				after.Change.Source != "manual" || after.Change.Previous != previous || after.Change.Current != next ||
+				!bytes.Equal(after.Subscription, before.Subscription) {
+				t.Fatalf("unexpected profile or subscription after status change: %s", reply.body)
+			}
+			var eventRecorded bool
+			mustManager(t, owner.QueryRow(ctx, `SELECT EXISTS (
+				SELECT FROM platform_manager.account_change_events
+				WHERE command_id=$1 AND kind='account_profile_updated' AND actor_id=$2
+				AND details#>>'{before,classification}'=$3 AND details#>>'{after,classification}'=$4
+			)`, command.id, writer.subject, previous, next).Scan(&eventRecorded))
+			if !eventRecorded {
+				t.Fatal("manual status change missing from account history")
+			}
+		}
+
+		assertChange(10, "awaiting_users", "Наш клиент", "Свободный клиент", free)
+		jobs, err := storage.Open(ctx, os.Getenv("PLATFORM_TEST_JOBS_DSN"), storage.Jobs, 1)
+		mustManager(t, err)
+		defer jobs.Close()
+		publishRoster := func(active int) {
+			t.Helper()
+			tx, err := jobs.Begin(ctx)
+			mustManager(t, err)
+			defer func() { _ = tx.Rollback(ctx) }()
+			roster := []accountCRMUser{{ID: "1", Active: true}, {ID: "2", Active: true}, {ID: "3", Active: true}}
+			observation := accountObservation{Roster: roster[:active], Active: active}
+			mustManager(t, tx.QueryRow(ctx, `SELECT statement_timestamp()`).Scan(&observation.At))
+			_, err = publishAccountObservation(ctx, tx, accountRefreshPayload{Account: account, Component: refreshUsers},
+				sourceScope{}, observation, queue.Outcome{}, true)
+			mustManager(t, err)
+			mustManager(t, tx.Commit(ctx))
+		}
+		publishRoster(2)
+		assertChange(11, "active", "Свободный клиент", "Наш клиент",
+			`{"classification":"Наш клиент","reason":"change during TOP"}`)
+		publishRoster(3)
+		publishRoster(3)
+		assertChange(12, "suspended", "Наш клиент", "Свободный клиент", free)
+	})
 	_, err = owner.Exec(ctx, `DELETE FROM platform_lifecycle.scope WHERE integration_id=$1 AND amo_account_id=2542`, pilot.otherIntegration)
 	mustManager(t, err)
 	managerRequest(t, manager, http.MethodGet, first.private+cmd.receiptPath(), writer, managerTestCommand{}, "", http.StatusNotFound)

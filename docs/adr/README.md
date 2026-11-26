@@ -70,3 +70,6 @@ scope belongs in GitHub Issues.
 - [0056. Суточная сверка аккаунтов](0056-account-daily-observations.md).
 
 - [0059. Цены виджетов и шаг продления теста](0059-manager-product-tariffs.md).
+
+- [0061. Проверка установки при смене эпизода](0061-installation-review-continuity.md).
+- [0060. Две проверки лимита подписки](0060-subscription-seat-checks.md).

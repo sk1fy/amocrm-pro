@@ -131,7 +131,7 @@ func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.C
 				outcome, err = publishInventory(ctx, tx, p.Account, inventory)
 			}
 		default:
-			outcome, err = publishAccountObservation(ctx, tx, p, scope, observation, outcome)
+			outcome, err = publishAccountObservation(ctx, tx, p, scope, observation, outcome, true)
 		}
 		if err != nil {
 			return outcome, err
@@ -301,7 +301,7 @@ func validObservedDomain(domain string) bool {
 }
 
 func publishAccountObservation(ctx context.Context, tx pgx.Tx, p accountRefreshPayload, scope sourceScope,
-	obs accountObservation, outcome queue.Outcome) (queue.Outcome, error) {
+	obs accountObservation, outcome queue.Outcome, checkSubscriptionSeats bool) (queue.Outcome, error) {
 	if scope.ObservationOnly {
 		var locked uuid.UUID
 		err := tx.QueryRow(ctx, `SELECT installation_id FROM platform_manager.core_inventory WHERE account_id=$1 AND installation_id=$2 AND integration_id=$3 AND current AND auth_state='authorized' AND observation_only FOR SHARE`, p.Account, scope.Installation, scope.Integration).Scan(&locked)
@@ -347,13 +347,22 @@ func publishAccountObservation(ctx context.Context, tx pgx.Tx, p accountRefreshP
 	}
 	if p.Component == refreshUsers {
 		_, err := tx.Exec(ctx, `
-			INSERT INTO platform_manager.account_rosters(account_id,roster,active_count,evidence_id,observed_at,fresh_until)
-			VALUES($1,$2,$3,$4,$5,$6)
-			ON CONFLICT(account_id) DO UPDATE SET roster=EXCLUDED.roster,active_count=EXCLUDED.active_count,
-				evidence_id=EXCLUDED.evidence_id,observed_at=EXCLUDED.observed_at,fresh_until=EXCLUDED.fresh_until,failure_code=NULL
-			WHERE platform_manager.account_rosters.observed_at IS NULL
-			   OR platform_manager.account_rosters.observed_at<=EXCLUDED.observed_at`,
-			p.Account, obs.Roster, obs.Active, uuid.New(), obs.At, obs.At.Add(rosterFreshness))
+			WITH observed AS (
+				INSERT INTO platform_manager.account_rosters AS roster(account_id,roster,active_count,evidence_id,observed_at,fresh_until)
+				VALUES($1,$2,$3,$4,$5,$6)
+				ON CONFLICT(account_id) DO UPDATE SET roster=EXCLUDED.roster,active_count=EXCLUDED.active_count,
+					evidence_id=EXCLUDED.evidence_id,observed_at=EXCLUDED.observed_at,
+					fresh_until=EXCLUDED.fresh_until,failure_code=NULL
+				WHERE roster.observed_at IS NULL OR roster.observed_at<=EXCLUDED.observed_at
+				RETURNING account_id,active_count,observed_at
+			)
+			INSERT INTO platform_manager.account_subscription_rosters AS previous(account_id,check_number,active_count,observed_at)
+			SELECT account_id,1,active_count,observed_at FROM observed
+			WHERE $7 AND $6::timestamptz>statement_timestamp()
+			ON CONFLICT(account_id) DO UPDATE SET check_number=previous.check_number+1,
+				active_count=EXCLUDED.active_count,observed_at=EXCLUDED.observed_at,previous_active_count=previous.active_count
+			WHERE previous.observed_at IS NULL OR previous.observed_at<EXCLUDED.observed_at`,
+			p.Account, obs.Roster, obs.Active, uuid.New(), obs.At, obs.At.Add(rosterFreshness), checkSubscriptionSeats)
 		return outcome, err
 	}
 	if len(obs.Identity.WidgetVersions) > 0 {

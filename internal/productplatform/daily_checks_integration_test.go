@@ -112,10 +112,11 @@ func TestPlatformDailyChecks(t *testing.T) {
 		t.Fatalf("users=%d bindings=%d terms=%d episodes=%d", roster, bindings, terms, episodes)
 	}
 	account := uuid.MustParse("10000000-1111-4400-8000-000000000001")
-	page, _, err := (managerStore{pool: pool}).list(ctx, managerActor{}, installationFilters{Account: &account, Limit: 10}, installationSeek{})
+	store := managerStore{pool: pool}
+	page, _, err := store.list(ctx, managerActor{}, installationFilters{Account: &account, Limit: 10}, installationSeek{})
 	mustManager(t, err)
-	if len(page.Items) != 2 {
-		t.Fatalf("expected two installations, got %d", len(page.Items))
+	if len(page.Items) != 2 || page.Summary.Total != 2 {
+		t.Fatalf("expected two observed installations in the account list: %+v", page)
 	}
 	for _, item := range page.Items {
 		if item.Installation.String() == f.installations[0] {
@@ -124,6 +125,16 @@ func TestPlatformDailyChecks(t *testing.T) {
 			}
 		} else if item.WidgetVersion != nil {
 			t.Fatal("version leaked into another installation of the same product")
+		}
+	}
+	for _, review := range []string{"unreviewed", "reviewed"} {
+		page, _, err := store.list(ctx, managerActor{}, installationFilters{
+			Review: review, Lifecycle: "current", Limit: 10,
+		}, installationSeek{})
+		mustManager(t, err)
+		if len(page.Items) != 0 || page.Summary != (installationSummary{}) ||
+			page.QueueCounts == nil || *page.QueueCounts != (installationSummary{}) {
+			t.Fatalf("%s queue included installations without confirmed episodes: %+v", review, page)
 		}
 	}
 	f.blocked.Store(true)

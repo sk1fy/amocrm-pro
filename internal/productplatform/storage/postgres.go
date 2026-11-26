@@ -72,7 +72,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		SELECT a.account_id,p.version,p.partner_name,accounts_snapshot.overview,c.product_id,c.resource_id,pt.version,pt.people,
 		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version,
 		       catalog.catalog_version,catalog.catalog_policy_version,catalog.tariff_version,revision.version,
-		       history.source_version,tariff.evidence,verified.rule,active.own_until,
+		       history.source_version,tariff.evidence,verified.rule,active.own_until,subscription.seats_warning,
 		       event.source,event.id,event.kind,event.occurred_at,event.recorded_at,event.account_id,event.product_id,event.episode_id,
 		       snapshot.route,snapshot.account_id,snapshot.query_hash,snapshot.scope_hash,snapshot.total,item.ordinal,item.source,item.event_id
 		FROM platform_manager.visible_accounts a
@@ -99,6 +99,7 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		CROSS JOIN platform_lifecycle.verified_tariff_versions tariff
 		CROSS JOIN platform_lifecycle.verified_trial_policies verified
 		CROSS JOIN platform_manager.product_access active
+		CROSS JOIN platform_manager.account_subscriptions subscription
 		CROSS JOIN platform_manager.business_events event
 		CROSS JOIN platform_manager.feed_snapshots snapshot
 		CROSS JOIN platform_manager.feed_snapshot_items item
@@ -113,6 +114,10 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		SELECT has_table_privilege('platform_manager.core_inventory','INSERT,DELETE')
            AND has_column_privilege('platform_manager.account_refresh_slots','attempted_at','UPDATE')
            AND has_table_privilege('platform_manager.account_subscription_revisions','INSERT')
+           AND has_table_privilege('platform_manager.account_subscription_rosters','SELECT')
+           AND has_table_privilege('platform_manager.account_subscription_rosters','INSERT')
+           AND (SELECT bool_and(has_column_privilege('platform_manager.account_subscription_rosters',field,'UPDATE'))
+                FROM unnest(ARRAY['check_number','active_count','observed_at','previous_active_count']) field)
            AND has_table_privilege('platform_manager.account_amostart_licenses','INSERT,UPDATE')
            AND has_table_privilege('platform_manager.installation_widget_versions','SELECT')
            AND has_table_privilege('platform_manager.installation_widget_versions','INSERT')
