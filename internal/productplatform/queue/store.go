@@ -21,6 +21,8 @@ const (
 	Running   Status = "running"
 	Succeeded Status = "succeeded"
 	Dead      Status = "dead"
+
+	MaxJobAttempts = 10
 )
 
 type Job struct {
@@ -69,6 +71,9 @@ type Outcome struct {
 	FailureCode string
 	Retry       bool
 	RetryAfter  time.Duration
+	// Reschedule makes a job immediately available, with one extra attempt if
+	// needed. FailureCode is recorded only if the attempt limit has been reached.
+	Reschedule bool
 }
 
 type Completion struct {
@@ -127,7 +132,13 @@ type leaseExecutor interface {
 func finishLease(ctx context.Context, db leaseExecutor, lease Lease, outcome Outcome) (Status, error) {
 	status := Succeeded
 	var retryAfter time.Duration
-	if outcome.FailureCode != "" {
+	if outcome.Reschedule {
+		status = Dead
+		if lease.Attempt < MaxJobAttempts {
+			status = Queued
+			outcome.FailureCode = ""
+		}
+	} else if outcome.FailureCode != "" {
 		status = Dead
 		retryAfter = outcome.RetryAfter
 		if outcome.Retry && lease.Attempt < lease.MaxAttempts {
@@ -142,9 +153,11 @@ func finishLease(ctx context.Context, db leaseExecutor, lease Lease, outcome Out
 	tag, err := db.Exec(ctx, `
 		UPDATE platform_jobs.jobs
 		SET status=$3, lease_until=NULL, updated_at=clock_timestamp(), failure_code=NULLIF($5,''),
-			available_at=CASE WHEN $4::bigint>0 THEN clock_timestamp()+($4*interval '1 millisecond') ELSE available_at END
+			available_at=CASE WHEN $6 THEN clock_timestamp()
+				WHEN $4::bigint>0 THEN clock_timestamp()+($4*interval '1 millisecond') ELSE available_at END,
+			max_attempts=CASE WHEN $6 THEN GREATEST(max_attempts,attempt+1) ELSE max_attempts END
 		WHERE id=$1 AND attempt=$2 AND status='running' AND lease_until>clock_timestamp()
-	`, lease.ID, lease.Attempt, status, delayMilliseconds, outcome.FailureCode)
+	`, lease.ID, lease.Attempt, status, delayMilliseconds, outcome.FailureCode, outcome.Reschedule && status == Queued)
 	if err != nil {
 		return "", err
 	}

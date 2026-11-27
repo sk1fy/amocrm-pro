@@ -69,8 +69,9 @@ func CheckAccess(ctx context.Context, pool *pgxpool.Pool) error {
 
 func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, `
-		SELECT a.account_id,p.version,p.partner_name,accounts_snapshot.overview,c.product_id,c.resource_id,pt.version,pt.people,
-		       n.version,nr.version,t.version,ad.audit_date,term.entitlement_version,
+		SELECT a.account_id,p.version,p.partner_name,p.technical_classification_version,status_change.reason,
+		       accounts_snapshot.overview,c.product_id,c.resource_id,pt.version,pt.people,
+               n.version,nr.version,t.version,ad.audit_date,term.entitlement_version,daily_check.payment_required_at,
 		       catalog.catalog_version,catalog.catalog_policy_version,catalog.tariff_version,revision.version,
 		       history.source_version,tariff.evidence,verified.rule,active.own_until,subscription.seats_warning,
 		       event.source,event.id,event.kind,event.occurred_at,event.recorded_at,event.account_id,event.product_id,event.episode_id,
@@ -113,6 +114,11 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 	err := pool.QueryRow(ctx, `
 		SELECT has_table_privilege('platform_manager.core_inventory','INSERT,DELETE')
            AND has_column_privilege('platform_manager.account_refresh_slots','attempted_at','UPDATE')
+           AND has_column_privilege('platform_manager.account_refresh_slots','payment_required_at','UPDATE')
+           AND has_table_privilege('platform_manager.account_tariff_fields','SELECT')
+           AND has_column_privilege('platform_manager.account_tariff_fields','trial_or_blocked_at','UPDATE')
+           AND has_column_privilege('platform_manager.account_tariff_fields','value_changed_at','UPDATE')
+           AND has_column_privilege('platform_jobs.jobs','max_attempts','UPDATE')
            AND has_table_privilege('platform_manager.account_subscription_revisions','INSERT')
            AND has_table_privilege('platform_manager.account_subscription_rosters','SELECT')
            AND has_table_privilege('platform_manager.account_subscription_rosters','INSERT')
@@ -140,6 +146,9 @@ func CheckManager(ctx context.Context, pool *pgxpool.Pool) error {
 		   AND has_table_privilege('platform_manager.feed_snapshot_items','INSERT')
 		   AND has_column_privilege('platform_manager.account_snapshot_admission','marker','UPDATE')
 		   AND has_column_privilege('platform_manager.account_profiles','partner_name','UPDATE')
+		   AND has_column_privilege('platform_manager.account_profiles','technical_classification_version','UPDATE')
+		   AND has_table_privilege('platform_manager.account_tariff_classification_changes','SELECT')
+		   AND has_table_privilege('platform_manager.account_tariff_classification_changes','INSERT')
 		   AND has_column_privilege('platform_manager.account_portraits','people','UPDATE')
 		   AND has_table_privilege('platform_manager.account_change_events', 'INSERT')
 		   AND has_table_privilege('platform_manager.account_event_outbox', 'INSERT')

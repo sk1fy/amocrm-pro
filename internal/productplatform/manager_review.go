@@ -71,7 +71,7 @@ func (s managerStore) review(ctx context.Context, cmd reviewCommand) (managerOut
 	}
 	now = now.UTC()
 	item, err := scanManagerInstallation(tx.QueryRow(ctx,
-		`SELECT `+installationColumns+installationFrom+` WHERE inst.id=$1`, cmd.Episode), now)
+		`SELECT `+installationColumns+installationFrom+` WHERE inst.id=$1`, cmd.Episode), now, false)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return outcome, errManagerNotFound
 	}

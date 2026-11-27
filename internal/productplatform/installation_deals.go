@@ -20,6 +20,8 @@ import (
 const (
 	InstallationDealJob          queue.Kind = "installation.deal"
 	InstallationDealUsersTimeout            = 5 * time.Second
+	dealTechnicalAccount                    = "deal_technical_account"
+	dealTariffUnknown                       = "deal_tariff_unknown"
 )
 
 type InstallationDealSource interface {
@@ -28,17 +30,18 @@ type InstallationDealSource interface {
 }
 
 type InstallationDeals struct {
-	Pool     *pgxpool.Pool
-	Source   InstallationDealSource
-	Manager  *ManagerOptions
-	Accounts *AccountObserver
+	Pool               *pgxpool.Pool
+	Source             InstallationDealSource
+	Manager            *ManagerOptions
+	Accounts           *AccountObserver
+	RequireKnownTariff bool
 }
 
 func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Completion {
 	if d.Accounts != nil {
 		// Refresh before reserving the write so an interrupted read cannot leave a deal on reconciliation.
 		refreshCtx, cancel := context.WithTimeout(ctx, InstallationDealUsersTimeout)
-		err := d.Accounts.refreshInstallationDealUsers(refreshCtx, job.ID)
+		err := d.Accounts.refreshInstallationDealUsers(refreshCtx, job.ID, d.RequireKnownTariff)
 		cancel()
 		if err != nil && ctx.Err() == nil {
 			slog.Warn("Installation deal user count unavailable")
@@ -50,6 +53,9 @@ func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Complet
 	}
 	if err != nil {
 		return queue.Completion{Outcome: queue.Outcome{FailureCode: "deal_service_unavailable", Retry: true}}
+	}
+	if skip == dealTariffUnknown {
+		return d.deferForTariff(job.ID)
 	}
 	if skip != "" {
 		return d.publish(job.ID, skip, companycrm.DealResult{}, queue.Outcome{})
@@ -76,18 +82,20 @@ func (d InstallationDeals) Run(ctx context.Context, job queue.Job) queue.Complet
 	}
 }
 
-func (o *AccountObserver) refreshInstallationDealUsers(ctx context.Context, episode uuid.UUID) error {
+func (o *AccountObserver) refreshInstallationDealUsers(ctx context.Context, episode uuid.UUID, requireKnownTariff bool) error {
 	var account uuid.UUID
 	err := o.pool.QueryRow(ctx, `
 		SELECT i.account_id FROM platform_manager.installation_deals d
 		JOIN platform_manager.installations i ON i.id=d.episode_id
 		LEFT JOIN platform_manager.account_profiles p ON p.account_id=i.account_id
+		LEFT JOIN platform_manager.account_tariff_fields t ON t.account_id=i.account_id AND t.field='tariff_id'
 		WHERE d.episode_id=$1 AND d.status='pending' AND d.title IS NULL AND i.lifecycle='current' AND i.kind='install'
 			AND p.classification IS DISTINCT FROM 'Запрет работы'
+			AND t.numeric_value IS DISTINCT FROM $2 AND (NOT $3 OR t.observed_at>=i.opened_at)
 			AND NOT EXISTS(
 				SELECT FROM platform_manager.account_rosters r
 				WHERE r.account_id=i.account_id AND r.failure_code IS NULL AND r.fresh_until>statement_timestamp()
-			)`, episode).Scan(&account)
+			)`, episode, technicalAccountTariffID, requireKnownTariff).Scan(&account)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -123,6 +131,22 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		return request, "", err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	var clientAccount, installation uuid.UUID
+	err = tx.QueryRow(ctx, `
+		SELECT p.account_id,e.installation_id FROM platform_manager.installation_deals d
+		JOIN platform_lifecycle.episodes e ON e.id=d.episode_id
+		JOIN platform_lifecycle.account_products p ON p.installation_id=e.installation_id
+		WHERE d.episode_id=$1`, episode).Scan(&clientAccount, &installation)
+	if err != nil {
+		return request, "", err
+	}
+	if _, err := lockStream(ctx, tx, installation); err != nil {
+		return request, "", err
+	}
+	classification, err := lockAccountClassification(ctx, tx, clientAccount)
+	if err != nil {
+		return request, "", err
+	}
 	var status string
 	var title, previousBinding *string
 	var previousAccount *int64
@@ -152,25 +176,35 @@ func (d InstallationDeals) reserve(ctx context.Context, episode uuid.UUID) (comp
 		return request, "skipped", nil
 	}
 
-	var name, accountLabel, contactName, lifecycle, classification string
+	var name, accountLabel, contactName, lifecycle string
 	var installedAt time.Time
+	var tariffID *int64
+	var tariffObservedAt *time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT inst.product_name,COALESCE(i.current_domain,inst.amo_account_id::text),
-			COALESCE(c.name,''),inst.lifecycle,COALESCE(p.classification,''),inst.opened_at,
-			inst.amo_account_id,u.active_count
+			COALESCE(c.name,''),inst.lifecycle,inst.opened_at,inst.amo_account_id,u.active_count,t.numeric_value,t.observed_at
 		FROM platform_manager.installations inst
 		LEFT JOIN platform_manager.account_identities i USING(account_id)
-		LEFT JOIN platform_manager.account_profiles p USING(account_id)
 		LEFT JOIN platform_manager.account_rosters u
 			ON u.account_id=inst.account_id AND u.failure_code IS NULL AND u.fresh_until>transaction_timestamp()
 		LEFT JOIN platform_manager.installation_contacts c ON c.episode_id=inst.id
-		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &classification, &installedAt,
-		&request.ClientAccountID, &request.ActiveUsers)
-	if errors.Is(err, pgx.ErrNoRows) || err == nil && (lifecycle != "current" || classification == "Запрет работы") {
+		LEFT JOIN platform_manager.account_tariff_fields t ON t.account_id=inst.account_id AND t.field='tariff_id'
+		WHERE inst.id=$1`, episode).Scan(&name, &accountLabel, &contactName, &lifecycle, &installedAt,
+		&request.ClientAccountID, &request.ActiveUsers, &tariffID, &tariffObservedAt)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && lifecycle != "current" {
 		return request, "skipped", nil
 	}
 	if err != nil {
 		return request, "", err
+	}
+	if tariffID != nil && *tariffID == technicalAccountTariffID {
+		return request, dealTechnicalAccount, nil
+	}
+	if classification == "Запрет работы" {
+		return request, "skipped", nil
+	}
+	if d.RequireKnownTariff && (tariffObservedAt == nil || tariffObservedAt.Before(installedAt)) {
+		return request, dealTariffUnknown, nil
 	}
 	var pipeline, stage int64
 	err = tx.QueryRow(ctx, `
@@ -235,6 +269,10 @@ func (d InstallationDeals) publish(episode uuid.UUID, state string, result compa
 	if state == "reconciling" && outcome.FailureCode == "" {
 		outcome.FailureCode = "deal_binding_changed"
 	}
+	reason := outcome.FailureCode
+	if state == dealTechnicalAccount {
+		state, reason = "skipped", dealTechnicalAccount
+	}
 	return queue.Completion{Publish: func(ctx context.Context, tx pgx.Tx) (queue.Outcome, error) {
 		_, err := tx.Exec(ctx, `
 			UPDATE platform_manager.installation_deals
@@ -242,7 +280,7 @@ func (d InstallationDeals) publish(episode uuid.UUID, state string, result compa
 			    title=CASE WHEN $2 IN ('failed','pending') THEN NULL ELSE title END,
 			    company_account=CASE WHEN $2 IN ('failed','pending') THEN NULL ELSE company_account END,
 			    binding_revision=CASE WHEN $2 IN ('failed','pending') THEN NULL ELSE binding_revision END
-			WHERE episode_id=$1`, episode, state, result.ID, result.Host, outcome.FailureCode)
+		WHERE episode_id=$1`, episode, state, result.ID, result.Host, reason)
 		return outcome, err
 	}}
 }

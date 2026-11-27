@@ -43,6 +43,12 @@ type profileValues struct {
 	PartnerName    *string `json:"partner_name,omitempty"`
 }
 
+type profileChangeDetails struct {
+	Before                  profileValues `json:"before"`
+	After                   profileValues `json:"after"`
+	ClassificationConfirmed bool          `json:"classification_confirmed,omitempty"`
+}
+
 func parseProfilePatch(raw []byte) (profilePatch, error) {
 	var patch profilePatch
 	var name, note, classification, partner, feedback json.RawMessage
@@ -129,9 +135,11 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 	}
 	var before profileValues
 	var version int64
+	var automaticBlock bool
 	err := tx.QueryRow(ctx, `
-		SELECT display_name,note,classification,partner_name,version FROM platform_manager.account_profiles WHERE account_id=$1 FOR UPDATE`,
-		cmd.Account).Scan(&before.DisplayName, &before.Note, &before.Classification, &before.PartnerName, &version)
+		SELECT display_name,note,classification,partner_name,version,technical_classification_version IS NOT NULL
+		FROM platform_manager.account_profiles WHERE account_id=$1 FOR UPDATE`,
+		cmd.Account).Scan(&before.DisplayName, &before.Note, &before.Classification, &before.PartnerName, &version, &automaticBlock)
 	if err != nil {
 		return managerOutcome{}, err
 	}
@@ -166,19 +174,27 @@ func updateAccountProfile(ctx context.Context, tx pgx.Tx, cmd managerCommand, pa
 		return managerMutationResponse(http.StatusUnprocessableEntity, 0,
 			managerProblem(http.StatusUnprocessableEntity, "validation_failed", cmd.RequestID, 0, 0))
 	}
+	manualOverride := automaticBlock && patch.Classification.Present
 	err = tx.QueryRow(ctx, `
-		UPDATE platform_manager.account_profiles SET display_name=$2,note=$3,classification=$4,partner_name=$5,version=version+1
-		WHERE account_id=$1 AND (display_name,note,classification,partner_name) IS DISTINCT FROM ($2::text,$3::text,$4::text,$5::text)
-		RETURNING version`, cmd.Account, after.DisplayName, after.Note, after.Classification, after.PartnerName).Scan(&version)
+		UPDATE platform_manager.account_profiles SET display_name=$2,note=$3,classification=$4,partner_name=$5,version=version+1,
+			technical_classification_version=CASE WHEN $6 THEN NULL ELSE technical_classification_version END
+		WHERE account_id=$1 AND ($6 OR (display_name,note,classification,partner_name) IS DISTINCT FROM ($2::text,$3::text,$4::text,$5::text))
+		RETURNING version`, cmd.Account, after.DisplayName, after.Note, after.Classification, after.PartnerName, manualOverride).Scan(&version)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return managerOutcome{}, err
 	}
 	if err == nil {
+		confirmed := manualOverride && after.Classification != nil && *after.Classification == "Запрет работы"
 		_, err := recordAccountChange(ctx, tx, cmd, accountChange{Account: cmd.Account,
 			Kind: accountProfileUpdated, Version: version, Reason: &patch.Reason,
-			Details: map[string]profileValues{"before": before, "after": after}})
+			Details: profileChangeDetails{Before: before, After: after, ClassificationConfirmed: confirmed}})
 		if err != nil {
 			return managerOutcome{}, err
+		}
+		if patch.Classification.Present && after.Classification != nil && *after.Classification == "Запрет работы" {
+			if err := skipParkedInstallationDealsForBan(ctx, tx, cmd.Account); err != nil {
+				return managerOutcome{}, err
+			}
 		}
 	}
 	detail, version, err := readAccountDetail(ctx, tx, cmd.Account, []accountCapability{})

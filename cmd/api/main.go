@@ -247,9 +247,15 @@ func run() error {
 			return err
 		}
 		defer catalog.Close()
+		accountLicense, err := corelifecycle.NewAccountLicenseClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
+		if err != nil {
+			return err
+		}
+		defer accountLicense.Close()
 		oauthStore.SetInstallPolicy(catalog.AllowsNewInstallation)
 		crm := amocrmclient.NewClient(externalHTTPClient, oauthflow.NewTokenProvider(pool, keyRing, oauthGateway))
-		registerWidgetActivation(router, corelifecycle.NewStore(pool), crm, activation, widgetRoute, widgetCORSMiddleware)
+		registerWidgetActivation(router, lifecycleStore, crm, activation, widgetRoute, widgetCORSMiddleware)
+		registerWidgetAccountLicense(router, lifecycleStore.AccountLicenseScope, accountLicense.Report, widgetRoute, widgetCORSMiddleware)
 	}
 	workRoute := func(consume bool, next http.Handler) http.Handler {
 		return widgetRoute(consume, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

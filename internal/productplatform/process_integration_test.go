@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	wire "github.com/sk1fy/amocrm-pro/internal/platformlifecycle"
 )
 
 func TestPlatformProcess(t *testing.T) {
@@ -34,10 +35,20 @@ func TestPlatformProcess(t *testing.T) {
 	expectStatus(t, client, public+coreEventsPath, http.StatusNotFound)
 	expectStatus(t, client, public+managerPath+"installations", http.StatusNotFound)
 	expectStatus(t, client, public+"/v1/access/42/example", http.StatusNotFound)
+	response, err := client.Post(public+wire.AccountLicensePath, "application/json", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("public account license route responded with %d, want 404", response.StatusCode)
+	}
 
 	core := tlsClient(t, certs, "core")
 	manager := tlsClient(t, certs, "manager-bff")
 	checkPrivateRoutes(t, private, core, manager, http.StatusNotFound)
+	expectStatus(t, core, private+wire.AccountLicensePath, http.StatusBadRequest)
+	expectStatus(t, manager, private+wire.AccountLicensePath, http.StatusForbidden)
 	if resp, err := tlsClient(t, certs, "").Get(private + coreEventsPath); err == nil {
 		resp.Body.Close()
 		t.Fatal("private listener accepted a request without a client certificate")

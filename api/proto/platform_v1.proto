@@ -62,8 +62,12 @@ message AccountObservation {
   oneof result {
     AccountIdentity identity = 2;
     CRMUserRoster roster = 3;
+    AccountPaymentRequired payment_required = 4;
   }
 }
+
+// The authorized account identity endpoint replied with HTTP 402.
+message AccountPaymentRequired {}
 
 message AccountIdentity {
   string current_domain = 1;

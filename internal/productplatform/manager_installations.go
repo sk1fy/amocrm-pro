@@ -80,6 +80,7 @@ type installationFilters struct {
 	start, before                                            *time.Time
 	Limit                                                    int
 	Ascending                                                bool
+	requireKnownTariff                                       bool
 }
 
 func (f installationFilters) hash() [32]byte {
@@ -108,12 +109,13 @@ type installationSeek struct {
 	ID       uuid.UUID
 }
 
-const installationColumns = `inst.id,account_id,amo_account_id,product_id,product_code,product_name,COALESCE(line,''),
-	installation_id,generation,inst.kind,opened_at,closed_at,last_lifecycle_event,lifecycle,
+const installationColumns = `inst.id,inst.account_id,amo_account_id,product_id,product_code,product_name,COALESCE(line,''),
+	inst.installation_id,inst.generation,inst.kind,opened_at,closed_at,last_lifecycle_event,lifecycle,
 	"authorization",reviewed_by,reviewed_at,valid_until,term_source,entitlement_version,inst.version, CASE WHEN lifecycle='current' AND "authorization"='authorized' THEN package_until END,
 	i.current_domain,COALESCE(p.display_name,i.display_name),p.classification,i.time_zone,
 	w.amo_user_id,w.name,w.phone,w.email,w.role,
-	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at,(SELECT ep.installed_by::text FROM platform_lifecycle.episodes ep WHERE ep.id=inst.id),versions.widget_version,(SELECT trial_extension_days FROM platform_lifecycle.products WHERE id=inst.product_id)`
+	d.status,d.deal_id,d.deal_host,d.reason,d.retry_version,j.status,j.available_at,d.title IS NULL,t.numeric_value,t.observed_at,
+	(SELECT ep.installed_by::text FROM platform_lifecycle.episodes ep WHERE ep.id=inst.id),versions.widget_version,(SELECT trial_extension_days FROM platform_lifecycle.products WHERE id=inst.product_id)`
 
 const installationFrom = ` FROM platform_manager.installation_directory inst ` + installationProfileJoins
 
@@ -124,7 +126,8 @@ const installationProfileJoins = `
 	LEFT JOIN platform_manager.account_profiles p USING(account_id)
 	LEFT JOIN platform_manager.installation_contacts w ON w.episode_id=inst.id
 	LEFT JOIN platform_manager.installation_deals d ON d.episode_id=inst.id
-	LEFT JOIN platform_jobs.jobs j ON j.id=d.episode_id`
+	LEFT JOIN platform_jobs.jobs j ON j.id=d.episode_id
+	LEFT JOIN platform_manager.account_tariff_fields t ON t.account_id=inst.account_id AND t.field='tariff_id'`
 
 const installationListWhere = `
 	WHERE ($1='' OR strpos(amo_account_id::text, $1)>0 OR strpos(lower(product_name), lower($1))>0
@@ -142,22 +145,25 @@ const installationListWhere = `
         OR COALESCE(lifecycle='current' AND "authorization"='authorized' AND package_until>$10,false)) = ($7='active'))
 	  AND ($8::timestamptz IS NULL OR opened_at >= $8)
 	  AND ($9::timestamptz IS NULL OR opened_at < $9)
-	  AND ($11::uuid IS NULL OR account_id=$11)
+	  AND ($11::uuid IS NULL OR inst.account_id=$11)
 	  AND ($12='' OR lifecycle=$12)`
 
-func scanManagerInstallation(row pgx.Row, now time.Time) (managerInstallation, error) {
+func scanManagerInstallation(row pgx.Row, now time.Time, requireKnownTariff bool) (managerInstallation, error) {
 	var item managerInstallation
 	var account int64
 	var access accessProjection
 	var userID, dealID *int64
 	var name, phone, email, role, dealState, dealHost, dealReason, jobState *string
 	var dealVersion *int
-	var nextRun *time.Time
+	var nextRun, tariffObservedAt *time.Time
+	var tariffID *int64
+	var unreserved bool
 	err := row.Scan(&item.ID, &item.Account, &account, &item.Product, &item.ProductCode, &item.ProductName, &item.ProductLine,
 		&item.Installation, &item.Generation, &item.Kind, &item.InstalledAt, &item.RemovedAt, &item.LastLifecycle,
 		&item.Lifecycle, &item.Authorization, &item.Review.By, &item.Review.At, &access.until, &access.source,
 		&access.version, &item.Version, &access.packageUntil, &item.AccountDomain, &item.AccountName, &item.AccountClass, &item.AccountZone,
-		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun, &item.InstalledBy, &item.WidgetVersion, &item.TrialExtensionDays)
+		&userID, &name, &phone, &email, &role, &dealState, &dealID, &dealHost, &dealReason, &dealVersion, &jobState, &nextRun,
+		&unreserved, &tariffID, &tariffObservedAt, &item.InstalledBy, &item.WidgetVersion, &item.TrialExtensionDays)
 	if err != nil {
 		return item, err
 	}
@@ -177,6 +183,18 @@ func scanManagerInstallation(row pgx.Row, now time.Time) (managerInstallation, e
 		}
 		if jobState != nil && *jobState == "queued" {
 			item.Deal.NextRun = managerUTC(nextRun)
+		}
+		parked := dealReason != nil && *dealReason == dealTariffUnknown
+		if parked {
+			item.Deal.Reason = nil
+		}
+		waitingForTariff := requireKnownTariff && unreserved && (tariffID == nil || *tariffID != technicalAccountTariffID) &&
+			(tariffObservedAt == nil || tariffObservedAt.Before(item.InstalledAt)) && jobState != nil && (*jobState == "queued" || *jobState == "running")
+		if *dealState == "pending" && item.Kind == "install" && item.Lifecycle == "current" &&
+			(item.AccountClass == nil || *item.AccountClass != "Запрет работы") && now.Sub(item.InstalledAt) >= 24*time.Hour &&
+			(parked || waitingForTariff) {
+			item.Deal.Reason = new(dealTariffUnknown)
+			item.Deal.NextRun = nil
 		}
 		if jobState != nil && *jobState == "dead" && *dealState != "skipped" && *dealState != "succeeded" {
 			item.Deal.CanRetry = true
@@ -245,7 +263,7 @@ func (s managerStore) list(ctx context.Context, actor managerActor, filters inst
 		return page, installationSeek{}, err
 	}
 	items, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (managerInstallation, error) {
-		return scanManagerInstallation(row, page.SnapshotAt)
+		return scanManagerInstallation(row, page.SnapshotAt, filters.requireKnownTariff)
 	})
 	if err != nil {
 		return page, installationSeek{}, err

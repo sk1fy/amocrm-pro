@@ -365,10 +365,13 @@ func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID,
 			'feedback_product_ids',ARRAY(SELECT product_id FROM platform_manager.widget_feedback WHERE account_id=a.account_id ORDER BY product_id),
             'note',p.note,'region',NULL,'time_zone',i.time_zone,
             'amostart',jsonb_strip_nulls(jsonb_build_object(`+amoStartObservationFields+`,'value',l.observed_at)),
+            'amo_license_status',`+amoLicenseStatusJSON+`,
             'capabilities',$2::jsonb)
 			|| jsonb_strip_nulls(jsonb_build_object('identity_observed_at',i.observed_at,
+                'technical_tariff',(SELECT t.numeric_value=$3 FROM platform_manager.account_tariff_fields t
+                    WHERE t.account_id=a.account_id AND t.field='tariff_id'),
                 'classification_change',(SELECT CASE WHEN c.current IS NOT DISTINCT FROM p.classification THEN
-                    jsonb_build_object('occurred_at',c.occurred_at,'source',c.source,'previous',c.previous,'current',c.current)
+                    jsonb_build_object('occurred_at',c.occurred_at,'source',c.source,'previous',c.previous,'current',c.current,'reason',c.reason)
                     END FROM platform_manager.account_classification_changes c WHERE c.account_id=a.account_id
                     ORDER BY c.version DESC LIMIT 1),
                 'subscription',(SELECT to_jsonb(s)-ARRAY['account_id','version','action','valid_until'] FROM platform_manager.account_subscriptions s WHERE s.account_id=a.account_id),
@@ -376,7 +379,9 @@ func readAccountDetail(ctx context.Context, db accountScopeReader, id uuid.UUID,
                      'changed_at',r.changed_at,'state','revoked') FROM platform_manager.account_subscription_revisions r
                      WHERE r.account_id=a.account_id AND action='revoke' ORDER BY version DESC LIMIT 1))),
 			COALESCE(p.version,1)
-		FROM platform_manager.visible_accounts a `+accountObservationJoins+` WHERE a.account_id=$1`, id, actions).Scan(&body, &version)
+		FROM platform_manager.visible_accounts a `+accountObservationJoins+accountLicenseEvidenceJoins+`
+        CROSS JOIN (SELECT transaction_timestamp() AS as_of) license_clock
+        `+accountLicenseStatusJoin+` WHERE a.account_id=$1`, id, actions, technicalAccountTariffID).Scan(&body, &version)
 	return body, version, accountReadError(err)
 }
 

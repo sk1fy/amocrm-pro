@@ -2,6 +2,7 @@ package amocrm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/sk1fy/amocrm-pro/internal/serviceapi"
 )
+
+var ErrAccountIdentityPaymentRequired = errors.New("amoCRM account identity requires payment")
 
 func (c *Client) ObserveAccountIdentity(ctx context.Context, installation uuid.UUID, account int64, coreDomain string) (serviceapi.ObservedAccountIdentity, error) {
 	var result serviceapi.ObservedAccountIdentity
@@ -28,7 +31,7 @@ func (c *Client) ObserveAccountIdentity(ctx context.Context, installation uuid.U
 			} `json:"datetime_settings"`
 		} `json:"_embedded"`
 	}
-	if err := c.DoJSON(ctx, installation, http.MethodGet, "/api/v4/account?with=datetime_settings", nil, &response); err != nil {
+	if err := c.doJSON(ctx, installation, http.MethodGet, "/api/v4/account?with=datetime_settings", nil, &response, ErrAccountIdentityPaymentRequired); err != nil {
 		return result, err
 	}
 	label := strings.ToLower(response.Subdomain)

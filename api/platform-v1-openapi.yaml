@@ -159,6 +159,78 @@ paths:
         '403': {description: Core TLS identity required.}
         '404': {description: Current authorized installation episode unavailable.}
         '503': {description: Activation store unavailable.}
+  /api/v1/widget/account-license:
+    post:
+      operationId: reportWidgetAccountLicense
+      summary: Report tariff hints from the amoCRM widget.
+      description: Core resolves the current installation and timestamps receipt. The route is available before phone activation. Every attempt requires a fresh disposable widget JWT.
+      security: [{coreWidgetSDK: []}, {coreWidgetBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WidgetAccountLicenseHints'}
+            example: {tariff_id: 22000000}
+      responses:
+        '204': {description: Platform received the tariff hints.}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {description: 'Missing, invalid, or replayed widget JWT.'}
+        '403': {description: Widget browser origin denied.}
+        '404': {$ref: '#/components/responses/Error404'}
+        '429':
+          description: Widget report rate limited.
+          headers:
+            Retry-After:
+              schema: {type: integer, minimum: 1}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: object
+                    required: [code]
+                    properties:
+                      code: {type: string, enum: [rate_limited]}
+        '500': {description: Widget authorization storage unavailable.}
+        '503':
+          description: Core or Platform unavailable. Retry with a fresh disposable JWT.
+          headers:
+            Retry-After:
+              schema: {type: integer, minimum: 1}
+  /internal/platform/v1/installations/account-license:
+    post:
+      operationId: recordWidgetAccountLicense
+      summary: Record tariff hints bound to a Core-verified installation.
+      security: [{coreService: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [scope, received_at, hints]
+              properties:
+                scope:
+                  type: object
+                  additionalProperties: false
+                  required: [installation_id, integration_id, amo_account_id, generation, authorization_sequence]
+                  properties:
+                    installation_id: {type: string, format: uuid}
+                    integration_id: {type: string, format: uuid}
+                    amo_account_id: {type: integer, format: int64, minimum: 1}
+                    generation: {type: integer, minimum: 1, maximum: 9007199254740991}
+                    authorization_sequence: {type: integer, minimum: 1, maximum: 9007199254740991}
+                received_at: {type: string, format: date-time}
+                hints: {$ref: '#/components/schemas/WidgetAccountLicenseHints'}
+      responses:
+        '204': {description: Platform received the tariff hints.}
+        '400': {$ref: '#/components/responses/Error400'}
+        '403': {description: Core TLS identity required.}
+        '404': {$ref: '#/components/responses/Error404'}
+        '503': {$ref: '#/components/responses/Error503'}
   /api/v1/widget/platform-access-proof:
     post:
       operationId: issuePlatformAccessProof
@@ -1672,6 +1744,22 @@ components:
         Retry-After:
           schema: {type: string}
   schemas:
+    WidgetAccountLicenseHints:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        tariff_id: {type: integer, minimum: 1, maximum: 9007199254740991}
+        pay_type:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Trimmed provider value of up to 64 UTF-8 bytes without control characters.
+        trial_end:
+          type: integer
+          minimum: 1
+          maximum: 253402300799
+          description: End of the amoCRM trial in Unix seconds.
     ProductTariffOptions:
       type: array
       maxItems: 50
@@ -2002,7 +2090,12 @@ components:
         state: {type: string, enum: [pending, reconciling, failed, skipped, succeeded]}
         url: {type: string, format: uri}
         id: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
-        reason: {type: string}
+        reason:
+          type: string
+          description: >-
+            Machine-readable reason. A pending deal waiting for a fresh tariff reports
+            deal_tariff_unknown after 24 hours. A deal skipped for a technical account
+            reports deal_technical_account.
         next_run_at: {type: string, format: date-time}
         retry_version: {type: integer, minimum: 1, maximum: 2147483647}
         can_retry: {type: boolean}
@@ -2435,6 +2528,19 @@ components:
         state: {type: string, enum: [active, suspended, expired, revoked, awaiting_users]}
         seats_warning: {type: boolean, description: First consecutive observation over the seat limit}
         changed_at: {type: string, format: date-time}
+    AmoLicenseStatus:
+      type: object
+      additionalProperties: false
+      required: [state]
+      description: Состояние лицензии amoCRM по наблюдениям на момент чтения Platform.
+      properties:
+        state: {type: string, enum: [unknown, trial, expired_pending, unpaid, paid]}
+        source: {type: string, enum: [widget, amocrm, amostart]}
+        observed_at: {type: string, format: date-time}
+        trial_end:
+          type: string
+          format: date-time
+          description: Дата amoCRM для действующего или завершившегося пробного периода.
     AccountDetail:
       type: object
       additionalProperties: false
@@ -2460,13 +2566,17 @@ components:
         note: {type: [string, 'null']}
         region: {type: [string, 'null']}
         time_zone: {type: [string, 'null']}
+        technical_tariff:
+          type: boolean
+          description: Последнее сохранённое наблюдение тарифа виджетом относится к техническому тарифу amoCRM.
         classification_change:
           type: object
           additionalProperties: false
           required: [occurred_at, source]
           properties:
             occurred_at: {type: string, format: date-time}
-            source: {type: string, enum: [manual, subscription]}
+            source: {type: string, enum: [manual, subscription, widget_tariff]}
+            reason: {type: string, enum: [technical_tariff_detected, ordinary_tariff_detected]}
             previous: {type: string}
             current: {type: string}
         identity_observed_at:
@@ -2474,6 +2584,7 @@ components:
           format: date-time
           description: Время последнего наблюдения домена, имени и часового пояса аккаунта в amoCRM.
         amostart: {$ref: '#/components/schemas/ObservationDate'}
+        amo_license_status: {$ref: '#/components/schemas/AmoLicenseStatus'}
         capabilities: {type: array, items: {$ref: '#/components/schemas/Capability'}}
       required:
       - account_id

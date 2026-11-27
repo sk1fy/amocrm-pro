@@ -101,6 +101,18 @@ func (c *Client) DoJSON(
 	requestBody any,
 	responseBody any,
 ) error {
+	return c.doJSON(ctx, installationID, method, path, requestBody, responseBody, nil)
+}
+
+func (c *Client) doJSON(
+	ctx context.Context,
+	installationID uuid.UUID,
+	method string,
+	path string,
+	requestBody any,
+	responseBody any,
+	paymentRequired error,
+) error {
 	if !strings.HasPrefix(path, "/api/v4/") && path != "/api/v4/account" {
 		return errors.New("amoCRM API path must stay under /api/v4")
 	}
@@ -129,6 +141,9 @@ func (c *Client) DoJSON(
 			continue
 		}
 		if status < 200 || status >= 300 {
+			if status == http.StatusPaymentRequired && paymentRequired != nil {
+				return paymentRequired
+			}
 			if status == http.StatusUnauthorized {
 				markContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.reauthTimeout)
 				markErr := c.tokens.MarkReauthRequired(markContext, installationID, access.TokenVersion)

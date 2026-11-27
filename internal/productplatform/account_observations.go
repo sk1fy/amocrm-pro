@@ -26,6 +26,7 @@ const (
 	rosterFreshness                     = 24 * time.Hour
 	accountSourceChanged                = "source_scope_changed"
 	accountSourceUnavailable            = "source_unavailable"
+	accountPaymentRequired              = "source_payment_required"
 )
 
 type AccountObserver struct {
@@ -94,10 +95,11 @@ type accountCRMUser struct {
 }
 
 type accountObservation struct {
-	At       time.Time
-	Identity *accountIdentityObservation
-	Roster   []accountCRMUser
-	Active   int
+	At              time.Time
+	Identity        *accountIdentityObservation
+	Roster          []accountCRMUser
+	Active          int
+	PaymentRequired bool
 }
 
 func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.Completion {
@@ -109,13 +111,12 @@ func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.C
 	var observation accountObservation
 	var inventory []inventoryEntry
 	var outcome queue.Outcome
-	var amoAccount int64
-	var license amostart.License
+	var amoStart amoStartObservation
 	switch p.Component {
 	case refreshInstallations:
 		inventory, outcome = o.readInventory(ctx, p.Account)
 	case refreshAmoStart:
-		amoAccount, license, outcome = o.readAmoStart(ctx, p.Account)
+		amoStart, outcome = o.readAmoStart(ctx, p.Account)
 	default:
 		scope, observation, outcome = o.readAccountComponent(ctx, p)
 	}
@@ -124,7 +125,7 @@ func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.C
 		switch p.Component {
 		case refreshAmoStart:
 			if outcome.FailureCode == "" {
-				outcome, err = publishAmoStart(ctx, tx, p.Account, amoAccount, license)
+				outcome, err = publishAmoStart(ctx, tx, p.Account, amoStart)
 			}
 		case refreshInstallations:
 			if outcome.FailureCode == "" {
@@ -136,9 +137,14 @@ func (o *AccountObserver) RefreshJob(ctx context.Context, job queue.Job) queue.C
 		if err != nil {
 			return outcome, err
 		}
+		var paymentRequiredAt *time.Time
+		if outcome.FailureCode == accountPaymentRequired {
+			paymentRequiredAt = &observation.At
+		}
 		_, err = tx.Exec(ctx, `UPDATE platform_manager.account_refresh_slots SET attempted_at=statement_timestamp(),
-      result_code=NULLIF($3,''), succeeded_at=CASE WHEN $3='' THEN statement_timestamp() ELSE succeeded_at END
-      WHERE account_id=$1 AND component=$2`, p.Account, p.Component, outcome.FailureCode)
+      result_code=NULLIF($3,''), succeeded_at=CASE WHEN $3='' THEN statement_timestamp() ELSE succeeded_at END,
+      payment_required_at=GREATEST(payment_required_at,$4::timestamptz)
+      WHERE account_id=$1 AND component=$2`, p.Account, p.Component, outcome.FailureCode, paymentRequiredAt)
 		return outcome, err
 	}}
 }
@@ -206,6 +212,9 @@ func observeAccount(ctx context.Context, gateway platformpb.CoreAccountObservati
 	if !ok {
 		return accountObservation{}, queue.Outcome{FailureCode: "source_incomplete", Retry: true}
 	}
+	if observation.PaymentRequired {
+		return observation, queue.Outcome{FailureCode: accountPaymentRequired}
+	}
 	return observation, queue.Outcome{}
 }
 
@@ -244,6 +253,10 @@ func decodeAccountObservation(response *platformpb.AccountObservation, part acco
 	}
 	out := accountObservation{At: at}
 	if part == refreshLicense {
+		if response.GetPaymentRequired() != nil {
+			out.PaymentRequired = true
+			return out, true
+		}
 		identity := response.GetIdentity()
 		if identity == nil || !validObservedDomain(identity.CurrentDomain) || !managerText(identity.DisplayName, 1, 512) ||
 			strings.TrimSpace(identity.DisplayName) == "" {
@@ -394,9 +407,15 @@ func publishAccountObservation(ctx context.Context, tx pgx.Tx, p accountRefreshP
 func (o *AccountObserver) Enroll(ctx context.Context) {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
+	var nextAmoStartScan time.Time
 	for {
+		now := time.Now()
+		scanAmoStart := o.amoStart != nil && !now.Before(nextAmoStartScan)
+		if scanAmoStart {
+			nextAmoStartScan = now.Add(15 * time.Second)
+		}
 		queryCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		err := o.enroll(queryCtx)
+		err := o.enroll(queryCtx, scanAmoStart)
 		cancel()
 		if err != nil && ctx.Err() == nil {
 			slog.Warn("Account observation enrollment failed")
@@ -409,7 +428,7 @@ func (o *AccountObserver) Enroll(ctx context.Context) {
 	}
 }
 
-func (o *AccountObserver) enroll(ctx context.Context) error {
+func (o *AccountObserver) enroll(ctx context.Context, scanAmoStart bool) error {
 	tx, err := o.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -427,6 +446,15 @@ func (o *AccountObserver) enroll(ctx context.Context) error {
 	limit := min(8, 32-queued)
 	if limit <= 0 {
 		return nil
+	}
+	if scanAmoStart {
+		added, err := enrollAmoStart(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if added {
+			limit = min(limit, 31-queued)
+		}
 	}
 	rows, err := tx.Query(ctx, `
  SELECT a.account_id,part.component
