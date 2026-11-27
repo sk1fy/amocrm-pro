@@ -4,6 +4,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sk1fy/amocrm-pro/internal/corelifecycle"
@@ -14,6 +17,7 @@ import (
 )
 
 const widgetActivationPath = "/api/v1/widget/activation"
+const compactFieldsProduct = "rkrs_compact_fields"
 
 func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm *amocrm.Client, client *corelifecycle.ActivationClient,
 	protect func(bool, http.Handler) http.Handler, cors func(http.Handler) http.Handler,
@@ -23,6 +27,7 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 		fail := func(status int, code string) { platformaccess.WriteError(w, r.Context(), status, code, 0) }
 		var input struct {
 			Phone   string `json:"phone"`
+			Name    string `json:"name"`
 			Consent string `json:"consent_version"`
 		}
 		if r.Method == http.MethodPost {
@@ -51,6 +56,14 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 			fail(http.StatusServiceUnavailable, "unavailable")
 			return
 		}
+		formName := scope.Product == compactFieldsProduct
+		if formName && r.Method == http.MethodPost {
+			input.Name = strings.TrimSpace(input.Name)
+			if !validActivationName(input.Name) {
+				fail(http.StatusBadRequest, "invalid_activation_contact")
+				return
+			}
+		}
 		request := wire.ActivationRequest{Scope: wire.ActivationScope{
 			Installation: scope.Installation, Integration: scope.Integration, Account: principal.AccountID,
 			Generation: scope.Generation, AuthorizationSequence: scope.AuthorizationSequence,
@@ -75,7 +88,7 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 			confirmed()
 			return
 		}
-		profile, err := crm.WidgetActivationProfile(r.Context(), principal.InstallationID, principal.UserID)
+		profile, err := crm.WidgetActivationProfile(r.Context(), principal.InstallationID, principal.UserID, !formName)
 		if err != nil {
 			fail(http.StatusServiceUnavailable, "activation_profile_unavailable")
 			return
@@ -86,6 +99,9 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 				Profile   amocrm.ActivationProfile `json:"profile"`
 			}{Profile: profile})
 			return
+		}
+		if formName {
+			profile.Name = input.Name
 		}
 		request.Contact = &wire.ActivationContact{UserID: principal.UserID, Name: profile.Name, Role: profile.Role, Email: profile.Email,
 			Phone: input.Phone, Consent: input.Consent}
@@ -99,4 +115,9 @@ func registerWidgetActivation(router chi.Router, store *corelifecycle.Store, crm
 	router.Method(http.MethodGet, widgetActivationPath, handler)
 	router.Method(http.MethodPost, widgetActivationPath, handler)
 	router.Method(http.MethodOptions, widgetActivationPath, cors(http.NotFoundHandler()))
+}
+
+func validActivationName(name string) bool {
+	return name != "" && utf8.ValidString(name) && utf8.RuneCountInString(name) <= 512 &&
+		strings.IndexFunc(name, unicode.IsControl) == -1
 }

@@ -102,6 +102,11 @@ paths:
               required: [phone, consent_version]
               properties:
                 phone: {type: string, maxLength: 48}
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 512
+                  description: Required for rkrs_compact_fields. Read from the activation form.
                 consent_version: {type: string, enum: [contact-v1]}
       responses:
         '200':

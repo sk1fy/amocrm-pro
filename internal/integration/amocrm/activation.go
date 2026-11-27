@@ -15,7 +15,7 @@ type ActivationProfile struct {
 	Role  string `json:"role,omitempty"`
 }
 
-func (c *Client) WidgetActivationProfile(ctx context.Context, installation uuid.UUID, userID int64) (ActivationProfile, error) {
+func (c *Client) WidgetActivationProfile(ctx context.Context, installation uuid.UUID, userID int64, includeRole bool) (ActivationProfile, error) {
 	var user struct {
 		ID     int64  `json:"id"`
 		Name   string `json:"name"`
@@ -34,12 +34,22 @@ func (c *Client) WidgetActivationProfile(ctx context.Context, installation uuid.
 	if userID <= 0 {
 		return ActivationProfile{}, ErrIncompleteResponse
 	}
-	if err := c.DoJSON(ctx, installation, http.MethodGet, "/api/v4/users/"+strconv.FormatInt(userID, 10)+"?with=role", nil, &user); err != nil {
+	path := "/api/v4/users/" + strconv.FormatInt(userID, 10)
+	if includeRole {
+		path += "?with=role"
+	}
+	if err := c.DoJSON(ctx, installation, http.MethodGet, path, nil, &user); err != nil {
 		return ActivationProfile{}, err
 	}
-	profile := ActivationProfile{Name: strings.TrimSpace(user.Name), Email: strings.TrimSpace(user.Email), Role: strings.TrimSpace(user.Embedded.Role.Name)}
-	if user.ID != userID || user.Rights.Active == nil || !*user.Rights.Active || profile.Name == "" ||
-		len(profile.Name) > 512 || len(profile.Email) > 320 || len(profile.Role) > 256 {
+	profile := ActivationProfile{Name: strings.TrimSpace(user.Name), Email: strings.TrimSpace(user.Email)}
+	if user.ID != userID || user.Rights.Active == nil || !*user.Rights.Active || len(profile.Email) > 320 {
+		return ActivationProfile{}, ErrIncompleteResponse
+	}
+	if !includeRole {
+		return profile, nil
+	}
+	profile.Role = strings.TrimSpace(user.Embedded.Role.Name)
+	if profile.Name == "" || len(profile.Name) > 512 || len(profile.Role) > 256 {
 		return ActivationProfile{}, ErrIncompleteResponse
 	}
 	if profile.Role == "" && user.Rights.Admin {

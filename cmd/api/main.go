@@ -236,6 +236,7 @@ func run() error {
 	var activation *corelifecycle.ActivationClient
 	var catalog *corelifecycle.CatalogClient
 	lifecycleStore := corelifecycle.NewStore(pool)
+	registerWidgetConnection(router, lifecycleStore, widgetAuthenticator, widgetLimiter)
 	if origin := os.Getenv("PLATFORM_ACTIVATION_ORIGIN"); origin != "" {
 		activation, err = corelifecycle.NewActivationClient(origin, os.Getenv("PLATFORM_CORE_IDENTITY_DIR"))
 		if err != nil {
