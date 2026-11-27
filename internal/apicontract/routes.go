@@ -17,6 +17,7 @@ var (
 	WebhookReceive                = Route{Method: http.MethodPost, Path: "/hooks/amocrm/v1/{webhookKey}"}
 	DistributionBootstrap         = Route{Method: http.MethodGet, Path: "/api/v1/widget/distribution/bootstrap"}
 	DistributionPermissions       = Route{Method: http.MethodPost, Path: "/api/v1/widget/distribution/permissions"}
+	WidgetConnection              = Route{Method: http.MethodGet, Path: "/api/v1/widget/connection"}
 	WidgetBootstrap               = Route{Method: http.MethodGet, Path: "/api/v1/widget/bootstrap"}
 	WidgetPing                    = Route{Method: http.MethodPost, Path: "/api/v1/widget/actions/ping"}
 	WidgetLeadSetStatus           = Route{Method: http.MethodPost, Path: "/api/v1/widget/actions/leads/set-status"}
@@ -62,6 +63,7 @@ var (
 		OAuthStart,
 		OAuthCallback,
 		WebhookReceive,
+		WidgetConnection,
 		WidgetBootstrap,
 		DistributionBootstrap,
 		DistributionPermissions,

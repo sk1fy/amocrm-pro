@@ -249,6 +249,25 @@ paths:
                 $ref: '#/components/schemas/ErrorText'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/widget/connection:
+    get:
+      tags: [Widget]
+      operationId: checkWidgetConnection
+      summary: Check whether the authenticated widget installation is connected to Core.
+      security:
+        - widgetToken: []
+        - widgetBearer: []
+      responses:
+        '204':
+          description: The current installation is authorized and bound to a product.
+        '401':
+          description: The widget token could not be authenticated for an active installation.
+        '403':
+          description: The origin or installation authorization was denied.
+        '429':
+          description: Widget request rate limit exceeded.
+        '503':
+          description: Installation status is temporarily unavailable.
   /api/v1/widget/bootstrap:
     get:
       tags: [Widget]
